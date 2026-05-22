@@ -211,7 +211,7 @@ namespace WinformsMVP.Samples.BulkBindingDemo
 
         #region ISurveyView Implementation
 
-        public ViewActionBinder ActionBinder => _viewActionBinder;
+        public IViewActionBinder ActionBinder => _viewActionBinder;
 
         private void InitializeActionBindings()
         {

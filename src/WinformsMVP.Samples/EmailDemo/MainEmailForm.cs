@@ -195,7 +195,7 @@ namespace WinformsMVP.Samples.EmailDemo
         public event EventHandler EmailSelectionChanged;
         public event EventHandler<EmailFolder> FolderChanged;
 
-        public ViewActionBinder ActionBinder => _binder;
+        public IViewActionBinder ActionBinder => _binder;
 
         #endregion
 

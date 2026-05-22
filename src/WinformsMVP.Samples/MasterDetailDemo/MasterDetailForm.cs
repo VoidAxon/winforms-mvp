@@ -164,7 +164,7 @@ namespace WinformsMVP.Samples.MasterDetailDemo
 
         #region IMasterDetailView Implementation
 
-        public ViewActionBinder ActionBinder => _binder;
+        public IViewActionBinder ActionBinder => _binder;
 
         public IEnumerable<CustomerModel> Customers
         {

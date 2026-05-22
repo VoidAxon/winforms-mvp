@@ -250,7 +250,7 @@ namespace WinformsMVP.Samples.ValidationDemo
 
         #region IValidationDemoView Implementation
 
-        public ViewActionBinder ActionBinder => _binder;
+        public IViewActionBinder ActionBinder => _binder;
 
         public string UserName
         {

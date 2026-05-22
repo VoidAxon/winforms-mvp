@@ -80,7 +80,7 @@ namespace WinformsMVP.Samples.Tests.Mocks
             StatusMessages.Add(message);
         }
 
-        public ViewActionBinder ActionBinder { get; } = new ViewActionBinder(); // Mock does not need actual binder
+        public IViewActionBinder ActionBinder { get; } = NullViewActionBinder.Instance;
 
         // Events
         public event EventHandler SelectionChanged;

@@ -80,7 +80,7 @@ namespace WinformsMVP.Samples
         // ✅ Return binder to enable framework auto-binding and automatic CanExecute UI updates
         // The framework will call Bind(_dispatcher) after RegisterViewActions()
         // Mode detection prevents double-dispatch (skips callback when ActionTriggered has subscribers)
-        public ViewActionBinder ActionBinder => _binder;
+        public IViewActionBinder ActionBinder => _binder;
 
         // ✅ Expose ActionRequest event (explicit pattern)
         public event EventHandler<ActionRequestEventArgs> ActionRequest;
@@ -343,7 +343,7 @@ namespace WinformsMVP.Samples
      * }
      *
      * // View Implementation
-     * public ViewActionBinder ActionBinder => _binder;  // Return binder for framework integration
+     * public IViewActionBinder ActionBinder => _binder;  // Return binder for framework integration
      * _binder.ActionTriggered += (s, e) => ActionRequest?.Invoke(this, e);
      * // No manual Bind() call - framework handles it automatically!
      *

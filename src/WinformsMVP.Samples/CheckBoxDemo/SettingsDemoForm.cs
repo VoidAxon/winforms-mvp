@@ -240,7 +240,7 @@ namespace WinformsMVP.Samples.CheckBoxDemo
 
         public bool HasSettings => _hasSettings;
 
-        public ViewActionBinder ActionBinder => _viewActionBinder;
+        public IViewActionBinder ActionBinder => _viewActionBinder;
 
         private void InitializeActionBindings()
         {

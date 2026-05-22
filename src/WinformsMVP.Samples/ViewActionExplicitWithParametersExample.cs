@@ -66,7 +66,7 @@ namespace WinformsMVP.Samples
         private ViewActionBinder _binder;
 
         // Return binder for automatic CanExecute UI updates
-        public ViewActionBinder ActionBinder => _binder;
+        public IViewActionBinder ActionBinder => _binder;
 
         // Single ActionRequest event (handles both types)
         public event EventHandler<ActionRequestEventArgs> ActionRequest;

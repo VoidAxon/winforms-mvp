@@ -2,7 +2,7 @@
 
 namespace WinformsMVP.Core.Views
 {
-    public interface IWindowView : IViewBase, IWin32Window
+    public interface IWindowView : IActionableView, IWin32Window
     {
         bool IsDisposed { get; }
         void Activate();

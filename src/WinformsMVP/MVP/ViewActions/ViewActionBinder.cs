@@ -37,7 +37,7 @@ namespace WinformsMVP.MVP.ViewActions
     /// </code>
     /// </para>
     /// </remarks>
-    public class ViewActionBinder : IEnumerable<ActionBinding>
+    public class ViewActionBinder : IViewActionBinder, IEnumerable<ActionBinding>
     {
         private readonly List<ActionBinding> _bindings = new List<ActionBinding>();
         private readonly Dictionary<Type, (Action<Component, Delegate> Attacher, Action<Component, Delegate> Detacher)> _bindingStrategies

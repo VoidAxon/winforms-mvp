@@ -72,7 +72,7 @@ namespace WinformsMVP.Samples.NavigatorDemo
             _messageLabel.Text = message;
         }
 
-        public ViewActionBinder ActionBinder => _binder;
+        public IViewActionBinder ActionBinder => _binder;
 
         private void InitializeActionBindings()
         {

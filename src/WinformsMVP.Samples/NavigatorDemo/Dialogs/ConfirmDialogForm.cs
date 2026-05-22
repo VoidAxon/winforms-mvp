@@ -82,7 +82,7 @@ namespace WinformsMVP.Samples.NavigatorDemo
             this.AcceptButton = yesIsDefault ? _yesButton : _noButton;
         }
 
-        public ViewActionBinder ActionBinder => _binder;
+        public IViewActionBinder ActionBinder => _binder;
 
         private void InitializeActionBindings()
         {

@@ -68,7 +68,7 @@ namespace WinformsMVP.Samples.NavigatorDemo
             return _textBox.Text;
         }
 
-        public ViewActionBinder ActionBinder => _binder;
+        public IViewActionBinder ActionBinder => _binder;
 
         private void InitializeActionBindings()
         {

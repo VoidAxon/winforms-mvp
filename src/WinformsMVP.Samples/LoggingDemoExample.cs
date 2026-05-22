@@ -157,7 +157,7 @@ namespace WinformsMVP.Samples
             private Button _btnException;
             private Button _btnClear;
 
-            public ViewActionBinder ActionBinder => _binder;
+            public IViewActionBinder ActionBinder => _binder;
 
             public string LogOutput
             {

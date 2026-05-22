@@ -161,7 +161,7 @@ namespace WinformsMVP.Samples.MessageBoxDemo
 
         #region IMessageBoxDemoView Implementation
 
-        public ViewActionBinder ActionBinder => _binder;
+        public IViewActionBinder ActionBinder => _binder;
 
         private void InitializeActionBindings()
         {

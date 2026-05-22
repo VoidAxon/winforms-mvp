@@ -66,7 +66,7 @@ namespace WinformsMVP.Samples.NavigatorDemo
             _counterLabel.Text = $"Counter: {value}";
         }
 
-        public ViewActionBinder ActionBinder => _binder;
+        public IViewActionBinder ActionBinder => _binder;
 
         private void InitializeActionBindings()
         {

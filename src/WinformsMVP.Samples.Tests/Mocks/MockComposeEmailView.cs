@@ -101,7 +101,7 @@ namespace WinformsMVP.Samples.Tests.Mocks
             }
         }
 
-        public ViewActionBinder ActionBinder { get; } = new ViewActionBinder(); // Mock does not need actual binder
+        public IViewActionBinder ActionBinder { get; } = NullViewActionBinder.Instance;
 
         // Events
         public event EventHandler EmailDataChanged;

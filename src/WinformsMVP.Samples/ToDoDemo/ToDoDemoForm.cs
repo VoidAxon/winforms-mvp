@@ -227,7 +227,7 @@ namespace WinformsMVP.Samples.ToDoDemo
         /// This is where the Form maps its buttons to the actions registered by the Presenter.
         /// The Presenter has no knowledge of these buttons - only the Form does.
         /// </summary>
-        public ViewActionBinder ActionBinder => _viewActionBinder;
+        public IViewActionBinder ActionBinder => _viewActionBinder;
 
         private void InitializeActionBindings()
         {

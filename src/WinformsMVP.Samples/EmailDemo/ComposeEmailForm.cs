@@ -144,7 +144,7 @@ namespace WinformsMVP.Samples.EmailDemo
             }
         }
 
-        public ViewActionBinder ActionBinder => _binder;
+        public IViewActionBinder ActionBinder => _binder;
 
         #endregion
 

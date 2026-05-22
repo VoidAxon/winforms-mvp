@@ -15,7 +15,7 @@ namespace WinformsMVP.Samples.ComplexInteractionDemo.ProductSelector
         private ViewActionBinder _binder;
         private List<Product> _products = new List<Product>();
 
-        public ViewActionBinder ActionBinder => _binder;
+        public IViewActionBinder ActionBinder => _binder;
 
         public event EventHandler<ProductAddedEventArgs> ProductAdded;
         public event EventHandler SelectionChanged;

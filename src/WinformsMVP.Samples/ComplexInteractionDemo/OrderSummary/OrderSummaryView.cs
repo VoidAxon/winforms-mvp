@@ -15,7 +15,7 @@ namespace WinformsMVP.Samples.ComplexInteractionDemo.OrderSummary
         private ViewActionBinder _binder;
         private List<OrderItem> _orderItems = new List<OrderItem>();
 
-        public ViewActionBinder ActionBinder => _binder;
+        public IViewActionBinder ActionBinder => _binder;
 
         public event EventHandler<OrderItemRemovedEventArgs> ItemRemoved;
         public event EventHandler<TotalChangedEventArgs> TotalChanged;

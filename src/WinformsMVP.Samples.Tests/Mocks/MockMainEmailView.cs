@@ -102,7 +102,7 @@ namespace WinformsMVP.Samples.Tests.Mocks
             MethodCalls.Add("RefreshEmailList()");
         }
 
-        public ViewActionBinder ActionBinder { get; } = new ViewActionBinder(); // Mock does not need actual binder
+        public IViewActionBinder ActionBinder { get; } = NullViewActionBinder.Instance;
 
         // Events
         public event EventHandler EmailSelectionChanged;

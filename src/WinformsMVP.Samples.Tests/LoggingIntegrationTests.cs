@@ -81,7 +81,7 @@ namespace WinformsMVP.Samples.Tests
             public string LogOutput { get; set; }
             public string UserName { get; set; }
             public int ProcessedCount { get; set; }
-            public ViewActionBinder ActionBinder { get; } = new ViewActionBinder();  // Implements IViewBase.ActionBinder
+            public IViewActionBinder ActionBinder { get; } = NullViewActionBinder.Instance;
             public object Tag { get; set; }
 
             // IWindowView members

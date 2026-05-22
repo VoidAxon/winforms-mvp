@@ -13,7 +13,7 @@ namespace WinformsMVP.Samples.ComplexInteractionDemo.OrderManagement
     {
         private ViewActionBinder _binder;
 
-        public ViewActionBinder ActionBinder => _binder;
+        public IViewActionBinder ActionBinder => _binder;
 
         public event EventHandler SaveRequested;
 

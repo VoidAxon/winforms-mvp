@@ -230,7 +230,7 @@ namespace WinformsMVP.Samples.MVPComparisonDemo.PassiveView
             _statusLabel.Text = message;
         }
 
-        public ViewActionBinder ActionBinder => _viewActionBinder;
+        public IViewActionBinder ActionBinder => _viewActionBinder;
 
         private void InitializeActionBindings()
         {

@@ -45,8 +45,12 @@ namespace WinformsMVP.MVP.Presenters
             _initialized = true;
             RegisterViewActions();
 
-            // Automatically bind ViewActionBinder to dispatcher after actions are registered
-            View.ActionBinder?.Bind(_dispatcher);
+            // Automatically bind ViewActionBinder to dispatcher after actions are registered.
+            // Views that don't participate in the ViewAction system simply don't implement IActionableView.
+            if (View is IActionableView actionable)
+            {
+                actionable.ActionBinder?.Bind(_dispatcher);
+            }
 
             OnInitialize();
         }

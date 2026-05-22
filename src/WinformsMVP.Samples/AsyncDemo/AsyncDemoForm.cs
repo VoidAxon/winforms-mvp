@@ -207,7 +207,7 @@ namespace WinformsMVP.Samples.AsyncDemo
 
         #region IAsyncDemoView Implementation
 
-        public ViewActionBinder ActionBinder => _binder;
+        public IViewActionBinder ActionBinder => _binder;
 
         public string StatusMessage
         {
