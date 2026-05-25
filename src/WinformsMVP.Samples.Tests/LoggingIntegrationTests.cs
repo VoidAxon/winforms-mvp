@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using WinformsMVP.Common.Events;
 using WinformsMVP.MVP.Presenters;
 using WinformsMVP.Core.Views;
 using WinformsMVP.MVP.ViewActions;
@@ -88,6 +89,9 @@ namespace WinformsMVP.Samples.Tests
             public bool IsDisposed { get; private set; }
             public void Activate() { }
             public IntPtr Handle => IntPtr.Zero;  // IWin32Window member
+
+            public event EventHandler<WindowClosingEventArgs> Closing;
+            public void OnClosing(WindowClosingEventArgs args) => Closing?.Invoke(this, args);
         }
 
         #endregion

@@ -2,6 +2,8 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Xunit;
+using WinformsMVP.Common;
+using WinformsMVP.Common.Events;
 using WinformsMVP.Samples.EmailDemo;
 using WinformsMVP.Samples.EmailDemo.Models;
 using WinformsMVP.Samples.Tests.Mocks;
@@ -522,55 +524,93 @@ namespace WinformsMVP.Samples.Tests.Presenters
 
         #endregion
 
-        #region CanClose Tests
+        #region Window Closing Tests (Pull direction — user clicks X)
 
         /// <summary>
-        /// Test: CanClose returns true when user doesn't cancel
-        /// NOTE: ChangeTracker may detect changes even on initialization
-        /// This test verifies CanClose flow works correctly
+        /// Simulates the framework raising <c>IWindowView.Closing</c> (what happens when the
+        /// user clicks X, Alt+F4, or the framework calls Form.Close() in response to a
+        /// Presenter-initiated <c>CloseRequested</c>).
         /// </summary>
-        [Fact]
-        public void CanClose_WithoutUserCancel_ReturnsTrue()
+        private WindowClosingEventArgs RaiseClosing(CloseReason reason = CloseReason.Normal)
         {
-            // Arrange - if ChangeTracker thinks there are changes, configure response
-            if (_mockView.IsDirty)
-            {
-                _mockServices.MessageService.ConfirmYesNoCancelResult = System.Windows.Forms.DialogResult.No;  // User chooses not to save
-            }
-
-            // Act
-            var canClose = _presenter.CanClose();
-
-            // Assert - should return true (allow close)
-            Assert.True(canClose);
+            var args = new WindowClosingEventArgs(reason);
+            _mockView.RaiseClosing(args);
+            return args;
         }
 
         /// <summary>
-        /// Test: CanClose with changes should prompt user
+        /// When there is no dirty state, Closing should not be cancelled and the user is
+        /// not prompted.
         /// </summary>
         [Fact]
-        public void CanClose_WithChanges_PromptsUser()
+        public void Closing_WithoutDirtyState_AllowsCloseAndDoesNotPrompt()
         {
-            // Arrange - make changes
+            // Arrange — fresh presenter, no changes.
+            // (ChangeTracker initialization may have set IsDirty; clear it via a No close.)
+            if (_mockView.IsDirty)
+            {
+                _mockServices.MessageService.ConfirmYesNoCancelResult = System.Windows.Forms.DialogResult.No;
+                RaiseClosing();
+                _mockServices.MessageService.Calls.Clear();
+            }
+
+            // Act
+            var args = RaiseClosing();
+
+            // Assert
+            Assert.False(args.Cancel);
+            Assert.False(_mockServices.MessageService.ConfirmDialogShown);
+        }
+
+        /// <summary>
+        /// When there are unsaved changes and the user picks "Cancel" in the prompt,
+        /// Closing should be cancelled (args.Cancel == true).
+        /// </summary>
+        [Fact]
+        public void Closing_WithDirtyState_UserSelectsCancel_BlocksClose()
+        {
+            // Arrange — make changes.
+            _mockView.To = "test@example.com";
+            _mockView.Subject = "Test";
+            _mockView.Body = "Body";
+            _mockView.SimulateEmailDataChange();
+            _mockServices.MessageService.ConfirmYesNoCancelResult = System.Windows.Forms.DialogResult.Cancel;
+
+            // Act
+            var args = RaiseClosing();
+
+            // Assert
+            Assert.True(_mockServices.MessageService.ConfirmDialogShown);
+            Assert.True(args.Cancel);  // close blocked
+        }
+
+        /// <summary>
+        /// When the user picks "No" (discard), Closing proceeds.
+        /// </summary>
+        [Fact]
+        public void Closing_WithDirtyState_UserSelectsNo_AllowsClose()
+        {
+            // Arrange
             _mockView.To = "test@example.com";
             _mockView.SimulateEmailDataChange();
             _mockServices.MessageService.ConfirmYesNoCancelResult = System.Windows.Forms.DialogResult.No;
 
             // Act
-            var canClose = _presenter.CanClose();
+            var args = RaiseClosing();
 
-            // Assert - should prompt user
+            // Assert
             Assert.True(_mockServices.MessageService.ConfirmDialogShown);
-            Assert.True(canClose);  // User clicked No, allow close without saving
+            Assert.False(args.Cancel);  // close proceeds
         }
 
         /// <summary>
-        /// Test: CanClose with user selecting Yes should save draft and return true
+        /// When the user picks "Yes" (save draft and close), the draft is saved
+        /// (fire-and-forget) and Closing proceeds.
         /// </summary>
         [Fact]
-        public async Task CanClose_UserSelectsYes_SavesDraftAndReturnsTrue()
+        public async Task Closing_WithDirtyState_UserSelectsYes_SavesDraftAndAllowsClose()
         {
-            // Arrange - make changes
+            // Arrange
             _mockView.To = "test@example.com";
             _mockView.Subject = "Test";
             _mockView.Body = "Body";
@@ -579,50 +619,110 @@ namespace WinformsMVP.Samples.Tests.Presenters
             _mockRepository.MethodCalls.Clear();
 
             // Act
-            var canClose = _presenter.CanClose();
-            await Task.Delay(50);  // Wait for async save
+            var args = RaiseClosing();
+            await Task.Delay(50);  // OnSaveDraft is async fire-and-forget
 
             // Assert
-            Assert.True(canClose);
+            Assert.False(args.Cancel);  // close proceeds even while save is in flight
             Assert.Contains("SaveDraftAsync(Test)", _mockRepository.MethodCalls);
         }
 
         /// <summary>
-        /// Test: CanClose with user selecting No should return true
+        /// On <see cref="CloseReason.SystemShutdown"/>, the Presenter must NOT prompt the
+        /// user — the process is exiting and there is no chance to recover.
         /// </summary>
         [Fact]
-        public void CanClose_UserSelectsNo_ReturnsTrue()
+        public void Closing_OnSystemShutdown_DoesNotPromptEvenWithDirtyState()
         {
-            // Arrange - make changes
+            // Arrange — make changes.
             _mockView.To = "test@example.com";
-            _mockView.SimulateEmailDataChange();
-            _mockServices.MessageService.ConfirmYesNoCancelResult = System.Windows.Forms.DialogResult.No;
-
-            // Act
-            var canClose = _presenter.CanClose();
-
-            // Assert - user clicked No, discard changes and close
-            Assert.True(canClose);
-        }
-
-        /// <summary>
-        /// Test: CanClose with user cancelling should return false
-        /// </summary>
-        [Fact]
-        public void CanClose_UserSelectsCancel_ReturnsFalse()
-        {
-            // Arrange - make changes
-            _mockView.To = "test@example.com";
-            _mockView.Subject = "Test";
-            _mockView.Body = "Body";
             _mockView.SimulateEmailDataChange();
             _mockServices.MessageService.ConfirmYesNoCancelResult = System.Windows.Forms.DialogResult.Cancel;
 
             // Act
-            var canClose = _presenter.CanClose();
+            var args = RaiseClosing(CloseReason.SystemShutdown);
 
-            // Assert - user cancelled, don't close
-            Assert.False(canClose);
+            // Assert
+            Assert.False(_mockServices.MessageService.ConfirmDialogShown);
+            Assert.False(args.Cancel);  // system shutdown always proceeds
+        }
+
+        /// <summary>
+        /// <see cref="CloseReason.TaskManager"/> bypasses the prompt as well.
+        /// </summary>
+        [Fact]
+        public void Closing_OnTaskManagerClose_DoesNotPrompt()
+        {
+            _mockView.To = "test@example.com";
+            _mockView.SimulateEmailDataChange();
+            _mockServices.MessageService.ConfirmYesNoCancelResult = System.Windows.Forms.DialogResult.Cancel;
+
+            var args = RaiseClosing(CloseReason.TaskManager);
+
+            Assert.False(_mockServices.MessageService.ConfirmDialogShown);
+            Assert.False(args.Cancel);
+        }
+
+        /// <summary>
+        /// When OnSend completes successfully it calls AcceptChanges then RequestClose.
+        /// The follow-up Closing event (raised by the framework when it calls form.Close())
+        /// should observe IsChanged == false and NOT prompt.
+        /// </summary>
+        [Fact]
+        public async Task OnSend_FollowedByClosing_DoesNotPrompt()
+        {
+            // Arrange
+            _mockView.To = "test@example.com";
+            _mockView.Subject = "Hello";
+            _mockView.Body = "Body";
+            _mockView.SimulateEmailDataChange();
+            _mockRepository.SendEmailAsyncResult = true;
+
+            bool closeRequested = false;
+            _presenter.CloseRequested += (s, e) => closeRequested = true;
+
+            // Act — simulate Send completing (AcceptChanges + RequestClose).
+            _presenter.Dispatch(ComposeEmailActions.Send);
+            await Task.Delay(50);
+            // Then framework triggers Closing in response to RequestClose.
+            var args = RaiseClosing();
+
+            // Assert
+            Assert.True(closeRequested);
+            Assert.False(_mockServices.MessageService.ConfirmDialogShown);
+            Assert.False(args.Cancel);
+        }
+
+        /// <summary>
+        /// When OnDiscard is confirmed it calls RejectChanges then RequestClose.
+        /// The follow-up Closing event should observe IsChanged == false and NOT prompt.
+        /// </summary>
+        [Fact]
+        public void OnDiscard_FollowedByClosing_DoesNotPrompt()
+        {
+            // Arrange — make changes.
+            _mockView.To = "test@example.com";
+            _mockView.SimulateEmailDataChange();
+            _mockServices.MessageService.ConfirmYesNoResult = true;  // confirm discard
+
+            bool closeRequested = false;
+            _presenter.CloseRequested += (s, e) => closeRequested = true;
+
+            // Act — Discard then Closing.
+            _presenter.Dispatch(ComposeEmailActions.Discard);
+            var initialCalls = _mockServices.MessageService.Calls.Count;
+            var args = RaiseClosing();
+            var afterClosingCalls = _mockServices.MessageService.Calls.Count;
+            var callsDump = string.Join(", ",
+                _mockServices.MessageService.Calls.ConvertAll(c => $"{c.Type}:{c.Message}"));
+
+            // Assert — Closing should NOT add any new prompts (the dirty state was
+            // already finalized by OnDiscard's RejectChanges).
+            Assert.True(closeRequested);
+            Assert.True(initialCalls == afterClosingCalls,
+                $"Closing handler added {afterClosingCalls - initialCalls} extra call(s). " +
+                $"All calls: [{callsDump}]");
+            Assert.False(args.Cancel);
         }
 
         #endregion
