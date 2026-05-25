@@ -14,6 +14,30 @@ namespace WinformsMVP.Services.Implementations
     public static class ViewMappingRegisterExtensions
     {
         /// <summary>
+        /// Wraps the register with a <see cref="ServiceProviderViewMappingRegister"/> decorator
+        /// so that unregistered View interfaces fall back to the supplied
+        /// <see cref="IServiceProvider"/>. Explicit registrations in the underlying register
+        /// always take precedence.
+        /// </summary>
+        /// <param name="register">The underlying register (kept as-is and used as inner).</param>
+        /// <param name="serviceProvider">DI container surfaced via the BCL abstraction.</param>
+        /// <returns>A decorator that consults <paramref name="register"/> first, then
+        /// <paramref name="serviceProvider"/> as a fallback.</returns>
+        /// <remarks>
+        /// The returned register holds a reference to <paramref name="register"/>; further
+        /// <c>Register</c> calls on either object affect the same underlying mapping table.
+        /// </remarks>
+        public static IViewMappingRegister WithServiceProvider(
+            this IViewMappingRegister register,
+            IServiceProvider serviceProvider)
+        {
+            if (register == null) throw new ArgumentNullException(nameof(register));
+            if (serviceProvider == null) throw new ArgumentNullException(nameof(serviceProvider));
+
+            return new ServiceProviderViewMappingRegister(register, serviceProvider);
+        }
+
+        /// <summary>
         /// Automatically scans and registers mappings between View interfaces and implementation Forms from the specified assembly.
         /// </summary>
         /// <param name="register">ViewMappingRegister instance</param>

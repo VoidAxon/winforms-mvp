@@ -62,10 +62,42 @@ namespace WinformsMVP.Services.Implementations
         public DefaultPlatformServices(
             IViewMappingRegister viewMappingRegister,
             ILoggerFactory loggerFactory)
+            : this(viewMappingRegister, loggerFactory, serviceProvider: null)
+        {
+        }
+
+        /// <summary>
+        /// Initializes with a ViewMappingRegister, LoggerFactory, and an optional
+        /// <see cref="IServiceProvider"/> that participates in View resolution.
+        /// </summary>
+        /// <param name="viewMappingRegister">View mapping register (creates new one if null).</param>
+        /// <param name="loggerFactory">
+        /// Logger factory. When <c>null</c>, falls back to <see cref="NullLoggerFactory.Instance"/>.
+        /// </param>
+        /// <param name="serviceProvider">
+        /// Optional DI container exposed via the BCL <see cref="IServiceProvider"/> abstraction.
+        /// When supplied, View interfaces unknown to <paramref name="viewMappingRegister"/> are
+        /// resolved from this provider (the inner register still wins for explicit registrations).
+        /// When <c>null</c>, behaviour matches the two-argument constructor.
+        /// </param>
+        /// <remarks>
+        /// The framework itself never references a specific DI container type — only the BCL
+        /// <see cref="IServiceProvider"/>. Host applications can plug in any container
+        /// (Microsoft.Extensions.DependencyInjection, Autofac, etc.) by adapting it to
+        /// <see cref="IServiceProvider"/>.
+        /// </remarks>
+        public DefaultPlatformServices(
+            IViewMappingRegister viewMappingRegister,
+            ILoggerFactory loggerFactory,
+            IServiceProvider serviceProvider)
         {
             _windowNavigator = new Lazy<IWindowNavigator>(() =>
             {
                 var register = viewMappingRegister ?? new ViewMappingRegister();
+                if (serviceProvider != null)
+                {
+                    register = register.WithServiceProvider(serviceProvider);
+                }
                 return new WindowNavigator(register);
             });
 

@@ -2563,6 +2563,154 @@ public class MainForm : Form
 | Production app (mixed) | Hybrid | Business services in constructor, platform services via properties |
 | Large enterprise app | DI Container + Constructor Injection | Centralized configuration, automatic resolution |
 
+#### Advanced: Multi-Project DI Integration (`WinformsMVP.DependencyInjection`)
+
+For large solutions with multiple UI projects, the framework offers an **optional companion package** `WinformsMVP.DependencyInjection` that integrates cleanly with `Microsoft.Extensions.DependencyInjection`. The main `WinformsMVP` package itself only depends on the BCL `IServiceProvider` abstraction, so legacy projects pay nothing for this.
+
+##### Two orthogonal layers of resolution
+
+The framework intentionally separates two concerns that are often conflated:
+
+| Layer | Solves | Provided By |
+|-------|--------|-------------|
+| **View resolution** | "Given `IFooView`, which `Form` class?" | `IViewMappingRegister` (main package) |
+| **Service / Presenter resolution** | "Resolve constructor dependencies" | `IServiceProvider` (any DI container) |
+
+Legacy projects use `IViewMappingRegister` alone (with optional `Func<T>` factories for manual DI). DI-enabled projects bridge the two layers via:
+
+- `WithServiceProvider(provider)` — decorates the View register so unregistered View interfaces fall back to the DI container.
+- `IPresenterFactory` — bridges the gap when a **parent Presenter needs to create a child Presenter** whose constructor deps come from DI.
+
+The two bridges are independent — you can use either, both, or neither.
+
+##### IPresenterFactory: child Presenter creation
+
+A parent Presenter that opens a child window cannot just call `new ChildPresenter()` when the child has DI-managed constructor deps. Inject `IPresenterFactory`:
+
+```csharp
+public class MainPresenter : WindowPresenterBase<IMainView>
+{
+    private readonly IPresenterFactory _presenters;
+
+    public MainPresenter(IPresenterFactory presenters)
+    {
+        _presenters = presenters;
+    }
+
+    private void OnEditUser(int userId)
+    {
+        // (1) IPresenterFactory resolves constructor deps (IUserRepository, ILogger, ...)
+        var presenter = _presenters.Create<EditUserPresenter>();
+
+        // (2) Navigator passes runtime parameters via IInitializable<TParam>.Initialize
+        var parameters = new EditUserParameters { UserId = userId, IsReadOnly = false };
+        var result = Navigator.For(presenter)
+                              .WithParam(parameters)
+                              .ShowAsModal<UserResult>();
+    }
+}
+```
+
+**Key separation**:
+
+| Constructor (DI managed) | `Initialize(TParam)` (Navigator managed) |
+|-------------------------|------------------------------------------|
+| Stable deps: repositories, services, loggers | Runtime data: ids, paths, modes, contexts |
+| One per container lifetime | Different on every window open |
+| `IPresenterFactory.Create<T>()` resolves them | `Navigator.WithParam(...)` passes them |
+
+The framework's official answer to "runtime parameters in a Presenter" is the `IInitializable<TParam>` pattern — **never** mix DI-resolved deps and runtime args in the same constructor. Use a Parameters class.
+
+##### Module-based registration with `IModuleRegistrar`
+
+Each UI sub-project owns its View and service registrations through one entry point:
+
+```csharp
+// MyApp.UserModule.UI/UserModuleRegistrar.cs
+public class UserModuleRegistrar : IModuleRegistrar
+{
+    public void RegisterViews(IViewMappingRegister registry)
+        => registry.RegisterFromAssembly(typeof(UserModuleRegistrar).Assembly);
+
+    public void RegisterServices(IServiceCollection services)
+    {
+        services.AddTransient<UserListPresenter>();
+        services.AddTransient<EditUserPresenter>();
+        services.AddSingleton<IUserRepository, UserRepository>();
+    }
+}
+```
+
+For modules that don't need DI integration (legacy modules in an otherwise-DI app), implement the smaller `IViewModuleRegistrar` from the main package instead — it only has `RegisterViews`.
+
+##### Full bootstrap example (Shell project)
+
+```csharp
+// MyApp.Shell/Program.cs
+[STAThread]
+static void Main()
+{
+    Application.EnableVisualStyles();
+    Application.SetCompatibleTextRenderingDefault(false);
+
+    // 1. Create the shared View registry.
+    var viewRegistry = new ViewMappingRegister();
+
+    // 2. Create the DI container and let every module contribute.
+    var services = new ServiceCollection();
+    services.RegisterModules(viewRegistry,
+        new UserModuleRegistrar(),
+        new OrderModuleRegistrar(),
+        new ReportModuleRegistrar());
+
+    // 3. Register the framework's own services (IPresenterFactory, etc.).
+    services.AddWinformsMVP(viewRegistry);
+
+    // 4. Build the provider and wire everything into PlatformServices.
+    var provider = services.BuildServiceProvider();
+    var loggerFactory = LoggerFactory.Create(b => b.AddDebug());
+
+    PlatformServices.Default = new DefaultPlatformServices(
+        viewMappingRegister: viewRegistry,
+        loggerFactory: loggerFactory,
+        serviceProvider: provider);
+
+    // 5. Resolve the root Presenter from the container and run.
+    var mainPresenter = provider.GetRequiredService<MainShellPresenter>();
+    PlatformServices.Default.WindowNavigator.ShowWindow(mainPresenter);
+    Application.Run();
+}
+```
+
+##### Legacy project bootstrap (zero DI)
+
+```csharp
+[STAThread]
+static void Main()
+{
+    Application.EnableVisualStyles();
+    Application.SetCompatibleTextRenderingDefault(false);
+
+    var viewRegistry = new ViewMappingRegister();
+    viewRegistry.RegisterModules(
+        new UserModuleRegistrar(),        // implements IViewModuleRegistrar only
+        new OrderModuleRegistrar());
+
+    PlatformServices.Default = new DefaultPlatformServices(viewRegistry);
+
+    var mainPresenter = new MainShellPresenter();
+    PlatformServices.Default.WindowNavigator.ShowWindow(mainPresenter);
+    Application.Run();
+}
+```
+
+##### Frequently-confused points
+
+- **"Should I register Presenters in `IViewMappingRegister`?"** No, only Views. Presenters go in the DI container (or are `new`-ed manually).
+- **"If I use a DI container, can I drop `IViewMappingRegister`?"** No, both are needed. View resolution and service resolution are separate concerns.
+- **"Can I resolve Views from `IServiceProvider` directly?"** Not recommended. Use `WithServiceProvider(...)` to let the View registry consult the container; explicit registrations in the registry always win.
+- **"Do legacy projects need to take a dependency on `WinformsMVP.DependencyInjection`?"** No — that package exists precisely so legacy projects don't have to.
+
 ### Error Handling Best Practices
 
 The framework provides **multiple layers of error handling** to ensure robust applications and good user experience.
