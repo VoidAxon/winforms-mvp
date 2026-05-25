@@ -122,7 +122,20 @@ namespace WinformsMVP.Core.Presenters
 
         public Type ViewInterfaceType => typeof(TView);
 
-        protected ViewActionDispatcher Dispatcher => _dispatcher;
+        private bool _dispatcherLoggerWired;
+
+        protected ViewActionDispatcher Dispatcher
+        {
+            get
+            {
+                if (!_dispatcherLoggerWired)
+                {
+                    _dispatcher.Logger = Logger;
+                    _dispatcherLoggerWired = true;
+                }
+                return _dispatcher;
+            }
+        }
 
         /// <summary>
         /// Helper method to dispatch actions from view events.

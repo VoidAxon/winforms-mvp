@@ -4,6 +4,8 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Threading;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace WinformsMVP.Common.EventAggregator
 {
@@ -88,6 +90,7 @@ namespace WinformsMVP.Common.EventAggregator
 
         // Capture synchronization context at construction time (usually UI thread)
         private readonly SynchronizationContext _context;
+        private readonly ILogger _logger;
 
         /// <summary>
         /// Creates an EventAggregator instance.
@@ -97,10 +100,30 @@ namespace WinformsMVP.Common.EventAggregator
         /// Typically created in Program.Main() or main form constructor.
         /// </para>
         /// </summary>
-        public EventAggregator()
+        public EventAggregator() : this(null)
+        {
+        }
+
+        /// <summary>
+        /// Creates an EventAggregator instance with a logger factory.
+        ///
+        /// <para>
+        /// Filter exceptions, handler exceptions, and UI-thread Post failures are reported through the
+        /// logger created from <paramref name="loggerFactory"/>. Passing <c>null</c> falls back to
+        /// <see cref="NullLoggerFactory.Instance"/>, preserving the existing silent behaviour.
+        /// </para>
+        /// </summary>
+        /// <param name="loggerFactory">Logger factory used to create the aggregator's logger. May be null.</param>
+        public EventAggregator(ILoggerFactory loggerFactory)
         {
             _context = SynchronizationContext.Current;
+            _logger = (loggerFactory ?? NullLoggerFactory.Instance).CreateLogger(typeof(EventAggregator).FullName);
         }
+
+        /// <summary>
+        /// Logger used by subscriptions to report filter exceptions, handler exceptions, and Post failures.
+        /// </summary>
+        internal ILogger Logger => _logger;
 
         /// <summary>
         /// Subscribe to messages of the specified type.
@@ -346,7 +369,10 @@ namespace WinformsMVP.Common.EventAggregator
                     }
                     catch (Exception ex)
                     {
-                        System.Diagnostics.Debug.WriteLine($"[EventAggregator] Post failed: {ex.Message}");
+                        _parent.Logger.LogError(
+                            ex,
+                            "EventAggregator: SynchronizationContext.Post failed for message {MessageType}",
+                            typeof(T).FullName);
                     }
                 }
                 else
@@ -367,7 +393,12 @@ namespace WinformsMVP.Common.EventAggregator
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"[EventAggregator] Filter Exception: {ex}");
+                    _parent.Logger.LogError(
+                        ex,
+                        "EventAggregator: filter for message {MessageType} threw {ExceptionType}. " +
+                        "Treating as filtered out.",
+                        typeof(T).FullName,
+                        ex.GetType().Name);
                     return false; // Filter error should not trigger handler
                 }
             }
@@ -380,8 +411,12 @@ namespace WinformsMVP.Common.EventAggregator
                 }
                 catch (Exception ex)
                 {
-                    // Exception isolation: Log but don't throw, preventing publish loop interruption
-                    System.Diagnostics.Debug.WriteLine($"[EventAggregator] Handler Exception ({typeof(T).Name}): {ex}");
+                    // Exception isolation: Log but don't throw, preventing publish loop interruption.
+                    _parent.Logger.LogError(
+                        ex,
+                        "EventAggregator: handler for message {MessageType} threw {ExceptionType}",
+                        typeof(T).FullName,
+                        ex.GetType().Name);
                 }
             }
 

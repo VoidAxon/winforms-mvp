@@ -17,8 +17,13 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="8.0.0" />
+    <!--
+      Framework intentionally depends only on Microsoft.Extensions.Logging.Abstractions.
+      Concrete providers (Debug, Console, Application Insights, Seq, ...) are the host
+      application's choice and should be added to the host project, not here.
+      See DefaultPlatformServices for the opt-in pattern.
+    -->
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0" />
   </ItemGroup>
 
   <!-- Exclude old-style project folders that are not needed in SDK-style -->
