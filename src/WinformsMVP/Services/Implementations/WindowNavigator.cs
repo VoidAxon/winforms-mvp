@@ -5,6 +5,8 @@ using WinformsMVP.Common;
 using WinformsMVP.Common.Events;
 using WinformsMVP.Core.Views;
 using WinformsMVP.MVP.Presenters;
+using WinFormsCloseReason = System.Windows.Forms.CloseReason;
+using MvpCloseReason = WinformsMVP.Common.CloseReason;
 
 namespace WinformsMVP.Services.Implementations
 {
@@ -269,50 +271,43 @@ namespace WinformsMVP.Services.Implementations
         {
             var requestCloser = presenter as IRequestClose<TResult>;
             TResult finalResult = default(TResult);
-            InteractionStatus finalStatus = InteractionStatus.Cancel; // Default: operation cancelled by user
+            InteractionStatus finalStatus = InteractionStatus.Cancel; // Default: user-cancelled (e.g. clicked X)
 
             EventHandler<CloseRequestedEventArgs<TResult>> closeRequestedHandler = null;
-            FormClosingEventHandler formClosingHandler = null;
             FormClosedEventHandler formClosedHandler = null;
 
-            // 1. Presenter actively requests close (IRequestClose.CloseRequested)
+            // 1. Presenter actively requests close (Push direction via IRequestClose.CloseRequested).
+            //    Pull direction (user clicks X) is handled by the Presenter subscribing to
+            //    IWindowView.Closing — WindowNavigator does NOT inspect CanClose / similar
+            //    APIs on the Presenter.
             if (requestCloser != null)
             {
                 closeRequestedHandler = (s, e) =>
                 {
-                    // Presenter has set the result
+                    // Presenter has set the result; record before triggering Form.Close().
                     finalResult = e.Result;
-                    finalStatus = e.Status; // Mark as active Presenter close
+                    finalStatus = e.Status;
 
-                    // Trigger Form close. This will then trigger the FormClosing event.
+                    // Trigger Form close. FormClosing → IWindowView.OnClosing fires after this;
+                    // the Presenter's Closing handler is expected to allow the close (since
+                    // dirty state should already have been finalized in the OnSave/OnCancel
+                    // logic that produced the CloseRequested event).
                     form.Close();
                 };
                 requestCloser.CloseRequested += closeRequestedHandler;
             }
 
-            // 2. View asks if it can close (Form.FormClosing)
-            formClosingHandler = (s, e) =>
-            {
-                // Only cancel close if it's a passive close (user clicked X) and Presenter doesn't allow closing.
-                if (requestCloser != null && finalStatus == InteractionStatus.Cancel && !requestCloser.CanClose())
-                {
-                    e.Cancel = true; // Cancel close
-                }
-            };
-            form.FormClosing += formClosingHandler;
-
-            // 3. After View actually closes (Form.FormClosed)
+            // 2. After the Form actually closes (FormClosed).
             formClosedHandler = (s, e) =>
             {
-                // A. Immediately unsubscribe from all events to prevent leaks
+                // A. Immediately unsubscribe to prevent leaks.
                 form.FormClosed -= formClosedHandler;
-                form.FormClosing -= formClosingHandler;
                 if (requestCloser != null)
                 {
                     requestCloser.CloseRequested -= closeRequestedHandler;
                 }
 
-                // B. Wrap final result
+                // B. Wrap final result.
                 InteractionResult<TResult> result;
                 switch (finalStatus)
                 {
@@ -328,10 +323,10 @@ namespace WinformsMVP.Services.Implementations
                         break;
                 }
 
-                // C. Return result via callback
+                // C. Return result via callback.
                 setResultCallback.Invoke(result);
 
-                // D. Release Form resources
+                // D. Release Form resources.
                 form.Dispose();
             };
             form.FormClosed += formClosedHandler;
@@ -345,17 +340,13 @@ namespace WinformsMVP.Services.Implementations
         {
             var requestCloser = presenter as IRequestClose<TResult>;
 
-            // We need to declare event handler variables so we can unsubscribe in FormClosed
             EventHandler<CloseRequestedEventArgs<TResult>> closeRequestedHandler = null;
-            FormClosingEventHandler formClosingHandler = null;
             FormClosedEventHandler formClosedHandler = null;
 
-            // Default assumption: close is passive (user) behavior, needs CanClose flow
-            bool isPresenterClosing = false;
             TResult finalResult = default(TResult);
             InteractionStatus finalStatus = InteractionStatus.Cancel;
 
-            // 1. Register in _openForms dictionary (thread-safe)
+            // 1. Register in _openForms dictionary (thread-safe).
             if (instanceKey != null)
             {
                 lock (_lock)
@@ -367,13 +358,14 @@ namespace WinformsMVP.Services.Implementations
                 }
             }
 
-            // 2. Handle Presenter actively requesting close (IRequestClose.CloseRequested)
+            // 2. Handle Presenter actively requesting close (Push direction).
+            //    Pull direction (user closing the window) is handled by the Presenter
+            //    subscribing to IWindowView.Closing — WindowNavigator does NOT need to
+            //    inspect any Presenter-side API to decide whether to cancel.
             if (requestCloser != null)
             {
                 closeRequestedHandler = (s, e) =>
                 {
-                    // Set flag before Form.Close() to avoid FormClosing incorrectly calling CanClose
-                    isPresenterClosing = true;
                     finalResult = e.Result;
                     finalStatus = e.Status;
 
@@ -382,22 +374,10 @@ namespace WinformsMVP.Services.Implementations
                 requestCloser.CloseRequested += closeRequestedHandler;
             }
 
-            // 3. Handle View asking if it can close (Form.FormClosing)
-            formClosingHandler = (s, e) =>
-            {
-                // Only check CanClose when it's not an active Presenter close
-                if (!isPresenterClosing && requestCloser != null && !requestCloser.CanClose())
-                {
-                    e.Cancel = true; // Prevent close
-                }
-            };
-            form.FormClosing += formClosingHandler;
-
-
-            // 4. Handle FormClosed event: unregister framework references, release resources, and invoke callback
+            // 3. Handle FormClosed: unregister framework references, release resources, fire callback.
             formClosedHandler = (s, e) =>
             {
-                // A. Clean up framework state (thread-safe)
+                // A. Clean up framework state (thread-safe).
                 if (instanceKey != null)
                 {
                     lock (_lock)
@@ -406,7 +386,7 @@ namespace WinformsMVP.Services.Implementations
                     }
                 }
 
-                // B. Get result and trigger callback
+                // B. Wrap final result.
                 InteractionResult<TResult> result;
                 switch (finalStatus)
                 {
@@ -424,15 +404,14 @@ namespace WinformsMVP.Services.Implementations
 
                 onClosed.Invoke(result);
 
-                // C. Release Presenter resources
+                // C. Release Presenter resources.
                 (presenter as IDisposable)?.Dispose();
 
-                // D. Clean up all event subscriptions and Form resources
+                // D. Clean up all event subscriptions and Form resources.
                 form.FormClosed -= formClosedHandler;
-                form.FormClosing -= formClosingHandler; // Unsubscribe FormClosing
                 if (requestCloser != null)
                 {
-                    requestCloser.CloseRequested -= closeRequestedHandler; // Unsubscribe Presenter event
+                    requestCloser.CloseRequested -= closeRequestedHandler;
                 }
                 form.Dispose();
             };
@@ -455,21 +434,57 @@ namespace WinformsMVP.Services.Implementations
             }
 
             // Critical: Ensure View implements IWindowView interface
-            if (!(newForm is IWindowView))
+            if (!(newForm is IWindowView windowView))
             {
                 throw new InvalidOperationException($"View {newForm.GetType().Name} must implement IWindowView interface to support WindowNavigator's non-modal functionality.");
             }
 
-            // 2. Inject View into Presenter
+            // 2. Bridge WinForms FormClosing to the framework's IWindowView.OnClosing.
+            //    Presenters subscribe to IWindowView.Closing to decide whether to allow
+            //    the close (e.g. prompt on unsaved changes). WinForms types do not leak
+            //    beyond this bridge.
+            newForm.FormClosing += (s, e) =>
+            {
+                var args = new WindowClosingEventArgs(MapCloseReason(e.CloseReason));
+                windowView.OnClosing(args);
+                if (args.Cancel) e.Cancel = true;
+            };
+
+            // 3. Inject View into Presenter
             InjectViewIntoPresenter(presenter, newForm as IViewBase);
 
-            // 3. Initialize business logic
+            // 4. Initialize business logic
             if (callInitialize && presenter is IInitializable initializable)
             {
                 initializable.Initialize();
             }
 
             return newForm;
+        }
+
+        /// <summary>
+        /// Maps WinForms <see cref="WinFormsCloseReason"/> to the framework abstraction
+        /// <see cref="MvpCloseReason"/>. WinForms types are intentionally not exposed to
+        /// presenter code; this is the single place the mapping happens.
+        /// </summary>
+        private static MvpCloseReason MapCloseReason(WinFormsCloseReason reason)
+        {
+            switch (reason)
+            {
+                case WinFormsCloseReason.UserClosing:
+                    return MvpCloseReason.Normal;
+                case WinFormsCloseReason.WindowsShutDown:
+                    return MvpCloseReason.SystemShutdown;
+                case WinFormsCloseReason.TaskManagerClosing:
+                    return MvpCloseReason.TaskManager;
+                case WinFormsCloseReason.FormOwnerClosing:
+                case WinFormsCloseReason.MdiFormClosing:
+                    return MvpCloseReason.ParentClosing;
+                case WinFormsCloseReason.ApplicationExitCall:
+                    return MvpCloseReason.Normal;
+                default:
+                    return MvpCloseReason.Unknown;
+            }
         }
 
         private void InjectViewIntoPresenter(IPresenter presenter, IViewBase viewInstance)
