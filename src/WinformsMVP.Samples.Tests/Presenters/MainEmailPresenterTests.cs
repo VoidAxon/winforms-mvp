@@ -243,7 +243,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             _presenter.Dispatch(EmailActions.Compose);
 
             // Assert
-            Assert.Equal(1, _mockServices.WindowNavigator.ShowModalCalls.Count);
+            Assert.Single(_mockServices.WindowNavigator.ShowModalCalls);
         }
 
         /// <summary>
@@ -284,7 +284,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             _presenter.Dispatch(EmailActions.Reply);
 
             // Assert
-            Assert.Equal(1, _mockServices.WindowNavigator.ShowModalCalls.Count);
+            Assert.Single(_mockServices.WindowNavigator.ShowModalCalls);
         }
 
         /// <summary>
@@ -328,7 +328,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             _presenter.Dispatch(EmailActions.Forward);
 
             // Assert
-            Assert.Equal(1, _mockServices.WindowNavigator.ShowModalCalls.Count);
+            Assert.Single(_mockServices.WindowNavigator.ShowModalCalls);
         }
 
         /// <summary>
@@ -597,7 +597,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             // 1. Compose new email
             _mockServices.WindowNavigator.ShowModalBoolResult = true;
             _presenter.Dispatch(EmailActions.Compose);
-            Assert.Equal(1, _mockServices.WindowNavigator.ShowModalCalls.Count);
+            Assert.Single(_mockServices.WindowNavigator.ShowModalCalls);
 
             // 2. Select email and reply
             var email = _mockView.GetEmail(0);
@@ -611,7 +611,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
 
             // Assert - verify all actions executed
             Assert.True(_mockServices.MessageService.ConfirmDialogShown);
-            Assert.True(_mockRepository.DeleteCalls.Contains(email.Id));
+            Assert.Contains(email.Id, _mockRepository.DeleteCalls);
         }
 
         /// <summary>
@@ -643,7 +643,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             _presenter.Dispatch(EmailActions.Delete);
 
             // Assert - permanently deleted
-            Assert.True(_mockRepository.PermanentlyDeleteCalls.Contains(trashEmail.Id));
+            Assert.Contains(trashEmail.Id, _mockRepository.PermanentlyDeleteCalls);
         }
 
         #endregion

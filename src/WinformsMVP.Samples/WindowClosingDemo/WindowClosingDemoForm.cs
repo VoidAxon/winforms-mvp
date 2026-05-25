@@ -97,7 +97,9 @@ namespace WinformsMVP.Samples.WindowClosingDemo
 
         // ─── IWindowClosingDemoView ──────────────────────────────────────────────────
 
-        public string Text
+        // 'new' is intentional: this Text property is the View-contract text (textbox
+        // content), distinct from Form.Text (window title).
+        public new string Text
         {
             get => _textBox.Text;
             set => _textBox.Text = value ?? string.Empty;

@@ -106,7 +106,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
 
             // Assert - Verify warning message was displayed
             Assert.True(_mockServices.MessageService.WarningMessageShown);
-            Assert.False(_mockView.MethodCalls.Contains("AddTaskToList"));
+            Assert.DoesNotContain("AddTaskToList", _mockView.MethodCalls);
         }
 
         [Fact]
@@ -294,7 +294,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             _presenter.Dispatch(ToDoDemoActions.AddTask);
 
             // Assert - Verify mock service recorded the call
-            Assert.Equal(1, _mockServices.MessageService.Calls.Count);
+            Assert.Single(_mockServices.MessageService.Calls);
             Assert.Equal(MessageType.Info, _mockServices.MessageService.Calls[0].Type);
         }
 
@@ -305,7 +305,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             // This test verifies that tests don't interfere with each other
 
             // Assert - State is clean at the start of new test
-            Assert.Equal(0, _mockServices.MessageService.Calls.Count);
+            Assert.Empty(_mockServices.MessageService.Calls);
             Assert.Equal(0, _mockView.TaskCount);
         }
 

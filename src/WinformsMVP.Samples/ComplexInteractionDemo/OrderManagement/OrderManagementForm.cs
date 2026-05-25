@@ -36,6 +36,10 @@ namespace WinformsMVP.Samples.ComplexInteractionDemo.OrderManagement
             _binder.Add(OrderManagementActions.SaveOrder, btnSaveOrder);
             _binder.Add(OrderManagementActions.ClearOrder, btnClearOrder);
             // Framework will automatically bind
+
+            // The service-based Presenter listens to SaveRequested rather than the
+            // SaveOrder dispatch — raise the event here so both paths stay live.
+            btnSaveOrder.Click += (s, e) => SaveRequested?.Invoke(this, EventArgs.Empty);
         }
 
         private void InitializeChildControls()
