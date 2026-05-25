@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
-using System.Windows.Forms;
 using WinformsMVP.Common;
 using WinformsMVP.Services;
 
@@ -25,7 +24,7 @@ namespace WinformsMVP.Samples.Tests.Mocks
         // Control return values
         public bool ConfirmYesNoResult { get; set; } = true;
         public bool ConfirmOkCancelResult { get; set; } = true;
-        public DialogResult ConfirmYesNoCancelResult { get; set; } = DialogResult.Yes;
+        public ConfirmResult ConfirmYesNoCancelResult { get; set; } = ConfirmResult.Yes;
 
         // Implement interface methods
         public void ShowInfo(string text, string caption = "")
@@ -55,7 +54,7 @@ namespace WinformsMVP.Samples.Tests.Mocks
             return ConfirmOkCancelResult;
         }
 
-        public DialogResult ConfirmYesNoCancel(string text, string caption = "")
+        public ConfirmResult ConfirmYesNoCancel(string text, string caption = "")
         {
             Calls.Add(new MessageCall { Type = MessageType.Confirm, Message = text, Title = caption });
             return ConfirmYesNoCancelResult;
@@ -88,7 +87,7 @@ namespace WinformsMVP.Samples.Tests.Mocks
             return ConfirmOkCancelResult;
         }
 
-        public DialogResult ConfirmYesNoCancelAt(string text, Point location, string caption = "")
+        public ConfirmResult ConfirmYesNoCancelAt(string text, Point location, string caption = "")
         {
             Calls.Add(new MessageCall { Type = MessageType.Confirm, Message = text, Title = caption });
             return ConfirmYesNoCancelResult;

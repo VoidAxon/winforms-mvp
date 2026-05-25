@@ -130,13 +130,13 @@ namespace WinformsMVP.Samples.EmailDemo
                 "You have unsaved changes. Do you want to save as draft?",
                 "Unsaved Changes");
 
-            if (result == System.Windows.Forms.DialogResult.Cancel)
+            if (result == ConfirmResult.Cancel)
             {
                 args.Cancel = true;
                 return;
             }
 
-            if (result == System.Windows.Forms.DialogResult.Yes)
+            if (result == ConfirmResult.Yes)
             {
                 OnSaveDraft();  // fire-and-forget like the original CanClose behavior
             }

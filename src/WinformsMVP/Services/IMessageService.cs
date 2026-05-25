@@ -1,5 +1,4 @@
 ﻿using System.Drawing;
-using System.Windows.Forms;
 using WinformsMVP.Common;
 
 namespace WinformsMVP.Services
@@ -12,7 +11,7 @@ namespace WinformsMVP.Services
         // Standard message dialogs
         bool ConfirmYesNo(string text, string caption = "");
         bool ConfirmOkCancel(string text, string caption = "");
-        DialogResult ConfirmYesNoCancel(string text, string caption = "");
+        ConfirmResult ConfirmYesNoCancel(string text, string caption = "");
         void ShowInfo(string text, string caption = "");
         void ShowWarning(string text, string caption = "");
         void ShowError(string text, string caption = "");
@@ -20,7 +19,7 @@ namespace WinformsMVP.Services
         // Positioned message dialogs (shown at specific screen location)
         bool ConfirmYesNoAt(string text, Point location, string caption = "");
         bool ConfirmOkCancelAt(string text, Point location, string caption = "");
-        DialogResult ConfirmYesNoCancelAt(string text, Point location, string caption = "");
+        ConfirmResult ConfirmYesNoCancelAt(string text, Point location, string caption = "");
         void ShowInfoAt(string text, Point location, string caption = "");
         void ShowWarningAt(string text, Point location, string caption = "");
         void ShowErrorAt(string text, Point location, string caption = "");

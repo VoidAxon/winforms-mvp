@@ -304,7 +304,7 @@ mockServices.FileService     // MockFileService
 // 控制返回值
 mockServices.MessageService.ConfirmYesNoResult = true;  // 默认true
 mockServices.MessageService.ConfirmOkCancelResult = true;
-mockServices.MessageService.ConfirmYesNoCancelResult = DialogResult.Yes;
+mockServices.MessageService.ConfirmYesNoCancelResult = ConfirmResult.Yes;
 
 // 验证调用
 Assert.True(mockServices.MessageService.InfoMessageShown);

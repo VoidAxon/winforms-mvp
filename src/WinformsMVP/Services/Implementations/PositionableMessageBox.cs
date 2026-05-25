@@ -9,6 +9,13 @@ namespace WinformsMVP.Services.Implementations
     /// Positionable MessageBox with support for custom screen locations.
     /// Uses native Windows MessageBox with CBT hook to control position.
     /// </summary>
+    /// <remarks>
+    /// This is a low-level WinForms utility intended for View-layer code (Forms, UserControls)
+    /// and legacy migration scenarios. <b>Do NOT call this directly from Presenters</b> —
+    /// it returns <see cref="DialogResult"/> and depends on <c>System.Windows.Forms</c>,
+    /// which violates the MVP rule that Presenters must not reference WinForms APIs.
+    /// Presenters should use <see cref="IMessageService"/> instead.
+    /// </remarks>
     public static class PositionableMessageBox
     {
         #region Windows API Declarations

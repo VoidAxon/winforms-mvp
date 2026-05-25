@@ -549,7 +549,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             // (ChangeTracker initialization may have set IsDirty; clear it via a No close.)
             if (_mockView.IsDirty)
             {
-                _mockServices.MessageService.ConfirmYesNoCancelResult = System.Windows.Forms.DialogResult.No;
+                _mockServices.MessageService.ConfirmYesNoCancelResult = ConfirmResult.No;
                 RaiseClosing();
                 _mockServices.MessageService.Calls.Clear();
             }
@@ -574,7 +574,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             _mockView.Subject = "Test";
             _mockView.Body = "Body";
             _mockView.SimulateEmailDataChange();
-            _mockServices.MessageService.ConfirmYesNoCancelResult = System.Windows.Forms.DialogResult.Cancel;
+            _mockServices.MessageService.ConfirmYesNoCancelResult = ConfirmResult.Cancel;
 
             // Act
             var args = RaiseClosing();
@@ -593,7 +593,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             // Arrange
             _mockView.To = "test@example.com";
             _mockView.SimulateEmailDataChange();
-            _mockServices.MessageService.ConfirmYesNoCancelResult = System.Windows.Forms.DialogResult.No;
+            _mockServices.MessageService.ConfirmYesNoCancelResult = ConfirmResult.No;
 
             // Act
             var args = RaiseClosing();
@@ -615,7 +615,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             _mockView.Subject = "Test";
             _mockView.Body = "Body";
             _mockView.SimulateEmailDataChange();
-            _mockServices.MessageService.ConfirmYesNoCancelResult = System.Windows.Forms.DialogResult.Yes;
+            _mockServices.MessageService.ConfirmYesNoCancelResult = ConfirmResult.Yes;
             _mockRepository.MethodCalls.Clear();
 
             // Act
@@ -637,7 +637,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             // Arrange — make changes.
             _mockView.To = "test@example.com";
             _mockView.SimulateEmailDataChange();
-            _mockServices.MessageService.ConfirmYesNoCancelResult = System.Windows.Forms.DialogResult.Cancel;
+            _mockServices.MessageService.ConfirmYesNoCancelResult = ConfirmResult.Cancel;
 
             // Act
             var args = RaiseClosing(CloseReason.SystemShutdown);
@@ -655,7 +655,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
         {
             _mockView.To = "test@example.com";
             _mockView.SimulateEmailDataChange();
-            _mockServices.MessageService.ConfirmYesNoCancelResult = System.Windows.Forms.DialogResult.Cancel;
+            _mockServices.MessageService.ConfirmYesNoCancelResult = ConfirmResult.Cancel;
 
             var args = RaiseClosing(CloseReason.TaskManager);
 

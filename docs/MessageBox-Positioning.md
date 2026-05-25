@@ -1,5 +1,16 @@
 # MessageBox Positioning - Native API vs Custom Form
 
+> ⚠️ **使用范围 / Scope**
+>
+> `PositionableMessageBox` 是 **View 层工具**（Form / UserControl 事件处理器、遗留代码迁移场景）。
+> 它返回 `System.Windows.Forms.DialogResult` 并依赖 WinForms API，**不要在 Presenter 中直接调用**。
+>
+> - ✅ View 实现层（Form / UserControl）：可以直接使用
+> - ✅ Service 实现层（`MessageService` 内部）：可以直接使用
+> - ✅ 遗留代码迁移阶段：作为过渡可以使用
+> - ❌ Presenter：请改用 `IMessageService.ShowInfoAt / ConfirmYesNoAt / ConfirmYesNoCancelAt`，
+>   它会返回抽象的 `bool` / `ConfirmResult`，不会把 WinForms 类型泄露到业务逻辑
+
 ## 问题背景
 
 WinForms的`MessageBox.Show()`默认只能在屏幕中央显示，无法指定位置。这在某些场景下不够灵活（例如：在特定控件旁边显示提示）。

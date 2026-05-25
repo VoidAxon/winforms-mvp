@@ -24,10 +24,11 @@ namespace WinformsMVP.Services.Implementations
             return MessageBox.Show(text, caption, MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes;
         }
 
-        public DialogResult ConfirmYesNoCancel(string text, string caption = "")
+        public ConfirmResult ConfirmYesNoCancel(string text, string caption = "")
         {
             caption = string.IsNullOrEmpty(caption) ? DialogDefaults.DefaultMessageCaption : caption;
-            return MessageBox.Show(text, caption, MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
+            var result = MessageBox.Show(text, caption, MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
+            return MapToConfirmResult(result);
         }
 
         public void ShowError(string text, string caption = "")
@@ -64,10 +65,11 @@ namespace WinformsMVP.Services.Implementations
             return PositionableMessageBox.Show(text, caption, MessageBoxButtons.YesNo, MessageBoxIcon.Question, location) == DialogResult.Yes;
         }
 
-        public DialogResult ConfirmYesNoCancelAt(string text, Point location, string caption = "")
+        public ConfirmResult ConfirmYesNoCancelAt(string text, Point location, string caption = "")
         {
             caption = string.IsNullOrEmpty(caption) ? DialogDefaults.DefaultMessageCaption : caption;
-            return PositionableMessageBox.Show(text, caption, MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question, location);
+            var result = PositionableMessageBox.Show(text, caption, MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question, location);
+            return MapToConfirmResult(result);
         }
 
         public void ShowErrorAt(string text, Point location, string caption = "")
@@ -99,5 +101,15 @@ namespace WinformsMVP.Services.Implementations
         }
 
         #endregion
+
+        private static ConfirmResult MapToConfirmResult(DialogResult result)
+        {
+            switch (result)
+            {
+                case DialogResult.Yes: return ConfirmResult.Yes;
+                case DialogResult.No: return ConfirmResult.No;
+                default: return ConfirmResult.Cancel;
+            }
+        }
     }
 }
