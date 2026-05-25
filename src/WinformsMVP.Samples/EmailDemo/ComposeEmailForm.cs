@@ -2,8 +2,10 @@ using System;
 using System.ComponentModel;
 using System.Drawing;
 using System.Windows.Forms;
+using WinformsMVP.Common.Events;
 using WinformsMVP.Common.Extensions;
 using WinformsMVP.Core.Models;
+using WinformsMVP.Core.Views;
 using WinformsMVP.MVP.ViewActions;
 
 namespace WinformsMVP.Samples.EmailDemo
@@ -339,6 +341,18 @@ namespace WinformsMVP.Samples.EmailDemo
                 }
             };
         }
+
+        #endregion
+
+        #region IWindowView Closing
+
+        private EventHandler<WindowClosingEventArgs> _closing;
+        event EventHandler<WindowClosingEventArgs> IWindowView.Closing
+        {
+            add => _closing += value;
+            remove => _closing -= value;
+        }
+        void IWindowView.OnClosing(WindowClosingEventArgs args) => _closing?.Invoke(this, args);
 
         #endregion
 

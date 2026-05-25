@@ -1,5 +1,7 @@
 using System;
 using System.Windows.Forms;
+using WinformsMVP.Common.Events;
+using WinformsMVP.Core.Views;
 using WinformsMVP.MVP.ViewActions;
 using WinformsMVP.Samples.ComplexInteractionDemo.ProductSelector;
 using WinformsMVP.Samples.ComplexInteractionDemo.OrderSummary;
@@ -85,5 +87,13 @@ namespace WinformsMVP.Samples.ComplexInteractionDemo.OrderManagement
         {
             MessageBox.Show(message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
+
+        private EventHandler<WindowClosingEventArgs> _closing;
+        event EventHandler<WindowClosingEventArgs> IWindowView.Closing
+        {
+            add => _closing += value;
+            remove => _closing -= value;
+        }
+        void IWindowView.OnClosing(WindowClosingEventArgs args) => _closing?.Invoke(this, args);
     }
 }

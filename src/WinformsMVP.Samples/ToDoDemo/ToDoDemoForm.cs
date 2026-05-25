@@ -3,6 +3,7 @@ using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
 using WinformsMVP.Common;
+using WinformsMVP.Common.Events;
 using WinformsMVP.Core.Views;
 using WinformsMVP.MVP.ViewActions;
 
@@ -325,6 +326,14 @@ namespace WinformsMVP.Samples.ToDoDemo
         {
             this.Activate();
         }
+
+        private EventHandler<WindowClosingEventArgs> _closing;
+        event EventHandler<WindowClosingEventArgs> IWindowView.Closing
+        {
+            add => _closing += value;
+            remove => _closing -= value;
+        }
+        void IWindowView.OnClosing(WindowClosingEventArgs args) => _closing?.Invoke(this, args);
 
         #endregion
 

@@ -8,25 +8,21 @@ using WinformsMVP.Services;
 namespace WinformsMVP.Samples.NavigatorDemo
 {
     /// <summary>
-    /// Input dialog - returns string value.
+    /// Input dialog - returns a string value through <see cref="IRequestClose{TResult}"/>.
     /// </summary>
-    public class InputDialogPresenter : WindowPresenterBase<IInputDialogView>, IRequestClose<string>
+    public class InputDialogPresenter : WindowPresenterBase<IInputDialogView>,
+                                         IRequestClose<string>
     {
-        private string _result;
-
         public event EventHandler<CloseRequestedEventArgs<string>> CloseRequested;
 
         protected override void OnViewAttached()
         {
-            // Nothing to do here
         }
 
         protected override void RegisterViewActions()
         {
-            _dispatcher.Register(InputDialogActions.Ok, OnOk);
-            _dispatcher.Register(InputDialogActions.Cancel, OnCancel);
-
-            // Note: View.ActionBinder.Bind(_dispatcher) is now called automatically by the base class
+            Dispatcher.Register(InputDialogActions.Ok, OnOk);
+            Dispatcher.Register(InputDialogActions.Cancel, OnCancel);
         }
 
         protected override void OnInitialize()
@@ -43,29 +39,20 @@ namespace WinformsMVP.Samples.NavigatorDemo
                 return;
             }
 
-            _result = input;
-            RequestClose(InteractionStatus.Ok);
+            RaiseClose(input, InteractionStatus.Ok);
         }
 
         private void OnCancel()
         {
-            RequestClose(InteractionStatus.Cancel);
+            RaiseClose(null, InteractionStatus.Cancel);
         }
 
-        private void RequestClose(InteractionStatus status)
-        {
-            CloseRequested?.Invoke(this, new CloseRequestedEventArgs<string>(_result, status));
-        }
-
-        public bool CanClose()
-        {
-            return true;
-        }
+        private void RaiseClose(string result, InteractionStatus status)
+            => CloseRequested?.Invoke(this, new CloseRequestedEventArgs<string>(result, status));
     }
 
     public static class InputDialogActions
     {
-        // Directly use standard actions (no prefix)
         public static readonly ViewAction Ok = StandardActions.Ok;
         public static readonly ViewAction Cancel = StandardActions.Cancel;
     }

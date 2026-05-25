@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Windows.Forms;
 using Microsoft.Extensions.Logging;
+using WinformsMVP.Common.Events;
 using WinformsMVP.MVP.Presenters;
 using WinformsMVP.Core.Views;
 using WinformsMVP.MVP.ViewActions;
@@ -281,6 +282,14 @@ namespace WinformsMVP.Samples
                 _binder.Add(LoggingActions.LogException, _btnException);
                 _binder.Add(LoggingActions.ClearLog, _btnClear);
             }
+
+            private EventHandler<WindowClosingEventArgs> _closing;
+            event EventHandler<WindowClosingEventArgs> IWindowView.Closing
+            {
+                add => _closing += value;
+                remove => _closing -= value;
+            }
+            void IWindowView.OnClosing(WindowClosingEventArgs args) => _closing?.Invoke(this, args);
         }
 
         // Demo launcher

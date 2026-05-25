@@ -10,23 +10,24 @@ namespace WinformsMVP.Samples.NavigatorDemo
     /// <summary>
     /// Non-modal window with callback result.
     /// </summary>
-    public class CallbackWindowPresenter : WindowPresenterBase<ICallbackWindowView>, IRequestClose<string>
+    /// <remarks>
+    /// The framework calls <c>Form.Close()</c> automatically when
+    /// <see cref="IRequestClose{TResult}.CloseRequested"/> is raised — there is no need for
+    /// the Presenter to touch the Form directly.
+    /// </remarks>
+    public class CallbackWindowPresenter : WindowPresenterBase<ICallbackWindowView>,
+                                            IRequestClose<string>
     {
-        private string _result;
-
         public event EventHandler<CloseRequestedEventArgs<string>> CloseRequested;
 
         protected override void OnViewAttached()
         {
-            // Nothing to do here
         }
 
         protected override void RegisterViewActions()
         {
-            _dispatcher.Register(CallbackWindowActions.SaveAndClose, OnSaveAndClose);
-            _dispatcher.Register(CallbackWindowActions.Cancel, OnCancel);
-
-            // Note: View.ActionBinder.Bind(_dispatcher) is now called automatically by the base class
+            Dispatcher.Register(CallbackWindowActions.SaveAndClose, OnSaveAndClose);
+            Dispatcher.Register(CallbackWindowActions.Cancel, OnCancel);
         }
 
         protected override void OnInitialize()
@@ -43,35 +44,16 @@ namespace WinformsMVP.Samples.NavigatorDemo
                 return;
             }
 
-            _result = text;
-            RequestClose(InteractionStatus.Ok);
-
-            // Close the window
-            if (View is System.Windows.Forms.Form form)
-            {
-                form.Close();
-            }
+            RaiseClose(text, InteractionStatus.Ok);
         }
 
         private void OnCancel()
         {
-            RequestClose(InteractionStatus.Cancel);
-
-            if (View is System.Windows.Forms.Form form)
-            {
-                form.Close();
-            }
+            RaiseClose(null, InteractionStatus.Cancel);
         }
 
-        private void RequestClose(InteractionStatus status)
-        {
-            CloseRequested?.Invoke(this, new CloseRequestedEventArgs<string>(_result, status));
-        }
-
-        public bool CanClose()
-        {
-            return true;
-        }
+        private void RaiseClose(string result, InteractionStatus status)
+            => CloseRequested?.Invoke(this, new CloseRequestedEventArgs<string>(result, status));
     }
 
     public static class CallbackWindowActions
@@ -79,7 +61,7 @@ namespace WinformsMVP.Samples.NavigatorDemo
         private static readonly ViewActionFactory Factory =
             ViewAction.Factory.WithQualifier("Callback");
 
-        public static readonly ViewAction SaveAndClose = Factory.Create("SaveAndClose");  // Business-specific, use Factory to add prefix
-        public static readonly ViewAction Cancel = StandardActions.Cancel;  // Standard action, use directly
+        public static readonly ViewAction SaveAndClose = Factory.Create("SaveAndClose");
+        public static readonly ViewAction Cancel = StandardActions.Cancel;
     }
 }

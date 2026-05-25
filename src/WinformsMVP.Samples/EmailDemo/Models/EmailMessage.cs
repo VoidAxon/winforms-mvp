@@ -3,9 +3,16 @@ using System;
 namespace WinformsMVP.Samples.EmailDemo.Models
 {
     /// <summary>
-    /// Email message data model
+    /// Email message data model.
     /// </summary>
-    public class EmailMessage : ICloneable
+    /// <remarks>
+    /// Implements <see cref="IEquatable{T}"/> for value-based equality so that
+    /// <see cref="WinformsMVP.Common.ChangeTracker{T}"/> can correctly detect when
+    /// <c>AcceptChanges</c> / <c>RejectChanges</c> have synchronized the current value
+    /// with the baseline (otherwise the default reference-equality comparison would
+    /// always report <c>IsChanged == true</c> after any clone).
+    /// </remarks>
+    public class EmailMessage : ICloneable, IEquatable<EmailMessage>
     {
         /// <summary>Email ID</summary>
         public int Id { get; set; }
@@ -82,6 +89,41 @@ namespace WinformsMVP.Samples.EmailDemo.Models
                 return From.Substring(0, atIndex);
 
             return From;
+        }
+
+        public bool Equals(EmailMessage other)
+        {
+            if (other is null) return false;
+            if (ReferenceEquals(this, other)) return true;
+            return Id == other.Id &&
+                   From == other.From &&
+                   To == other.To &&
+                   Subject == other.Subject &&
+                   Body == other.Body &&
+                   Date == other.Date &&
+                   IsRead == other.IsRead &&
+                   IsStarred == other.IsStarred &&
+                   Folder == other.Folder;
+        }
+
+        public override bool Equals(object obj) => obj is EmailMessage other && Equals(other);
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                int hash = 17;
+                hash = hash * 23 + Id.GetHashCode();
+                hash = hash * 23 + (From?.GetHashCode() ?? 0);
+                hash = hash * 23 + (To?.GetHashCode() ?? 0);
+                hash = hash * 23 + (Subject?.GetHashCode() ?? 0);
+                hash = hash * 23 + (Body?.GetHashCode() ?? 0);
+                hash = hash * 23 + Date.GetHashCode();
+                hash = hash * 23 + IsRead.GetHashCode();
+                hash = hash * 23 + IsStarred.GetHashCode();
+                hash = hash * 23 + Folder.GetHashCode();
+                return hash;
+            }
         }
     }
 }

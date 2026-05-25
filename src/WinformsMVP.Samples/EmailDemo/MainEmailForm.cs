@@ -4,6 +4,8 @@ using System.ComponentModel;
 using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
+using WinformsMVP.Common.Events;
+using WinformsMVP.Core.Views;
 using WinformsMVP.MVP.ViewActions;
 using WinformsMVP.Samples.EmailDemo.Models;
 
@@ -452,6 +454,18 @@ namespace WinformsMVP.Samples.EmailDemo
                 // This is a View-level behavior that could trigger presenter action
             }
         }
+
+        #endregion
+
+        #region IWindowView Closing
+
+        private EventHandler<WindowClosingEventArgs> _closing;
+        event EventHandler<WindowClosingEventArgs> IWindowView.Closing
+        {
+            add => _closing += value;
+            remove => _closing -= value;
+        }
+        void IWindowView.OnClosing(WindowClosingEventArgs args) => _closing?.Invoke(this, args);
 
         #endregion
 
