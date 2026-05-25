@@ -1261,6 +1261,79 @@ var window = navigator.ShowWindow<TPresenter>(
 
 **Window closing flow:** Closing is a **two-direction event-driven model** with strict single-source-of-truth semantics. See the dedicated [Window Closing Pattern](#window-closing-pattern) section below for the canonical examples and rules.
 
+#### Fluent API: omitting `TPresenter` at the call site
+
+The 3-argument generic form above requires the caller to spell out every type argument because C# does not support partial generic type inference. For more readable call sites, the framework provides a Fluent API that splits the call into chained steps where each step infers its own type parameter — leaving only the business result type to specify explicitly.
+
+```csharp
+// 3-arg form — verbose: every type argument explicit
+var result = Navigator.ShowWindowAsModal<ComposeEmailPresenter, ComposeEmailParameters, bool>(
+    presenter, parameters);
+
+// Fluent form — only TResult is explicit
+var result = Navigator.For(presenter)         // TPresenter inferred from argument
+                      .WithParam(parameters)  // TParam inferred from argument
+                      .ShowAsModal<bool>();   // only TResult explicit
+```
+
+**How it works**
+
+| Step | Captures via inference | Compile-time constraint |
+|------|------------------------|------------------------|
+| `.For(presenter)` | `TPresenter` | `TPresenter : IPresenter` |
+| `.WithParam(parameters)` | `TParam` | `TPresenter : IInitializable<TParam>` |
+| `.ShowAsModal<TResult>()` | — (explicit) | (none) |
+| `.ShowAsModal()` | — | (none) |
+| `.ShowWindow(...)` / `.ShowWindow<TResult>(...)` | — | (none) |
+
+The `WithParam` extension method adds a **stricter** constraint than the receiver type (`NavigationContext<TPresenter>` only requires `IPresenter`). Because C# allows extension methods to tighten constraints on the receiver's type parameters, passing parameters of a type the presenter cannot consume **fails to compile** — the Fluent API has the same compile-time safety as the 3-argument instance methods.
+
+```csharp
+// FooPresenter does NOT implement IInitializable<int>
+Navigator.For(fooPresenter).WithParam(42);
+// ❌ Compile error: 'FooPresenter' does not satisfy IInitializable<int>
+```
+
+**Coverage**
+
+The Fluent API covers all four navigation variants:
+
+```csharp
+// Modal, no parameters, no result
+Navigator.For(presenter).ShowAsModal();
+
+// Modal, no parameters, with result
+var name = Navigator.For(presenter).ShowAsModal<string>();
+
+// Modal, with parameters, no result
+Navigator.For(presenter).WithParam(parameters).ShowAsModal();
+
+// Modal, with parameters, with result
+var ok = Navigator.For(presenter).WithParam(parameters).ShowAsModal<bool>();
+
+// Non-modal (singleton + onClosed callback supported)
+Navigator.For(presenter).ShowWindow<bool>(
+    keySelector: p => p.DocumentId,   // p is strongly typed as TPresenter
+    onClosed: result => { /* ... */ });
+
+// Non-modal with parameters
+Navigator.For(presenter).WithParam(parameters).ShowWindow();
+```
+
+**Coexistence with the 3-argument form**
+
+Both styles are fully supported and delegate to the same underlying instance methods on `IWindowNavigator`. The Fluent API is purely additive — existing call sites, `MockWindowNavigator`, and tests work without modification. Choose whichever reads better for each call.
+
+| Aspect | 3-arg form | Fluent form |
+|--------|-----------|------------|
+| Type parameters to spell out | All (e.g. `<TP, TParam, TResult>`) | Only `<TResult>` (or none) |
+| `IInitializable<TParam>` check | Compile-time | Compile-time |
+| `keySelector` parameter type | Strongly typed `TPresenter` | Strongly typed `TPresenter` |
+| Existing tests/mocks affected | — | No (delegates to same instance method) |
+| Reflection / runtime cast | None | None |
+
+The Fluent API is implemented in [WindowNavigatorFluentExtensions.cs](src/WinformsMVP/Services/WindowNavigatorFluentExtensions.cs) and [NavigationContext.cs](src/WinformsMVP/Services/NavigationContext.cs).
+
 ### Window Closing Pattern
 
 The framework models window closing as two opposite-direction events, **both purely event-based** (no public `CanClose()` method on the Presenter). Master this mental model first; the code below is a literal expression of it.
