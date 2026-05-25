@@ -1,6 +1,6 @@
 # MVP Design Rules
 
-**📋 15 Essential Rules for Clean MVP Architecture**
+**📋 17 Essential Rules for Clean MVP Architecture**
 
 This guide covers the complete set of Model-View-Presenter design rules based on the Supervising Controller pattern. These rules ensure maintainable, testable, and well-structured WinForms applications.
 
@@ -30,6 +30,8 @@ The rules have been adapted and extended for the WinForms MVP Framework with mod
 13. [Rule 13: All Data in Model](#rule-13-all-data-in-model)
 14. [Rule 14: No UI Control Names in Interface](#rule-14-no-ui-control-names-in-interface)
 15. [Rule 15: Domain-Driven Naming](#rule-15-domain-driven-naming)
+16. [Rule 16: Presenter Method Visibility](#rule-16-presenter-method-visibility)
+17. [Rule 17: Presenter Event Visibility](#rule-17-presenter-event-visibility)
 
 ---
 
@@ -441,22 +443,44 @@ public class MyPresenter : WindowPresenterBase<IMyView>
    - Can't swap View implementations
    - Tightly coupled to WinForms
 
-**✅ CORRECT - Use IRequestClose or View methods:**
+**✅ CORRECT - Use the framework's event-driven close model:**
 
-**Option 1: IRequestClose Pattern (Recommended)**
+**Option 1: Implement `IRequestClose<TResult>` (Recommended)**
 ```csharp
-// ✅ Correct - Use framework abstraction
-public class MyPresenter : WindowPresenterBase<IMyView>, IRequestClose
+// ✅ Correct - declare the event, raise it with a small private helper.
+//    No public methods (other than the event) leak from the Presenter.
+public class MyPresenter : WindowPresenterBase<IMyView>, IRequestClose<MyResult>
 {
-    public event EventHandler<CloseRequestedEventArgs> CloseRequested;
+    public event EventHandler<CloseRequestedEventArgs<MyResult>> CloseRequested;
 
-    private void OnClose()
-    {
-        // ✅ Request close through abstraction
-        CloseRequested?.Invoke(this, new CloseRequestedEventArgs());
-    }
+    private void OnSave()
+        => RaiseClose(new MyResult { ... }, InteractionStatus.Ok);
+
+    private void OnCancel()
+        => RaiseClose(null, InteractionStatus.Cancel);
+
+    private void RaiseClose(MyResult result, InteractionStatus status)
+        => CloseRequested?.Invoke(this, new CloseRequestedEventArgs<MyResult>(result, status));
 }
 ```
+
+For the Pull direction (user clicks X, system shutdown), subscribe to `View.Closing`:
+```csharp
+protected override void OnViewAttached()
+{
+    View.Closing += (s, args) =>
+    {
+        if (args.Reason != CloseReason.Normal) return;   // bypass system shutdown
+        if (_changeTracker.IsChanged &&
+            !Messages.ConfirmYesNo("Discard changes?", "Confirm"))
+        {
+            args.Cancel = true;
+        }
+    };
+}
+```
+
+The Presenter never exposes a public `CanClose()` method — that would turn it into a service provider. The Pull-direction handler is a private subscription to a framework event.
 
 **Option 2: View Interface Method**
 ```csharp
@@ -595,7 +619,7 @@ public class TaskPresenter : WindowPresenterBase<ITaskView>
 
     private void OnCancel(object sender, EventArgs e)
     {
-        RequestClose();
+        RaiseClose();   // private helper that fires IRequestClose.CloseRequested
     }
 
     private void OnTaskSelectionChanged()
@@ -627,7 +651,7 @@ Some helper methods don't need the `On` prefix:
 private void ValidateInput() { }
 private void CalculateTotal() { }
 private void UpdateDisplay() { }
-private void RequestClose() { }  // Framework method for IRequestClose
+private void RaiseClose() { }    // Helper that raises IRequestClose.CloseRequested
 ```
 
 ### Why This Matters
@@ -802,15 +826,20 @@ public class UserEditorPresenter : WindowPresenterBase<IUserEditorView>
 Framework methods and override requirements:
 
 ```csharp
-// ✅ Override framework methods
-protected override bool CanClose() { return true; }
-
-// ✅ IRequestClose interface requirement
-public bool TryGetResult(out UserResult result) { ... }
+// ✅ Framework lifecycle methods (overridable)
+protected override void OnInitialize() { ... }
+protected override void OnViewAttached() { ... }
 
 // ✅ Private helper methods (not public API)
 private bool IsValid() { return true; }
 ```
+
+> **Note on closing**: The framework no longer requires a public `CanClose()` method.
+> See the [Window Closing Pattern](../CLAUDE.md#window-closing-pattern) — for the
+> Pull direction the Presenter privately subscribes to `View.Closing`; for the Push
+> direction it raises the `IRequestClose<TResult>.CloseRequested` event (typically
+> through a small private helper). The only public surface the Presenter exposes
+> beyond `Initialize` / `Dispose` is the `CloseRequested` event itself.
 
 ### Analyzer Support
 
@@ -884,18 +913,20 @@ protected override void OnCancel()
 }
 ```
 
-**✅ CORRECT - Use IRequestClose or View interface method:**
+**✅ CORRECT - Implement `IRequestClose<TResult>` or use a View interface method:**
 
 ```csharp
-// Option 1: IRequestClose pattern (recommended)
-public class MyPresenter : WindowPresenterBase<IMyView>, IRequestClose
+// Option 1: IRequestClose<TResult> pattern (recommended)
+public class MyPresenter : WindowPresenterBase<IMyView>, IRequestClose<MyResult>
 {
-    public event EventHandler<CloseRequestedEventArgs> CloseRequested;
+    public event EventHandler<CloseRequestedEventArgs<MyResult>> CloseRequested;
 
-    protected override void OnCancel()
-    {
-        CloseRequested?.Invoke(this, new CloseRequestedEventArgs());
-    }
+    private void OnCancel()
+        => CloseRequested?.Invoke(this,
+               new CloseRequestedEventArgs<MyResult>(null, InteractionStatus.Cancel));
+    private void OnSave()
+        => CloseRequested?.Invoke(this,
+               new CloseRequestedEventArgs<MyResult>(new MyResult { ... }, InteractionStatus.Ok));
 }
 
 // Option 2: View interface method
@@ -1499,6 +1530,218 @@ public interface IReportView : IWindowView
 
 ---
 
+## Rule 16: Presenter Method Visibility
+
+**Presenter methods should be as private as possible. Default to `private`; only escalate visibility when there is a concrete reason.**
+
+The Presenter is **not a service** that exposes operations to the outside world — it is an event-driven coordinator. Every additional `public` method increases the surface area that callers can rely on, weakens the framework's lifecycle guarantees, and tempts test code to bypass the real event flow.
+
+### Visibility Decision Table
+
+| Method Kind | Visibility | Reason |
+|-------------|-----------|--------|
+| Constructor | `public` | Required for DI / instantiation |
+| Interface contract implementation (e.g. `IRequestClose<T>` event) | `public` | Required by the contract |
+| Lifecycle hooks (`OnInitialize`, `OnViewAttached`, `RegisterViewActions`, `Cleanup`) | `protected override` | Inherited from base class, only the framework should call them |
+| ViewAction handlers (`OnSave`, `OnCancel`, …) | `private` | Invoked exclusively through `Dispatcher` |
+| View event handlers (`OnViewClosing`, `OnSelectionChanged`, …) | `private` | Subscribed in `OnViewAttached`; not called from outside |
+| Helpers (`RaiseClose`, validation, formatters) | `private` | Internal implementation detail |
+
+### ❌ Anti-Patterns
+
+```csharp
+public class UserEditorPresenter : WindowPresenterBase<IUserEditorView>
+{
+    // ❌ Direct public methods - lets external code bypass the ViewAction flow
+    public void Save() { ... }
+    public void Delete() { ... }
+    public void Reset() { ... }
+
+    // ❌ Public state queries - encourages Tell-Don't-Ask violations
+    public bool CanSave => _changeTracker.IsChanged;
+    public string CurrentUserName => View.UserName;
+
+    // ❌ "Just in case" public method
+    public void RefreshData() { ... }
+}
+```
+
+**Problems:**
+- Test code is tempted to call `presenter.Save()` directly, bypassing the real `Dispatcher → CanExecute → handler` path.
+- The View (or another Presenter) can ask the Presenter for its internal state — the opposite of *Tell, Don't Ask*.
+- The Presenter ends up looking like a service / facade, blurring the responsibility boundary with domain services.
+
+### ✅ Correct Pattern
+
+```csharp
+public class UserEditorPresenter : WindowPresenterBase<IUserEditorView>,
+                                    IRequestClose<UserResult>
+{
+    // ✅ Required by interface contract
+    public event EventHandler<CloseRequestedEventArgs<UserResult>> CloseRequested;
+
+    // ✅ Required for dependency injection
+    public UserEditorPresenter(IUserRepository repository) { ... }
+
+    // ✅ Framework-only callers — protected override
+    protected override void OnViewAttached() { ... }
+    protected override void OnInitialize() { ... }
+    protected override void RegisterViewActions()
+    {
+        Dispatcher.Register(CommonActions.Save, OnSave,
+            canExecute: () => _changeTracker.IsChanged);
+        Dispatcher.Register(CommonActions.Cancel, OnCancel);
+    }
+
+    // ✅ Dispatcher-only callers — private
+    private void OnSave() { ... }
+    private void OnCancel() { ... }
+    private void OnViewClosing(object sender, WindowClosingEventArgs args) { ... }
+
+    // ✅ Internal helper — private
+    private void RaiseClose(UserResult result, InteractionStatus status)
+        => CloseRequested?.Invoke(this, new CloseRequestedEventArgs<UserResult>(result, status));
+}
+```
+
+### Testing Without Exposing Internals
+
+A common counter-argument is "I need `public` to test it." This is the wrong fix — test through the real entry points:
+
+```csharp
+// ❌ Wrong: changes visibility just for tests
+presenter.OnSave();                       // requires OnSave to be internal/public
+
+// ✅ Right: drive the Presenter the way production code does
+presenter.Dispatcher.Dispatch(CommonActions.Save);   // exercises CanExecute + handler
+view.RaiseClosing(CloseReason.Normal);               // exercises the Pull-direction close
+presenter.CloseRequested += (s, e) => captured = e;  // observes Push-direction close
+```
+
+Testing through the public surface (events + Dispatcher + View events) verifies the real behavior, including CanExecute predicates that direct calls would skip.
+
+### Why This Matters
+
+- **Lifecycle integrity**: Methods called outside the expected event flow can run before `OnInitialize` completes, after `Cleanup`, or while CanExecute is `false`.
+- **Discoverability**: When the only public surface is the constructor + interface contract, reading the type tells you exactly how it is supposed to be used.
+- **Refactoring safety**: Private/protected methods can be renamed, merged, or removed without affecting any other code in the solution.
+- **YAGNI**: Promotion is cheap (`private` → `public`), demotion is a breaking change.
+
+### Default Rule
+
+> **When in doubt, make it `private`.** If a real caller appears later, escalate to `protected` (subclasses) or `internal` (same-assembly tests) before reaching for `public`.
+
+---
+
+## Rule 17: Presenter Event Visibility
+
+**Public events on a Presenter must be limited to interface-contract events. Cross-component notification belongs in services or the Event Aggregator, not in Presenter-level events.**
+
+Events are more dangerous than methods: every public event creates a hidden subscriber graph, a potential memory-leak path (forgotten `-=`), and a back channel through which external code can observe Presenter state. The framework already provides better-targeted mechanisms — use them first.
+
+### Allowed Public Events (Whitelist)
+
+| Pattern | Example | Why It's Allowed |
+|---------|---------|-----------------|
+| `IRequestClose<TResult>.CloseRequested` | [`ComposeEmailPresenter.cs:47`](../src/WinformsMVP.Samples/EmailDemo/ComposeEmailPresenter.cs#L47), [`WindowClosingDemoPresenter.cs:48`](../src/WinformsMVP.Samples/WindowClosingDemo/WindowClosingDemoPresenter.cs#L48) | Required by the framework contract; consumed only by `WindowNavigator` |
+| Custom close-result variants (`IRequestClose<MyResult>`) | Any modal Presenter returning a typed result | Same contract — just a different `TResult` |
+
+Anything outside this whitelist needs justification. In the entire sample suite the only public Presenter events are `CloseRequested`.
+
+### ❌ Anti-Patterns
+
+```csharp
+public class OrderEditorPresenter : WindowPresenterBase<IOrderEditorView>
+{
+    // ❌ Leaks internal state - any subscriber can observe Presenter lifecycle
+    public event EventHandler IsDirtyChanged;
+    public event EventHandler DataLoaded;
+    public event EventHandler ValidationFailed;
+
+    // ❌ Re-publishes a View event - subscribers should listen to the View directly
+    public event EventHandler SelectionChanged;
+
+    // ❌ "Just in case" public event - YAGNI violation
+    public event EventHandler<int> CounterChanged;
+}
+```
+
+**Problems:**
+- **Who subscribes?** The Presenter has no idea; ownership of cleanup becomes unclear.
+- **Memory leaks**: If a long-lived component subscribes and forgets to unsubscribe, the Presenter (and through it, the View) is held forever.
+- **Inverted dependency**: A Presenter publishing internal state events makes other components depend on its internals, defeating MVP isolation.
+
+### ✅ Use the Right Channel
+
+Before adding a public event to a Presenter, walk this decision tree:
+
+```
+A Presenter needs to notify "something" of a change.
+    │
+    ├─ Is it a window close result? ────────────────► Implement IRequestClose<T>.CloseRequested
+    │
+    ├─ Does a single parent Presenter own this child? ► Call a public method on the parent OR
+    │                                                  let the parent subscribe and have the
+    │                                                  child raise a single event (last resort)
+    │
+    ├─ Does shared state change (orders, auth, etc.)? ► Put the state in a Service; raise the
+    │                                                  event from the Service.
+    │
+    └─ Is this a cross-module notification?           ► Publish via IEventAggregator (weak refs,
+                                                       UI-thread marshaled, see CLAUDE.md).
+```
+
+### Concrete Alternatives (from this framework)
+
+**Shared service with events** — used in [`ComplexInteractionDemo/Services/OrderManagementService.cs`](../src/WinformsMVP.Samples/ComplexInteractionDemo/Services/OrderManagementService.cs):
+
+```csharp
+public class OrderManagementService : IOrderManagementService
+{
+    public event EventHandler<ProductAddedEventArgs> ProductAdded;
+    public event EventHandler<ItemRemovedEventArgs> ItemRemoved;
+    public event EventHandler<TotalChangedEventArgs> TotalChanged;
+    public event EventHandler OrderCleared;
+    // ...
+}
+```
+
+Service owns the state; Presenters subscribe to the service, not to each other.
+
+**Event Aggregator** — used in [`ComplexInteractionDemo_EventBased`](../src/WinformsMVP.Samples/ComplexInteractionDemo_EventBased/):
+
+```csharp
+// Publisher (Presenter A) — no event needed on the Presenter
+_eventAggregator.Publish(new ProductAddedMessage { Product = p, Quantity = q });
+
+// Subscriber (Presenter B) — uses weak references, auto-cleanup on GC
+_eventAggregator.Subscribe<ProductAddedMessage>(OnProductAdded);
+```
+
+Decouples publisher and subscriber entirely; no public surface on either Presenter.
+
+### When a Public Event Is the Right Answer
+
+If, after the decision tree above, you still need a public event on a Presenter, follow these rules:
+
+1. **Use a `XxxEventArgs` derived type**, not `EventHandler<int>` / `EventHandler<string>`. Future fields can be added without breaking subscribers.
+2. **Pair every `+=` with `-=`** in `Cleanup()` / `Dispose()`. Forgotten unsubscribes are the #1 source of WinForms memory leaks.
+3. **Document the expected subscriber** in an XML doc comment. If you cannot name a single legitimate subscriber type, the event probably shouldn't exist.
+4. **Prefer a weak-reference channel** (Event Aggregator) for long-lived subscriptions.
+
+### Why This Matters
+
+- **MVP isolation**: A Presenter publishing internal state events couples external code to its implementation; refactoring the Presenter ripples outward.
+- **Memory safety**: WinForms apps frequently leak through forgotten event subscriptions; the framework's services and Event Aggregator are designed to handle this for you.
+- **Discoverability**: When the only public events on Presenters are `CloseRequested`, code reviewers instantly know what every Presenter contributes to the outside world.
+- **Framework consistency**: Sticking to the whitelist keeps every Presenter in the codebase shaped the same way, which is a major aid to onboarding and refactoring.
+
+### Default Rule
+
+> **A Presenter has zero public events unless it implements `IRequestClose<TResult>`.** Anything else needs a service or the Event Aggregator first.
+
+---
+
 ## Automated Enforcement
 
 ### Roslyn Analyzers
@@ -1562,7 +1805,9 @@ Use this checklist during code reviews:
 - [ ] **Rule 12**: Data in Model, not just UI controls
 - [ ] **Rule 13**: No UI control names in interface
 - [ ] **Rule 14**: Domain-driven naming
+- [ ] **Rule 16**: Presenter methods default to `private`; `public` only for constructor + interface contract
+- [ ] **Rule 17**: No public events on Presenter except `IRequestClose<T>.CloseRequested`
 
 ---
 
-**📊 Framework Compliance**: The WinForms MVP Framework sample code achieves **100% compliance** with all 14 design rules.
+**📊 Framework Compliance**: The WinForms MVP Framework sample code achieves **100% compliance** with all 17 design rules.
