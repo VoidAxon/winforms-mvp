@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net40</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>WinformsMVP.Net40SmokeTest</RootNamespace>
+    <AssemblyName>WinformsMVP.Net40SmokeTest</AssemblyName>
+    <LangVersion>latest</LangVersion>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <!--
+      This project is a runtime smoke test for the net40 build of WinformsMVP.
+      xUnit cannot target net40, so we test the net40 binary by running a small
+      console executable that exercises the riskiest code paths (CallerMemberName
+      polyfill, DataAnnotations validation, EventAggregator pub/sub, ValueTuple,
+      ReadOnlyCollection, message formatter, ViewActionDispatcher).
+
+      Run via:
+        dotnet build src/WinformsMVP.Net40SmokeTest/WinformsMVP.Net40SmokeTest.csproj
+        ./src/WinformsMVP.Net40SmokeTest/bin/Debug/net40/WinformsMVP.Net40SmokeTest.exe
+
+      Exit code 0 = all smokes pass. Non-zero = at least one failed (details on stdout).
+    -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- DataAnnotations is not a default net40 reference; needed for [Required] in ModelValidator smoke. -->
+    <Reference Include="System.ComponentModel.DataAnnotations" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\WinformsMVP\WinformsMVP.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="obj\**" />
+    <EmbeddedResource Remove="obj\**" />
+    <None Remove="obj\**" />
+  </ItemGroup>
+
+</Project>
