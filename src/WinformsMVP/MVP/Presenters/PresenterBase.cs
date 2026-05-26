@@ -1,5 +1,5 @@
 ﻿using System;
-using Microsoft.Extensions.Logging;
+using WinformsMVP.Logging;
 using WinformsMVP.Common.Events;
 using WinformsMVP.Core.Views;
 using WinformsMVP.MVP.Presenters;

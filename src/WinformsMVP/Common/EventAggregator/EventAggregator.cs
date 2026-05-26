@@ -4,8 +4,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Threading;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
+using WinformsMVP.Logging;
 
 namespace WinformsMVP.Common.EventAggregator
 {

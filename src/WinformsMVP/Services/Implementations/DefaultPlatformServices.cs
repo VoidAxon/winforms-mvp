@@ -1,6 +1,5 @@
 using System;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
+using WinformsMVP.Logging;
 
 namespace WinformsMVP.Services.Implementations
 {
@@ -9,20 +8,25 @@ namespace WinformsMVP.Services.Implementations
     /// Each service is lazy-initialized.
     /// </summary>
     /// <remarks>
-    /// The framework intentionally depends only on <c>Microsoft.Extensions.Logging.Abstractions</c>.
-    /// When no <see cref="ILoggerFactory"/> is supplied, logging falls back to
+    /// The framework intentionally depends only on the in-box <c>WinformsMVP.Logging</c>
+    /// abstraction. When no <see cref="ILoggerFactory"/> is supplied, logging falls back to
     /// <see cref="NullLoggerFactory.Instance"/> — i.e. no output. Host applications that want
-    /// concrete providers (Debug, Console, Application Insights, Seq, ...) must reference the
-    /// corresponding package and pass an <see cref="ILoggerFactory"/> explicitly.
+    /// concrete providers (Debug, Console, Application Insights, Seq, ...) either implement
+    /// <see cref="ILogger"/> themselves or bridge Microsoft.Extensions.Logging via the
+    /// <c>WinformsMVP.Logging.MicrosoftExtensions</c> adapter package.
     /// </remarks>
     /// <example>
     /// <code>
-    /// // Host (e.g. Program.cs) opts in to Debug provider:
-    /// // requires PackageReference: Microsoft.Extensions.Logging + Microsoft.Extensions.Logging.Debug
-    /// var loggerFactory = LoggerFactory.Create(b => b.AddDebug().SetMinimumLevel(LogLevel.Debug));
+    /// // Host opts in to the Debug provider (no extra dependencies):
     /// PlatformServices.Default = new DefaultPlatformServices(
     ///     viewMappingRegister: register,
-    ///     loggerFactory: loggerFactory);
+    ///     loggerFactory: new DebugLoggerFactory());
+    ///
+    /// // Or bridge Microsoft.Extensions.Logging (requires the adapter package):
+    /// var msFactory = LoggerFactory.Create(b => b.AddDebug());
+    /// PlatformServices.Default = new DefaultPlatformServices(
+    ///     viewMappingRegister: register,
+    ///     loggerFactory: msFactory.AsFrameworkLoggerFactory());
     /// </code>
     /// </example>
     public class DefaultPlatformServices : IPlatformServices

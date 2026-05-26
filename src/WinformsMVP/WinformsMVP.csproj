@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net48</TargetFramework>
+    <TargetFrameworks>net40;net48</TargetFrameworks>
     <OutputType>Library</OutputType>
     <RootNamespace>WinformsMVP</RootNamespace>
     <AssemblyName>WinformsMVP</AssemblyName>
@@ -16,15 +16,23 @@
     <Reference Include="System.ComponentModel.DataAnnotations" />
   </ItemGroup>
 
-  <ItemGroup>
-    <!--
-      Framework intentionally depends only on Microsoft.Extensions.Logging.Abstractions.
-      Concrete providers (Debug, Console, Application Insights, Seq, ...) are the host
-      application's choice and should be added to the host project, not here.
-      See DefaultPlatformServices for the opt-in pattern.
-    -->
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0" />
+  <!--
+    System.ValueTuple is BCL on net47+, but missing on net40-net46. We expose
+    ValueTuple in public API (ViewActionBinderExtensions.AddRange(params (...)[])),
+    so net40 consumers need the NuGet package. net48 ignores this reference.
+  -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net40'">
+    <PackageReference Include="System.ValueTuple" Version="4.5.0" />
   </ItemGroup>
+
+  <!--
+    Framework now defines its own minimal logging abstraction in WinformsMVP.Logging.
+    Host applications that want to use Microsoft.Extensions.Logging or any other
+    ecosystem reference the WinformsMVP.Logging.MicrosoftExtensions adapter package
+    (or write their own ILogger implementation). The main package itself has zero
+    external dependencies (apart from System.ValueTuple on net40) so it can be
+    multi-targeted to net40.
+  -->
 
   <!-- Exclude old-style project folders that are not needed in SDK-style -->
   <ItemGroup>

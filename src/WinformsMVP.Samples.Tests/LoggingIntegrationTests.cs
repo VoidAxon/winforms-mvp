@@ -1,8 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
+using WinformsMVP.Logging;
 using WinformsMVP.Common.Events;
 using WinformsMVP.MVP.Presenters;
 using WinformsMVP.Core.Views;
@@ -16,7 +15,7 @@ using static WinformsMVP.Samples.LoggingDemoExample;
 namespace WinformsMVP.Samples.Tests
 {
     /// <summary>
-    /// Tests for Microsoft.Extensions.Logging integration
+    /// Tests for WinformsMVP.Logging integration via DefaultPlatformServices.
     /// </summary>
     public class LoggingIntegrationTests
     {
@@ -29,23 +28,15 @@ namespace WinformsMVP.Samples.Tests
         {
             public List<LogEntry> LoggedMessages { get; } = new List<LogEntry>();
 
-            public IDisposable BeginScope<TState>(TState state) => null;
+            public bool IsEnabled(LogLevel level) => true;
 
-            public bool IsEnabled(LogLevel logLevel) => true;
-
-            public void Log<TState>(
-                LogLevel logLevel,
-                EventId eventId,
-                TState state,
-                Exception exception,
-                Func<TState, Exception, string> formatter)
+            public void Log(LogLevel level, Exception exception, string message, params object[] args)
             {
                 LoggedMessages.Add(new LogEntry
                 {
-                    LogLevel = logLevel,
-                    Message = formatter(state, exception),
-                    Exception = exception,
-                    State = state
+                    LogLevel = level,
+                    Message = MessageFormatter.Format(message, args),
+                    Exception = exception
                 });
             }
         }
@@ -55,7 +46,6 @@ namespace WinformsMVP.Samples.Tests
             public LogLevel LogLevel { get; set; }
             public string Message { get; set; }
             public Exception Exception { get; set; }
-            public object State { get; set; }
         }
 
         /// <summary>
@@ -67,11 +57,8 @@ namespace WinformsMVP.Samples.Tests
 
             public MockLogger Logger => _logger;
 
-            public void AddProvider(ILoggerProvider provider) { }
-
             public ILogger CreateLogger(string categoryName) => _logger;
-
-            public void Dispose() { }
+            public ILogger CreateLogger(Type type) => _logger;
         }
 
         /// <summary>
@@ -264,17 +251,14 @@ namespace WinformsMVP.Samples.Tests
         }
 
         [Fact]
-        public void DefaultPlatformServices_WithoutLoggerFactory_ShouldCreateDebugLogger()
+        public void DefaultPlatformServices_WithoutLoggerFactory_ShouldUseNullLoggerFactory()
         {
             // Arrange & Act
             var platformServices = new DefaultPlatformServices();
 
-            // Assert
+            // Assert - default fallback is the silent NullLoggerFactory singleton.
             Assert.NotNull(platformServices.LoggerFactory);
-
-            // Create a logger and verify it works
-            var logger = platformServices.LoggerFactory.CreateLogger("TestCategory");
-            Assert.NotNull(logger);
+            Assert.Same(NullLoggerFactory.Instance, platformServices.LoggerFactory);
         }
 
         [Fact]

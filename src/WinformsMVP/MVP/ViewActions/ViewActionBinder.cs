@@ -39,11 +39,24 @@ namespace WinformsMVP.MVP.ViewActions
     /// </remarks>
     public class ViewActionBinder : IViewActionBinder, IEnumerable<ActionBinding>
     {
+        private struct BindingStrategy
+        {
+            public Action<Component, Delegate> Attacher;
+            public Action<Component, Delegate> Detacher;
+        }
+
+        private struct ActiveSubscription
+        {
+            public Component Control;
+            public Delegate Handler;
+            public Action<Component, Delegate> Detacher;
+        }
+
         private readonly List<ActionBinding> _bindings = new List<ActionBinding>();
-        private readonly Dictionary<Type, (Action<Component, Delegate> Attacher, Action<Component, Delegate> Detacher)> _bindingStrategies
-            = new Dictionary<Type, (Action<Component, Delegate>, Action<Component, Delegate>)>();
-        private readonly List<(Component Control, Delegate Handler, Action<Component, Delegate> Detacher)> _activeSubscriptions
-            = new List<(Component, Delegate, Action<Component, Delegate>)>();
+        private readonly Dictionary<Type, BindingStrategy> _bindingStrategies
+            = new Dictionary<Type, BindingStrategy>();
+        private readonly List<ActiveSubscription> _activeSubscriptions
+            = new List<ActiveSubscription>();
         private readonly Dictionary<ViewAction, List<Component>> _actionToControls = new Dictionary<ViewAction, List<Component>>();
         private ViewActionDispatcher _dispatcher;
 
@@ -109,7 +122,11 @@ namespace WinformsMVP.MVP.ViewActions
 
         public void RegisterStrategy<T>(Action<T, Delegate> attacher, Action<T, Delegate> detacher) where T : Component
         {
-            _bindingStrategies[typeof(T)] = ((comp, handler) => attacher((T)comp, handler), (comp, handler) => detacher((T)comp, handler));
+            _bindingStrategies[typeof(T)] = new BindingStrategy
+            {
+                Attacher = (comp, handler) => attacher((T)comp, handler),
+                Detacher = (comp, handler) => detacher((T)comp, handler)
+            };
         }
 
         public void Add(ViewAction actionKey, params Component[] controls)
@@ -231,7 +248,7 @@ namespace WinformsMVP.MVP.ViewActions
         /// Called automatically after an action is executed.
         /// Refreshes the enabled state of all bound controls.
         /// </summary>
-        private void OnActionExecuted(object sender, ViewAction actionKey)
+        private void OnActionExecuted(object sender, ActionExecutedEventArgs e)
         {
             UpdateCanExecuteStates();
         }
@@ -287,9 +304,9 @@ namespace WinformsMVP.MVP.ViewActions
                 _dispatcher.CanExecuteChanged -= OnCanExecuteChanged;
             }
 
-            foreach (var (control, handler, detacher) in _activeSubscriptions)
+            foreach (var sub in _activeSubscriptions)
             {
-                detacher(control, handler);
+                sub.Detacher(sub.Control, sub.Handler);
             }
             _activeSubscriptions.Clear();
         }
@@ -303,7 +320,12 @@ namespace WinformsMVP.MVP.ViewActions
                 {
                     Delegate specificHandler = handler;
                     strategy.Attacher(control, specificHandler);
-                    _activeSubscriptions.Add((control, specificHandler, strategy.Detacher));
+                    _activeSubscriptions.Add(new ActiveSubscription
+                    {
+                        Control = control,
+                        Handler = specificHandler,
+                        Detacher = strategy.Detacher
+                    });
                     return;
                 }
                 currentType = currentType.BaseType;

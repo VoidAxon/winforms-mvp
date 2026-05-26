@@ -161,7 +161,7 @@ namespace WinformsMVP.Common.Extensions
                 var radio = kv.Key;
                 var value = kv.Value;
 
-                radio.Checked = Equals(propInfo.GetValue(viewModel), value);
+                radio.Checked = Equals(propInfo.GetValue(viewModel, null), value);
 
                 radio.CheckedChanged -= RadioButton_CheckedChanged;
                 radio.CheckedChanged += RadioButton_CheckedChanged;
@@ -170,9 +170,9 @@ namespace WinformsMVP.Common.Extensions
                 {
                     if (radio.Checked)
                     {
-                        var current = propInfo.GetValue(viewModel);
+                        var current = propInfo.GetValue(viewModel, null);
                         if (!Equals(current, value))
-                            propInfo.SetValue(viewModel, value);
+                            propInfo.SetValue(viewModel, value, null);
                     }
                 }
             }
@@ -181,7 +181,7 @@ namespace WinformsMVP.Common.Extensions
             {
                 if (e.PropertyName == propertyName)
                 {
-                    var currentValue = propInfo.GetValue(viewModel);
+                    var currentValue = propInfo.GetValue(viewModel, null);
                     foreach (var kv in radioPairs)
                     {
                         kv.Key.Checked = Equals(currentValue, kv.Value);
