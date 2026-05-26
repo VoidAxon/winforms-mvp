@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Windows.Forms;
-using Microsoft.Extensions.Logging;
 using WinformsMVP.Common.Events;
+using WinformsMVP.Logging;
 using WinformsMVP.MVP.Presenters;
 using WinformsMVP.Core.Views;
 using WinformsMVP.MVP.ViewActions;
@@ -12,7 +12,7 @@ using WinformsMVP.Services.Implementations;
 namespace WinformsMVP.Samples
 {
     /// <summary>
-    /// Demonstrates Microsoft.Extensions.Logging integration in the framework.
+    /// Demonstrates the WinformsMVP.Logging integration in the framework.
     /// Shows different log levels, structured logging, and exception logging.
     /// </summary>
     public class LoggingDemoExample
@@ -309,35 +309,30 @@ namespace WinformsMVP.Samples
     }
 
     /// <summary>
-    /// Example: Custom ILoggerFactory configuration for production scenarios
+    /// Example: Custom ILoggerFactory configuration for production scenarios.
+    /// Demonstrates both the in-box providers (DebugLoggerFactory) and the
+    /// optional Microsoft.Extensions.Logging adapter package.
     /// </summary>
     public class CustomLoggingConfiguration
     {
         /// <summary>
-        /// Creates a custom logger factory with multiple providers
+        /// Creates the framework's built-in Debug logger factory. Works without any
+        /// external packages and is suitable for net40+ host applications.
         /// </summary>
-        public static ILoggerFactory CreateProductionLoggerFactory()
+        public static ILoggerFactory CreateDebugLoggerFactory()
         {
-            return LoggerFactory.Create(builder =>
-            {
-                builder
-                    .AddDebug()                    // Debug window output
-                    .SetMinimumLevel(LogLevel.Information);  // Only log Info and above
-
-                // In production, you might add additional providers:
-                // - Console: builder.AddConsole() (requires Microsoft.Extensions.Logging.Console)
-                // - Application Insights: builder.AddApplicationInsights(config)
-                // - Seq: builder.AddSeq("http://localhost:5341")
-                // - File: builder.AddFile("logs/app-{Date}.log") (requires Serilog.Extensions.Logging.File)
-            });
+            return new DebugLoggerFactory();
         }
 
         /// <summary>
-        /// Example: Configure platform services with custom logger
+        /// Example: Configure platform services with the built-in Debug logger.
+        /// To bridge Microsoft.Extensions.Logging, install the
+        /// <c>WinformsMVP.Logging.MicrosoftExtensions</c> adapter package and call
+        /// <c>msFactory.AsFrameworkLoggerFactory()</c> at the composition root.
         /// </summary>
         public static void ConfigureWithCustomLogger()
         {
-            var customLoggerFactory = CreateProductionLoggerFactory();
+            var customLoggerFactory = CreateDebugLoggerFactory();
             var platformServices = new WinformsMVP.Services.Implementations.DefaultPlatformServices(
                 viewMappingRegister: null,
                 loggerFactory: customLoggerFactory);

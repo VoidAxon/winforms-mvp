@@ -1,7 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
+using WinformsMVP.Logging;
 using WinformsMVP.Common.EventAggregator;
 using WinformsMVP.Samples.Tests.TestHelpers;
 using Xunit;

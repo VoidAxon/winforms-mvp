@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
+using WinformsMVP.Logging;
 using WinformsMVP.Services;
 using WinformsMVP.Services.Implementations;
 using Xunit;

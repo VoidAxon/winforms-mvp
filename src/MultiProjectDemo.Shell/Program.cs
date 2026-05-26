@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using MultiProjectDemo.OrderModule;
 using MultiProjectDemo.UserModule;
 using WinformsMVP.DependencyInjection;
+using WinformsMVP.Logging.MicrosoftExtensions;
 using WinformsMVP.Services;
 using WinformsMVP.Services.Implementations;
 
@@ -46,7 +47,7 @@ namespace MultiProjectDemo.Shell
 
             PlatformServices.Default = new DefaultPlatformServices(
                 viewMappingRegister: viewRegistry,
-                loggerFactory: loggerFactory,
+                loggerFactory: loggerFactory.AsFrameworkLoggerFactory(),
                 serviceProvider: provider);
 
             // 6. Resolve the root Presenter from DI, show it, and pump messages.

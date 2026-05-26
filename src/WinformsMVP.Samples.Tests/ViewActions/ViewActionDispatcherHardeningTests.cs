@@ -1,6 +1,6 @@
 using System;
 using System.Linq;
-using Microsoft.Extensions.Logging;
+using WinformsMVP.Logging;
 using WinformsMVP.MVP.ViewActions;
 using WinformsMVP.Samples.Tests.TestHelpers;
 using Xunit;

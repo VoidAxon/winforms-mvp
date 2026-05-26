@@ -16,15 +16,13 @@
     <Reference Include="System.ComponentModel.DataAnnotations" />
   </ItemGroup>
 
-  <ItemGroup>
-    <!--
-      Framework intentionally depends only on Microsoft.Extensions.Logging.Abstractions.
-      Concrete providers (Debug, Console, Application Insights, Seq, ...) are the host
-      application's choice and should be added to the host project, not here.
-      See DefaultPlatformServices for the opt-in pattern.
-    -->
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0" />
-  </ItemGroup>
+  <!--
+    Framework now defines its own minimal logging abstraction in WinformsMVP.Logging.
+    Host applications that want to use Microsoft.Extensions.Logging or any other
+    ecosystem reference the WinformsMVP.Logging.MicrosoftExtensions adapter package
+    (or write their own ILogger implementation). The main package itself has zero
+    external dependencies so it can be multi-targeted to net40.
+  -->
 
   <!-- Exclude old-style project folders that are not needed in SDK-style -->
   <ItemGroup>

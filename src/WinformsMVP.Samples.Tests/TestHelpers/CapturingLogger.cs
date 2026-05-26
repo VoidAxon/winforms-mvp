@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using Microsoft.Extensions.Logging;
+using WinformsMVP.Logging;
 
 namespace WinformsMVP.Samples.Tests.TestHelpers
 {
@@ -12,29 +12,16 @@ namespace WinformsMVP.Samples.Tests.TestHelpers
     {
         public List<LogEntry> Entries { get; } = new List<LogEntry>();
 
-        public IDisposable BeginScope<TState>(TState state) => NullScope.Instance;
+        public bool IsEnabled(LogLevel level) => true;
 
-        public bool IsEnabled(LogLevel logLevel) => true;
-
-        public void Log<TState>(
-            LogLevel logLevel,
-            EventId eventId,
-            TState state,
-            Exception exception,
-            Func<TState, Exception, string> formatter)
+        public void Log(LogLevel level, Exception exception, string message, params object[] args)
         {
             Entries.Add(new LogEntry
             {
-                Level = logLevel,
-                Message = formatter != null ? formatter(state, exception) : state?.ToString(),
+                Level = level,
+                Message = MessageFormatter.Format(message, args),
                 Exception = exception
             });
-        }
-
-        private sealed class NullScope : IDisposable
-        {
-            public static readonly NullScope Instance = new NullScope();
-            public void Dispose() { }
         }
     }
 
@@ -46,9 +33,8 @@ namespace WinformsMVP.Samples.Tests.TestHelpers
     {
         public CapturingLogger Logger { get; } = new CapturingLogger();
 
-        public void AddProvider(ILoggerProvider provider) { }
         public ILogger CreateLogger(string categoryName) => Logger;
-        public void Dispose() { }
+        public ILogger CreateLogger(Type type) => Logger;
     }
 
     public class LogEntry

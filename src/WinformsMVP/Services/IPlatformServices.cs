@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging;
+using WinformsMVP.Logging;
 
 namespace WinformsMVP.Services
 {
@@ -30,8 +30,9 @@ namespace WinformsMVP.Services
 
         /// <summary>
         /// Logger factory for creating loggers.
-        /// Default implementation uses Debug provider for development.
-        /// Can be replaced with custom providers (Console, File, Application Insights, Seq, etc.)
+        /// Defaults to <see cref="NullLoggerFactory.Instance"/> when not configured.
+        /// Bridge Microsoft.Extensions.Logging or other ecosystems via the
+        /// <c>WinformsMVP.Logging.MicrosoftExtensions</c> adapter package.
         /// </summary>
         ILoggerFactory LoggerFactory { get; }
     }

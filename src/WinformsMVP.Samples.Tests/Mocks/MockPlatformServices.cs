@@ -1,5 +1,4 @@
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
+using WinformsMVP.Logging;
 using WinformsMVP.Services;
 
 namespace WinformsMVP.Samples.Tests.Mocks
