@@ -1,8 +1,9 @@
-﻿using WinformsMVP.MVP.ViewActions;
+using System;
+using WinformsMVP.MVP.ViewActions;
 
 namespace WinformsMVP.Common.Events
 {
-    public class ActionRequestEventArgs
+    public class ActionRequestEventArgs : EventArgs
     {
         public ActionRequestEventArgs(ViewAction actionKey)
         {

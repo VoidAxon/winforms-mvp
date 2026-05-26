@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using WinformsMVP.Common.Events;
 using WinformsMVP.Logging;
 
 namespace WinformsMVP.MVP.ViewActions
@@ -52,7 +53,7 @@ namespace WinformsMVP.MVP.ViewActions
         /// Raised after an action has been successfully executed.
         /// Subscribe to this event to automatically refresh UI state (e.g., UpdateCanExecuteStates).
         /// </summary>
-        public event EventHandler<ViewAction> ActionExecuted;
+        public event EventHandler<ActionExecutedEventArgs> ActionExecuted;
 
         /// <summary>
         /// Raised when CanExecute state may have changed.
@@ -166,7 +167,7 @@ namespace WinformsMVP.MVP.ViewActions
                 return;
             }
 
-            ActionExecuted?.Invoke(this, actionKey);
+            ActionExecuted?.Invoke(this, new ActionExecutedEventArgs(actionKey));
         }
 
         private bool SafeCanExecute(ViewAction actionKey, ActionHandlerEntry entry)

@@ -187,7 +187,7 @@ namespace WinformsMVP.Common.Validation.Core
                         $"Expected {typeof(T).Name}, got {model.GetType().Name}",
                         nameof(model));
 
-                var context = new System.ComponentModel.DataAnnotations.ValidationContext(model);
+                var context = new System.ComponentModel.DataAnnotations.ValidationContext(model, serviceProvider: null, items: null);
                 var standardResults = new List<System.ComponentModel.DataAnnotations.ValidationResult>();
 
                 // Use .NET's built-in validator (supports IValidatableObject)
@@ -255,11 +255,11 @@ namespace WinformsMVP.Common.Validation.Core
                         nameof(model));
 
                 // Optimization: Create ValidationContext once, reuse for all attributes
-                var context = new System.ComponentModel.DataAnnotations.ValidationContext(typedModel);
+                var context = new System.ComponentModel.DataAnnotations.ValidationContext(typedModel, serviceProvider: null, items: null);
 
                 foreach (var rule in _orderedRules)
                 {
-                    var propertyValue = rule.PropertyInfo.GetValue(typedModel);
+                    var propertyValue = rule.PropertyInfo.GetValue(typedModel, null);
 
                     // Only modify MemberName (no allocation)
                     context.MemberName = rule.PropertyName;
@@ -324,7 +324,10 @@ namespace WinformsMVP.Common.Validation.Core
                 foreach (var prop in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
                 {
                     // Find ValidationOrderAttribute on the property (property-level ordering)
-                    var orderAttr = prop.GetCustomAttribute<ValidationOrderAttribute>(inherit: true);
+                    var orderAttr = prop
+                        .GetCustomAttributes(typeof(ValidationOrderAttribute), inherit: true)
+                        .Cast<ValidationOrderAttribute>()
+                        .FirstOrDefault();
                     int propertyOrder = orderAttr?.Order ?? 0;  // Default to 0 if not specified
 
                     // Find ALL ValidationAttribute instances (standard .NET attributes)

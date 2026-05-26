@@ -22,7 +22,7 @@ namespace WinformsMVP.Common.Events
         /// <summary>
         /// Triggered when non-modal form closes (carries the final result)
         /// </summary>
-        public event EventHandler<TResult> Completed;
+        public event EventHandler<ExecutionCompletedEventArgs<TResult>> Completed;
 
         /// <summary>
         /// Constructor: Modal form - pass result and Action (when additional cleanup logic is needed)
@@ -71,7 +71,7 @@ namespace WinformsMVP.Common.Events
         public void SetResult(TResult result)
         {
             Result = result;
-            Completed?.Invoke(this, result);
+            Completed?.Invoke(this, new ExecutionCompletedEventArgs<TResult>(result));
         }
 
         /// <summary>
