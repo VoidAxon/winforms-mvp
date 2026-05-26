@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using WinformsMVP.Common.Validation.Core;
 
@@ -94,7 +95,7 @@ namespace WinformsMVP.Common.Validation.Extensions
         public static bool AcceptChangesIfValid<T>(
             this ChangeTracker<T> tracker,
             IModelValidator validator,
-            out IReadOnlyList<ValidationResult> errors) where T : class, ICloneable
+            out ReadOnlyCollection<ValidationResult> errors) where T : class, ICloneable
         {
             if (tracker == null)
                 throw new ArgumentNullException(nameof(tracker));

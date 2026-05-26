@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Reflection;
@@ -41,7 +42,7 @@ namespace WinformsMVP.Common.Validation.Core
         /// <summary>
         /// Validates all properties and returns all validation errors.
         /// </summary>
-        IReadOnlyList<ValidationResult> ValidateAll(object model);
+        ReadOnlyCollection<ValidationResult> ValidateAll(object model);
 
         /// <summary>
         /// Validates properties sequentially by Order and returns the first error.
@@ -176,7 +177,7 @@ namespace WinformsMVP.Common.Validation.Core
             /// 3. Sort by Order for consistent display
             /// </para>
             /// </remarks>
-            public IReadOnlyList<ValidationResult> ValidateAll(object model)
+            public ReadOnlyCollection<ValidationResult> ValidateAll(object model)
             {
                 if (model == null)
                     throw new ArgumentNullException(nameof(model));
@@ -193,7 +194,7 @@ namespace WinformsMVP.Common.Validation.Core
                 Validator.TryValidateObject(model, context, standardResults, validateAllProperties: true);
 
                 // Wrap results with Order metadata and sort
-                return standardResults.Select(r =>
+                var ordered = standardResults.Select(r =>
                 {
                     var memberName = r.MemberNames.FirstOrDefault() ?? string.Empty;
                     // Class-level errors (from IValidatableObject) get max order
@@ -202,6 +203,8 @@ namespace WinformsMVP.Common.Validation.Core
                 })
                 .OrderBy(r => r.Order)
                 .ToList();
+
+                return new ReadOnlyCollection<ValidationResult>(ordered);
             }
 
             /// <summary>
