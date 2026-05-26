@@ -1841,15 +1841,45 @@ Common application services accessed via `ICommonServices`. These services are e
 
 ### Logging
 
-The framework integrates **Microsoft.Extensions.Logging** for structured, flexible logging across all presenters.
+The framework ships with its own minimal logging abstraction in the **`WinformsMVP.Logging`** namespace. The main `WinformsMVP` package has **zero external dependencies** so it can multi-target `net40;net48`. Host applications that want a richer ecosystem opt in by either implementing the contract directly or taking the optional `WinformsMVP.Logging.MicrosoftExtensions` adapter package, which bridges to `Microsoft.Extensions.Logging`.
 
-#### Why Microsoft.Extensions.Logging?
+#### Why an In-House Abstraction?
 
-- **Industry standard**: Same logging abstraction used by ASP.NET Core
-- **Structured logging**: Parameterized messages enable powerful querying in log aggregation systems
-- **Extensible**: Rich ecosystem of providers (Console, File, Application Insights, Seq, Elasticsearch, etc.)
-- **Zero learning curve**: If you know ILogger, you already know how to use it
-- **Cloud-ready**: Easy integration with Azure Monitor, AWS CloudWatch, etc.
+- **net40 compatibility**: `Microsoft.Extensions.Logging.Abstractions` requires net461+. The framework's own contract is BCL-only so it runs on .NET Framework 4.0.
+- **Zero coupling**: The main package never references Microsoft.Extensions.Logging. Hosts pay for the dependency only if they want it.
+- **Familiar shape**: Method names (`LogInformation`, `LogError`, ...), enum values (`LogLevel.Information`, ...), and the `{Name}` placeholder syntax all match `Microsoft.Extensions.Logging`, so call sites read identically and migration is mechanical.
+- **Adapter, not fork**: When you do bridge to M.E.L., structured properties, scopes, and providers flow through untouched — the adapter forwards to `Microsoft.Extensions.Logging.LoggerExtensions.Log<TState>(...)` directly.
+
+#### The Contract
+
+`WinformsMVP.Logging` defines two interfaces and one enum:
+
+```csharp
+namespace WinformsMVP.Logging
+{
+    public interface ILogger
+    {
+        bool IsEnabled(LogLevel level);
+        void Log(LogLevel level, Exception exception, string message, params object[] args);
+    }
+
+    public interface ILoggerFactory
+    {
+        ILogger CreateLogger(string categoryName);
+        ILogger CreateLogger(Type type);
+    }
+
+    public enum LogLevel
+    {
+        Trace = 0, Debug = 1, Information = 2, Warning = 3,
+        Error = 4, Critical = 5, None = 6,
+    }
+}
+```
+
+The numeric values of `LogLevel` deliberately match `Microsoft.Extensions.Logging.LogLevel` so the adapter can map by cast.
+
+Convenience extension methods (`LogInformation`, `LogWarning`, `LogError(ex, ...)`, `LogCritical`, etc.) live in `WinformsMVP.Logging.LoggerExtensions` with the same signatures as their M.E.L. counterparts, so existing call sites that read `Logger.LogInformation("...", arg)` keep working unchanged.
 
 #### Using Logger in Presenters
 
@@ -1872,7 +1902,7 @@ public class MyPresenter : WindowPresenterBase<IMyView>
             var userId = GetCurrentUserId();
             SaveData();
 
-            // Structured logging - parameters are captured for querying
+            // Named placeholders are supported - normalized by MessageFormatter
             Logger.LogInformation("User {UserId} saved data successfully", userId);
         }
         catch (Exception ex)
@@ -1910,31 +1940,48 @@ public class MyPresenter : WindowPresenterBase<IMyView>
 
 #### Structured Logging Best Practices
 
+Both M.E.L.-style named placeholders (`{UserName}`) and `string.Format`-style indexed placeholders (`{0}`) are accepted. Named placeholders are normalized to indexed in declaration order by `WinformsMVP.Logging.MessageFormatter` before formatting, so legacy call sites that came from M.E.L. continue to format correctly.
+
+When the adapter package is in use, structured properties flow through to M.E.L. unchanged (because the adapter forwards to `Ms.LoggerExtensions.Log` rather than pre-formatting the string).
+
 **✅ Good - Structured parameters:**
 ```csharp
-// Parameters are captured as structured data
+// Named placeholders read like M.E.L. and are captured as structured data
+// when the M.E.L. adapter is active.
 Logger.LogInformation("User {UserName} opened document {DocumentId}", userName, docId);
-
-// Log aggregation systems can query: WHERE UserName = 'Alice'
-// Can create metrics: COUNT(DocumentId) GROUP BY UserName
 ```
 
 **❌ Bad - String interpolation:**
 ```csharp
-// String interpolation loses structure - can't query by UserName
+// String interpolation loses structure - can't query by UserName in M.E.L. providers
 Logger.LogInformation($"User {userName} opened document {docId}");
 ```
 
-#### Configuring Custom Log Providers
+#### Built-In Logger Implementations
 
-**Default Configuration (Debug Provider):**
+Two implementations ship in the main package:
 
-The framework uses Debug provider by default - logs appear in Visual Studio Output window during development.
+| Type | Output | Dependencies | Use Case |
+|------|--------|--------------|----------|
+| `NullLogger` / `NullLoggerFactory` | Discards everything | None | Default; tests; performance-critical paths |
+| `DebugLogger` / `DebugLoggerFactory` | `System.Diagnostics.Debug.WriteLine` | BCL only (works on net40) | Visual Studio Output window during development |
 
-**Custom Configuration in Program.cs:**
+Reach for `NullLoggerFactory.Instance` (it is a singleton) when you want to opt out entirely; the framework already falls back to it when no factory is configured.
+
+#### Three Configuration Paths
+
+**Path 1 — No configuration (default, silent):**
 
 ```csharp
-using Microsoft.Extensions.Logging;
+// PlatformServices.Default uses NullLoggerFactory automatically.
+// Logger.LogInformation(...) calls compile, execute, and produce no output.
+PlatformServices.Default = new DefaultPlatformServices();
+```
+
+**Path 2 — `DebugLoggerFactory` (BCL-only, net40-compatible):**
+
+```csharp
+using WinformsMVP.Logging;
 using WinformsMVP.Services.Implementations;
 
 static class Program
@@ -1945,168 +1992,202 @@ static class Program
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
 
-        // Create custom logger factory
-        var loggerFactory = LoggerFactory.Create(builder =>
-        {
-            builder
-                .AddDebug()                              // Debug window
-                .AddConsole()                            // Console output (requires Microsoft.Extensions.Logging.Console)
-                .SetMinimumLevel(LogLevel.Information);  // Only log Info and above
-        });
-
-        // Configure platform services with custom logger
-        var platformServices = new DefaultPlatformServices(
+        // Zero external dependencies; output goes to Visual Studio Debug window.
+        PlatformServices.Default = new DefaultPlatformServices(
             viewMappingRegister: null,
-            loggerFactory: loggerFactory);
+            loggerFactory: new DebugLoggerFactory());
 
-        // Set as default for all presenters
-        PlatformServices.Default = platformServices;
-
-        // Run application
         Application.Run(new MainForm());
     }
 }
 ```
 
-#### Cloud Logging Integration
+**Path 3 — Microsoft.Extensions.Logging bridge (net48 hosts only):**
 
-For WinForms client + cloud backend scenarios, use centralized logging:
+Add a `PackageReference` (or `ProjectReference`) to `WinformsMVP.Logging.MicrosoftExtensions`, then call the `.AsFrameworkLoggerFactory()` extension method:
+
+```csharp
+using Microsoft.Extensions.Logging;
+using WinformsMVP.Logging.MicrosoftExtensions;     // brings the extension method into scope
+using WinformsMVP.Services.Implementations;
+
+static class Program
+{
+    [STAThread]
+    static void Main()
+    {
+        Application.EnableVisualStyles();
+        Application.SetCompatibleTextRenderingDefault(false);
+
+        // Build a Microsoft.Extensions.Logging factory the usual way ...
+        var msFactory = LoggerFactory.Create(builder =>
+        {
+            builder
+                .AddDebug()
+                .AddConsole()
+                .SetMinimumLevel(LogLevel.Information);
+        });
+
+        // ... then adapt it to the framework's ILoggerFactory contract.
+        PlatformServices.Default = new DefaultPlatformServices(
+            viewMappingRegister: null,
+            loggerFactory: msFactory.AsFrameworkLoggerFactory());
+
+        Application.Run(new MainForm());
+    }
+}
+```
+
+> **net40 hosts cannot use Path 3.** `Microsoft.Extensions.Logging.Abstractions` requires net461+, so the adapter package targets net48 only. On net40, use Path 1 (silent) or Path 2 (`DebugLoggerFactory`).
+
+#### What the M.E.L. Bridge Unlocks (Provider Examples)
+
+Once `msFactory.AsFrameworkLoggerFactory()` is in place on a net48 host, the entire `Microsoft.Extensions.Logging` provider ecosystem becomes available. Configure the provider on the inner `msFactory` exactly as you would in ASP.NET Core; the framework's `Logger.LogInformation(...)` calls flow through unchanged.
 
 **Example: Azure Application Insights**
 
 ```csharp
-// 1. Install NuGet: Microsoft.ApplicationInsights.WorkerService
-
-// 2. Configure in Program.cs
-var loggerFactory = LoggerFactory.Create(builder =>
+// 1. Install NuGet: Microsoft.Extensions.Logging.ApplicationInsights
+// 2. Build the M.E.L. factory:
+var msFactory = LoggerFactory.Create(builder =>
 {
     builder.AddApplicationInsights(
         configureTelemetryConfiguration: config =>
         {
             config.ConnectionString = "InstrumentationKey=xxx";
         },
-        configureApplicationInsightsLoggerOptions: options => { }
-    );
+        configureApplicationInsightsLoggerOptions: options => { });
 });
 
-// 3. Use correlation IDs to link client and server logs
-public class MyPresenter : WindowPresenterBase<IMyView>
-{
-    private void OnSubmitOrder()
-    {
-        var correlationId = Guid.NewGuid();
+// 3. Bridge to the framework:
+PlatformServices.Default = new DefaultPlatformServices(
+    register, msFactory.AsFrameworkLoggerFactory());
 
-        Logger.LogInformation("Client submitting order {OrderId} with correlation {CorrelationId}",
-            orderId, correlationId);
-
-        // Send correlationId to server API
-        var result = _apiClient.SubmitOrder(orderId, correlationId);
-
-        // Server logs will include same correlationId
-        // Query in Application Insights: WHERE CorrelationId = 'xxx'
-    }
-}
+// 4. Use correlation IDs to link client and server logs:
+Logger.LogInformation("Submitting order {OrderId} with correlation {CorrelationId}",
+    orderId, correlationId);
+// Query in Application Insights: WHERE CorrelationId = 'xxx'
 ```
 
-**Example: Seq (Local Development)**
+**Example: Seq (local development)**
 
 ```csharp
 // 1. Install NuGet: Seq.Extensions.Logging
-
 // 2. Run Seq locally: docker run -d -p 5341:80 datalust/seq
-
-// 3. Configure in Program.cs
-var loggerFactory = LoggerFactory.Create(builder =>
-{
-    builder.AddSeq("http://localhost:5341");
-});
-
-// 4. View logs in browser: http://localhost:5341
+var msFactory = LoggerFactory.Create(builder => builder.AddSeq("http://localhost:5341"));
+PlatformServices.Default = new DefaultPlatformServices(register, msFactory.AsFrameworkLoggerFactory());
+// 3. View logs in browser: http://localhost:5341
 ```
 
-**Example: File Logging**
+**Example: File logging via Serilog**
 
 ```csharp
 // 1. Install NuGet: Serilog.Extensions.Logging.File
-
-// 2. Configure in Program.cs
-var loggerFactory = LoggerFactory.Create(builder =>
-{
-    builder.AddFile("logs/app-{Date}.log",
-        minimumLevel: LogLevel.Information);
-});
-
-// Logs written to: logs/app-2026-02-17.log
+var msFactory = LoggerFactory.Create(builder =>
+    builder.AddFile("logs/app-{Date}.log", minimumLevel: LogLevel.Information));
+PlatformServices.Default = new DefaultPlatformServices(register, msFactory.AsFrameworkLoggerFactory());
 ```
+
+#### Migrating From the Old M.E.L.-Direct Configuration
+
+Before this branch, `DefaultPlatformServices` accepted `Microsoft.Extensions.Logging.ILoggerFactory` directly. The signature now takes the framework's own `WinformsMVP.Logging.ILoggerFactory`. Composition-root code needs one extra step:
+
+```csharp
+// Before — M.E.L. factory passed directly
+var msFactory = LoggerFactory.Create(b => b.AddDebug());
+var platform = new DefaultPlatformServices(register, loggerFactory: msFactory);  // no longer compiles
+
+// After (option A) — bridge via the adapter package
+var msFactory = LoggerFactory.Create(b => b.AddDebug());
+var platform = new DefaultPlatformServices(
+    register,
+    loggerFactory: msFactory.AsFrameworkLoggerFactory());
+
+// After (option B) — drop M.E.L. entirely, use the built-in Debug logger
+var platform = new DefaultPlatformServices(
+    register,
+    loggerFactory: new DebugLoggerFactory());
+```
+
+**Presenter code (`Logger.LogInformation(...)`, `Logger.LogError(ex, ...)`) does not change** — the extension method names and placeholder syntax are identical across both abstractions.
 
 #### Testing with Logging
 
-**Using NullLoggerFactory (Default):**
+**Default behaviour (NullLoggerFactory, no output):**
 
 ```csharp
 [Fact]
 public void Test_MyPresenter()
 {
-    // Arrange
-    var mockServices = new MockPlatformServices();  // Uses NullLoggerFactory (no output)
+    // MockPlatformServices initializes LoggerFactory to NullLoggerFactory.Instance.
+    var mockServices = new MockPlatformServices();
     var presenter = new MyPresenter();
     presenter.SetPlatformServices(mockServices);
 
-    // Act
     presenter.AttachView(mockView);
     presenter.Initialize();
 
-    // Assert
-    // Logger calls don't produce output - zero overhead
+    // Logger calls compile and execute but produce no output - zero overhead.
 }
 ```
 
-**Verifying Log Messages:**
+**Verifying log messages with a capturing logger:**
 
 ```csharp
+private class MockLogger : ILogger
+{
+    public List<(LogLevel Level, string Message, Exception Ex)> Entries { get; } = new();
+    public bool IsEnabled(LogLevel level) => true;
+    public void Log(LogLevel level, Exception exception, string message, params object[] args)
+        => Entries.Add((level, MessageFormatter.Format(message, args), exception));
+}
+
+private class MockLoggerFactory : ILoggerFactory
+{
+    public MockLogger Logger { get; } = new MockLogger();
+    public ILogger CreateLogger(string categoryName) => Logger;
+    public ILogger CreateLogger(Type type) => Logger;
+}
+
 [Fact]
 public void OnSave_ShouldLogSuccess()
 {
-    // Arrange
-    var mockLogger = new MockLogger();  // Custom mock that captures log messages
-    var mockLoggerFactory = new MockLoggerFactory(mockLogger);
+    var loggerFactory = new MockLoggerFactory();
+    var platform = new DefaultPlatformServices(null, loggerFactory);
 
-    var platformServices = new DefaultPlatformServices(null, mockLoggerFactory);
     var presenter = new MyPresenter();
-    presenter.SetPlatformServices(platformServices);
-
+    presenter.SetPlatformServices(platform);
     presenter.AttachView(mockView);
     presenter.Initialize();
 
-    // Act
-    presenter.OnSave();
+    presenter.TestDispatcher.Dispatch(CommonActions.Save);
 
-    // Assert
-    Assert.Contains(mockLogger.Messages, m => m.Contains("saved data successfully"));
+    Assert.Contains(loggerFactory.Logger.Entries,
+        e => e.Level == LogLevel.Information && e.Message.Contains("saved"));
 }
 ```
 
-See `src/WinformsMVP.Samples.Tests/LoggingIntegrationTests.cs` for complete test examples.
+See `src/WinformsMVP.Samples.Tests/LoggingIntegrationTests.cs` for the full set of test patterns (mock logger, mock factory, structured-message verification, exception logging).
 
 #### Complete Example
 
-See `src/WinformsMVP.Samples/LoggingDemoExample.cs` for a full working example demonstrating:
+See `src/WinformsMVP.Samples/LoggingDemoExample.cs` for a working example demonstrating:
 - Different log levels (Debug, Information, Warning, Error)
-- Structured logging with parameters
+- Named-placeholder structured logging via `MessageFormatter`
 - Exception logging with context
 - Custom logger factory configuration
-- Cloud logging integration patterns
+- The M.E.L. bridge pattern via `AsFrameworkLoggerFactory()`
 
-#### Key Benefits
+#### Key Properties
 
-| Benefit | Description |
-|---------|-------------|
-| **Structured Data** | Parameterized messages enable powerful querying |
-| **Extensible** | Add providers without changing code |
-| **Testable** | NullLoggerFactory for zero overhead in tests |
-| **Cloud-Ready** | Easy integration with monitoring services |
-| **Performance** | Lazy evaluation, conditional logging |
-| **Ecosystem** | Rich provider library (20+ official providers) |
+| Property | Description |
+|----------|-------------|
+| **net40-compatible** | Main package has no M.E.L. dependency; multi-targets `net40;net48` |
+| **Silent by default** | `NullLoggerFactory.Instance` — no surprise output, no startup cost |
+| **Familiar surface** | Extension method names and placeholder syntax match M.E.L. |
+| **Opt-in ecosystem** | M.E.L. providers light up via the adapter package on net48 |
+| **Testable** | Two-method `ILogger` contract is trivial to mock |
+| **Structured-preserving** | The adapter forwards to M.E.L.'s `Log<TState>` so properties survive |
 
 ### Platform Services Access
 

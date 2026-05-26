@@ -15,7 +15,7 @@ using static WinformsMVP.Samples.LoggingDemoExample;
 namespace WinformsMVP.Samples.Tests
 {
     /// <summary>
-    /// Tests for Microsoft.Extensions.Logging integration
+    /// Tests for WinformsMVP.Logging integration via DefaultPlatformServices.
     /// </summary>
     public class LoggingIntegrationTests
     {
@@ -251,17 +251,14 @@ namespace WinformsMVP.Samples.Tests
         }
 
         [Fact]
-        public void DefaultPlatformServices_WithoutLoggerFactory_ShouldCreateDebugLogger()
+        public void DefaultPlatformServices_WithoutLoggerFactory_ShouldUseNullLoggerFactory()
         {
             // Arrange & Act
             var platformServices = new DefaultPlatformServices();
 
-            // Assert
+            // Assert - default fallback is the silent NullLoggerFactory singleton.
             Assert.NotNull(platformServices.LoggerFactory);
-
-            // Create a logger and verify it works
-            var logger = platformServices.LoggerFactory.CreateLogger("TestCategory");
-            Assert.NotNull(logger);
+            Assert.Same(NullLoggerFactory.Instance, platformServices.LoggerFactory);
         }
 
         [Fact]
