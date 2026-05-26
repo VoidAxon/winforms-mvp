@@ -112,6 +112,18 @@ namespace WinformsMVP.Core.Presenters
                 throw new ArgumentNullException(nameof(view));
 
             View = view;
+
+            // Configure the dispatcher BEFORE OnViewAttached / RegisterViewActions so that:
+            //  - Global middleware (from Platform.ConfigureDispatcher) is registered first,
+            //    ending up outermost in the pipeline.
+            //  - Any local middleware that user code adds inside RegisterViewActions appends
+            //    to the end of the list, ending up innermost.
+            //  - The Logger is wired so subsequent dispatch failures during user code can be
+            //    reported through the presenter's logger.
+            // Sample presenters access the underlying _dispatcher field directly (rather than
+            // the Dispatcher property), so we cannot rely on the property getter to lazy-init.
+            EnsureDispatcherConfigured();
+
             OnViewAttached();
         }
 
@@ -122,19 +134,45 @@ namespace WinformsMVP.Core.Presenters
 
         public Type ViewInterfaceType => typeof(TView);
 
-        private bool _dispatcherLoggerWired;
+        private bool _dispatcherInitialized;
 
         protected ViewActionDispatcher Dispatcher
         {
             get
             {
-                if (!_dispatcherLoggerWired)
-                {
-                    _dispatcher.Logger = Logger;
-                    _dispatcherLoggerWired = true;
-                }
+                // Defensive lazy-init for code paths that access Dispatcher before SetView
+                // (e.g., unit tests that construct a presenter and dispatch without attaching a view).
+                EnsureDispatcherConfigured();
                 return _dispatcher;
             }
+        }
+
+        /// <summary>
+        /// One-shot configuration of the underlying dispatcher: wires the logger and applies
+        /// platform-level <see cref="Services.IPlatformServices.ConfigureDispatcher"/>. Called
+        /// from <see cref="SetView"/> so global middleware is in place before user code in
+        /// <c>RegisterViewActions</c> registers local middleware or action handlers.
+        /// </summary>
+        /// <remarks>
+        /// Order matters and is part of the contract:
+        ///  <list type="number">
+        ///   <item>Wire the logger first so any global middleware that itself logs during
+        ///         configuration sees a non-null logger.</item>
+        ///   <item>Apply global middleware (<c>Platform.ConfigureDispatcher</c>) so it ends
+        ///         up outermost in the pipeline.</item>
+        ///   <item>Mark initialized <b>before</b> calling user callbacks, so reentrant
+        ///         access from inside a configure callback doesn't loop.</item>
+        /// </list>
+        /// Local middleware that user code adds inside <c>RegisterViewActions</c> runs after
+        /// this returns, so it appends to the end of the list and ends up innermost — wrapped
+        /// by global middleware. See <see cref="ViewActionDispatcher"/>.
+        /// </remarks>
+        private void EnsureDispatcherConfigured()
+        {
+            if (_dispatcherInitialized) return;
+            _dispatcherInitialized = true;  // set BEFORE invoking callback (re-entrancy guard)
+            _dispatcher.Logger = Logger;
+            Platform.ConfigureDispatcher?.Invoke(_dispatcher);
         }
 
         /// <summary>

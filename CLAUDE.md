@@ -1231,6 +1231,145 @@ See `src/WinformsMVP.Samples/BulkBindingDemo/` for bulk binding examples:
 
 **Important:** All sample code uses the **ActionBinder property pattern** as the recommended approach. Avoid exposing UI controls (Button, TextBox, etc.) through View interfaces - let the View implementation configure action bindings internally in its constructor via `InitializeActionBindings()`, and expose them through the `ActionBinder` property.
 
+#### Dispatch Middleware Pipeline (Advanced)
+
+`ViewActionDispatcher` exposes an opt-in middleware pipeline for cross-cutting concerns — audit logging, performance measurement, authorization, custom error strategies, and similar things that you don't want to copy-paste into every handler. **Simple presenters need none of this**; the framework's fast path stays zero-overhead until you call `Use(...)`.
+
+##### When NOT to use middleware
+
+| Need | Use this instead |
+|------|------------------|
+| Decide whether one action runs | `canExecute: () => ...` on `Register` |
+| React to a state change after a successful dispatch | `Dispatcher.ActionExecuted` event |
+| Log one specific handler | Put the log call in that handler |
+| Plain CRUD form with no horizontal concerns | Just `Register` + `Dispatch`, skip middleware |
+
+Reach for middleware when the same wrapping code would otherwise repeat across many handlers or many presenters.
+
+##### Mental model: onion
+
+Middleware uses an onion model identical to ASP.NET Core. Each middleware gets `(context, next)`. Code before `next(context)` runs pre-handler; code after (especially in `finally`) runs post-handler, in reverse order. Not calling `next` short-circuits the pipeline — the handler does not run.
+
+```
+Dispatch(Save)
+  ┌─ AuditMiddleware.pre
+  │  ┌─ ErrorDialogMiddleware.try {
+  │  │   ┌─ PerformanceMiddleware (Stopwatch.Start)
+  │  │   │   ┌─ [Handler: OnSave]      ← terminal
+  │  │   │   └─
+  │  │   └─ PerformanceMiddleware (Stopwatch.Stop, log if slow)
+  │  └─ ErrorDialogMiddleware } catch { ShowDialog }
+  └─ AuditMiddleware.post   (writes audit entry, sees ctx.Exception)
+```
+
+##### Two registration tiers
+
+```csharp
+// Global (application-wide) — runs OUTERMOST, no presenter can bypass it.
+// Set on PlatformServices.Default in your composition root:
+PlatformServices.Default = new DefaultPlatformServices(
+    viewMappingRegister: register,
+    loggerFactory: loggerFactory,
+    serviceProvider: null,
+    configureDispatcher: d => d
+        .Use(new AuditMiddleware(auditSink, () => CurrentUser.Name))
+        .Use(new ErrorDialogMiddleware(messages, dispatchLogger)));
+
+// Local (per-presenter) — runs INSIDE the global layer.
+// Add inside RegisterViewActions:
+protected override void RegisterViewActions()
+{
+    _dispatcher.Use(new PerformanceMiddleware(Logger, slowThresholdMs: 50));
+    _dispatcher.Register(CommonActions.Save, OnSave);
+}
+```
+
+The contract is **"global registered first = outermost"**. This is enforced by `PresenterBase.SetView` invoking `Platform.ConfigureDispatcher` before user code in `RegisterViewActions` ever runs. Cross-cutting policies that must not be bypassed (audit, authorization) belong at the global tier.
+
+##### Writing a middleware
+
+Implement `IDispatchMiddleware` for reusable middleware:
+
+```csharp
+public sealed class PerformanceMiddleware : IDispatchMiddleware
+{
+    private readonly ILogger _logger;
+    private readonly int _thresholdMs;
+
+    public PerformanceMiddleware(ILogger logger, int thresholdMs = 100)
+    {
+        _logger = logger ?? NullLogger.Instance;
+        _thresholdMs = thresholdMs;
+    }
+
+    public void Invoke(DispatchContext context, DispatchDelegate next)
+    {
+        var sw = Stopwatch.StartNew();
+        try { next(context); }
+        finally
+        {
+            sw.Stop();
+            if (sw.ElapsedMilliseconds > _thresholdMs)
+                _logger.LogWarning("Slow dispatch: {Action} took {Ms}ms",
+                    context.Action, sw.ElapsedMilliseconds);
+        }
+    }
+}
+```
+
+Or use the inline overload for one-off cases:
+
+```csharp
+_dispatcher.Use((ctx, next) =>
+{
+    if (_isReadOnly && IsDestructive(ctx.Action))
+        return;                 // short-circuit, handler doesn't run
+    next(ctx);
+});
+```
+
+##### `DispatchContext`
+
+The context object exposes only strong-typed properties. There is no `Items` dictionary — middleware that needs per-dispatch state should carry it on its own instance fields. The minimal surface:
+
+| Property | Type | Notes |
+|----------|------|-------|
+| `Action` | `ViewAction` | The action being dispatched |
+| `Payload` | `object` | Read-only — middleware must not "magic-convert" it |
+| `ExpectedPayloadType` | `Type` | `null` for parameterless handlers |
+| `HandlerExecuted` | `bool` | `true` only after the terminal handler completes successfully |
+| `Exception` | `Exception` | Set by the built-in safety net or by middleware that catches |
+
+##### Exception flow
+
+Handler exceptions propagate up through the middleware chain. Middleware can wrap `next(context)` in `try`/`catch` to intercept them directly (e.g. `ErrorDialogMiddleware`). If no middleware catches, the framework's built-in safety net logs the exception and records it on `context.Exception` — same behavior as the fast path. `ActionExecuted` is raised only when the handler ran to completion **and** `context.Exception` is null.
+
+##### What middleware does NOT see
+
+The pipeline runs *after* the dispatcher's precondition checks. Middleware will not be invoked for:
+
+- Action keys with no registered handler
+- Dispatches where `CanExecute` returns `false`
+- Payload type mismatches (e.g. dispatching an `int` to a `Register<string>` handler)
+
+These rejections are logged but never reach the pipeline. If you need to audit "user attempted X but it was disabled", check `CanDispatch` from your own code before calling `Dispatch`.
+
+##### Performance
+
+- **Fast path** (no `Use(...)` ever called): zero allocation, no extra indirection. Existing tests in `ViewActionDispatcherPerformanceTests` assert 1M dispatches complete in well under a second.
+- **Slow path** (any middleware registered): one `DispatchContext` heap allocation per dispatch, plus N delegate calls (N = middleware count). The compiled pipeline is cached on the dispatcher and rebuilt only when new middleware is added.
+- **No reflection, no Expression Trees** — the pipeline is built from plain nested closures, so net40 hosts pay nothing extra.
+
+##### Sample code
+
+See [`src/WinformsMVP.Samples/ViewActionMiddlewareExample.cs`](src/WinformsMVP.Samples/ViewActionMiddlewareExample.cs) for runnable implementations of:
+
+- `AuditMiddleware` — write every dispatch to an audit sink
+- `PerformanceMiddleware` — warn on slow dispatches
+- `ErrorDialogMiddleware` — replace the built-in safety-net catch with user-facing dialogs
+
+Test coverage lives in [`ViewActionDispatcherMiddlewareTests`](src/WinformsMVP.Samples.Tests/ViewActions/ViewActionDispatcherMiddlewareTests.cs), [`PresenterMiddlewareIntegrationTests`](src/WinformsMVP.Samples.Tests/ViewActions/PresenterMiddlewareIntegrationTests.cs), and [`ViewActionDispatcherPerformanceTests`](src/WinformsMVP.Samples.Tests/ViewActions/ViewActionDispatcherPerformanceTests.cs).
+
 ### Navigation System
 
 **WindowNavigator** (`IWindowNavigator`) manages window lifecycle:

@@ -1,4 +1,6 @@
+using System;
 using WinformsMVP.Logging;
+using WinformsMVP.MVP.ViewActions;
 
 namespace WinformsMVP.Services
 {
@@ -35,5 +37,24 @@ namespace WinformsMVP.Services
         /// <c>WinformsMVP.Logging.MicrosoftExtensions</c> adapter package.
         /// </summary>
         ILoggerFactory LoggerFactory { get; }
+
+        /// <summary>
+        /// Optional global configuration hook applied to every presenter's
+        /// <see cref="ViewActionDispatcher"/> on first access. Use this to register
+        /// application-wide middleware (audit, authorization, telemetry) that must
+        /// run for every dispatch in every presenter.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Global middleware is added <b>before</b> any local middleware registered by
+        /// the presenter itself in <c>RegisterViewActions</c>, so the global step always
+        /// wraps (is "outer to") the local steps. Cross-cutting policies that must not
+        /// be bypassed (audit logging, authorization) belong here.
+        /// </para>
+        /// <para>
+        /// Returns <c>null</c> when no global configuration is desired (the default).
+        /// </para>
+        /// </remarks>
+        Action<ViewActionDispatcher> ConfigureDispatcher { get; }
     }
 }

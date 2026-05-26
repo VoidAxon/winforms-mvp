@@ -16,6 +16,15 @@ namespace WinformsMVP.MVP.ViewActions
     /// and the registered <c>Action&lt;T&gt;</c> handler are detected eagerly and logged as warnings,
     /// instead of failing silently.
     /// </para>
+    ///
+    /// <para>
+    /// <b>Middleware:</b> Cross-cutting concerns (audit, performance, authorization, custom error
+    /// strategies) can be layered on top via <see cref="Use(IDispatchMiddleware)"/>. When no
+    /// middleware is registered, <see cref="Dispatch"/> takes a fast path that allocates no
+    /// <see cref="DispatchContext"/> and incurs no additional indirection — simple users pay
+    /// zero overhead. Pipeline compilation is cached and invalidated only when middleware is
+    /// added.
+    /// </para>
     /// </summary>
     public class ViewActionDispatcher
     {
@@ -32,6 +41,12 @@ namespace WinformsMVP.MVP.ViewActions
 
         private readonly Dictionary<ViewAction, ActionHandlerEntry> _handlers = new Dictionary<ViewAction, ActionHandlerEntry>();
         private ILogger _logger = NullLogger.Instance;
+
+        // Middleware pipeline state.
+        // _middlewares is null until the first Use() call — this is the fast-path sentinel.
+        // _compiledPipeline is built lazily on first Dispatch and invalidated when middleware is added.
+        private List<IDispatchMiddleware> _middlewares;
+        private DispatchDelegate _compiledPipeline;
 
         /// <summary>
         /// Logger used to report handler/predicate failures and payload type mismatches.
@@ -102,6 +117,52 @@ namespace WinformsMVP.MVP.ViewActions
         }
 
         /// <summary>
+        /// Adds a middleware to the dispatch pipeline. Middleware runs in registration order
+        /// (first registered = outermost). The registered handler is always the innermost step.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Once any middleware is registered, dispatches take a "slow path" that allocates a
+        /// <see cref="DispatchContext"/> per call. Dispatchers with no middleware retain a
+        /// fully zero-overhead "fast path".
+        /// </para>
+        /// <para>
+        /// Middleware registration does not propagate to dispatches that have already completed;
+        /// the cached pipeline is rebuilt lazily on the next <see cref="Dispatch"/>.
+        /// </para>
+        /// <para>
+        /// Middleware only observes dispatches that pass the <c>CanExecute</c> and payload-type
+        /// preconditions. Dispatches that are rejected at the precondition stage (no handler
+        /// registered, <c>CanExecute</c> returns false, payload type mismatch) never enter the
+        /// pipeline.
+        /// </para>
+        /// </remarks>
+        /// <returns>This dispatcher, to allow chaining.</returns>
+        public ViewActionDispatcher Use(IDispatchMiddleware middleware)
+        {
+            if (middleware == null) throw new ArgumentNullException(nameof(middleware));
+
+            if (_middlewares == null)
+            {
+                _middlewares = new List<IDispatchMiddleware>();
+            }
+            _middlewares.Add(middleware);
+            _compiledPipeline = null;  // invalidate cache; rebuilt on next Dispatch
+            return this;
+        }
+
+        /// <summary>
+        /// Adds an inline middleware as a lambda. Convenience overload of
+        /// <see cref="Use(IDispatchMiddleware)"/>.
+        /// </summary>
+        /// <returns>This dispatcher, to allow chaining.</returns>
+        public ViewActionDispatcher Use(Action<DispatchContext, DispatchDelegate> middleware)
+        {
+            if (middleware == null) throw new ArgumentNullException(nameof(middleware));
+            return Use(new InlineMiddleware(middleware));
+        }
+
+        /// <summary>
         /// Checks if the specified action can be executed.
         /// </summary>
         /// <param name="actionKey">The action key to check</param>
@@ -153,9 +214,28 @@ namespace WinformsMVP.MVP.ViewActions
                 return;
             }
 
+            // Fast path: no middleware registered. Zero allocation, zero indirection.
+            // Behavior here MUST stay equivalent to the slow path with no middleware —
+            // any change to error handling, ActionExecuted timing, etc. must be mirrored
+            // in DispatchThroughPipeline.
+            if (_middlewares == null)
+            {
+                if (TryExecuteHandlerDirect(actionKey, entry, payload))
+                {
+                    ActionExecuted?.Invoke(this, new ActionExecutedEventArgs(actionKey));
+                }
+                return;
+            }
+
+            DispatchThroughPipeline(actionKey, entry, payload);
+        }
+
+        private bool TryExecuteHandlerDirect(ViewAction actionKey, ActionHandlerEntry entry, object payload)
+        {
             try
             {
                 entry.Handler.Execute(payload);
+                return true;
             }
             catch (Exception ex)
             {
@@ -164,10 +244,65 @@ namespace WinformsMVP.MVP.ViewActions
                     "ViewActionDispatcher: handler for {ActionKey} threw {ExceptionType}",
                     actionKey,
                     ex.GetType().Name);
-                return;
+                return false;
+            }
+        }
+
+        private void DispatchThroughPipeline(ViewAction actionKey, ActionHandlerEntry entry, object payload)
+        {
+            // Compile once per dispatcher; invalidated by Use() calls.
+            var pipeline = _compiledPipeline ?? (_compiledPipeline = CompilePipeline());
+
+            var context = new DispatchContext(actionKey, payload, entry.PayloadType, entry.Handler);
+
+            try
+            {
+                pipeline(context);
+            }
+            catch (Exception ex)
+            {
+                // Last-resort safety net: no middleware caught the exception.
+                // Equivalent to the fast path's behavior — log and swallow.
+                _logger.LogError(
+                    ex,
+                    "ViewActionDispatcher: handler for {ActionKey} threw {ExceptionType}",
+                    actionKey,
+                    ex.GetType().Name);
+                context.Exception = ex;
             }
 
-            ActionExecuted?.Invoke(this, new ActionExecutedEventArgs(actionKey));
+            // Only raise ActionExecuted if the handler ran to completion AND no exception
+            // is recorded (either thrown and uncaught, or recorded by a middleware that
+            // chose to absorb it but flag it).
+            if (context.HandlerExecuted && context.Exception == null)
+            {
+                ActionExecuted?.Invoke(this, new ActionExecutedEventArgs(actionKey));
+            }
+        }
+
+        private DispatchDelegate CompilePipeline()
+        {
+            // Terminal step: read the handler off the context and invoke it.
+            // Reading from context (not capturing the per-dispatch entry) lets the compiled
+            // pipeline be cached and reused across all actions registered on this dispatcher.
+            DispatchDelegate next = ctx =>
+            {
+                ctx.Handler.Execute(ctx.Payload);
+                ctx.HandlerExecuted = true;
+            };
+
+            // Build the chain inside-out so that the first-registered middleware ends up
+            // outermost. This means global middleware (applied via PlatformServices.ConfigureDispatcher,
+            // which runs before user code) wraps local middleware (added inside RegisterViewActions).
+            var middlewares = _middlewares;
+            for (int i = middlewares.Count - 1; i >= 0; i--)
+            {
+                var middleware = middlewares[i];
+                var capturedNext = next;
+                next = ctx => middleware.Invoke(ctx, capturedNext);
+            }
+
+            return next;
         }
 
         private bool SafeCanExecute(ViewAction actionKey, ActionHandlerEntry entry)
@@ -210,6 +345,12 @@ namespace WinformsMVP.MVP.ViewActions
         /// Gets all registered action keys (useful for debugging).
         /// </summary>
         public IEnumerable<ViewAction> RegisteredActions => _handlers.Keys;
+
+        /// <summary>
+        /// Number of middleware currently registered. Exposed for tests; users typically
+        /// don't need to query this.
+        /// </summary>
+        internal int MiddlewareCount => _middlewares?.Count ?? 0;
 
         /// <summary>
         /// Raises the CanExecuteChanged event to notify subscribers that CanExecute state may have changed.

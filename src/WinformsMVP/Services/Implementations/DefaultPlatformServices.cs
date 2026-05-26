@@ -1,5 +1,6 @@
 using System;
 using WinformsMVP.Logging;
+using WinformsMVP.MVP.ViewActions;
 
 namespace WinformsMVP.Services.Implementations
 {
@@ -94,6 +95,32 @@ namespace WinformsMVP.Services.Implementations
             IViewMappingRegister viewMappingRegister,
             ILoggerFactory loggerFactory,
             IServiceProvider serviceProvider)
+            : this(viewMappingRegister, loggerFactory, serviceProvider, configureDispatcher: null)
+        {
+        }
+
+        /// <summary>
+        /// Full-fidelity constructor adding an optional global
+        /// <see cref="ViewActionDispatcher"/> configuration hook.
+        /// </summary>
+        /// <param name="viewMappingRegister">View mapping register (creates new one if null).</param>
+        /// <param name="loggerFactory">
+        /// Logger factory; falls back to <see cref="NullLoggerFactory.Instance"/> when null.
+        /// </param>
+        /// <param name="serviceProvider">
+        /// Optional DI container exposed via <see cref="IServiceProvider"/>. See the
+        /// three-argument constructor for the resolution contract.
+        /// </param>
+        /// <param name="configureDispatcher">
+        /// Optional callback invoked against every presenter's
+        /// <see cref="ViewActionDispatcher"/> on first access. Use this to register
+        /// application-wide middleware (audit, authorization, telemetry).
+        /// </param>
+        public DefaultPlatformServices(
+            IViewMappingRegister viewMappingRegister,
+            ILoggerFactory loggerFactory,
+            IServiceProvider serviceProvider,
+            Action<ViewActionDispatcher> configureDispatcher)
         {
             _windowNavigator = new Lazy<IWindowNavigator>(() =>
             {
@@ -106,6 +133,7 @@ namespace WinformsMVP.Services.Implementations
             });
 
             _loggerFactory = new Lazy<ILoggerFactory>(() => loggerFactory ?? NullLoggerFactory.Instance);
+            ConfigureDispatcher = configureDispatcher;
         }
 
         public IDialogProvider DialogProvider => _dialogProvider.Value;
@@ -113,5 +141,6 @@ namespace WinformsMVP.Services.Implementations
         public IFileService FileService => _fileService.Value;
         public IWindowNavigator WindowNavigator => _windowNavigator.Value;
         public ILoggerFactory LoggerFactory => _loggerFactory.Value;
+        public Action<ViewActionDispatcher> ConfigureDispatcher { get; }
     }
 }

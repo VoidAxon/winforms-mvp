@@ -1,4 +1,6 @@
+using System;
 using WinformsMVP.Logging;
+using WinformsMVP.MVP.ViewActions;
 using WinformsMVP.Services;
 
 namespace WinformsMVP.Samples.Tests.Mocks
@@ -38,6 +40,12 @@ namespace WinformsMVP.Samples.Tests.Mocks
         /// Can be replaced with custom factory for logging verification tests.
         /// </summary>
         public ILoggerFactory LoggerFactory { get; set; }
+
+        /// <summary>
+        /// Optional global dispatcher configuration. Tests can set this to verify
+        /// that global middleware is applied to presenter dispatchers correctly.
+        /// </summary>
+        public Action<ViewActionDispatcher> ConfigureDispatcher { get; set; }
 
         /// <summary>
         /// Resets all mock states
