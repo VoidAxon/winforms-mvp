@@ -329,39 +329,59 @@ namespace WinformsMVP.Samples.Tests.Common
         [Fact]
         public void Publish_ConcurrentPublishing_AllMessagesProcessed()
         {
-            // Arrange
-            var aggregator = new EventAggregator();
-            int messageCount = 0;
-            var lockObj = new object();
-
-            aggregator.Subscribe<TestMessage>(msg =>
+            // Two collaborating fixes are needed to make this test deterministic:
+            //
+            // 1. EventAggregator captures SynchronizationContext.Current at construction time.
+            //    Under xUnit the test thread can have a non-null SyncContext that does not
+            //    synchronously drain posted callbacks, so subscriber dispatches from Task.Run
+            //    threads end up queued but never run before the assertion. Construct the
+            //    aggregator under a null SyncContext so all dispatches take the direct path.
+            //
+            // 2. Subscribe holds the subscriber's target via WeakReference only. The closure
+            //    display class is only reachable while the Action delegate itself stays alive,
+            //    so we keep `handler` in a local and GC.KeepAlive it at the end. Without this,
+            //    the subscription can be reaped mid-test and silently drop publishes.
+            var prevSyncContext = SynchronizationContext.Current;
+            SynchronizationContext.SetSynchronizationContext(null);
+            try
             {
-                lock (lockObj)
-                {
-                    messageCount++;
-                }
-            });
+                var aggregator = new EventAggregator();
+                int messageCount = 0;
+                var lockObj = new object();
 
-            const int threadCount = 10;
-            const int messagesPerThread = 100;
-
-            // Act
-            var tasks = new Task[threadCount];
-            for (int i = 0; i < threadCount; i++)
-            {
-                tasks[i] = Task.Run(() =>
+                Action<TestMessage> handler = msg =>
                 {
-                    for (int j = 0; j < messagesPerThread; j++)
+                    lock (lockObj)
                     {
-                        aggregator.Publish(new TestMessage { Value = j });
+                        messageCount++;
                     }
-                });
+                };
+                aggregator.Subscribe(handler);
+
+                const int threadCount = 10;
+                const int messagesPerThread = 100;
+
+                var tasks = new Task[threadCount];
+                for (int i = 0; i < threadCount; i++)
+                {
+                    tasks[i] = Task.Run(() =>
+                    {
+                        for (int j = 0; j < messagesPerThread; j++)
+                        {
+                            aggregator.Publish(new TestMessage { Value = j });
+                        }
+                    });
+                }
+
+                Task.WaitAll(tasks);
+
+                Assert.Equal(threadCount * messagesPerThread, messageCount);
+                GC.KeepAlive(handler);
             }
-
-            Task.WaitAll(tasks);
-
-            // Assert
-            Assert.Equal(threadCount * messagesPerThread, messageCount);
+            finally
+            {
+                SynchronizationContext.SetSynchronizationContext(prevSyncContext);
+            }
         }
 
         [Fact]
@@ -372,6 +392,9 @@ namespace WinformsMVP.Samples.Tests.Common
             const int subscriberCount = 100;
             var counters = new int[subscriberCount];
             var subscriptions = new IDisposable[subscriberCount];
+            // See Publish_ConcurrentPublishing_AllMessagesProcessed for the why: each
+            // handler must outlive its WeakSubscription, so we stash them all here.
+            var handlers = new Action<TestMessage>[subscriberCount];
 
             // Act - Subscribe concurrently
             var tasks = new Task[subscriberCount];
@@ -380,10 +403,8 @@ namespace WinformsMVP.Samples.Tests.Common
                 int index = i; // Capture for closure
                 tasks[i] = Task.Run(() =>
                 {
-                    subscriptions[index] = aggregator.Subscribe<TestMessage>(msg =>
-                    {
-                        Interlocked.Increment(ref counters[index]);
-                    });
+                    handlers[index] = msg => Interlocked.Increment(ref counters[index]);
+                    subscriptions[index] = aggregator.Subscribe(handlers[index]);
                 });
             }
 
@@ -400,6 +421,7 @@ namespace WinformsMVP.Samples.Tests.Common
             {
                 Assert.Equal(1, counters[i]);
             }
+            GC.KeepAlive(handlers);
         }
 
         [Fact]
