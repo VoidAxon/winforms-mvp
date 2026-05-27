@@ -30,7 +30,7 @@ public class ChangeTracker<T> : IChangeTracking, IRevertibleChangeTracking
 | 决策点 | 结论 |
 |--------|------|
 | 泛型约束 | `where T : class, ICloneable` → `where T : class` |
-| 拷贝来源优先级 | 单实例 `cloneFunc` > `source is ICloneable` → `Clone()` > 全局钩子 `ChangeTrackerDefaults.Clone` |
+| 拷贝来源优先级 | `source is ICloneable` → `Clone()` > 全局钩子 `ChangeTrackerDefaults.Clone` |
 | 比较来源优先级 | 单实例 `comparer` > 值相等性(`IEquatable`/`IComparable`/`Equals` 重写) > 全局钩子 `ChangeTrackerDefaults.Equals` |
 | 全局钩子 | 非泛型静态类 `ChangeTrackerDefaults`,两个 `Func` 委托,默认指向内置引擎,可一行替换 |
 | 内置默认引擎 | **缓存反射**深拷贝/深比较(务实档,处理循环引用) |
@@ -87,9 +87,8 @@ ChangeTrackerDefaults.Equals = (a, b) => MyDeepComparer.Equals(a, b);
 **拷贝解析(`_clone`)**
 
 ```
-1. 若构造传入 cloneFunc(新增可选参数)         → 用它
-2. 否则若 initialValue is ICloneable           → x => (T)((ICloneable)x).Clone()
-3. 否则                                          → x => (T)ChangeTrackerDefaults.Clone(x)
+1. 若 initialValue is ICloneable                → x => (T)((ICloneable)x).Clone()
+2. 否则                                          → x => (T)ChangeTrackerDefaults.Clone(x)
 ```
 
 **比较解析(`_comparer`)**
@@ -104,17 +103,13 @@ ChangeTrackerDefaults.Equals = (a, b) => MyDeepComparer.Equals(a, b);
 
 所有原先直接调用 `initialValue.Clone()`、`_currentValue.Clone()`、`EqualityHelper.Equals(...)` 的位置改为调用解析出来的 `_clone` / `_comparer`。
 
-### 3.4 新增构造重载
+### 3.4 构造函数(保持不变)
 
-在不破坏现有签名的前提下新增 `cloneFunc` 可选参数:
+两个现有构造原样保留,本次不新增任何构造重载:
 
 ```csharp
-// 现有(保留)
 public ChangeTracker(T initialValue, Func<T, T, bool> comparer = null)
 public ChangeTracker(T initialValue, IEqualityComparer<T> comparer)
-
-// 新增:允许同时显式指定拷贝与比较
-public ChangeTracker(T initialValue, Func<T, T> cloneFunc, Func<T, T, bool> comparer = null)
 ```
 
 ### 3.5 内置缓存反射引擎(务实档)
@@ -148,7 +143,7 @@ public static class ObjectComparer
 | `IDictionary` | 反射建新实例 + 逐键值深拷贝 | `Count` 一致 + 逐键值深比较 |
 | 其它 POCO(引用类型) | `FormatterServices.GetUninitializedObject` + 逐**字段**深拷贝 | 逐**字段**递归深比较 |
 | 委托 / 事件(`Delegate` 派生) | 跳过(拷贝中置 null) | 忽略 |
-| 真正不支持(`IntPtr`、`Stream`、指针、句柄类) | 抛 `NotSupportedException`,提示「请实现 `ICloneable`、或传 `cloneFunc`、或替换 `ChangeTrackerDefaults.Clone`」 | 同左 |
+| 真正不支持(`IntPtr`、`Stream`、指针、句柄类) | 抛 `NotSupportedException`,提示「请实现 `ICloneable`、或替换 `ChangeTrackerDefaults.Clone`(可接第三方深拷贝库)」 | 同左 |
 
 **实现要点**
 
@@ -199,7 +194,6 @@ public static class ObjectComparer
 - 叶子节点尊重 `Equals`/`IEquatable` 重写。
 
 **`ChangeTracker<T>` 优先级**
-- 传 `cloneFunc` 覆盖 `ICloneable`。
 - 实现 `ICloneable` 时不走全局钩子(可用计数 spy 钩子验证)。
 - 替换 `ChangeTrackerDefaults.Clone/.Equals` 后生效。
 - 传 `comparer` 覆盖值相等性与钩子。
@@ -214,6 +208,7 @@ public static class ObjectComparer
 ## 7. 明确不做(YAGNI)
 
 - 不引入 `IDeepCloneProvider`/`IDeepEqualityProvider` 接口 + facade + provider 替换那层抽象(`Func` 钩子已覆盖可扩展性)。
+- 不新增 per-instance `cloneFunc` 构造参数(零使用;`ICloneable`(per-type) + 全局钩子(per-app)已覆盖拷贝定制。per-instance 自定义**比较**有真实需求故保留 `comparer`,自定义**拷贝**无,二者不对称是 YAGNI 的合理结果)。
 - 不自建表达式树/IL 编译引擎(钩子外挂第三方库即可)。
 - 不支持值类型 `T`(维持 `class` 约束)。
 - 不支持 `BinaryFormatter`/`DataContractSerializer` 作为默认(前者需 `[Serializable]` + 安全告警;后者只拷公共属性、丢 private/只读状态,对变更追踪不安全)。如需要,用户可自行把序列化实现接到钩子上。
