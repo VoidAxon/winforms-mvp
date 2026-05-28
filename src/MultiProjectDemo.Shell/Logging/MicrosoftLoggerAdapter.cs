@@ -2,14 +2,21 @@ using System;
 using Ms = Microsoft.Extensions.Logging;
 using Fx = WinformsMVP.Logging;
 
-namespace WinformsMVP.Logging.MicrosoftExtensions
+namespace MultiProjectDemo.Shell.Logging
 {
     /// <summary>
-    /// Adapts a <see cref="Ms.ILogger"/> instance so it can be consumed wherever the
-    /// framework expects a <see cref="Fx.ILogger"/>. Forwarding preserves
-    /// <c>Microsoft.Extensions.Logging</c>'s formatter pipeline, so structured
-    /// properties, scopes, and providers all work as configured upstream.
+    /// Application-level adapter that bridges <see cref="Ms.ILogger"/> to the
+    /// framework's <see cref="Fx.ILogger"/> contract. This is NOT framework code —
+    /// the WinformsMVP framework intentionally has zero dependency on
+    /// Microsoft.Extensions.Logging so it can multi-target net40/net48. A real host
+    /// application that wants the M.E.L. ecosystem (Debug, Console, Application
+    /// Insights, Seq, Serilog, ...) writes this ~30-line adapter once and is done.
     /// </summary>
+    /// <remarks>
+    /// Forwarding via <see cref="Ms.LoggerExtensions"/> preserves M.E.L.'s formatter
+    /// pipeline, so structured properties, scopes, and providers configured upstream
+    /// flow through unchanged.
+    /// </remarks>
     public sealed class MicrosoftLoggerAdapter : Fx.ILogger
     {
         private readonly Ms.ILogger _inner;
@@ -23,10 +30,6 @@ namespace WinformsMVP.Logging.MicrosoftExtensions
 
         public void Log(Fx.LogLevel level, Exception exception, string message, params object[] args)
         {
-            // Microsoft.Extensions.Logging's ILogger.Log<TState>(...) extension methods
-            // (LogInformation, LogError, ...) ultimately call the same overload; reusing
-            // the extension keeps message-template parsing and structured property
-            // capture identical to native M.E.L. callers.
             var msLevel = MapLevel(level);
             if (exception == null)
             {

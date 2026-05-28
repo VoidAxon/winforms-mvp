@@ -2,11 +2,12 @@ using System;
 using Ms = Microsoft.Extensions.Logging;
 using Fx = WinformsMVP.Logging;
 
-namespace WinformsMVP.Logging.MicrosoftExtensions
+namespace MultiProjectDemo.Shell.Logging
 {
     /// <summary>
-    /// Adapts a <see cref="Ms.ILoggerFactory"/> so it can be passed to
-    /// <c>DefaultPlatformServices</c> as a <see cref="Fx.ILoggerFactory"/>.
+    /// Adapts an <see cref="Ms.ILoggerFactory"/> so it can be passed to
+    /// <c>DefaultPlatformServices</c> wherever a <see cref="Fx.ILoggerFactory"/>
+    /// is expected. Companion to <see cref="MicrosoftLoggerAdapter"/>.
     /// </summary>
     public sealed class MicrosoftLoggerFactoryAdapter : Fx.ILoggerFactory
     {

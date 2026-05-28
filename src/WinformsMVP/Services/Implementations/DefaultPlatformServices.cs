@@ -13,8 +13,9 @@ namespace WinformsMVP.Services.Implementations
     /// abstraction. When no <see cref="ILoggerFactory"/> is supplied, logging falls back to
     /// <see cref="NullLoggerFactory.Instance"/> — i.e. no output. Host applications that want
     /// concrete providers (Debug, Console, Application Insights, Seq, ...) either implement
-    /// <see cref="ILogger"/> themselves or bridge Microsoft.Extensions.Logging via the
-    /// <c>WinformsMVP.Logging.MicrosoftExtensions</c> adapter package.
+    /// <see cref="ILogger"/> themselves or write a small adapter for an existing ecosystem
+    /// (see <c>MultiProjectDemo.Shell/Logging/</c> in the sample solution for a
+    /// Microsoft.Extensions.Logging bridge in ~30 lines).
     /// </remarks>
     /// <example>
     /// <code>
@@ -22,12 +23,6 @@ namespace WinformsMVP.Services.Implementations
     /// PlatformServices.Default = new DefaultPlatformServices(
     ///     viewMappingRegister: register,
     ///     loggerFactory: new DebugLoggerFactory());
-    ///
-    /// // Or bridge Microsoft.Extensions.Logging (requires the adapter package):
-    /// var msFactory = LoggerFactory.Create(b => b.AddDebug());
-    /// PlatformServices.Default = new DefaultPlatformServices(
-    ///     viewMappingRegister: register,
-    ///     loggerFactory: msFactory.AsFrameworkLoggerFactory());
     /// </code>
     /// </example>
     public class DefaultPlatformServices : IPlatformServices

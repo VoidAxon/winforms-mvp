@@ -347,7 +347,7 @@ if (result.IsSuccess) { ... }
 
 ### 📊 Structured Logging
 
-Built-in logging using **Microsoft.Extensions.Logging** - the same industry-standard abstraction used by ASP.NET Core:
+Built-in logging with a minimal in-house abstraction (`WinformsMVP.Logging.ILogger`) whose API mirrors **Microsoft.Extensions.Logging** — call sites read identically, and a ~30-line application-level adapter forwards to M.E.L. when you want its provider ecosystem. The main package has **zero external dependencies** so it multi-targets `net40;net48`.
 
 ```csharp
 public class MyPresenter : WindowPresenterBase<IMyView>
@@ -375,30 +375,41 @@ public class MyPresenter : WindowPresenterBase<IMyView>
 
 **Key Benefits:**
 - ✅ **Structured data** - Parameterized messages enable powerful querying in log aggregation systems
-- ✅ **Extensible** - Rich ecosystem of providers (Debug, Console, File, Application Insights, Seq, Elasticsearch)
-- ✅ **Cloud-ready** - Easy integration with Azure Monitor, AWS CloudWatch, etc.
+- ✅ **Extensible** - Bridge to M.E.L. providers (Debug, Console, File, Application Insights, Seq, Elasticsearch) via a small application-level adapter
+- ✅ **net40-compatible** - Main package is BCL-only; works on .NET Framework 4.0
 - ✅ **Testable** - NullLoggerFactory for zero overhead in tests
-- ✅ **Zero learning curve** - If you know ILogger, you already know how to use it
+- ✅ **Familiar surface** - If you know `ILogger`, you already know how to use it
 
 **Custom Configuration:**
+
+The simplest setup uses the built-in `DebugLoggerFactory` (zero external dependencies, works on net40):
+
 ```csharp
-// Program.cs - Configure logging provider
-var loggerFactory = LoggerFactory.Create(builder =>
-{
-    builder
-        .AddDebug()                              // Visual Studio Output window
-        .SetMinimumLevel(LogLevel.Information);  // Only log Info and above
+// Program.cs
+using WinformsMVP.Logging;
+using WinformsMVP.Services.Implementations;
 
-    // Add cloud providers:
-    // builder.AddApplicationInsights(config);   // Azure
-    // builder.AddSeq("http://localhost:5341");  // Seq
-});
-
-var platformServices = new DefaultPlatformServices(null, loggerFactory);
-PlatformServices.Default = platformServices;
+PlatformServices.Default = new DefaultPlatformServices(
+    viewMappingRegister: null,
+    loggerFactory: new DebugLoggerFactory());
 ```
 
-See [`LoggingDemoExample.cs`](src/WinformsMVP.Samples/LoggingDemoExample.cs) for a complete working example.
+To plug into the Microsoft.Extensions.Logging ecosystem (net48 only), copy the ~30-line adapter from [`MultiProjectDemo.Shell/Logging/`](src/MultiProjectDemo.Shell/Logging/) into your composition root, then:
+
+```csharp
+var msFactory = LoggerFactory.Create(builder =>
+{
+    builder.AddDebug();
+    // .AddApplicationInsights(config);   // Azure
+    // .AddSeq("http://localhost:5341");  // Seq
+});
+
+PlatformServices.Default = new DefaultPlatformServices(
+    viewMappingRegister: null,
+    loggerFactory: msFactory.AsFrameworkLoggerFactory());  // your adapter's extension
+```
+
+See [`LoggingDemoExample.cs`](src/WinformsMVP.Samples/LoggingDemoExample.cs) and [`MultiProjectDemo.Shell/`](src/MultiProjectDemo.Shell/) for complete working examples.
 
 ### 🎨 Flexible Dependency Injection
 
@@ -727,12 +738,12 @@ The repository includes comprehensive examples:
 - Multiple async operation patterns
 
 ### 📊 [Logging Demo](src/WinformsMVP.Samples/LoggingDemoExample.cs) **NEW!**
-- Microsoft.Extensions.Logging integration
+- In-house `WinformsMVP.Logging.ILogger` abstraction (M.E.L.-compatible API, zero external deps)
 - Different log levels (Debug, Information, Warning, Error)
 - Structured logging with parameters
 - Exception logging with context
 - Custom logger factory configuration
-- Cloud logging integration patterns (Application Insights, Seq)
+- Microsoft.Extensions.Logging bridge via an application-level adapter — see [`MultiProjectDemo.Shell/Logging/`](src/MultiProjectDemo.Shell/Logging/) for a runnable Application Insights / Seq / Serilog setup
 - Testing with NullLoggerFactory
 
 ---
