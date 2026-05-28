@@ -7,14 +7,17 @@ using WinformsMVP.Common.Internal;
 namespace WinformsMVP.Common
 {
     /// <summary>
-    /// 务实档反射深拷贝。既是 <see cref="ChangeTrackerDefaults"/> 的默认实现,也可直接调用。
+    /// Pragmatic reflection-based deep copy. Serves as the default implementation for
+    /// <see cref="ChangeTrackerDefaults"/> and can also be called directly.
     /// </summary>
     /// <remarks>
-    /// 显式支持的集合:单维数组、<see cref="IList"/>(如 List&lt;T&gt;)、<see cref="IDictionary"/>
-    /// (如 Dictionary&lt;K,V&gt;),均按结构逐元素深拷贝。其它 <see cref="IEnumerable"/> 集合
-    /// (如 HashSet&lt;T&gt;、Queue&lt;T&gt;)不在显式支持清单内,会回退到逐字段 POCO 拷贝——
-    /// 在 net40/net48 上可用,但若需要保证语义请实现 <see cref="ICloneable"/> 或替换
-    /// <see cref="ChangeTrackerDefaults.Cloner"/>。
+    /// Explicitly supported collections: single-dimensional arrays, <see cref="IList"/>
+    /// (e.g. List&lt;T&gt;), and <see cref="IDictionary"/> (e.g. Dictionary&lt;K,V&gt;) —
+    /// all deep-copied element by element. Other <see cref="System.Collections.IEnumerable"/>
+    /// collections (e.g. HashSet&lt;T&gt;, Queue&lt;T&gt;) are not explicitly supported and
+    /// fall back to field-by-field POCO copy — usable on net40/net48, but for guaranteed
+    /// semantics implement <see cref="ICloneable"/> or replace
+    /// <see cref="ChangeTrackerDefaults.Cloner"/>.
     /// </remarks>
     public static class ObjectCloner
     {
@@ -33,15 +36,15 @@ namespace WinformsMVP.Common
             var type = source.GetType();
 
             if (DeepReflection.IsImmutable(type)) return source;
-            if (source is Delegate) return null;                       // 跳过委托/事件
+            if (source is Delegate) return null;                       // skip delegates / events
 
             object existing;
             if (visited.TryGetValue(source, out existing)) return existing;
 
             if (type.IsArray) return CopyArray((Array)source, type, visited);
 
-            // 数组已在上面处理(Array 实现了 ICloneable 但 Clone() 是浅拷贝,必须排除)。
-            // ICloneable 节点被信任会自行进行深拷贝(由其 Clone() 负责)。
+            // Arrays are handled above (Array implements ICloneable but Clone() is shallow — must be excluded).
+            // ICloneable nodes are trusted to perform their own deep copy via Clone().
             var cloneable = source as ICloneable;
             if (cloneable != null)
             {

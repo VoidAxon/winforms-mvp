@@ -9,7 +9,8 @@ using System.Runtime.InteropServices;
 namespace WinformsMVP.Common.Internal
 {
     /// <summary>
-    /// 深拷贝/深比较引擎共享的反射工具:类型分类、字段缓存、引用相等比较器。
+    /// Shared reflection utilities for the deep-copy and deep-comparison engines:
+    /// type classification, field caching, and a reference-equality comparer.
     /// </summary>
     internal static class DeepReflection
     {
@@ -22,7 +23,7 @@ namespace WinformsMVP.Common.Internal
         private static readonly ConcurrentDictionary<Type, bool> CustomEqualsCache
             = new ConcurrentDictionary<Type, bool>();
 
-        /// <summary>不可变(叶子)类型:拷贝时原样返回,比较时用 Equals。</summary>
+        /// <summary>Immutable (leaf) types: returned as-is during copy, compared with Equals.</summary>
         internal static bool IsImmutable(Type type)
         {
             return ImmutableCache.GetOrAdd(type, t =>
@@ -36,7 +37,7 @@ namespace WinformsMVP.Common.Internal
                 || t == typeof(Guid));
         }
 
-        /// <summary>无法安全反射拷贝/比较的类型:抛 NotSupportedException。</summary>
+        /// <summary>Types that cannot be safely copied or compared via reflection; throws <see cref="System.NotSupportedException"/>.</summary>
         internal static bool IsUnsupported(Type type)
         {
             return type.IsPointer
@@ -45,7 +46,7 @@ namespace WinformsMVP.Common.Internal
                 || typeof(SafeHandle).IsAssignableFrom(type);
         }
 
-        /// <summary>类型是否有「有意义的相等语义」(IEquatable&lt;T&gt; 或重写了 Equals(object))。</summary>
+        /// <summary>Returns whether the type has meaningful equality semantics (implements <see cref="System.IEquatable{T}"/> or overrides <c>Equals(object)</c>).</summary>
         internal static bool HasCustomEquals(Type type)
         {
             return CustomEqualsCache.GetOrAdd(type, t =>
@@ -60,7 +61,7 @@ namespace WinformsMVP.Common.Internal
             });
         }
 
-        /// <summary>收集类型及其基类的全部实例字段(含 private),按类型缓存。</summary>
+        /// <summary>Collects all instance fields (including private) from a type and its base classes, cached per type.</summary>
         internal static FieldInfo[] GetFields(Type type)
         {
             return FieldCache.GetOrAdd(type, t =>
@@ -76,7 +77,7 @@ namespace WinformsMVP.Common.Internal
             });
         }
 
-        /// <summary>按引用相等做 Key 的比较器(用于循环引用检测)。net40 无内置版本。</summary>
+        /// <summary>An equality comparer that uses reference identity as the key (used for cycle detection). No built-in equivalent exists in net40.</summary>
         internal sealed class ReferenceEqualityComparer : IEqualityComparer<object>
         {
             internal static readonly ReferenceEqualityComparer Instance = new ReferenceEqualityComparer();

@@ -81,7 +81,7 @@ namespace WinformsMVP.Samples.Tests.Common
             Assert.True(ObjectComparer.DeepEquals(a, b));
 
             b.Items[0].Name = "different";
-            Assert.False(ObjectComparer.DeepEquals(a, b));   // 集合内嵌套差异
+            Assert.False(ObjectComparer.DeepEquals(a, b));   // difference nested inside a collection
         }
 
         [Fact]
@@ -101,7 +101,7 @@ namespace WinformsMVP.Samples.Tests.Common
             var a = new HasDelegate { Name = "n", Handler = () => { } };
             var b = new HasDelegate { Name = "n", Handler = () => { } };
 
-            Assert.True(ObjectComparer.DeepEquals(a, b));   // 委托被忽略,只比 Name
+            Assert.True(ObjectComparer.DeepEquals(a, b));   // delegates are ignored; only Name is compared
         }
 
         [Fact]

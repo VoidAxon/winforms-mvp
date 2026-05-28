@@ -7,7 +7,7 @@ namespace WinformsMVP.Samples.Tests.Common
 {
     public class ObjectClonerTests
     {
-        // 纯 POCO:无 ICloneable、无 Equals 重写。用自动属性,证明按 backing field 拷贝。
+        // Plain POCO: no ICloneable, no Equals override. Uses auto-properties to verify that backing fields are copied.
         private class PlainPoco
         {
             public int Id { get; set; }
@@ -41,7 +41,7 @@ namespace WinformsMVP.Samples.Tests.Common
             Assert.Equal("orig", copy.Name);
 
             copy.Name = "changed";
-            Assert.Equal("orig", src.Name);   // 改副本不影响原对象
+            Assert.Equal("orig", src.Name);   // mutating the copy must not affect the original
         }
 
         private class Parent
@@ -123,14 +123,14 @@ namespace WinformsMVP.Samples.Tests.Common
             var a = new Node { Name = "a" };
             var b = new Node { Name = "b" };
             a.Next = b;
-            b.Next = a;   // 环
+            b.Next = a;   // cycle
 
             var copyA = ObjectCloner.DeepCopy(a);
 
             Assert.NotSame(a, copyA);
             Assert.Equal("a", copyA.Name);
             Assert.Equal("b", copyA.Next.Name);
-            Assert.Same(copyA, copyA.Next.Next);   // 环被保留为副本内部的环
+            Assert.Same(copyA, copyA.Next.Next);   // cycle is preserved within the copy
         }
 
         [Fact]
@@ -140,7 +140,7 @@ namespace WinformsMVP.Samples.Tests.Common
 
             var copy = ObjectCloner.DeepCopy(src);
 
-            Assert.True(copy.Cloned);   // 走了 ICloneable.Clone() 而非反射
+            Assert.True(copy.Cloned);   // ICloneable.Clone() was used, not reflection
             Assert.Equal("t", copy.Tag);
         }
 
@@ -152,7 +152,7 @@ namespace WinformsMVP.Samples.Tests.Common
             var copy = ObjectCloner.DeepCopy(src);
 
             Assert.Equal("n", copy.Name);
-            Assert.Null(copy.Handler);   // 委托被跳过
+            Assert.Null(copy.Handler);   // delegate field is skipped
         }
 
         [Fact]

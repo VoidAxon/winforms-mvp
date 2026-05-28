@@ -7,8 +7,9 @@ using WinformsMVP.Common.Internal;
 namespace WinformsMVP.Common
 {
     /// <summary>
-    /// 务实档反射深比较。既是 <see cref="ChangeTrackerDefaults"/> 的默认实现,也可直接调用。
-    /// 叶子节点尊重 Equals/IEquatable;集合按结构比较;循环引用安全。
+    /// Pragmatic reflection-based deep comparison. Serves as the default implementation for
+    /// <see cref="ChangeTrackerDefaults"/> and can also be called directly.
+    /// Leaf nodes respect Equals/IEquatable; collections are compared structurally; cycle-safe.
     /// </summary>
     public static class ObjectComparer
     {
@@ -30,7 +31,7 @@ namespace WinformsMVP.Common
             if (DeepReflection.IsImmutable(type) || DeepReflection.HasCustomEquals(type))
                 return a.Equals(b);
 
-            if (a is Delegate) return true;   // 忽略委托/事件
+            if (a is Delegate) return true;   // ignore delegates / events
 
             var pair = new RefPair(a, b);
             if (visited.Contains(pair)) return true;
@@ -67,7 +68,7 @@ namespace WinformsMVP.Common
             if (a.Count != b.Count) return false;
             foreach (DictionaryEntry entry in a)
             {
-                if (!b.Contains(entry.Key)) return false;          // 键用字典自身相等(务实档:键通常不可变)
+                if (!b.Contains(entry.Key)) return false;          // key equality delegated to the dictionary itself (pragmatic: keys are usually immutable)
                 if (!AreEqual(entry.Value, b[entry.Key], visited)) return false;
             }
             return true;
