@@ -29,6 +29,10 @@ namespace WinformsMVP.Samples.Tests.Common
             Assert.True(ChangeTrackerDefaults.Comparer(
                 new PlainPoco { Id = 1, Name = "x" },
                 new PlainPoco { Id = 1, Name = "x" }));
+
+            Assert.False(ChangeTrackerDefaults.Comparer(
+                new PlainPoco { Id = 1, Name = "x" },
+                new PlainPoco { Id = 1, Name = "y" }));
         }
 
         [Fact]
@@ -49,6 +53,39 @@ namespace WinformsMVP.Samples.Tests.Common
             {
                 ChangeTrackerDefaults.Cloner = original;   // restore global state
             }
+        }
+
+        [Fact]
+        public void Comparer_CanBeReplaced()
+        {
+            var original = ChangeTrackerDefaults.Comparer;
+            try
+            {
+                var called = false;
+                ChangeTrackerDefaults.Comparer = (a, b) => { called = true; return original(a, b); };
+
+                var equal = ChangeTrackerDefaults.Comparer(
+                    new PlainPoco { Id = 1, Name = "x" },
+                    new PlainPoco { Id = 1, Name = "x" });
+                var notEqual = ChangeTrackerDefaults.Comparer(
+                    new PlainPoco { Id = 1, Name = "x" },
+                    new PlainPoco { Id = 1, Name = "y" });
+
+                Assert.True(called);
+                Assert.True(equal);
+                Assert.False(notEqual);
+            }
+            finally
+            {
+                ChangeTrackerDefaults.Comparer = original;
+            }
+        }
+
+        [Fact]
+        public void Setters_RejectNull()
+        {
+            Assert.Throws<ArgumentNullException>(() => ChangeTrackerDefaults.Cloner = null);
+            Assert.Throws<ArgumentNullException>(() => ChangeTrackerDefaults.Comparer = null);
         }
     }
 

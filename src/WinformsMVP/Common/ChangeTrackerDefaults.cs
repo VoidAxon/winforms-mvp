@@ -3,37 +3,44 @@ using System;
 namespace WinformsMVP.Common
 {
     /// <summary>
-    /// Global deep-clone and deep-compare hooks used by <see cref="ChangeTracker{T}"/> when the
-    /// model type does not implement <see cref="ICloneable"/> or value equality.
+    /// Global deep-copy and deep-compare hook used by <see cref="ChangeTracker{T}"/> when the
+    /// model does not implement <see cref="ICloneable"/> or provide value equality.
+    /// Defaults point to the built-in reflection engines (<see cref="ObjectCloner"/> and
+    /// <see cref="ObjectComparer"/>); replace once at application startup to plug in a
+    /// third-party deep-copy library, for example:
+    /// <code>ChangeTrackerDefaults.Cloner = o => o.DeepClone();   // Force.DeepCloner</code>
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// Both properties default to the built-in caching reflection engine
-    /// (<see cref="ObjectCloner.DeepCopy"/> and <see cref="ObjectComparer.DeepEquals"/>).
-    /// </para>
-    /// <para>
-    /// To plug in a third-party library, assign the hook once at application startup:
-    /// <code>ChangeTrackerDefaults.Cloner = o => o.DeepClone();   // e.g. Force.DeepCloner</code>
-    /// </para>
-    /// <para>
-    /// Write access is not thread-safe. Set these properties once during startup before
-    /// any <see cref="ChangeTracker{T}"/> instances are created.
-    /// </para>
+    /// Writes are NOT thread-safe; set these properties once during application bootstrap.
+    /// Setters reject <c>null</c> to surface configuration mistakes immediately.
     /// </remarks>
     public static class ChangeTrackerDefaults
     {
-        /// <summary>
-        /// Factory delegate that produces a deep copy of the supplied object.
-        /// The argument and return value are both typed as <see cref="object"/> so the hook
-        /// is independent of the generic type parameter on <see cref="ChangeTracker{T}"/>.
-        /// </summary>
-        public static Func<object, object> Cloner { get; set; } = ObjectCloner.DeepCopy;
+        private static Func<object, object> _cloner = ObjectCloner.DeepCopy;
+        private static Func<object, object, bool> _comparer = ObjectComparer.DeepEquals;
 
-        /// <summary>
-        /// Predicate delegate that returns <c>true</c> when two object graphs are structurally equal.
-        /// The arguments are typed as <see cref="object"/> so the hook is independent of the
-        /// generic type parameter on <see cref="ChangeTracker{T}"/>.
-        /// </summary>
-        public static Func<object, object, bool> Comparer { get; set; } = ObjectComparer.DeepEquals;
+        /// <summary>Deep-copy hook. Defaults to <see cref="ObjectCloner.DeepCopy(object)"/>.</summary>
+        public static Func<object, object> Cloner
+        {
+            get { return _cloner; }
+            set
+            {
+                if (value == null)
+                    throw new ArgumentNullException(nameof(value), "ChangeTrackerDefaults.Cloner must not be null.");
+                _cloner = value;
+            }
+        }
+
+        /// <summary>Deep-compare hook. Defaults to <see cref="ObjectComparer.DeepEquals(object, object)"/>.</summary>
+        public static Func<object, object, bool> Comparer
+        {
+            get { return _comparer; }
+            set
+            {
+                if (value == null)
+                    throw new ArgumentNullException(nameof(value), "ChangeTrackerDefaults.Comparer must not be null.");
+                _comparer = value;
+            }
+        }
     }
 }
