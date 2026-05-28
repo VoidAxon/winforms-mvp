@@ -3358,62 +3358,23 @@ public void OnOpenFile_WhenUserCancels_DoesNotLoadFile()
 
 **ChangeTracker<T>** (`WinformsMVP.Common.ChangeTracker`) は編集/キャンセルシナリオのための堅牢な変更追跡を提供します。`IChangeTracking`および`IRevertibleChangeTracking`インターフェースを実装しています。
 
-**重要な要件：**
+**型制約:** `where T : class`(参照型のみ)。`ICloneable` の実装は **任意**(必須ではありません)。
 
-ChangeTracker<T> を使用する型は `ICloneable` を実装し、**必ず深いコピー（ディープコピー）**を返す必要があります。
+**スナップショット(複製)の解決順序:**
+1. T が `ICloneable` を実装 → その `Clone()` を使用(高速パス、推奨)
+2. 未実装 → グローバルフック `ChangeTrackerDefaults.Cloner`(既定 = 組み込みリフレクション深いコピー `ObjectCloner`)
 
-**深いコピーの実装：**
+**比較の解決順序:**
+1. コンストラクタに渡した `comparer` → それを使用
+2. T が値等価性(`IEquatable<T>`/`IComparable<T>`/`Equals` オーバーライド)を持つ → それを使用
+3. いずれも無い → グローバルフック `ChangeTrackerDefaults.Comparer`(既定 = リフレクション深い比較)
 
+**第三者ライブラリの差し込み(起動時に一度だけ):**
 ```csharp
-public class UserModel : ICloneable
-{
-    public int Id { get; set; }
-    public string Name { get; set; }
-    public Address Address { get; set; }
-
-    // ✅ 正しい実装（深いコピー）
-    public object Clone()
-    {
-        return new UserModel
-        {
-            Id = this.Id,
-            Name = this.Name,
-            Address = this.Address?.Clone() as Address  // ネストされたオブジェクトも深くコピー
-        };
-    }
-}
-
-public class Address : ICloneable
-{
-    public string City { get; set; }
-
-    public object Clone()
-    {
-        return new Address { City = this.City };
-    }
-}
+ChangeTrackerDefaults.Cloner = o => o.DeepClone();   // 例: Force.DeepCloner
 ```
 
-**❌ 誤った実装（浅いコピー - 使用禁止）：**
-
-```csharp
-// ❌ NG: MemberwiseClone は浅いコピー
-public object Clone()
-{
-    return this.MemberwiseClone();  // 参照型プロパティは共有される！
-}
-
-// ❌ NG: ネストされたオブジェクトを深くコピーしていない
-public object Clone()
-{
-    return new UserModel
-    {
-        Id = this.Id,
-        Name = this.Name,
-        Address = this.Address  // 同じAddressインスタンスを共有！
-    };
-}
-```
+> **動作変更の注意:** `Equals` を override していないモデルは、旧実装では構築直後に `IsChanged == true`(参照比較によるバグ)でしたが、新実装ではリフレクション深い比較により正しく判定されます。`ICloneable`+`Equals` を実装済みのモデルは挙動不変です。
 
 **ChangeTrackerの使用：**
 
@@ -3538,7 +3499,7 @@ Console.WriteLine(tracker.CurrentValue.Address.City);  // "Osaka" (期待値: "T
 4. **検証サポート**
    ```csharp
    // カスタム検証ロジック（派生クラスで実装）
-   public class ValidatedChangeTracker<T> : ChangeTracker<T> where T : class, ICloneable
+   public class ValidatedChangeTracker<T> : ChangeTracker<T> where T : class
    {
        public override bool CanAcceptChanges(out string error)
        {

@@ -7,48 +7,41 @@ namespace WinformsMVP.Common
 {
     /// <summary>
     /// Tracks changes to an object of type T and allows accepting or rejecting changes.
-    /// T must be a reference type (class) and cloneable (ICloneable).
+    /// T must be a reference type (class).
     /// </summary>
-    /// <typeparam name="T">The type to track. Must be a reference type and implement ICloneable.</typeparam>
+    /// <typeparam name="T">The type to track. Must be a reference type.</typeparam>
     /// <remarks>
     /// <para>
-    /// <strong>Important:</strong> The ICloneable.Clone() implementation of T <strong>must return a deep copy</strong>.
+    /// Snapshotting (clone) resolution order: if T implements <see cref="ICloneable"/> its
+    /// Clone() is used; otherwise the global <see cref="ChangeTrackerDefaults.Cloner"/> hook is used
+    /// (default = built-in reflection deep copy in <see cref="ObjectCloner"/>).
     /// </para>
     /// <para>
-    /// <strong>Deep copy means:</strong> All properties and nested objects are copied as new instances,
-    /// with no shared references to the original object.
+    /// Comparison resolution order: an explicit comparer argument wins; otherwise if T has value
+    /// equality (IEquatable&lt;T&gt;/IComparable&lt;T&gt;/Equals override) it is used; otherwise the
+    /// global <see cref="ChangeTrackerDefaults.Comparer"/> hook is used (default = reflection deep compare).
     /// </para>
     /// <para>
-    /// <strong>Incorrect implementation (shallow copy - DO NOT USE):</strong>
-    /// <code>
-    /// public object Clone()
-    /// {
-    ///     return this.MemberwiseClone();  // ❌NG: Shallow copy (references are shared)
-    /// }
-    /// </code>
+    /// To plug in a third-party deep-copy library, set the hook once at startup, e.g.
+    /// <c>ChangeTrackerDefaults.Cloner = o => o.DeepClone();</c>
     /// </para>
     /// <para>
-    /// <strong>Correct implementation (deep copy):</strong>
-    /// <code>
-    /// public object Clone()
-    /// {
-    ///     return new UserModel
-    ///     {
-    ///         Name = this.Name,
-    ///         Email = this.Email,
-    ///         Age = this.Age,
-    ///         Address = this.Address?.Clone() as Address  // Deep copy nested objects too
-    ///     };
-    /// }
-    /// </code>
+    /// Implementing <see cref="ICloneable"/> with a deep copy is still recommended as the fast path,
+    /// but is no longer required.
     /// </para>
     /// <para>
-    /// Using shallow copy will cause shared references with the original object,
-    /// and RejectChanges() will not work correctly (original values will also be modified).
+    /// The cloning strategy is resolved from the runtime type of the initial value at construction time;
+    /// subsequent updates (UpdateCurrentValue, AcceptChanges with a new value) must be compatible —
+    /// i.e., if the initial value implements ICloneable, later values must also be assignable to ICloneable.
+    /// For most uses (concrete <c>T</c>), this is automatic.
     /// </para>
     /// </remarks>
     public class ChangeTracker<T> : IChangeTracking, IRevertibleChangeTracking where T : class
     {
+        // Cached once per closed generic type by the CLR static initializer; avoids re-computing
+        // BuildComparerFunc() on every constructor call when no explicit comparer is supplied.
+        private static readonly Func<T, T, bool> DefaultComparer = BuildComparerFunc();
+
         private T _originalValue;
         private T _currentValue;
         private readonly Func<T, T> _clone;
@@ -101,8 +94,9 @@ namespace WinformsMVP.Common
         /// <param name="comparer">Custom comparison function for values. If null, EqualityHelper is used.</param>
         /// <exception cref="ArgumentNullException">When initialValue is null.</exception>
         /// <remarks>
-        /// <strong>Important:</strong> Type T of initialValue must return a <strong>deep copy</strong> from ICloneable.Clone().
-        /// Returning a shallow copy (MemberwiseClone) will cause change tracking to not work correctly.
+        /// The clone and comparer strategies are resolved once at construction time based on
+        /// the runtime type of <paramref name="initialValue"/>. See the class-level remarks for
+        /// the full resolution order.
         /// </remarks>
         public ChangeTracker(T initialValue, Func<T, T, bool> comparer = null)
         {
@@ -111,7 +105,7 @@ namespace WinformsMVP.Common
 
             // Resolve clone and comparer strategies before taking the first snapshots.
             _clone = BuildCloneFunc(initialValue);
-            _comparer = comparer ?? BuildComparerFunc();
+            _comparer = comparer ?? DefaultComparer;
             _currentValue = _clone(initialValue);
             _originalValue = _clone(initialValue);
         }
@@ -153,7 +147,8 @@ namespace WinformsMVP.Common
         /// Commits the current value as the new baseline.
         /// </summary>
         /// <remarks>
-        /// Internally calls Clone() to create a deep copy of the current value.
+        /// Internally creates a deep copy of the current value to use as the new baseline,
+        /// using the clone strategy resolved at construction time.
         /// </remarks>
         public void AcceptChanges()
         {
@@ -174,8 +169,9 @@ namespace WinformsMVP.Common
         /// Reverts the current value to the last accepted baseline.
         /// </summary>
         /// <remarks>
-        /// Internally calls Clone() to create a deep copy of the original value and sets it to CurrentValue.
-        /// This protects the original value and prevents reference sharing with CurrentValue.
+        /// Internally creates a deep copy of the original baseline value and assigns it to CurrentValue,
+        /// using the clone strategy resolved at construction time.
+        /// This protects the baseline and prevents reference sharing between CurrentValue and the stored original.
         /// </remarks>
         public void RejectChanges()
         {

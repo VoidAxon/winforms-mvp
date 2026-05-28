@@ -147,6 +147,12 @@ namespace WinformsMVP.Samples.Tests.Common
 
                 Assert.True(CloneableModel.CloneCount >= 2);   // construction clones twice, via ICloneable
                 Assert.False(tracker.IsChanged);
+
+                tracker.AcceptChanges();
+                tracker.RejectChanges();
+                var snapshot = tracker.GetOriginalValue();
+                Assert.NotNull(snapshot);
+                Assert.True(CloneableModel.CloneCount >= 5);
             }
             finally
             {
