@@ -10,7 +10,7 @@ This guide explains how to deploy the wiki content to your GitHub repository.
 
 ## Step 1: Enable GitHub Wiki
 
-1. Go to your GitHub repository: https://github.com/pasysxa/winforms-mvp
+1. Go to your GitHub repository: https://github.com/VoidAxon/winforms-mvp
 2. Click on **Settings** tab
 3. Scroll down to **Features** section
 4. Check the **Wikis** checkbox
@@ -25,7 +25,7 @@ The GitHub Wiki is actually a separate Git repository. Clone it:
 cd /tmp
 
 # Clone the wiki repository
-git clone https://github.com/pasysxa/winforms-mvp.wiki.git
+git clone https://github.com/VoidAxon/winforms-mvp.wiki.git
 
 cd winforms-mvp.wiki
 ```
@@ -68,7 +68,7 @@ git push origin master
 
 ## Step 5: Verify
 
-1. Go to https://github.com/pasysxa/winforms-mvp/wiki
+1. Go to https://github.com/VoidAxon/winforms-mvp/wiki
 2. You should see the Home page with all navigation links
 3. Click on example links to verify all pages are there
 
@@ -76,7 +76,7 @@ git push origin master
 
 If you prefer, you can create wiki pages manually through GitHub's web interface:
 
-1. Go to https://github.com/pasysxa/winforms-mvp/wiki
+1. Go to https://github.com/VoidAxon/winforms-mvp/wiki
 2. Click **New Page**
 3. Copy content from `wiki/Home.md` and paste
 4. Set page title to "Home"
@@ -155,4 +155,4 @@ Then add to `Home.md`:
 
 ---
 
-**Done!** Your wiki is now live at: https://github.com/pasysxa/winforms-mvp/wiki
+**Done!** Your wiki is now live at: https://github.com/VoidAxon/winforms-mvp/wiki

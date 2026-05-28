@@ -17,7 +17,7 @@ echo -e "${CYAN}============================================${NC}"
 echo ""
 
 # Configuration
-WIKI_REPO_URL="https://github.com/pasysxa/winforms-mvp.wiki.git"
+WIKI_REPO_URL="https://github.com/VoidAxon/winforms-mvp.wiki.git"
 TEMP_DIR="/tmp/winforms-mvp-wiki-deploy"
 WIKI_SOURCE_DIR="$(cd "$(dirname "$0")" && pwd)"
 
@@ -36,13 +36,13 @@ if git clone "$WIKI_REPO_URL" "$TEMP_DIR"; then
 else
     echo -e "${RED}    ERROR: Failed to clone wiki repository${NC}"
     echo -e "${RED}    Make sure Wiki is enabled in GitHub Settings${NC}"
-    echo -e "${YELLOW}    Go to: https://github.com/pasysxa/winforms-mvp/settings${NC}"
+    echo -e "${YELLOW}    Go to: https://github.com/VoidAxon/winforms-mvp/settings${NC}"
     exit 1
 fi
 
 # Step 3: Copy wiki content
 echo -e "${YELLOW}[3/5] Copying wiki content...${NC}"
-WIKI_FILES=$(find "$WIKI_SOURCE_DIR" -maxdepth 1 -name "*.md" ! -name "DEPLOY.md")
+WIKI_FILES=$(find "$WIKI_SOURCE_DIR" -maxdepth 1 -name "*.md" ! -name "DEPLOY.md" ! -name "README.md")
 
 if [ -z "$WIKI_FILES" ]; then
     echo -e "${RED}    ERROR: No wiki markdown files found${NC}"
@@ -88,7 +88,7 @@ echo -e "${CYAN}============================================${NC}"
 echo -e "${GREEN}  Deployment Complete!${NC}"
 echo -e "${CYAN}============================================${NC}"
 echo ""
-echo -e "${YELLOW}View your wiki at: https://github.com/pasysxa/winforms-mvp/wiki${NC}"
+echo -e "${YELLOW}View your wiki at: https://github.com/VoidAxon/winforms-mvp/wiki${NC}"
 echo ""
 
 # Open wiki in browser (works on most systems)
@@ -96,10 +96,10 @@ read -p "Open wiki in browser? (Y/N): " -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]; then
     if command -v xdg-open > /dev/null; then
-        xdg-open "https://github.com/pasysxa/winforms-mvp/wiki"
+        xdg-open "https://github.com/VoidAxon/winforms-mvp/wiki"
     elif command -v open > /dev/null; then
-        open "https://github.com/pasysxa/winforms-mvp/wiki"
+        open "https://github.com/VoidAxon/winforms-mvp/wiki"
     else
-        echo "Please open https://github.com/pasysxa/winforms-mvp/wiki manually"
+        echo "Please open https://github.com/VoidAxon/winforms-mvp/wiki manually"
     fi
 fi
