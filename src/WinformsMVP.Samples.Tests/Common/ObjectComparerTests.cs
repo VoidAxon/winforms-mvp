@@ -112,5 +112,70 @@ namespace WinformsMVP.Samples.Tests.Common
 
             Assert.Throws<NotSupportedException>(() => ObjectComparer.DeepEquals(a, b));
         }
+
+        [Fact]
+        public void DeepEquals_Dictionary_DifferentValues_IsFalse()
+        {
+            var a = new Dictionary<string, PlainPoco> { ["k"] = new PlainPoco { Id = 1, Name = "x" } };
+            var b = new Dictionary<string, PlainPoco> { ["k"] = new PlainPoco { Id = 1, Name = "y" } };
+            Assert.False(ObjectComparer.DeepEquals(a, b));
+        }
+
+        [Fact]
+        public void DeepEquals_Dictionary_DifferentCounts_IsFalse()
+        {
+            var a = new Dictionary<string, int> { ["a"] = 1 };
+            var b = new Dictionary<string, int> { ["a"] = 1, ["b"] = 2 };
+            Assert.False(ObjectComparer.DeepEquals(a, b));
+        }
+
+        [Fact]
+        public void DeepEquals_Dictionary_DifferentKeys_SameCount_IsFalse()
+        {
+            var a = new Dictionary<string, int> { ["a"] = 1 };
+            var b = new Dictionary<string, int> { ["b"] = 1 };
+            Assert.False(ObjectComparer.DeepEquals(a, b));
+        }
+
+        [Fact]
+        public void DeepEquals_Array_DifferentLength_IsFalse()
+        {
+            var a = new[] { 1, 2, 3 };
+            var b = new[] { 1, 2 };
+            Assert.False(ObjectComparer.DeepEquals(a, b));
+        }
+
+        [Fact]
+        public void DeepEquals_Array_DifferentElements_IsFalse()
+        {
+            var a = new[] { 1, 2, 3 };
+            var b = new[] { 1, 9, 3 };
+            Assert.False(ObjectComparer.DeepEquals(a, b));
+        }
+
+        [Fact]
+        public void DeepEquals_List_DifferentCount_IsFalse()
+        {
+            var a = new List<int> { 1, 2 };
+            var b = new List<int> { 1, 2, 3 };
+            Assert.False(ObjectComparer.DeepEquals(a, b));
+        }
+
+        [Fact]
+        public void DeepEquals_DifferentRuntimeTypes_IsFalse()
+        {
+            // Two unrelated POCOs with structurally similar data must still compare unequal.
+            var a = new PlainPoco { Id = 1, Name = "x" };
+            var b = new Parent { Title = "x" };
+            Assert.False(ObjectComparer.DeepEquals<object>(a, b));
+        }
+
+        [Fact]
+        public void DeepEquals_MultiDimensionalArray_ThrowsNotSupported()
+        {
+            var a = new int[2, 2];
+            var b = new int[2, 2];
+            Assert.Throws<NotSupportedException>(() => ObjectComparer.DeepEquals(a, b));
+        }
     }
 }
