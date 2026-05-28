@@ -47,10 +47,11 @@ namespace WinformsMVP.Common
     /// and RejectChanges() will not work correctly (original values will also be modified).
     /// </para>
     /// </remarks>
-    public class ChangeTracker<T> : IChangeTracking, IRevertibleChangeTracking where T : class, ICloneable
+    public class ChangeTracker<T> : IChangeTracking, IRevertibleChangeTracking where T : class
     {
         private T _originalValue;
         private T _currentValue;
+        private readonly Func<T, T> _clone;
         private readonly Func<T, T, bool> _comparer;
         private bool? _cachedIsChanged;
         private readonly object _lock = new object();
@@ -108,9 +109,11 @@ namespace WinformsMVP.Common
             if (initialValue == null)
                 throw new ArgumentNullException(nameof(initialValue));
 
-            _currentValue = (T)initialValue.Clone();
-            _originalValue = (T)initialValue.Clone();
-            _comparer = comparer ?? EqualityHelper.Equals;
+            // Resolve clone and comparer strategies before taking the first snapshots.
+            _clone = BuildCloneFunc(initialValue);
+            _comparer = comparer ?? BuildComparerFunc();
+            _currentValue = _clone(initialValue);
+            _originalValue = _clone(initialValue);
         }
 
         /// <summary>
@@ -157,7 +160,7 @@ namespace WinformsMVP.Common
             lock (_lock)
             {
                 var wasChanged = IsChanged;
-                _originalValue = (T)_currentValue.Clone();
+                _originalValue = _clone(_currentValue);
                 InvalidateIsChanged();
 
                 if (wasChanged)
@@ -179,8 +182,8 @@ namespace WinformsMVP.Common
             lock (_lock)
             {
                 var wasChanged = IsChanged;
-                // Use clone to prevent reference identity
-                _currentValue = (T)_originalValue.Clone();
+                // Use _clone to prevent reference identity
+                _currentValue = _clone(_originalValue);
                 InvalidateIsChanged();
 
                 if (wasChanged)
@@ -221,8 +224,8 @@ namespace WinformsMVP.Common
             lock (_lock)
             {
                 var wasChanged = IsChanged;
-                _originalValue = (T)newValue.Clone();
-                _currentValue = (T)newValue.Clone();
+                _originalValue = _clone(newValue);
+                _currentValue = _clone(newValue);
                 InvalidateIsChanged();
 
                 if (wasChanged)
@@ -240,7 +243,7 @@ namespace WinformsMVP.Common
         {
             lock (_lock)
             {
-                return (T)_originalValue.Clone();
+                return _clone(_originalValue);
             }
         }
 
@@ -307,6 +310,33 @@ namespace WinformsMVP.Common
         private void OnIsChangedChanged()
         {
             IsChangedChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        // Clone resolution: if the sample value implements ICloneable, use Clone(); otherwise fall back to the global hook.
+        private static Func<T, T> BuildCloneFunc(T sample)
+        {
+            if (sample is ICloneable)
+                return v => (T)((ICloneable)v).Clone();
+            return v => (T)ChangeTrackerDefaults.Cloner(v);
+        }
+
+        // Comparer resolution: if T has value equality (IEquatable/IComparable/Equals override), use EqualityHelper;
+        // otherwise fall back to the global deep-compare hook.
+        private static Func<T, T, bool> BuildComparerFunc()
+        {
+            if (HasValueEquality(typeof(T)))
+                return EqualityHelper.Equals;
+            return (a, b) => ChangeTrackerDefaults.Comparer(a, b);
+        }
+
+        // Returns true if T has meaningful equality semantics: IEquatable<T>, IComparable<T>,
+        // or an Equals(object) override (not inherited from object/ValueType).
+        private static bool HasValueEquality(Type t)
+        {
+            if (typeof(IEquatable<T>).IsAssignableFrom(t)) return true;
+            if (typeof(IComparable<T>).IsAssignableFrom(t)) return true;
+            var m = t.GetMethod("Equals", new[] { typeof(object) });
+            return m != null && m.DeclaringType != typeof(object);
         }
     }
 }
