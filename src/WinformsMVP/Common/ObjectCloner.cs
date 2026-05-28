@@ -9,6 +9,13 @@ namespace WinformsMVP.Common
     /// <summary>
     /// 务实档反射深拷贝。既是 <see cref="ChangeTrackerDefaults"/> 的默认实现,也可直接调用。
     /// </summary>
+    /// <remarks>
+    /// 显式支持的集合:单维数组、<see cref="IList"/>(如 List&lt;T&gt;)、<see cref="IDictionary"/>
+    /// (如 Dictionary&lt;K,V&gt;),均按结构逐元素深拷贝。其它 <see cref="IEnumerable"/> 集合
+    /// (如 HashSet&lt;T&gt;、Queue&lt;T&gt;)不在显式支持清单内,会回退到逐字段 POCO 拷贝——
+    /// 在 net40/net48 上可用,但若需要保证语义请实现 <see cref="ICloneable"/> 或替换
+    /// <see cref="ChangeTrackerDefaults.Cloner"/>。
+    /// </remarks>
     public static class ObjectCloner
     {
         public static T DeepCopy<T>(T source) => (T)DeepCopy((object)source);
@@ -33,7 +40,8 @@ namespace WinformsMVP.Common
 
             if (type.IsArray) return CopyArray((Array)source, type, visited);
 
-            // 数组已在上面处理(Array 实现了 ICloneable 但 Clone() 是浅拷贝,必须排除)
+            // 数组已在上面处理(Array 实现了 ICloneable 但 Clone() 是浅拷贝,必须排除)。
+            // ICloneable 节点被信任会自行进行深拷贝(由其 Clone() 负责)。
             var cloneable = source as ICloneable;
             if (cloneable != null)
             {
