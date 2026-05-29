@@ -19,6 +19,13 @@
   - [Label](#label)
   - [ComboBox](#combobox)
   - [DateTimePicker](#datetimepicker)
+  - [TrackBar](#trackbar)
+  - [ProgressBar](#progressbar)
+  - [ListBox](#listbox)
+  - [RichTextBox](#richtextbox)
+  - [MaskedTextBox](#maskedtextbox)
+  - [PictureBox (画像 URL)](#picturebox-画像-url)
+- [RadioButton グループバインド](#radiobutton-グループバインド)
 - [双方向バインドと単方向バインド](#双方向バインドと単方向バインド)
 - [更新タイミング (`DataSourceUpdateMode`)](#更新タイミング-datasourceupdatemode)
 - [使用例: 完全な Form](#使用例-完全な-form)
@@ -80,6 +87,35 @@ public class UserModel : INotifyPropertyChanged
 ```
 
 C# 8.0+ の場合は record や `INotifyPropertyChanged` 自動生成ライブラリ ([Fody](https://github.com/Fody/PropertyChanged)、[CommunityToolkit.Mvvm](https://github.com/CommunityToolkit/dotnet)) と併用すると省力化できます。
+
+### フレームワーク提供の `BindableBase`
+
+繰り返しの `INotifyPropertyChanged` 実装を省くため、フレームワークは `BindableBase` 基底クラスを提供します (`WinformsMVP.Core.Models` 名前空間)。
+
+```csharp
+using WinformsMVP.Core.Models;
+
+public class UserModel : BindableBase
+{
+    private string _name;
+    public string Name
+    {
+        get => _name;
+        set => SetProperty(ref _name, value);
+    }
+
+    private string _email;
+    public string Email
+    {
+        get => _email;
+        set => SetProperty(ref _email, value);
+    }
+}
+```
+
+`SetProperty<T>` は値の変化を `EqualityComparer<T>.Default.Equals` で比較し、変更があったときだけ `PropertyChanged` イベントを発火します。`[CallerMemberName]` 属性によりプロパティ名は自動取得されるので、文字列リテラルの typo を防げます。
+
+外部ライブラリへの依存なしに `INotifyPropertyChanged` を一行で実装でき、net40 から net48 まで全ターゲットで使えます。
 
 ---
 
@@ -217,14 +253,141 @@ datePicker.Bind(model, m => m.BirthDate);
 | 双方向 | ✅ |
 | 型 | `DateTime` |
 
+### TrackBar
+
+```csharp
+trackBar.Bind(model, m => m.Volume);
+```
+
+| | |
+|---|---|
+| バインド対象 | `Value` プロパティ |
+| 双方向 | ✅ |
+| 型 | `int` |
+
+### ProgressBar
+
+```csharp
+progressBar.Bind(model, m => m.PercentComplete);
+```
+
+| | |
+|---|---|
+| バインド対象 | `Value` プロパティ |
+| 双方向 | △ (ユーザー入力不能なため実質単方向) |
+| 型 | `int` |
+
+### ListBox
+
+ListBox は **SelectedItem** と **SelectedIndex** の 2 種類のバインドがあります。
+
+```csharp
+// 選択中のオブジェクト (任意の型) を Model に同期
+listBox.BindSelectedItem(model, m => m.SelectedTag);
+
+// 選択中のインデックス (int) を Model に同期
+listBox.BindSelectedIndex(model, m => m.SelectedRow);
+```
+
+| メソッド | バインド対象 | 型 |
+|---|---|---|
+| `BindSelectedItem` | `SelectedItem` | 任意 |
+| `BindSelectedIndex` | `SelectedIndex` | `int` |
+
+`Items` (リストの中身) 自体をバインドする場合は `BindProperty` で `nameof(listBox.DataSource)` を指定するか、`ListBox.DataSource` に直接コレクションを代入してください。
+
+### RichTextBox
+
+```csharp
+richTextBox.Bind(model, m => m.Content);
+```
+
+| | |
+|---|---|
+| バインド対象 | `Text` プロパティ |
+| 双方向 | ✅ |
+| 型 | 任意 (内部で `ToString()`) |
+
+書式 (色・フォント・段落) のバインドが必要な場合は `BindProperty` を使うか、RichTextBox を直接操作してください。
+
+### MaskedTextBox
+
+```csharp
+maskedTextBox.Bind(model, m => m.PhoneNumber);
+```
+
+| | |
+|---|---|
+| バインド対象 | `Text` プロパティ |
+| 双方向 | ✅ |
+| 型 | 任意 (内部で `ToString()`) |
+
+マスクパターン (例: `000-0000-0000`) は MaskedTextBox 側の `Mask` プロパティで設定します。バインドの対象は実際の入力値 (`Text`) のみです。
+
+### PictureBox (画像 URL)
+
+画像 URL を Model から指定する場合の専用メソッドです (`BindImageLocation`)。
+
+```csharp
+pictureBox.BindImageLocation(model, m => m.AvatarUrl);
+```
+
+| | |
+|---|---|
+| バインド対象 | `ImageLocation` プロパティ |
+| 双方向 | OneWay (Model → PictureBox) |
+| 型 | `string` (URL またはローカルパス) |
+
+`Image` プロパティ (`Bitmap` インスタンス) を直接バインドする場合は `BindProperty` で `nameof(pictureBox.Image)` を指定してください。
+
+---
+
+## RadioButton グループバインド
+
+複数の RadioButton を 1 つのプロパティに連動させる場合は、`BindRadioGroup` 拡張メソッドが便利です。各 RadioButton と「対応する値」のペアを列挙してバインドします。
+
+```csharp
+using WinformsMVP.Core.Models;
+
+public enum Priority { Low, Medium, High }
+
+public class TaskModel : BindableBase
+{
+    private Priority _priority;
+    public Priority Priority
+    {
+        get => _priority;
+        set => SetProperty(ref _priority, value);
+    }
+}
+
+// Form 側
+var pairs = new Dictionary<RadioButton, Priority>
+{
+    { rbLow,    Priority.Low },
+    { rbMedium, Priority.Medium },
+    { rbHigh,   Priority.High },
+};
+
+pairs.BindRadioGroup(model, m => m.Priority);
+```
+
+| | |
+|---|---|
+| バインド対象 | 各 RadioButton の `Checked` プロパティ |
+| 双方向 | ✅ (ラジオ選択 ↔ Model、Model → ラジオ) |
+| 型 | 任意 (enum・int・string 等、`Equals` で比較可能なもの) |
+
+個別の RadioButton に `.Bind(model, m => m.IsX)` を使うと「相互排他」の制約を Model 側で複数 `bool` プロパティに分けて書く必要があります。一方 `BindRadioGroup` は **「1 つのプロパティ + 複数の選択肢」** という自然な表現で、グループ内の選択を自動で同期します。**3 つ以上の選択肢から 1 つ選ぶ UI** で第一選択です。
+
 ---
 
 ## 双方向バインドと単方向バインド
 
 | バインド方向 | 説明 | 該当コントロール |
 |------------|----|---------------|
-| **双方向 (TwoWay)** | UI と Model が相互に同期 | TextBox、CheckBox、NumericUpDown、ComboBox、DateTimePicker |
-| **単方向 (OneWay)** | Model → UI のみ | Label、ProgressBar 等 |
+| **双方向 (TwoWay)** | UI と Model が相互に同期 | TextBox、CheckBox、RadioButton、NumericUpDown、ComboBox、DateTimePicker、TrackBar、ListBox、RichTextBox、MaskedTextBox |
+| **単方向 (OneWay)** | Model → UI のみ | Label、ProgressBar、PictureBox |
 
 双方向バインドは UI 編集が自動で Model に反映されるので、Presenter で「TextBox の値を Model に書き戻す」コードが不要になります。
 
