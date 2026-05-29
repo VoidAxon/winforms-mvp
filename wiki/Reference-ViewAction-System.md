@@ -627,7 +627,6 @@ Dispatcher.Use((ctx, next) =>
 
 - [Presenter 基底クラス](Reference-Presenter-Base-Classes) — `Dispatcher` プロパティ、`RegisterViewActions` フック
 - [Platform Services](Reference-Platform-Services) — Dispatcher を含むサービスの構成
-- [HowTo: ボタンをアクションにバインドする](HowTo-Bind-Buttons-To-Actions) (作成予定)
 - [MVP 設計ルール](Design-Rules) — ルール 8 (UI 型を View インターフェイスに露出しない) 、ルール 13 (Tell-Don't-Ask)
 - サンプルコード:
   - `src/WinformsMVP.Samples/ViewActionExample.cs` — Implicit パターンの最小例
