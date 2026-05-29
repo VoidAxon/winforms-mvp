@@ -255,15 +255,136 @@ public class MainForm : Form, IMainView
 
 これで Greet ボタンをクリックすると、入力された名前で挨拶メッセージが更新されます。Presenter は `Button` を直接見ることなくユーザー操作を扱え、Form は UI の詳細を内部に閉じ込めたままです。これが **最も基本的な MVP** のスタイルです。
 
-> 💡 **もっと宣言的に書きたい / Enabled 制御を自動化したい場合**
->
-> フレームワークには **ViewAction システム** という上位の仕組みも用意されています。同じアクションを「Button + MenuItem + ToolStripButton」など複数のコントロールに同時にバインドしたい、`CanExecute` 述語で Enabled を自動制御したい、ディスパッチに中間処理 (監査・ロギング等) を挟みたい、といった場面で有用です。
->
-> 詳細は [ViewAction システム](Reference-ViewAction-System) を参照してください。本 Getting Started では標準的なイベントパターンに留め、ViewAction は必要になってから採用する位置付けです。
+> 💡 ボタンが複数のコントロール (Button + MenuItem 等) と連動したり、入力状態に応じて Enabled を自動制御したい場合は、次の §4 で紹介する **ViewAction システム** が便利です。本 Getting Started は §3 のイベントベースで十分動くため、§4 はオプションとして読んでください。
 
 ---
 
-## 4. サービスを使う
+## 4. (オプション) ViewAction で書き換える
+
+§3 のサンプルは、ボタン 1 個・ハンドラ 1 個の単純なケースには十分です。一方、次のような場面ではフレームワークの **ViewAction システム** を使うとより宣言的・少コードで書けます。
+
+- 同じアクションを複数のコントロール (Button + MenuItem + ToolStripButton 等) に同時にバインドしたい
+- 入力状態に応じてボタンの `Enabled` を自動制御したい (`CanExecute` 述語)
+- ディスパッチに横断的な処理 (監査・ロギング・性能計測等) を挟みたい
+
+ここでは §3 と同じ「名前を入力して Greet」のサンプルを ViewAction 版で書き直し、差分を確認します。
+
+### 4.1 ViewAction を定義する
+
+```csharp
+using WinformsMVP.MVP.ViewActions;
+
+public static class MainActions
+{
+    public static readonly ViewAction Greet = ViewAction.Create("Main.Greet");
+}
+```
+
+`ViewAction` は不変な「アクション識別子」です。文字列リテラル直書きを避け、必ず静的クラスで定数として宣言します。
+
+### 4.2 View インターフェイス
+
+イベントの代わりに **`ActionBinder` プロパティ** を公開します。`UserNameChanged` だけは `CanExecute` 再評価のために残します。
+
+```csharp
+public interface IMainView : IWindowView
+{
+    string WelcomeMessage { get; set; }
+    string UserName { get; }
+    bool HasUserName { get; }
+
+    ViewActionBinder ActionBinder { get; }
+    event EventHandler UserNameChanged;
+}
+```
+
+### 4.3 Presenter
+
+```csharp
+public class MainPresenter : WindowPresenterBase<IMainView>
+{
+    protected override void OnInitialize()
+    {
+        View.WelcomeMessage = "Enter your name and press the button.";
+    }
+
+    protected override void OnViewAttached()
+    {
+        // Re-evaluate CanExecute when the input changes.
+        View.UserNameChanged += (s, e) => Dispatcher.RaiseCanExecuteChanged();
+    }
+
+    protected override void RegisterViewActions()
+    {
+        Dispatcher.Register(
+            MainActions.Greet,
+            OnGreet,
+            canExecute: () => View.HasUserName);
+
+        // The framework automatically calls View.ActionBinder.Bind(Dispatcher)
+        // after this method returns. No manual binding required.
+    }
+
+    private void OnGreet()
+    {
+        View.WelcomeMessage = $"Hello, {View.UserName}!";
+    }
+}
+```
+
+### 4.4 Form
+
+```csharp
+public class MainForm : Form, IMainView
+{
+    // _welcomeLabel, _nameTextBox, _greetButton — same as §3
+
+    private readonly ViewActionBinder _binder;
+
+    public ViewActionBinder ActionBinder => _binder;
+    public event EventHandler UserNameChanged;
+
+    public MainForm()
+    {
+        // ... same layout setup as §3 ...
+
+        _binder = new ViewActionBinder();
+        _binder.Add(MainActions.Greet, _greetButton);
+        // Easy to add more controls — e.g. a menu item bound to the same action:
+        // _binder.Add(MainActions.Greet, _greetMenuItem);
+
+        _nameTextBox.TextChanged += (s, e) => UserNameChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    public string WelcomeMessage
+    {
+        get => _welcomeLabel.Text;
+        set => _welcomeLabel.Text = value;
+    }
+
+    public string UserName => _nameTextBox.Text;
+    public bool HasUserName => !string.IsNullOrWhiteSpace(_nameTextBox.Text);
+}
+```
+
+これで、テキストボックスが空のときは **Greet ボタンが自動的に無効化** され、何か入力すると有効になります。手動の `Enabled = false` 制御は一切不要です。
+
+### イベント版 (§3) との違い
+
+| 観点 | イベント (§3) | ViewAction (§4) |
+|------|------|------|
+| 1 ボタン 1 ハンドラの単純構成 | 最小コード | やや冗長 (Action 定義が必要) |
+| 同じアクションを Button + MenuItem 等に同時バインド | 各コントロールで購読・転送 | `_binder.Add(action, c1, c2, ...)` 1 行 |
+| Enabled 自動制御 | 手動 (`button.Enabled = ...`) | 宣言的 (`canExecute: () => ...`) |
+| ディスパッチに横断処理を挟む | ハンドラ毎に書く | Middleware で集約 |
+
+**どちらを使えばいいか:** まずは §3 のイベントベースで始め、上記の必要性が出てきたタイミングで ViewAction に乗り換えてください。フレームワークはどちらも公式サポートします。
+
+詳細は [ViewAction システム](Reference-ViewAction-System) を参照してください。
+
+---
+
+## 5. サービスを使う
 
 最後に **メッセージダイアログ** を表示します。
 Presenter から `MessageBox.Show()` を直接呼ぶのは **MVP 違反** です。代わりに `Messages` プロパティ越しに `IMessageService` を使います。
