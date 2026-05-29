@@ -158,31 +158,15 @@ namespace MyFirstMvpApp
 
 ---
 
-## 3. ボタンとアクションを足す
+## 3. ボタンとイベントを足す
 
 次に **ボタンを 1 つ追加し、クリックで挨拶メッセージを更新** します。
-この拡張で、フレームワークの中核機能である **ViewAction システム** に触れます。
+標準的な MVP では、**View がイベントを公開し、Presenter がそれを購読する** ことでユーザー操作を伝達します。Form は WinForms の `Button.Click` を受け取り、自分のインターフェイス上のイベントに変換するだけです。
 
-### 3.1 アクションを定義する
-
-```csharp
-using WinformsMVP.MVP.ViewActions;
-
-namespace MyFirstMvpApp
-{
-    public static class MainActions
-    {
-        public static readonly ViewAction Greet = ViewAction.Create("Main.Greet");
-    }
-}
-```
-
-`ViewAction` は不変な「アクション識別子」です。文字列リテラルをそのまま使うのではなく、必ず静的クラスで定数として宣言します。
-
-### 3.2 View インターフェイスを拡張する
+### 3.1 View インターフェイスを拡張する
 
 ```csharp
-using WinformsMVP.MVP.ViewActions;
+using System;
 using WinformsMVP.MVP.Views;
 
 namespace MyFirstMvpApp
@@ -190,17 +174,20 @@ namespace MyFirstMvpApp
     public interface IMainView : IWindowView
     {
         string WelcomeMessage { get; set; }
-        string UserName { get; set; }
-        bool HasUserName { get; }
+        string UserName { get; }
 
-        ViewActionBinder ActionBinder { get; }
+        event EventHandler GreetClicked;
     }
 }
 ```
 
-`ActionBinder` プロパティは Form が内部で構成した「コントロール ⇔ アクション」のバインディングを Presenter に渡す窓口です (Presenter 側からはバインドの中身を直接見ない)。
+**ポイント**
 
-### 3.3 Presenter にハンドラを登録する
+- `UserName` は読み取り専用プロパティ (Presenter が入力値を取得するため)。
+- `GreetClicked` は View が公開する **抽象的なイベント**。Presenter は「Button」を知らずに「挨拶が要求された」という意図だけを受け取る。
+- `Button` 等の WinForms 型はインターフェイスに露出させない。
+
+### 3.2 Presenter で View のイベントを購読する
 
 ```csharp
 public class MainPresenter : WindowPresenterBase<IMainView>
@@ -210,18 +197,12 @@ public class MainPresenter : WindowPresenterBase<IMainView>
         View.WelcomeMessage = "Enter your name and press the button.";
     }
 
-    protected override void RegisterViewActions()
+    protected override void OnViewAttached()
     {
-        Dispatcher.Register(
-            MainActions.Greet,
-            OnGreet,
-            canExecute: () => View.HasUserName);
-
-        // The framework automatically calls View.ActionBinder.Bind(Dispatcher)
-        // after this method returns. No manual binding required.
+        View.GreetClicked += OnGreetClicked;
     }
 
-    private void OnGreet()
+    private void OnGreetClicked(object sender, EventArgs e)
     {
         View.WelcomeMessage = $"Hello, {View.UserName}!";
     }
@@ -230,10 +211,10 @@ public class MainPresenter : WindowPresenterBase<IMainView>
 
 **ポイント**
 
-- `RegisterViewActions()` でアクションキーとハンドラ・`CanExecute` 条件を登録するだけ。
-- Presenter は `Button` を知らない。「`Greet` アクションが起きたら何をするか」だけを書く。
+- `OnViewAttached()` は View が presenter にアタッチされた直後に呼ばれるフック。ここで View のイベントを購読する。
+- Presenter は `Button` の存在を知らない。「`GreetClicked` が起きたら何をするか」だけを書く。
 
-### 3.4 Form を更新する
+### 3.3 Form (View 実装) を更新する
 
 ```csharp
 public class MainForm : Form, IMainView
@@ -241,7 +222,8 @@ public class MainForm : Form, IMainView
     private readonly Label _welcomeLabel;
     private readonly TextBox _nameTextBox;
     private readonly Button _greetButton;
-    private readonly ViewActionBinder _binder;
+
+    public event EventHandler GreetClicked;
 
     public MainForm()
     {
@@ -257,14 +239,9 @@ public class MainForm : Form, IMainView
         Controls.Add(_nameTextBox);
         Controls.Add(_greetButton);
 
-        _binder = new ViewActionBinder();
-        _binder.Add(MainActions.Greet, _greetButton);
-
-        // Notify the dispatcher when the input changes so CanExecute reruns.
-        _nameTextBox.TextChanged += (s, e) => UserNameChanged?.Invoke(this, EventArgs.Empty);
+        // Translate WinForms Button.Click into the abstract GreetClicked event.
+        _greetButton.Click += (s, e) => GreetClicked?.Invoke(this, EventArgs.Empty);
     }
-
-    public event EventHandler UserNameChanged;
 
     public string WelcomeMessage
     {
@@ -272,30 +249,17 @@ public class MainForm : Form, IMainView
         set => _welcomeLabel.Text = value;
     }
 
-    public string UserName
-    {
-        get => _nameTextBox.Text;
-        set => _nameTextBox.Text = value;
-    }
-
-    public bool HasUserName => !string.IsNullOrWhiteSpace(_nameTextBox.Text);
-
-    public ViewActionBinder ActionBinder => _binder;
+    public string UserName => _nameTextBox.Text;
 }
 ```
 
-### 3.5 状態変化を Presenter に伝える
+これで Greet ボタンをクリックすると、入力された名前で挨拶メッセージが更新されます。Presenter は `Button` を直接見ることなくユーザー操作を扱え、Form は UI の詳細を内部に閉じ込めたままです。これが **最も基本的な MVP** のスタイルです。
 
-`HasUserName` が変わったら `CanExecute` を再評価する必要があります。Presenter で View のイベントを購読しましょう。
-
-```csharp
-protected override void OnViewAttached()
-{
-    View.UserNameChanged += (s, e) => Dispatcher.RaiseCanExecuteChanged();
-}
-```
-
-これで、テキストボックスが空のときは **Greet ボタンが自動的に無効化** され、何か入力すると有効になります。手動の `Enabled = false` 制御は一切不要です。
+> 💡 **もっと宣言的に書きたい / Enabled 制御を自動化したい場合**
+>
+> フレームワークには **ViewAction システム** という上位の仕組みも用意されています。同じアクションを「Button + MenuItem + ToolStripButton」など複数のコントロールに同時にバインドしたい、`CanExecute` 述語で Enabled を自動制御したい、ディスパッチに中間処理 (監査・ロギング等) を挟みたい、といった場面で有用です。
+>
+> 詳細は [ViewAction システム](Reference-ViewAction-System) を参照してください。本 Getting Started では標準的なイベントパターンに留め、ViewAction は必要になってから採用する位置付けです。
 
 ---
 
@@ -305,7 +269,7 @@ protected override void OnViewAttached()
 Presenter から `MessageBox.Show()` を直接呼ぶのは **MVP 違反** です。代わりに `Messages` プロパティ越しに `IMessageService` を使います。
 
 ```csharp
-private void OnGreet()
+private void OnGreetClicked(object sender, EventArgs e)
 {
     Messages.ShowInfo($"Hello, {View.UserName}!", "Greeting");
 }
@@ -355,9 +319,9 @@ register.RegisterFromAssembly(Assembly.GetExecutingAssembly());
 
 詳しくは [ViewMappingRegister](Reference-ViewMappingRegister) を参照してください。
 
-**ボタンが常に無効のまま (`CanExecute` が `false` 固定)**
+**ボタンが常に無効のまま (`CanExecute` が `false` 固定)** — *ViewAction を使う場合のみ*
 
-`CanExecute` が依存する状態 (例: `View.HasUserName`) が変化したことを Dispatcher に伝えていません。View のイベントを購読し、`Dispatcher.RaiseCanExecuteChanged()` を呼んでください (本ページ 3.5 節を参照)。
+`CanExecute` が依存する状態 (例: `View.HasUserName`) が変化したことを Dispatcher に伝えていません。View のイベントを購読し、`Dispatcher.RaiseCanExecuteChanged()` を呼んでください。詳細は [ViewAction システム](Reference-ViewAction-System) を参照してください。
 
 **`MessageBox.Show()` を Presenter から呼んでテストできない**
 
