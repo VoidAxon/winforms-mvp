@@ -255,19 +255,19 @@ public class MainForm : Form, IMainView
 
 これで Greet ボタンをクリックすると、入力された名前で挨拶メッセージが更新されます。Presenter は `Button` を直接見ることなくユーザー操作を扱え、Form は UI の詳細を内部に閉じ込めたままです。これが **最も基本的な MVP** のスタイルです。
 
-> 💡 ボタンが複数のコントロール (Button + MenuItem 等) と連動したり、入力状態に応じて Enabled を自動制御したい場合は、次の §4 で紹介する **ViewAction システム** が便利です。本 Getting Started は §3 のイベントベースで十分動くため、§4 はオプションとして読んでください。
+> 💡 ボタンが複数のコントロール (Button + MenuItem 等) と連動したり、入力状態に応じて Enabled を自動制御したい場合は、次の 4 章で紹介する **ViewAction システム** が便利です。本 Getting Started は 3 章のイベントベースで十分動くため、4 章はオプションとして読んでください。
 
 ---
 
 ## 4. (オプション) ViewAction で書き換える
 
-§3 のサンプルは、ボタン 1 個・ハンドラ 1 個の単純なケースには十分です。一方、次のような場面ではフレームワークの **ViewAction システム** を使うとより宣言的・少コードで書けます。
+3 章のサンプルは、ボタン 1 個・ハンドラ 1 個の単純なケースには十分です。一方、次のような場面ではフレームワークの **ViewAction システム** を使うとより宣言的・少コードで書けます。
 
 - 同じアクションを複数のコントロール (Button + MenuItem + ToolStripButton 等) に同時にバインドしたい
 - 入力状態に応じてボタンの `Enabled` を自動制御したい (`CanExecute` 述語)
 - ディスパッチに横断的な処理 (監査・ロギング・性能計測等) を挟みたい
 
-ここでは §3 と同じ「名前を入力して Greet」のサンプルを ViewAction 版で書き直し、差分を確認します。
+ここでは 3 章と同じ「名前を入力して Greet」のサンプルを ViewAction 版で書き直し、差分を確認します。
 
 ### 4.1 ViewAction を定義する
 
@@ -337,7 +337,7 @@ public class MainPresenter : WindowPresenterBase<IMainView>
 ```csharp
 public class MainForm : Form, IMainView
 {
-    // _welcomeLabel, _nameTextBox, _greetButton — same as §3
+    // _welcomeLabel, _nameTextBox, _greetButton — same as section 3
 
     private readonly ViewActionBinder _binder;
 
@@ -346,7 +346,7 @@ public class MainForm : Form, IMainView
 
     public MainForm()
     {
-        // ... same layout setup as §3 ...
+        // ... same layout setup as section 3 ...
 
         _binder = new ViewActionBinder();
         _binder.Add(MainActions.Greet, _greetButton);
@@ -369,16 +369,16 @@ public class MainForm : Form, IMainView
 
 これで、テキストボックスが空のときは **Greet ボタンが自動的に無効化** され、何か入力すると有効になります。手動の `Enabled = false` 制御は一切不要です。
 
-### イベント版 (§3) との違い
+### イベント版 (3 章) との違い
 
-| 観点 | イベント (§3) | ViewAction (§4) |
+| 観点 | イベント (3 章) | ViewAction (4 章) |
 |------|------|------|
 | 1 ボタン 1 ハンドラの単純構成 | 最小コード | やや冗長 (Action 定義が必要) |
 | 同じアクションを Button + MenuItem 等に同時バインド | 各コントロールで購読・転送 | `_binder.Add(action, c1, c2, ...)` 1 行 |
 | Enabled 自動制御 | 手動 (`button.Enabled = ...`) | 宣言的 (`canExecute: () => ...`) |
 | ディスパッチに横断処理を挟む | ハンドラ毎に書く | Middleware で集約 |
 
-**どちらを使えばいいか:** まずは §3 のイベントベースで始め、上記の必要性が出てきたタイミングで ViewAction に乗り換えてください。フレームワークはどちらも公式サポートします。
+**どちらを使えばいいか:** まずは 3 章のイベントベースで始め、上記の必要性が出てきたタイミングで ViewAction に乗り換えてください。フレームワークはどちらも公式サポートします。
 
 詳細は [ViewAction システム](Reference-ViewAction-System) を参照してください。
 
