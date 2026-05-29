@@ -83,7 +83,7 @@ Push 方向のハンドラ (`OnSave` / `OnCancel` / `OnDiscard`) は、`RequestC
 
 この設計判断により得られるもの:
 
-- Presenter の公開メソッドが減る (古い `IRequestClose.CanClose()` メソッドは廃止)
+- Presenter の公開 API は最小限 (`IRequestClose.CloseRequested` イベントのみ)
 - 「ダーティ状態をどう聞くか」のロジックが **1 か所だけに** 集約される
 - テストが 2 方向それぞれを独立に検証できる: Pull は `View.Closing` をシミュレート、Push は `CloseRequested` を観測
 
@@ -213,20 +213,6 @@ private void OnEditUser(int userId)
 ```
 
 ユーザーが Save を押した場合も、× を押して「変更を破棄しますか? → はい」を選んだ場合も、戻り値は **同じ `InteractionResult<TResult>`** に集約されます。呼び出し元は経路を意識せず、`IsSuccess` / `IsCancelled` / `IsError` で分岐できます。
-
----
-
-## なぜ `CanClose()` メソッドを持たないか
-
-過去設計では `IRequestClose.CanClose()` という同期メソッドを持っていましたが、これには以下の問題があり廃止されました。
-
-| 問題 | 説明 |
-|------|------|
-| **Service Provider アンチパターン** | Presenter が「閉じてよいか」の真偽値を外部に提供する公開 API になり、任意のタイミングで呼ばれ得た |
-| **ロジックの二重定義** | ダーティ確認ロジックが `CanClose` と Push 系ハンドラ (Save/Cancel) の両方に必要だった |
-| **再呼び出しの問題** | `CanClose` → ユーザーが Yes → Close → さらに `FormClosing` が走る等、二重確認の経路が生まれやすかった |
-
-新モデル (Push/Pull 二方向のイベントだけ) の採用により、これらは設計レベルで排除されています。
 
 ---
 
