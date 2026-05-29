@@ -510,7 +510,7 @@ public class GoodPresenter : WindowPresenterBase<IMyView>, IRequestClose<MyResul
 ### Form (View 実装)
 - [ ] `XxxForm` または `XxxControl` という命名 (Rule 1)
 - [ ] 内部コントロールは `private` (Rule 9)
-- [ ] Presenter の参照を持たない (Rule 6)
+- [ ] Presenter の業務メソッドを呼ばない (Rule 6) ※ 参照保持・AttachView/Initialize/Dispose 等のライフサイクル呼び出しは可
 - [ ] `InitializeActionBindings()` は UI バインドだけ (業務ロジック禁止)
 
 ### Presenter
