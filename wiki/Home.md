@@ -1,5 +1,3 @@
-# WinForms MVP Framework Wiki
-
 WinForms アプリケーションのための **Model-View-Presenter** フレームワークの公式ドキュメントです。
 
 > **このフレームワークが初めての方は、まず [はじめに (Getting Started)](Getting-Started) からどうぞ。**
