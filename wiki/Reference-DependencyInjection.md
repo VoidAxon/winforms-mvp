@@ -400,11 +400,49 @@ public class MainPresenter : WindowPresenterBase<IMainView>
 「ランタイム引数を Presenter のコンストラクタに混ぜる」は **絶対に避けてください**。DI コンテナが解決できなくなります。
 代わりに専用の Parameters クラス + `IInitializable<TParam>` パターンを使います。
 
+### 内部実装: `ServiceProviderPresenterFactory`
+
+`IPresenterFactory` の既定実装は `ServiceProviderPresenterFactory` (`WinformsMVP.DependencyInjection` パッケージ) で、`AddWinformsMVP()` を呼ぶと自動的に DI コンテナに登録されます。
+
+実装は単純です:
+
+```csharp
+public class ServiceProviderPresenterFactory : IPresenterFactory
+{
+    private readonly IServiceProvider _serviceProvider;
+
+    public ServiceProviderPresenterFactory(IServiceProvider serviceProvider)
+    {
+        _serviceProvider = serviceProvider;
+    }
+
+    public TPresenter Create<TPresenter>() where TPresenter : IPresenter
+        => _serviceProvider.GetRequiredService<TPresenter>();
+}
+```
+
+`GetRequiredService<T>()` を呼ぶだけなので、Presenter のコンストラクタ依存は **コンテナの通常の解決ルール** にそのまま乗ります。未登録の Presenter を要求すると `InvalidOperationException` がスローされる、という M.E.DI の標準セマンティクスをそのまま継承します。
+
+カスタム Factory を使いたい場合は、`AddWinformsMVP()` を呼ぶ **前** に独自の `IPresenterFactory` を登録すれば、`TryAdd` セマンティクスにより上書きされません。
+
 ---
 
 ## `IModuleRegistrar`: モジュール単位の登録
 
 各 UI サブプロジェクトが、自分の View と Service の登録を 1 か所に集めます。
+
+### 2 つの Registrar インターフェイスの使い分け
+
+フレームワークには **2 つの登録用インターフェイス** があり、目的に応じて選びます。
+
+| インターフェイス | 名前空間 | パッケージ | 持つメソッド | 使うべき場面 |
+|---|---|---|---|---|
+| `IViewModuleRegistrar` | `WinformsMVP.Modules` | コア (`WinformsMVP`) | `RegisterViews()` のみ | DI を使わないプロジェクト、または DI ありアプリの中の DI 不要なレガシーモジュール |
+| `IModuleRegistrar` | `WinformsMVP.DependencyInjection` | DI パッケージ | `RegisterViews()` + `RegisterServices()` | M.E.DI で Service・Presenter を登録するモジュール |
+
+`IModuleRegistrar` は **`IViewModuleRegistrar` を継承** しています (`interface IModuleRegistrar : IViewModuleRegistrar`)。つまり「DI ありモジュール」は自動的に「View 専用モジュール」としても扱え、Shell プロジェクトは登録時にどちらの型でも受け取れます。
+
+### IModuleRegistrar の典型実装
 
 ```csharp
 // MyApp.UserModule.UI/UserModuleRegistrar.cs
@@ -422,7 +460,7 @@ public class UserModuleRegistrar : IModuleRegistrar
 }
 ```
 
-DI 統合不要のモジュール (DI ありアプリの中のレガシーモジュール) は、より小さい `IViewModuleRegistrar` (メインパッケージにある、`RegisterViews` だけ) を実装します。
+> 💡 `RegisterFromAssembly(assembly)` は、指定したアセンブリ内のすべての Form を走査し、それが実装する `IXxxView` インターフェイス (`IWindowView` を継承するもの) を見つけて自動登録します。1 行で「このモジュールの全 View」を登録できる便利メソッドです。詳細は [ViewMappingRegister](Reference-ViewMappingRegister) を参照してください。
 
 ---
 
@@ -468,6 +506,25 @@ internal static class Program
     }
 }
 ```
+
+### グローバル Dispatcher ミドルウェアの設定 (4 引数版コンストラクタ)
+
+`DefaultPlatformServices` には **4 引数版** のコンストラクタもあり、第 4 引数 `configureDispatcher` (`Action<ViewActionDispatcher>`) ですべての Presenter に共通する `ViewActionDispatcher` のミドルウェアを設定できます。
+
+```csharp
+PlatformServices.Default = new DefaultPlatformServices(
+    viewMappingRegister: viewRegistry,
+    loggerFactory: loggerFactory.AsFrameworkLoggerFactory(),
+    serviceProvider: provider,
+    configureDispatcher: d => d
+        .Use(new AuditMiddleware(auditSink, () => CurrentUser.Name))
+        .Use(new AuthorizationMiddleware(currentUser))
+        .Use(new ErrorDialogMiddleware(messages, dispatchLogger)));
+```
+
+監査ログ・認可チェック・テレメトリ・エラーダイアログ等、**横断的処理を 1 か所に集約** できます。ここで設定したミドルウェアは、`PresenterBase.SetView` の中で各 Presenter の Dispatcher に対して **最外層** として適用されるため、Presenter ローカルの `Use(...)` 呼び出しよりも先に走ります。
+
+詳細・実装方法は [ViewAction システム > ミドルウェアパイプライン](Reference-ViewAction-System#ミドルウェアパイプライン) を参照してください。
 
 ### レガシープロジェクトの起動 (DI なし)
 
