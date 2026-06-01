@@ -108,6 +108,8 @@ protected override void RegisterViewActions()
 ```
 Call `Dispatcher.RaiseCanExecuteChanged()` when state changes outside an action (selection, async completion).
 
+By default a dispatch to an unregistered key or with a mismatched payload is logged and ignored (graceful degradation). Set `Dispatcher.ValidationMode = DispatchValidationMode.Strict` — wire it via `PlatformServices.ConfigureDispatcher` in Debug builds — to make those wiring mistakes (forgotten `Register`, typo'd key, wrong payload type) throw instead, so they surface on first dispatch. Strict mode does not affect handler/`CanExecute` exceptions (always caught/logged) or disabled actions.
+
 **Two handling patterns** (details in [wiki/Reference-ViewAction-System.md](wiki/Reference-ViewAction-System.md)):
 - **Implicit (recommended):** `ActionBinder` returns the binder; framework auto-binds and auto-updates `CanExecute`. Less code.
 - **Explicit:** `ActionBinder` returns `null` (prevents auto-binding/double-dispatch); View raises an `ActionRequest` event, Presenter subscribes with `View.ActionRequest += OnViewActionTriggered;` and manually calls `RaiseCanExecuteChanged()`.

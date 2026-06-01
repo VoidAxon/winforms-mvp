@@ -64,6 +64,25 @@ namespace WinformsMVP.MVP.ViewActions
             set => _logger = value ?? NullLogger.Instance;
         }
 
+        private DispatchValidationMode _validationMode = DispatchValidationMode.Lenient;
+
+        /// <summary>
+        /// Controls whether dispatch-time misconfigurations (no registered handler, or a payload
+        /// type mismatch) are logged-and-ignored (<see cref="DispatchValidationMode.Lenient"/>,
+        /// the default) or throw (<see cref="DispatchValidationMode.Strict"/>). See
+        /// <see cref="DispatchValidationMode"/> for the recommended Debug-build usage.
+        /// </summary>
+        /// <remarks>
+        /// This does not affect handler/<c>CanExecute</c> exception handling (always caught and
+        /// logged) nor disabled actions (<c>CanExecute</c> false is never an error). Configure it
+        /// once via <c>PlatformServices.ConfigureDispatcher</c> so it applies before any dispatch.
+        /// </remarks>
+        public DispatchValidationMode ValidationMode
+        {
+            get => _validationMode;
+            set => _validationMode = value;
+        }
+
         /// <summary>
         /// Raised after an action has been successfully executed.
         /// Subscribe to this event to automatically refresh UI state (e.g., UpdateCanExecuteStates).
@@ -192,6 +211,14 @@ namespace WinformsMVP.MVP.ViewActions
 
             if (!_handlers.TryGetValue(actionKey, out var entry))
             {
+                if (_validationMode == DispatchValidationMode.Strict)
+                {
+                    throw new InvalidOperationException(
+                        $"ViewActionDispatcher: no handler registered for action '{actionKey}'. " +
+                        "Register it in RegisterViewActions, or check the ViewAction key for a typo. " +
+                        "(Thrown because DispatchValidationMode.Strict is enabled — typically Debug builds only.)");
+                }
+
                 _logger.LogDebug(
                     "ViewActionDispatcher: no handler registered for action {ActionKey}",
                     actionKey);
@@ -205,6 +232,15 @@ namespace WinformsMVP.MVP.ViewActions
 
             if (!IsPayloadCompatible(entry, payload))
             {
+                if (_validationMode == DispatchValidationMode.Strict)
+                {
+                    throw new InvalidOperationException(
+                        $"ViewActionDispatcher: payload type mismatch dispatching '{actionKey}'. " +
+                        $"Expected {entry.PayloadType?.FullName ?? "<none>"}, " +
+                        $"got {payload?.GetType().FullName ?? "<null>"}. " +
+                        "(Thrown because DispatchValidationMode.Strict is enabled — typically Debug builds only.)");
+                }
+
                 _logger.LogWarning(
                     "ViewActionDispatcher: payload type mismatch dispatching {ActionKey}. " +
                     "Expected {ExpectedType}, got {ActualType}. Handler will not run.",
