@@ -23,12 +23,19 @@ namespace WinformsMVP.Services.Implementations
 
         #region Modal
 
+        /// <summary>
+        /// Shows the presenter's window modally and returns the result the presenter pushed via
+        /// <see cref="IRequestClose{TResult}"/> (or <see cref="InteractionStatus.Cancel"/> if the
+        /// user simply closed it).
+        /// </summary>
+        /// <exception cref="System.Collections.Generic.KeyNotFoundException">No View implementation
+        /// is registered for the presenter's view interface.</exception>
+        /// <exception cref="InvalidOperationException">The registered View is not a <see cref="Form"/>,
+        /// does not implement <see cref="IWindowView"/>, or the presenter does not implement the
+        /// matching <see cref="IViewAttacher{TView}"/>. The presenter is disposed before the throw.</exception>
         public InteractionResult<TResult> ShowWindowAsModal<TPresenter, TResult>(TPresenter presenter, IWin32Window owner = null) where TPresenter : IPresenter
         {
-            Type viewInterfaceType = presenter.ViewInterfaceType;
-            var form = CreateAndBindForm(presenter, viewInterfaceType);
-            if (form == null)
-                return InteractionResult<TResult>.Error($"Cannot create View instance: {viewInterfaceType.Name}");
+            var form = CreateFormForPresenter(presenter, callInitialize: true);
 
             InteractionResult<TResult> result = InteractionResult<TResult>.Cancel();
 
@@ -54,13 +61,11 @@ namespace WinformsMVP.Services.Implementations
             return ShowWindowAsModal<TPresenter, object>(presenter, owner);
         }
 
+        /// <inheritdoc cref="ShowWindowAsModal{TPresenter, TResult}(TPresenter, IWin32Window)"/>
         public InteractionResult<TResult> ShowWindowAsModal<TPresenter, TParam, TResult>(TPresenter presenter, TParam parameters, IWin32Window owner = null)
             where TPresenter : IPresenter, IInitializable<TParam>
         {
-            Type viewInterfaceType = presenter.ViewInterfaceType;
-            var form = CreateAndBindForm(presenter, viewInterfaceType, callInitialize: false);
-            if (form == null)
-                return InteractionResult<TResult>.Error($"Cannot create View instance: {viewInterfaceType.Name}");
+            var form = CreateFormForPresenter(presenter, callInitialize: false);
 
             // Initialize presenter with parameters
             presenter.Initialize(parameters);
@@ -158,16 +163,7 @@ namespace WinformsMVP.Services.Implementations
             }
 
             // 2. Create new Form (no automatic initialization)
-            Type viewInterfaceType = presenter.ViewInterfaceType;
-            var newForm = CreateAndBindForm(presenter, viewInterfaceType, callInitialize: false);
-
-            if (newForm == null)
-            {
-                (presenter as IDisposable)?.Dispose();
-                Action<InteractionResult<TResult>> finalOnClosed = onClosed ?? (r => { });
-                finalOnClosed.Invoke(InteractionResult<TResult>.Error($"Cannot create View instance: {viewInterfaceType.Name}"));
-                return null;
-            }
+            var newForm = CreateFormForPresenter(presenter, callInitialize: false);
 
             // 3. Initialize Presenter with parameters
             presenter.Initialize(parameters);
@@ -237,15 +233,7 @@ namespace WinformsMVP.Services.Implementations
             }
 
             // 2. Create new Form
-            Type viewInterfaceType = presenter.ViewInterfaceType;
-            var newForm = CreateAndBindForm(presenter, viewInterfaceType);
-
-            if (newForm == null)
-            {
-                (presenter as IDisposable)?.Dispose();
-                onClosed.Invoke(InteractionResult<TResult>.Error($"Cannot create View instance: {viewInterfaceType.Name}"));
-                return null;
-            }
+            var newForm = CreateFormForPresenter(presenter, callInitialize: true);
 
             // 3. Handle close logic (non-modal)
             AttachNonModalCloseHandlers<TResult>(instanceKey, presenter, newForm, onClosed);
@@ -421,6 +409,25 @@ namespace WinformsMVP.Services.Implementations
         #endregion
 
         #region Utility
+
+        /// <summary>
+        /// Creates and binds the Form for <paramref name="presenter"/>. View-mapping and
+        /// configuration errors are surfaced by throwing (see <see cref="CreateAndBindForm"/>);
+        /// on any failure the presenter is disposed — it can never be shown — and the original
+        /// exception is rethrown so the misconfiguration is not silently swallowed.
+        /// </summary>
+        private Form CreateFormForPresenter(IPresenter presenter, bool callInitialize)
+        {
+            try
+            {
+                return CreateAndBindForm(presenter, presenter.ViewInterfaceType, callInitialize);
+            }
+            catch
+            {
+                (presenter as IDisposable)?.Dispose();
+                throw;
+            }
+        }
 
         private Form CreateAndBindForm(IPresenter presenter, Type viewInterfaceType, bool callInitialize = true)
         {
