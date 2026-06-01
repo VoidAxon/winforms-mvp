@@ -117,6 +117,21 @@ namespace WinformsMVP.Net40SmokeTest
             {
                 throw new InvalidOperationException("RejectChanges did not restore the original value.");
             }
+
+            // Non-ICloneable, non-Equals model: verify that the reflection deep-copy/deep-compare
+            // fallback path (ChangeTrackerDefaults.Cloner / .Comparer) works correctly on net40.
+            var plain = new PlainTrackedModel { Name = "before" };
+            var plainTracker = new ChangeTracker<PlainTrackedModel>(plain);
+            if (plainTracker.IsChanged)
+                throw new InvalidOperationException("Reflection-fallback tracker reports IsChanged after construction.");
+
+            plainTracker.UpdateCurrentValue(new PlainTrackedModel { Name = "after" });
+            if (!plainTracker.IsChanged)
+                throw new InvalidOperationException("Reflection-fallback tracker did not detect a change.");
+
+            plainTracker.RejectChanges();
+            if (plainTracker.IsChanged || plainTracker.CurrentValue.Name != "before")
+                throw new InvalidOperationException("Reflection-fallback RejectChanges did not restore the value.");
         }
 
         private static void ViewActionDispatcherSmoke()
@@ -195,6 +210,13 @@ namespace WinformsMVP.Net40SmokeTest
     {
         public string Name { get; set; }
         public object Clone() => new TrackedModel { Name = this.Name };
+    }
+
+    // Plain POCO with no ICloneable and no Equals override.
+    // Used to exercise the reflection deep-copy/deep-compare fallback path on net40.
+    internal sealed class PlainTrackedModel
+    {
+        public string Name { get; set; }
     }
 
     internal sealed class ValidatedModel

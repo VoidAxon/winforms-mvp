@@ -6,10 +6,16 @@ This directory contains the source markdown files for the GitHub Wiki.
 
 | File | Description |
 |------|-------------|
-| `Home.md` | Main wiki home page with navigation |
-| `Example-Master-Detail.md` | Master-Detail Pattern example walkthrough |
-| `Example-Validation.md` | Complex Validation example walkthrough |
-| `Example-Async-Operations.md` | Async/Await patterns example walkthrough |
+| `Home.md` | Wiki top page (navigation) |
+| `Getting-Started.md` | 5-minute tutorial |
+| `Tutorial-Building-Your-First-App.md` | (planned) Full tutorial |
+| `Concept-*.md` | Conceptual docs (MVP, Architecture, Window Closing Model) |
+| `Reference-*.md` | API references (9 pages) |
+| `HowTo-*.md` | Task-oriented guides (8 pages) |
+| `Design-Rules.md` | 17 MVP design rules |
+| `FAQ.md` | Frequently asked questions |
+| `Troubleshooting.md` | Error message to fix mapping |
+| `Glossary.md` | Term definitions |
 | `deploy-wiki.ps1` | PowerShell deployment script (Windows) |
 | `deploy-wiki.sh` | Bash deployment script (Linux/Mac) |
 | `DEPLOY.md` | Manual deployment instructions |
@@ -40,7 +46,7 @@ See [DEPLOY.md](DEPLOY.md) for step-by-step manual instructions.
 1. Edit the markdown files in this directory
 2. Test locally by viewing in a markdown previewer
 3. Run the deployment script to push changes to GitHub
-4. Changes appear immediately at https://github.com/pasysxa/winforms-mvp/wiki
+4. Changes appear immediately at https://github.com/VoidAxon/winforms-mvp/wiki
 
 ## 📝 Adding New Pages
 
@@ -116,7 +122,7 @@ GitHub Wiki supports:
 **Problem**: Deployment script fails with "repository not found"
 
 **Solution**: Enable Wiki in GitHub Settings first:
-1. Go to https://github.com/pasysxa/winforms-mvp/settings
+1. Go to https://github.com/VoidAxon/winforms-mvp/settings
 2. Check "Wikis" under Features
 3. Save and try again
 
@@ -143,7 +149,7 @@ git config --global credential.helper cache
 Wiki content is version-controlled. To backup:
 
 ```bash
-git clone https://github.com/pasysxa/winforms-mvp.wiki.git backup
+git clone https://github.com/VoidAxon/winforms-mvp.wiki.git backup
 ```
 
 ---

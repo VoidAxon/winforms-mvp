@@ -9,7 +9,7 @@ Write-Host "============================================" -ForegroundColor Cyan
 Write-Host ""
 
 # Configuration
-$wikiRepoUrl = "https://github.com/pasysxa/winforms-mvp.wiki.git"
+$wikiRepoUrl = "https://github.com/VoidAxon/winforms-mvp.wiki.git"
 $tempDir = "$env:TEMP\winforms-mvp-wiki-deploy"
 $wikiSourceDir = $PSScriptRoot  # Directory where this script is located
 
@@ -32,13 +32,14 @@ try {
 } catch {
     Write-Host "    ERROR: Failed to clone wiki repository" -ForegroundColor Red
     Write-Host "    Make sure Wiki is enabled in GitHub repository settings" -ForegroundColor Red
-    Write-Host "    Go to: https://github.com/pasysxa/winforms-mvp/settings" -ForegroundColor Yellow
+    Write-Host "    Go to: https://github.com/VoidAxon/winforms-mvp/settings" -ForegroundColor Yellow
     exit 1
 }
 
 # Step 3: Copy wiki content
 Write-Host "[3/5] Copying wiki content..." -ForegroundColor Yellow
-$wikiFiles = Get-ChildItem -Path $wikiSourceDir -Filter "*.md" | Where-Object { $_.Name -ne "DEPLOY.md" }
+$wikiFiles = Get-ChildItem -Path $wikiSourceDir -Filter "*.md" |
+    Where-Object { $_.Name -ne "DEPLOY.md" -and $_.Name -ne "README.md" }
 
 if ($wikiFiles.Count -eq 0) {
     Write-Host "    ERROR: No wiki markdown files found" -ForegroundColor Red
@@ -98,11 +99,11 @@ Write-Host "============================================" -ForegroundColor Cyan
 Write-Host "  Deployment Complete!" -ForegroundColor Green
 Write-Host "============================================" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "View your wiki at: https://github.com/pasysxa/winforms-mvp/wiki" -ForegroundColor Yellow
+Write-Host "View your wiki at: https://github.com/VoidAxon/winforms-mvp/wiki" -ForegroundColor Yellow
 Write-Host ""
 
 # Open wiki in browser
 $openBrowser = Read-Host "Open wiki in browser? (Y/N)"
 if ($openBrowser -eq "Y" -or $openBrowser -eq "y") {
-    Start-Process "https://github.com/pasysxa/winforms-mvp/wiki"
+    Start-Process "https://github.com/VoidAxon/winforms-mvp/wiki"
 }

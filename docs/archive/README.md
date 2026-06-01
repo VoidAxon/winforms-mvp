@@ -1,6 +1,14 @@
 # Archived Documentation
 
-This directory contains obsolete documentation that has been superseded by newer patterns.
+This directory contains documents that are no longer part of the active documentation set. They are kept for historical reference only — current documentation lives in the GitHub Wiki and the `README.md` at the repository root.
+
+## One-off Audit / Optimization Reports
+
+These were generated once and reflect the state of the project at a specific point in time. They are not maintained going forward.
+
+- `MVP-COMPLIANCE-REPORT.md` / `mvp-compliance-report.json` — initial MVP compliance audit results
+- `OPTIMIZATION-SUMMARY.md` — one-time framework optimization summary
+- `nul-file` — accidental Windows reserved-name file (kept for completeness, contains no useful content)
 
 ## BindActions Pattern (Archived)
 

@@ -310,8 +310,9 @@ namespace WinformsMVP.Samples
 
     /// <summary>
     /// Example: Custom ILoggerFactory configuration for production scenarios.
-    /// Demonstrates both the in-box providers (DebugLoggerFactory) and the
-    /// optional Microsoft.Extensions.Logging adapter package.
+    /// Demonstrates the in-box providers (DebugLoggerFactory). To bridge
+    /// Microsoft.Extensions.Logging, write a small adapter at the composition root
+    /// — see <c>MultiProjectDemo.Shell/Logging/</c> in the sample solution.
     /// </summary>
     public class CustomLoggingConfiguration
     {
@@ -325,10 +326,7 @@ namespace WinformsMVP.Samples
         }
 
         /// <summary>
-        /// Example: Configure platform services with the built-in Debug logger.
-        /// To bridge Microsoft.Extensions.Logging, install the
-        /// <c>WinformsMVP.Logging.MicrosoftExtensions</c> adapter package and call
-        /// <c>msFactory.AsFrameworkLoggerFactory()</c> at the composition root.
+        /// Configure platform services with the built-in Debug logger.
         /// </summary>
         public static void ConfigureWithCustomLogger()
         {

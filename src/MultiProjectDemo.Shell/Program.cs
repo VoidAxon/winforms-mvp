@@ -4,8 +4,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using MultiProjectDemo.OrderModule;
 using MultiProjectDemo.UserModule;
+using MultiProjectDemo.Shell.Logging;
 using WinformsMVP.DependencyInjection;
-using WinformsMVP.Logging.MicrosoftExtensions;
 using WinformsMVP.Services;
 using WinformsMVP.Services.Implementations;
 

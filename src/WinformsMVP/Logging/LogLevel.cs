@@ -1,8 +1,8 @@
 namespace WinformsMVP.Logging
 {
     /// <summary>
-    /// Log severity levels. Values match Microsoft.Extensions.Logging.LogLevel for
-    /// straightforward mapping by the optional adapter package.
+    /// Log severity levels. Values match Microsoft.Extensions.Logging.LogLevel so a
+    /// thin application-level adapter can map between the two by cast.
     /// </summary>
     public enum LogLevel
     {

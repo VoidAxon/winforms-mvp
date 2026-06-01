@@ -26,10 +26,10 @@
   </ItemGroup>
 
   <!--
-    Framework now defines its own minimal logging abstraction in WinformsMVP.Logging.
-    Host applications that want to use Microsoft.Extensions.Logging or any other
-    ecosystem reference the WinformsMVP.Logging.MicrosoftExtensions adapter package
-    (or write their own ILogger implementation). The main package itself has zero
+    Framework defines its own minimal logging abstraction in WinformsMVP.Logging.
+    Host applications either use a built-in implementation (NullLogger / DebugLogger)
+    or write a thin adapter for an existing ecosystem (e.g. Microsoft.Extensions.Logging) —
+    see MultiProjectDemo.Shell/Logging/ for an example. The main package itself has zero
     external dependencies (apart from System.ValueTuple on net40) so it can be
     multi-targeted to net40.
   -->

@@ -4,9 +4,10 @@ namespace WinformsMVP.Logging
 {
     /// <summary>
     /// Minimal logging abstraction the framework depends on. The host application can
-    /// implement this directly, use a built-in implementation (NullLogger / DebugLogger),
-    /// or bridge Microsoft.Extensions.Logging via the
-    /// <c>WinformsMVP.Logging.MicrosoftExtensions</c> adapter package.
+    /// implement this directly or use a built-in implementation (NullLogger / DebugLogger).
+    /// To bridge Microsoft.Extensions.Logging, write a small adapter at the composition
+    /// root — see <c>MultiProjectDemo.Shell/Logging/</c> in the sample solution for an
+    /// example of how to do this in ~30 lines.
     /// </summary>
     public interface ILogger
     {

@@ -33,8 +33,9 @@ namespace WinformsMVP.Services
         /// <summary>
         /// Logger factory for creating loggers.
         /// Defaults to <see cref="NullLoggerFactory.Instance"/> when not configured.
-        /// Bridge Microsoft.Extensions.Logging or other ecosystems via the
-        /// <c>WinformsMVP.Logging.MicrosoftExtensions</c> adapter package.
+        /// To bridge Microsoft.Extensions.Logging or other ecosystems, write a small
+        /// adapter at the composition root (see <c>MultiProjectDemo.Shell/Logging/</c>
+        /// in the sample solution).
         /// </summary>
         ILoggerFactory LoggerFactory { get; }
 

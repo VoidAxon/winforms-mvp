@@ -1980,14 +1980,14 @@ Common application services accessed via `ICommonServices`. These services are e
 
 ### Logging
 
-The framework ships with its own minimal logging abstraction in the **`WinformsMVP.Logging`** namespace. The main `WinformsMVP` package has **zero external dependencies** so it can multi-target `net40;net48`. Host applications that want a richer ecosystem opt in by either implementing the contract directly or taking the optional `WinformsMVP.Logging.MicrosoftExtensions` adapter package, which bridges to `Microsoft.Extensions.Logging`.
+The framework ships with its own minimal logging abstraction in the **`WinformsMVP.Logging`** namespace. The main `WinformsMVP` package has **zero external dependencies** so it can multi-target `net40;net48`. Host applications that want a richer ecosystem either implement the contract directly or write a small adapter — see [`MultiProjectDemo.Shell/Logging/`](src/MultiProjectDemo.Shell/Logging/) for a ~30-line Microsoft.Extensions.Logging bridge you can copy.
 
 #### Why an In-House Abstraction?
 
 - **net40 compatibility**: `Microsoft.Extensions.Logging.Abstractions` requires net461+. The framework's own contract is BCL-only so it runs on .NET Framework 4.0.
 - **Zero coupling**: The main package never references Microsoft.Extensions.Logging. Hosts pay for the dependency only if they want it.
 - **Familiar shape**: Method names (`LogInformation`, `LogError`, ...), enum values (`LogLevel.Information`, ...), and the `{Name}` placeholder syntax all match `Microsoft.Extensions.Logging`, so call sites read identically and migration is mechanical.
-- **Adapter, not fork**: When you do bridge to M.E.L., structured properties, scopes, and providers flow through untouched — the adapter forwards to `Microsoft.Extensions.Logging.LoggerExtensions.Log<TState>(...)` directly.
+- **Adapter, not fork**: A thin application-level adapter forwards to `Microsoft.Extensions.Logging.LoggerExtensions.Log<TState>(...)` directly, so structured properties, scopes, and providers flow through untouched when a host opts in.
 
 #### The Contract
 
@@ -2081,12 +2081,12 @@ public class MyPresenter : WindowPresenterBase<IMyView>
 
 Both M.E.L.-style named placeholders (`{UserName}`) and `string.Format`-style indexed placeholders (`{0}`) are accepted. Named placeholders are normalized to indexed in declaration order by `WinformsMVP.Logging.MessageFormatter` before formatting, so legacy call sites that came from M.E.L. continue to format correctly.
 
-When the adapter package is in use, structured properties flow through to M.E.L. unchanged (because the adapter forwards to `Ms.LoggerExtensions.Log` rather than pre-formatting the string).
+When an application-level adapter forwards to M.E.L., structured properties flow through unchanged (the adapter calls `Ms.LoggerExtensions.Log` rather than pre-formatting the string).
 
 **✅ Good - Structured parameters:**
 ```csharp
 // Named placeholders read like M.E.L. and are captured as structured data
-// when the M.E.L. adapter is active.
+// when a forwarding adapter to M.E.L. is wired in.
 Logger.LogInformation("User {UserName} opened document {DocumentId}", userName, docId);
 ```
 
@@ -2141,13 +2141,15 @@ static class Program
 }
 ```
 
-**Path 3 — Microsoft.Extensions.Logging bridge (net48 hosts only):**
+**Path 3 — Microsoft.Extensions.Logging bridge via an application-level adapter (net48 hosts only):**
 
-Add a `PackageReference` (or `ProjectReference`) to `WinformsMVP.Logging.MicrosoftExtensions`, then call the `.AsFrameworkLoggerFactory()` extension method:
+The framework does NOT ship an adapter package. Real applications write a small adapter at the composition root. See [`MultiProjectDemo.Shell/Logging/`](src/MultiProjectDemo.Shell/Logging/) for a complete, copy-pastable ~30-line implementation (`MicrosoftLoggerAdapter` + `MicrosoftLoggerFactoryAdapter` + `MicrosoftLoggingExtensions.AsFrameworkLoggerFactory()`).
+
+Once the adapter is in the host project, the composition root looks like this:
 
 ```csharp
 using Microsoft.Extensions.Logging;
-using WinformsMVP.Logging.MicrosoftExtensions;     // brings the extension method into scope
+using MyApp.Logging;                              // your application's adapter namespace
 using WinformsMVP.Services.Implementations;
 
 static class Program
@@ -2167,7 +2169,8 @@ static class Program
                 .SetMinimumLevel(LogLevel.Information);
         });
 
-        // ... then adapt it to the framework's ILoggerFactory contract.
+        // ... then adapt it to the framework's ILoggerFactory contract via
+        // the application's own AsFrameworkLoggerFactory() extension.
         PlatformServices.Default = new DefaultPlatformServices(
             viewMappingRegister: null,
             loggerFactory: msFactory.AsFrameworkLoggerFactory());
@@ -2177,11 +2180,11 @@ static class Program
 }
 ```
 
-> **net40 hosts cannot use Path 3.** `Microsoft.Extensions.Logging.Abstractions` requires net461+, so the adapter package targets net48 only. On net40, use Path 1 (silent) or Path 2 (`DebugLoggerFactory`).
+> **net40 hosts cannot use Path 3.** `Microsoft.Extensions.Logging.Abstractions` requires net461+, so this approach is net48-only. On net40, use Path 1 (silent) or Path 2 (`DebugLoggerFactory`).
 
 #### What the M.E.L. Bridge Unlocks (Provider Examples)
 
-Once `msFactory.AsFrameworkLoggerFactory()` is in place on a net48 host, the entire `Microsoft.Extensions.Logging` provider ecosystem becomes available. Configure the provider on the inner `msFactory` exactly as you would in ASP.NET Core; the framework's `Logger.LogInformation(...)` calls flow through unchanged.
+Once your application's `AsFrameworkLoggerFactory()` adapter is wired in on a net48 host, the entire `Microsoft.Extensions.Logging` provider ecosystem becomes available. Configure the provider on the inner `msFactory` exactly as you would in ASP.NET Core; the framework's `Logger.LogInformation(...)` calls flow through unchanged.
 
 **Example: Azure Application Insights**
 
@@ -2226,29 +2229,6 @@ var msFactory = LoggerFactory.Create(builder =>
     builder.AddFile("logs/app-{Date}.log", minimumLevel: LogLevel.Information));
 PlatformServices.Default = new DefaultPlatformServices(register, msFactory.AsFrameworkLoggerFactory());
 ```
-
-#### Migrating From the Old M.E.L.-Direct Configuration
-
-Before this branch, `DefaultPlatformServices` accepted `Microsoft.Extensions.Logging.ILoggerFactory` directly. The signature now takes the framework's own `WinformsMVP.Logging.ILoggerFactory`. Composition-root code needs one extra step:
-
-```csharp
-// Before — M.E.L. factory passed directly
-var msFactory = LoggerFactory.Create(b => b.AddDebug());
-var platform = new DefaultPlatformServices(register, loggerFactory: msFactory);  // no longer compiles
-
-// After (option A) — bridge via the adapter package
-var msFactory = LoggerFactory.Create(b => b.AddDebug());
-var platform = new DefaultPlatformServices(
-    register,
-    loggerFactory: msFactory.AsFrameworkLoggerFactory());
-
-// After (option B) — drop M.E.L. entirely, use the built-in Debug logger
-var platform = new DefaultPlatformServices(
-    register,
-    loggerFactory: new DebugLoggerFactory());
-```
-
-**Presenter code (`Logger.LogInformation(...)`, `Logger.LogError(ex, ...)`) does not change** — the extension method names and placeholder syntax are identical across both abstractions.
 
 #### Testing with Logging
 
@@ -2315,7 +2295,8 @@ See `src/WinformsMVP.Samples/LoggingDemoExample.cs` for a working example demons
 - Named-placeholder structured logging via `MessageFormatter`
 - Exception logging with context
 - Custom logger factory configuration
-- The M.E.L. bridge pattern via `AsFrameworkLoggerFactory()`
+
+For a runnable Microsoft.Extensions.Logging bridge implemented as application code (the recommended approach for net48 hosts), see [`MultiProjectDemo.Shell/Logging/`](src/MultiProjectDemo.Shell/Logging/) and its wiring in [`MultiProjectDemo.Shell/Program.cs`](src/MultiProjectDemo.Shell/Program.cs).
 
 #### Key Properties
 
@@ -2324,9 +2305,9 @@ See `src/WinformsMVP.Samples/LoggingDemoExample.cs` for a working example demons
 | **net40-compatible** | Main package has no M.E.L. dependency; multi-targets `net40;net48` |
 | **Silent by default** | `NullLoggerFactory.Instance` — no surprise output, no startup cost |
 | **Familiar surface** | Extension method names and placeholder syntax match M.E.L. |
-| **Opt-in ecosystem** | M.E.L. providers light up via the adapter package on net48 |
+| **Opt-in ecosystem** | M.E.L. providers light up via a ~30-line application-level adapter on net48 |
 | **Testable** | Two-method `ILogger` contract is trivial to mock |
-| **Structured-preserving** | The adapter forwards to M.E.L.'s `Log<TState>` so properties survive |
+| **Structured-preserving** | A forwarding adapter calls M.E.L.'s `Log<TState>` directly, so properties survive |
 
 ### Platform Services Access
 
@@ -3358,62 +3339,23 @@ public void OnOpenFile_WhenUserCancels_DoesNotLoadFile()
 
 **ChangeTracker<T>** (`WinformsMVP.Common.ChangeTracker`) は編集/キャンセルシナリオのための堅牢な変更追跡を提供します。`IChangeTracking`および`IRevertibleChangeTracking`インターフェースを実装しています。
 
-**重要な要件：**
+**型制約:** `where T : class`(参照型のみ)。`ICloneable` の実装は **任意**(必須ではありません)。
 
-ChangeTracker<T> を使用する型は `ICloneable` を実装し、**必ず深いコピー（ディープコピー）**を返す必要があります。
+**スナップショット(複製)の解決順序:**
+1. T が `ICloneable` を実装 → その `Clone()` を使用(高速パス、推奨)
+2. 未実装 → グローバルフック `ChangeTrackerDefaults.Cloner`(既定 = 組み込みリフレクション深いコピー `ObjectCloner`)
 
-**深いコピーの実装：**
+**比較の解決順序:**
+1. コンストラクタに渡した `comparer` → それを使用
+2. T が値等価性(`IEquatable<T>`/`IComparable<T>`/`Equals` オーバーライド)を持つ → それを使用
+3. いずれも無い → グローバルフック `ChangeTrackerDefaults.Comparer`(既定 = リフレクション深い比較)
 
+**第三者ライブラリの差し込み(起動時に一度だけ):**
 ```csharp
-public class UserModel : ICloneable
-{
-    public int Id { get; set; }
-    public string Name { get; set; }
-    public Address Address { get; set; }
-
-    // ✅ 正しい実装（深いコピー）
-    public object Clone()
-    {
-        return new UserModel
-        {
-            Id = this.Id,
-            Name = this.Name,
-            Address = this.Address?.Clone() as Address  // ネストされたオブジェクトも深くコピー
-        };
-    }
-}
-
-public class Address : ICloneable
-{
-    public string City { get; set; }
-
-    public object Clone()
-    {
-        return new Address { City = this.City };
-    }
-}
+ChangeTrackerDefaults.Cloner = o => o.DeepClone();   // 例: Force.DeepCloner
 ```
 
-**❌ 誤った実装（浅いコピー - 使用禁止）：**
-
-```csharp
-// ❌ NG: MemberwiseClone は浅いコピー
-public object Clone()
-{
-    return this.MemberwiseClone();  // 参照型プロパティは共有される！
-}
-
-// ❌ NG: ネストされたオブジェクトを深くコピーしていない
-public object Clone()
-{
-    return new UserModel
-    {
-        Id = this.Id,
-        Name = this.Name,
-        Address = this.Address  // 同じAddressインスタンスを共有！
-    };
-}
-```
+> **動作変更の注意:** `Equals` を override していないモデルは、旧実装では構築直後に `IsChanged == true`(参照比較によるバグ)でしたが、新実装ではリフレクション深い比較により正しく判定されます。`ICloneable`+`Equals` を実装済みのモデルは挙動不変です。
 
 **ChangeTrackerの使用：**
 
@@ -3538,7 +3480,7 @@ Console.WriteLine(tracker.CurrentValue.Address.City);  // "Osaka" (期待値: "T
 4. **検証サポート**
    ```csharp
    // カスタム検証ロジック（派生クラスで実装）
-   public class ValidatedChangeTracker<T> : ChangeTracker<T> where T : class, ICloneable
+   public class ValidatedChangeTracker<T> : ChangeTracker<T> where T : class
    {
        public override bool CanAcceptChanges(out string error)
        {
