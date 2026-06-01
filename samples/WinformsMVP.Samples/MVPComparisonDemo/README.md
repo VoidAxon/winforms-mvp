@@ -167,7 +167,7 @@ private void SetupDataBindings()
 
 1. 构建解决方案：
    ```bash
-   dotnet build src/winforms-mvp.sln
+   dotnet build winforms-mvp.sln
    ```
 
 2. 运行示例程序：

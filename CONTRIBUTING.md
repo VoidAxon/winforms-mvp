@@ -33,13 +33,13 @@ WinForms MVP Framework への貢献を検討いただきありがとうござい
 # クローンしてビルド
 git clone https://github.com/VoidAxon/winforms-mvp.git
 cd winforms-mvp
-dotnet build src/winforms-mvp.sln
+dotnet build winforms-mvp.sln
 
 # テスト実行
-dotnet test src/WindowsMVP.Samples.Tests/WindowsMVP.Samples.Tests.csproj
+dotnet test tests/WinformsMVP.Samples.Tests/WinformsMVP.Samples.Tests.csproj
 
 # サンプルアプリ実行
-dotnet run --project src/WinformsMVP.Samples/WinformsMVP.Samples.csproj
+dotnet run --project samples/WinformsMVP.Samples/WinformsMVP.Samples.csproj
 ```
 
 すべてのテストが緑になることを確認してください。

@@ -23,8 +23,8 @@
 ```bash
 git clone https://github.com/VoidAxon/winforms-mvp.git
 cd winforms-mvp
-dotnet build src/winforms-mvp.sln
-dotnet run --project src/WinformsMVP.Samples/WinformsMVP.Samples.csproj
+dotnet build winforms-mvp.sln
+dotnet run --project samples/WinformsMVP.Samples/WinformsMVP.Samples.csproj
 ```
 
 サンプルメニューが表示されたら準備は完了です。

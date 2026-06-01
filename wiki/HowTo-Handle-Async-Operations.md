@@ -451,4 +451,4 @@ public async Task OnRefresh_WhenRepositoryThrows_ShowsError()
 - [HowTo: Presenter をテストする](HowTo-Test-A-Presenter) — async テスト
 - [EventAggregator](Reference-EventAggregator) — バックグラウンドからの UI 通知 (自動マーシャリング)
 - サンプル:
-  - `src/WinformsMVP.Samples/AsyncDemo/` — 完全な async/Progress/Cancellation 実装
+  - `samples/WinformsMVP.Samples/AsyncDemo/` — 完全な async/Progress/Cancellation 実装

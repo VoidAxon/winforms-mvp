@@ -445,4 +445,4 @@ public void DeletingCustomer_WithOrders_ConfirmsBeforeDelete()
 - [ViewAction システム](Reference-ViewAction-System) — State-driven CanExecute
 - [HowTo: 非同期処理を扱う](HowTo-Handle-Async-Operations) — 詳細読み込みの async 化
 - サンプル:
-  - `src/WinformsMVP.Samples/MasterDetailDemo/` — 顧客 → 注文の完全例
+  - `samples/WinformsMVP.Samples/MasterDetailDemo/` — 顧客 → 注文の完全例

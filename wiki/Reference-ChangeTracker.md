@@ -293,5 +293,5 @@ private void OnSave()
 - [ViewAction システム](Reference-ViewAction-System) — `CanExecute: () => _changeTracker.IsChanged` パターン
 - [HowTo: ウィンドウクローズを扱う](HowTo-Handle-Window-Closing) — 完全な実装例
 - サンプル:
-  - `src/WinformsMVP.Samples/WindowClosingDemo/` — ChangeTracker + クローズモデルの組み合わせ
-  - `src/WinformsMVP.Samples.Tests/Common/ChangeTrackerTests.cs` — テストパターン
+  - `samples/WinformsMVP.Samples/WindowClosingDemo/` — ChangeTracker + クローズモデルの組み合わせ
+  - `tests/WinformsMVP.Samples.Tests/Common/ChangeTrackerTests.cs` — テストパターン

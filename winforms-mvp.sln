@@ -3,23 +3,25 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.35931.194
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{65A37301-218C-49B2-868E-1732CD14E5CC}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "samples", "samples", "{1A1A1A1A-1111-4111-8111-111111111111}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WinformsMVP", "WinformsMVP\WinformsMVP.csproj", "{C99309FC-BF3B-4A95-9750-A90AC626A0B3}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{2B2B2B2B-2222-4222-8222-222222222222}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WinformsMVP.Samples", "WinformsMVP.Samples\WinformsMVP.Samples.csproj", "{CFEF6708-FF61-409B-9F56-3664E1021CA3}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WinformsMVP", "src\WinformsMVP\WinformsMVP.csproj", "{C99309FC-BF3B-4A95-9750-A90AC626A0B3}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WinformsMVP.Samples.Tests", "WinformsMVP.Samples.Tests\WinformsMVP.Samples.Tests.csproj", "{1C505253-1223-40D1-8B23-79A0786D371D}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WinformsMVP.Samples", "samples\WinformsMVP.Samples\WinformsMVP.Samples.csproj", "{CFEF6708-FF61-409B-9F56-3664E1021CA3}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WinformsMVP.DependencyInjection", "WinformsMVP.DependencyInjection\WinformsMVP.DependencyInjection.csproj", "{52C4C6FC-2874-41E8-8355-D0ED1D68D895}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WinformsMVP.Samples.Tests", "tests\WinformsMVP.Samples.Tests\WinformsMVP.Samples.Tests.csproj", "{1C505253-1223-40D1-8B23-79A0786D371D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MultiProjectDemo.UserModule", "MultiProjectDemo.UserModule\MultiProjectDemo.UserModule.csproj", "{C60F5D39-3371-4941-94EC-AD60763F897C}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WinformsMVP.DependencyInjection", "src\WinformsMVP.DependencyInjection\WinformsMVP.DependencyInjection.csproj", "{52C4C6FC-2874-41E8-8355-D0ED1D68D895}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MultiProjectDemo.OrderModule", "MultiProjectDemo.OrderModule\MultiProjectDemo.OrderModule.csproj", "{D8D858FC-24F2-4A9A-A7A2-534CF7D55FBE}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MultiProjectDemo.UserModule", "samples\MultiProjectDemo.UserModule\MultiProjectDemo.UserModule.csproj", "{C60F5D39-3371-4941-94EC-AD60763F897C}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MultiProjectDemo.Shell", "MultiProjectDemo.Shell\MultiProjectDemo.Shell.csproj", "{0247F945-7E58-4CC6-B187-81FD2BFE8E30}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MultiProjectDemo.OrderModule", "samples\MultiProjectDemo.OrderModule\MultiProjectDemo.OrderModule.csproj", "{D8D858FC-24F2-4A9A-A7A2-534CF7D55FBE}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WinformsMVP.Net40SmokeTest", "WinformsMVP.Net40SmokeTest\WinformsMVP.Net40SmokeTest.csproj", "{41C09AD9-1F73-4117-BCDD-55C2D0663444}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MultiProjectDemo.Shell", "samples\MultiProjectDemo.Shell\MultiProjectDemo.Shell.csproj", "{0247F945-7E58-4CC6-B187-81FD2BFE8E30}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WinformsMVP.Net40SmokeTest", "tests\WinformsMVP.Net40SmokeTest\WinformsMVP.Net40SmokeTest.csproj", "{41C09AD9-1F73-4117-BCDD-55C2D0663444}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -132,9 +134,12 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
-		{C99309FC-BF3B-4A95-9750-A90AC626A0B3} = {65A37301-218C-49B2-868E-1732CD14E5CC}
-		{CFEF6708-FF61-409B-9F56-3664E1021CA3} = {65A37301-218C-49B2-868E-1732CD14E5CC}
-		{1C505253-1223-40D1-8B23-79A0786D371D} = {65A37301-218C-49B2-868E-1732CD14E5CC}
+		{CFEF6708-FF61-409B-9F56-3664E1021CA3} = {1A1A1A1A-1111-4111-8111-111111111111}
+		{C60F5D39-3371-4941-94EC-AD60763F897C} = {1A1A1A1A-1111-4111-8111-111111111111}
+		{D8D858FC-24F2-4A9A-A7A2-534CF7D55FBE} = {1A1A1A1A-1111-4111-8111-111111111111}
+		{0247F945-7E58-4CC6-B187-81FD2BFE8E30} = {1A1A1A1A-1111-4111-8111-111111111111}
+		{1C505253-1223-40D1-8B23-79A0786D371D} = {2B2B2B2B-2222-4222-8222-222222222222}
+		{41C09AD9-1F73-4117-BCDD-55C2D0663444} = {2B2B2B2B-2222-4222-8222-222222222222}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {6DE6A185-1BB3-4AFA-8F25-8F1A8AF418FD}

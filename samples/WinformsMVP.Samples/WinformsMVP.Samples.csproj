@@ -12,7 +12,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\WinformsMVP\WinformsMVP.csproj" />
+    <ProjectReference Include="..\..\src\WinformsMVP\WinformsMVP.csproj" />
   </ItemGroup>
 
   <ItemGroup>

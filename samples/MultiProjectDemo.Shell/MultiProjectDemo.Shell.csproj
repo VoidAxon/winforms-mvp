@@ -12,8 +12,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\WinformsMVP\WinformsMVP.csproj" />
-    <ProjectReference Include="..\WinformsMVP.DependencyInjection\WinformsMVP.DependencyInjection.csproj" />
+    <ProjectReference Include="..\..\src\WinformsMVP\WinformsMVP.csproj" />
+    <ProjectReference Include="..\..\src\WinformsMVP.DependencyInjection\WinformsMVP.DependencyInjection.csproj" />
     <ProjectReference Include="..\MultiProjectDemo.UserModule\MultiProjectDemo.UserModule.csproj" />
     <ProjectReference Include="..\MultiProjectDemo.OrderModule\MultiProjectDemo.OrderModule.csproj" />
   </ItemGroup>

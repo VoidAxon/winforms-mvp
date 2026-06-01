@@ -352,6 +352,6 @@ public void ProductSelector_PublishesMessage_OrderSummaryReceives()
 - [Presenter 基底クラス](Reference-Presenter-Base-Classes) — Presenter のライフサイクルと `Cleanup` フック
 - [HowTo: Presenter 間の通信方法](HowTo-Communicate-Between-Presenters) — 4 つの選択肢の使い分け
 - サンプル:
-  - `src/WinformsMVP.Samples/ComplexInteractionDemo_EventBased/` — EventAggregator の完全例
-  - `src/WinformsMVP.Samples/ComplexInteractionDemo_ServiceBased/` — Service ベース比較
-  - `src/WinformsMVP.Samples.Tests/Common/EventAggregatorTests.cs` — ストレステスト含む網羅テスト
+  - `samples/WinformsMVP.Samples/ComplexInteractionDemo_EventBased/` — EventAggregator の完全例
+  - `samples/WinformsMVP.Samples/ComplexInteractionDemo_ServiceBased/` — Service ベース比較
+  - `tests/WinformsMVP.Samples.Tests/Common/EventAggregatorTests.cs` — ストレステスト含む網羅テスト

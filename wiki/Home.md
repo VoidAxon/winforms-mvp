@@ -85,8 +85,8 @@ WinForms アプリケーションのための **Model-View-Presenter** フレー
 ## 外部リンク
 
 - [GitHub リポジトリ](https://github.com/VoidAxon/winforms-mvp) — ソースコード
-- [サンプルコード](https://github.com/VoidAxon/winforms-mvp/tree/master/src/WinformsMVP.Samples) — 全サンプル
-- [テストプロジェクト](https://github.com/VoidAxon/winforms-mvp/tree/master/src/WinformsMVP.Samples.Tests) — xUnit テスト
+- [サンプルコード](https://github.com/VoidAxon/winforms-mvp/tree/master/samples/WinformsMVP.Samples) — 全サンプル
+- [テストプロジェクト](https://github.com/VoidAxon/winforms-mvp/tree/master/tests/WinformsMVP.Samples.Tests) — xUnit テスト
 
 ---
 

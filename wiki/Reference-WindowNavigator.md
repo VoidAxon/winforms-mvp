@@ -382,5 +382,5 @@ public void OnOpenEditor_ShowsModalDialog()
 - [Dependency Injection](Reference-DependencyInjection) — `IPresenterFactory` で子 Presenter を DI 経由で解決する方法
 - [HowTo: ウィンドウクローズを扱う](HowTo-Handle-Window-Closing) — ダーティチェック・保存確認の実装
 - サンプル:
-  - `src/WinformsMVP.Samples/NavigatorDemo/` — Modal / Non-Modal / シングルトン
-  - `src/WinformsMVP.Samples/WindowClosingDemo/` — `IRequestClose<TResult>` の完全例
+  - `samples/WinformsMVP.Samples/NavigatorDemo/` — Modal / Non-Modal / シングルトン
+  - `samples/WinformsMVP.Samples/WindowClosingDemo/` — `IRequestClose<TResult>` の完全例

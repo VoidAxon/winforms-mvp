@@ -357,5 +357,5 @@ register.RegisterFromAssembly(Assembly.GetExecutingAssembly());
 - [Dependency Injection](Reference-DependencyInjection) — `IModuleRegistrar` と DI コンテナ連携の詳細
 - [はじめに (Getting Started)](Getting-Started) — 初回セットアップでの登録例
 - サンプル:
-  - `src/WinformsMVP.Samples/NavigatorDemo/` — 各種登録パターン
-  - `src/MultiProjectDemo.Shell/Program.cs` — モジュール化された登録の実例
+  - `samples/WinformsMVP.Samples/NavigatorDemo/` — 各種登録パターン
+  - `samples/MultiProjectDemo.Shell/Program.cs` — モジュール化された登録の実例

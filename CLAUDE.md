@@ -11,11 +11,11 @@ This is a WinForms MVP (Model-View-Presenter) framework for .NET Framework 4.8, 
 ### Building the Solution
 ```bash
 # Build entire solution
-dotnet build src/winforms-mvp.sln
+dotnet build winforms-mvp.sln
 
 # Build specific configuration
-dotnet build src/winforms-mvp.sln -c Debug
-dotnet build src/winforms-mvp.sln -c Release
+dotnet build winforms-mvp.sln -c Debug
+dotnet build winforms-mvp.sln -c Release
 
 # Build specific project
 dotnet build src/WinformsMVP/WinformsMVP.csproj
@@ -24,22 +24,22 @@ dotnet build src/WinformsMVP/WinformsMVP.csproj
 ### Running Tests
 ```bash
 # Run all tests using xUnit
-dotnet test src/WinformsMVP.Samples.Tests/WinformsMVP.Samples.Tests.csproj
+dotnet test tests/WinformsMVP.Samples.Tests/WinformsMVP.Samples.Tests.csproj
 
 # Run tests with detailed output
-dotnet test src/WinformsMVP.Samples.Tests/WinformsMVP.Samples.Tests.csproj -v detailed
+dotnet test tests/WinformsMVP.Samples.Tests/WinformsMVP.Samples.Tests.csproj -v detailed
 ```
 
 ### Running the Sample Application
 ```bash
 # Build and run the sample WinForms application
-dotnet run --project src/WinformsMVP.Samples/WinformsMVP.Samples.csproj
+dotnet run --project samples/WinformsMVP.Samples/WinformsMVP.Samples.csproj
 ```
 
 ### Restore NuGet Packages
 ```bash
 # Restore packages for the entire solution
-dotnet restore src/winforms-mvp.sln
+dotnet restore winforms-mvp.sln
 ```
 
 ## Architecture
@@ -1191,7 +1191,7 @@ View.ActionRequest += OnViewActionTriggered;
 
 **Complete Examples:**
 
-See `src/WinformsMVP.Samples/ViewActionExample.cs` for **Implicit Pattern** example demonstrating:
+See `samples/WinformsMVP.Samples/ViewActionExample.cs` for **Implicit Pattern** example demonstrating:
 - Global and module-specific static ActionKey classes
 - **ActionBinder property pattern for proper MVP separation** (recommended)
 - CanExecute predicates for dynamic enable/disable
@@ -1200,7 +1200,7 @@ See `src/WinformsMVP.Samples/ViewActionExample.cs` for **Implicit Pattern** exam
 - Proper dependency injection with IMessageService
 - View Interface with ActionBinder property (no UI types exposed)
 
-See `src/WinformsMVP.Samples/ViewActionExplicitEventExample.cs` for **Explicit Event Pattern** example demonstrating:
+See `samples/WinformsMVP.Samples/ViewActionExplicitEventExample.cs` for **Explicit Event Pattern** example demonstrating:
 - ActionRequest event-based ViewAction handling
 - OnViewActionTriggered helper method usage (one-line subscription)
 - ActionBinder returns null to prevent framework auto-binding
@@ -1208,22 +1208,22 @@ See `src/WinformsMVP.Samples/ViewActionExplicitEventExample.cs` for **Explicit E
 - Complete event flow from button click to handler execution
 - When and why to use explicit pattern over implicit
 
-See `src/WinformsMVP.Samples/ViewActionWithParametersExample.cs` for parameterized action examples.
+See `samples/WinformsMVP.Samples/ViewActionWithParametersExample.cs` for parameterized action examples.
 
-See `src/WinformsMVP.Samples/ViewActionStateChangedExample.cs` for state-driven update examples:
+See `samples/WinformsMVP.Samples/ViewActionStateChangedExample.cs` for state-driven update examples:
 - Using RaiseCanExecuteChanged() for state changes
 - Handling view events (SelectionChanged, DataChanged)
 - Async operations with state updates
 - Comparison between action-driven and state-driven patterns
 
-See `src/WinformsMVP.Samples/CheckBoxDemo/` for CheckBox/RadioButton examples:
+See `samples/WinformsMVP.Samples/CheckBoxDemo/` for CheckBox/RadioButton examples:
 - CheckBox binding with CheckedChanged events
 - RadioButton groups for theme selection
 - CanExecute controlling Enabled state
 - **Proper MVP separation using ActionBinder property pattern** (no UI types in interface)
 - Settings UI pattern with Apply/Reset buttons
 
-See `src/WinformsMVP.Samples/BulkBindingDemo/` for bulk binding examples:
+See `samples/WinformsMVP.Samples/BulkBindingDemo/` for bulk binding examples:
 - AddRange with tuples for efficient binding
 - AddRange with dictionary for alternative syntax
 - Handling surveys/questionnaires with many options
@@ -1362,13 +1362,13 @@ These rejections are logged but never reach the pipeline. If you need to audit "
 
 ##### Sample code
 
-See [`src/WinformsMVP.Samples/ViewActionMiddlewareExample.cs`](src/WinformsMVP.Samples/ViewActionMiddlewareExample.cs) for runnable implementations of:
+See [`samples/WinformsMVP.Samples/ViewActionMiddlewareExample.cs`](samples/WinformsMVP.Samples/ViewActionMiddlewareExample.cs) for runnable implementations of:
 
 - `AuditMiddleware` — write every dispatch to an audit sink
 - `PerformanceMiddleware` — warn on slow dispatches
 - `ErrorDialogMiddleware` — replace the built-in safety-net catch with user-facing dialogs
 
-Test coverage lives in [`ViewActionDispatcherMiddlewareTests`](src/WinformsMVP.Samples.Tests/ViewActions/ViewActionDispatcherMiddlewareTests.cs), [`PresenterMiddlewareIntegrationTests`](src/WinformsMVP.Samples.Tests/ViewActions/PresenterMiddlewareIntegrationTests.cs), and [`ViewActionDispatcherPerformanceTests`](src/WinformsMVP.Samples.Tests/ViewActions/ViewActionDispatcherPerformanceTests.cs).
+Test coverage lives in [`ViewActionDispatcherMiddlewareTests`](tests/WinformsMVP.Samples.Tests/ViewActions/ViewActionDispatcherMiddlewareTests.cs), [`PresenterMiddlewareIntegrationTests`](tests/WinformsMVP.Samples.Tests/ViewActions/PresenterMiddlewareIntegrationTests.cs), and [`ViewActionDispatcherPerformanceTests`](tests/WinformsMVP.Samples.Tests/ViewActions/ViewActionDispatcherPerformanceTests.cs).
 
 ### Navigation System
 
@@ -1661,7 +1661,7 @@ public void Save_FiresCloseRequestedWithResult()
 }
 ```
 
-See `src/WinformsMVP.Samples/WindowClosingDemo/` for a minimal end-to-end example and `src/WinformsMVP.Samples.Tests/Presenters/WindowClosingTests.cs` for the full set of behavior tests.
+See `samples/WinformsMVP.Samples/WindowClosingDemo/` for a minimal end-to-end example and `tests/WinformsMVP.Samples.Tests/Presenters/WindowClosingTests.cs` for the full set of behavior tests.
 
 ### View Mapping Register
 
@@ -1980,7 +1980,7 @@ Common application services accessed via `ICommonServices`. These services are e
 
 ### Logging
 
-The framework ships with its own minimal logging abstraction in the **`WinformsMVP.Logging`** namespace. The main `WinformsMVP` package has **zero external dependencies** so it can multi-target `net40;net48`. Host applications that want a richer ecosystem either implement the contract directly or write a small adapter — see [`MultiProjectDemo.Shell/Logging/`](src/MultiProjectDemo.Shell/Logging/) for a ~30-line Microsoft.Extensions.Logging bridge you can copy.
+The framework ships with its own minimal logging abstraction in the **`WinformsMVP.Logging`** namespace. The main `WinformsMVP` package has **zero external dependencies** so it can multi-target `net40;net48`. Host applications that want a richer ecosystem either implement the contract directly or write a small adapter — see [`MultiProjectDemo.Shell/Logging/`](samples/MultiProjectDemo.Shell/Logging/) for a ~30-line Microsoft.Extensions.Logging bridge you can copy.
 
 #### Why an In-House Abstraction?
 
@@ -2143,7 +2143,7 @@ static class Program
 
 **Path 3 — Microsoft.Extensions.Logging bridge via an application-level adapter (net48 hosts only):**
 
-The framework does NOT ship an adapter package. Real applications write a small adapter at the composition root. See [`MultiProjectDemo.Shell/Logging/`](src/MultiProjectDemo.Shell/Logging/) for a complete, copy-pastable ~30-line implementation (`MicrosoftLoggerAdapter` + `MicrosoftLoggerFactoryAdapter` + `MicrosoftLoggingExtensions.AsFrameworkLoggerFactory()`).
+The framework does NOT ship an adapter package. Real applications write a small adapter at the composition root. See [`MultiProjectDemo.Shell/Logging/`](samples/MultiProjectDemo.Shell/Logging/) for a complete, copy-pastable ~30-line implementation (`MicrosoftLoggerAdapter` + `MicrosoftLoggerFactoryAdapter` + `MicrosoftLoggingExtensions.AsFrameworkLoggerFactory()`).
 
 Once the adapter is in the host project, the composition root looks like this:
 
@@ -2286,17 +2286,17 @@ public void OnSave_ShouldLogSuccess()
 }
 ```
 
-See `src/WinformsMVP.Samples.Tests/LoggingIntegrationTests.cs` for the full set of test patterns (mock logger, mock factory, structured-message verification, exception logging).
+See `tests/WinformsMVP.Samples.Tests/LoggingIntegrationTests.cs` for the full set of test patterns (mock logger, mock factory, structured-message verification, exception logging).
 
 #### Complete Example
 
-See `src/WinformsMVP.Samples/LoggingDemoExample.cs` for a working example demonstrating:
+See `samples/WinformsMVP.Samples/LoggingDemoExample.cs` for a working example demonstrating:
 - Different log levels (Debug, Information, Warning, Error)
 - Named-placeholder structured logging via `MessageFormatter`
 - Exception logging with context
 - Custom logger factory configuration
 
-For a runnable Microsoft.Extensions.Logging bridge implemented as application code (the recommended approach for net48 hosts), see [`MultiProjectDemo.Shell/Logging/`](src/MultiProjectDemo.Shell/Logging/) and its wiring in [`MultiProjectDemo.Shell/Program.cs`](src/MultiProjectDemo.Shell/Program.cs).
+For a runnable Microsoft.Extensions.Logging bridge implemented as application code (the recommended approach for net48 hosts), see [`MultiProjectDemo.Shell/Logging/`](samples/MultiProjectDemo.Shell/Logging/) and its wiring in [`MultiProjectDemo.Shell/Program.cs`](samples/MultiProjectDemo.Shell/Program.cs).
 
 #### Key Properties
 
@@ -3779,11 +3779,24 @@ public void ProductSelector_PublishesMessage_OrderSummaryReceives()
 
 **See Also:**
 
-- `src/WinformsMVP.Samples/ComplexInteractionDemo_EventBased/` - Full Event Aggregator example
-- `src/WinformsMVP.Samples/ComplexInteractionDemo_ServiceBased/` - Service-based comparison
-- `src/WinformsMVP.Samples.Tests/Common/EventAggregatorTests.cs` - Comprehensive tests including stress tests
+- `samples/WinformsMVP.Samples/ComplexInteractionDemo_EventBased/` - Full Event Aggregator example
+- `samples/WinformsMVP.Samples/ComplexInteractionDemo_ServiceBased/` - Service-based comparison
+- `tests/WinformsMVP.Samples.Tests/Common/EventAggregatorTests.cs` - Comprehensive tests including stress tests
 
 ## Project Structure
+
+The repository root separates shippable library code from samples and tests, following the conventional .NET layout (`src` / `samples` / `tests` as sibling top-level folders, with `winforms-mvp.sln` at the root):
+
+```
+/
+├── src/        Core libraries (the framework itself)
+├── samples/    Sample and demo applications
+├── tests/      Test projects
+├── docs/  wiki/  tools/
+└── winforms-mvp.sln
+```
+
+`src/` holds only the libraries that ship; samples and tests live outside `src/` because they are not part of the published package.
 
 - `src/WinformsMVP/`: Core framework library (SDK-style project)
   - `MVP/Presenters/`: Presenter base classes and interfaces
@@ -3798,9 +3811,17 @@ public void ProductSelector_PublishesMessage_OrderSummaryReceives()
   - `Services/`: Application service interfaces and implementations
   - `Common/`: Shared utilities, events, helpers
 
-- `src/WinformsMVP.Samples/`: Sample WinForms application (SDK-style project)
+- `src/WinformsMVP.DependencyInjection/`: Optional Microsoft.Extensions.DependencyInjection integration (SDK-style project)
 
-- `src/WinformsMVP.Samples.Tests/`: xUnit test project (SDK-style project)
+- `src/WinformsMVP.Analyzers/`: Roslyn analyzers package (SDK-style project, not part of the solution)
+
+- `samples/`: Sample and demo applications
+  - `WinformsMVP.Samples/`: Main sample WinForms application
+  - `MultiProjectDemo.Shell/`, `MultiProjectDemo.UserModule/`, `MultiProjectDemo.OrderModule/`: Multi-project DI demo
+
+- `tests/`: Test projects
+  - `WinformsMVP.Samples.Tests/`: xUnit test project
+  - `WinformsMVP.Net40SmokeTest/`: net40 runtime smoke-test executable
 
 ## Development Notes
 

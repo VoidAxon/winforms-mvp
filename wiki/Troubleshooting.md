@@ -387,7 +387,7 @@ PlatformServices.Default = new DefaultPlatformServices(
 
 ### Application Insights / Seq に流したい
 
-`Microsoft.Extensions.Logging` 経由で接続できますが、メインパッケージは M.E.L. に依存していません。アプリ側に ~30 行のアダプタを書く必要があります。完成サンプルが `src/MultiProjectDemo.Shell/Logging/` にあります。詳しくは [Logging § M.E.L. プロバイダのつなぎ方](Reference-Logging#mel-プロバイダのつなぎ方) 参照。
+`Microsoft.Extensions.Logging` 経由で接続できますが、メインパッケージは M.E.L. に依存していません。アプリ側に ~30 行のアダプタを書く必要があります。完成サンプルが `samples/MultiProjectDemo.Shell/Logging/` にあります。詳しくは [Logging § M.E.L. プロバイダのつなぎ方](Reference-Logging#mel-プロバイダのつなぎ方) 参照。
 
 ---
 

@@ -342,7 +342,7 @@ public void Cancel_FiresCloseRequestedWithCancelStatus()
 }
 ```
 
-完全なテストセットは `src/WinformsMVP.Samples.Tests/Presenters/WindowClosingTests.cs` を、実行可能な最小サンプルは `src/WinformsMVP.Samples/WindowClosingDemo/` を参照してください。
+完全なテストセットは `tests/WinformsMVP.Samples.Tests/Presenters/WindowClosingTests.cs` を、実行可能な最小サンプルは `samples/WinformsMVP.Samples/WindowClosingDemo/` を参照してください。
 
 詳しいモック設定は [HowTo: Presenter をテストする](HowTo-Test-A-Presenter) も合わせてどうぞ。
 

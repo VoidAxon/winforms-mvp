@@ -87,7 +87,7 @@ WinForms MVP Framework のセキュリティ報告と対応方針について。
 - アプリケーション側のコード由来の問題 (例: SQL インジェクション・XSS。本フレームワークは関与しない)
 - .NET Framework 自体の脆弱性 (Microsoft に報告)
 - WinForms 標準コントロールの動作 (Microsoft に報告)
-- サンプルコード (`src/WinformsMVP.Samples/`) のセキュリティ — 本番品質ではない
+- サンプルコード (`samples/WinformsMVP.Samples/`) のセキュリティ — 本番品質ではない
 
 ---
 

@@ -15,8 +15,8 @@
       ReadOnlyCollection, message formatter, ViewActionDispatcher).
 
       Run via:
-        dotnet build src/WinformsMVP.Net40SmokeTest/WinformsMVP.Net40SmokeTest.csproj
-        ./src/WinformsMVP.Net40SmokeTest/bin/Debug/net40/WinformsMVP.Net40SmokeTest.exe
+        dotnet build tests/WinformsMVP.Net40SmokeTest/WinformsMVP.Net40SmokeTest.csproj
+        ./tests/WinformsMVP.Net40SmokeTest/bin/Debug/net40/WinformsMVP.Net40SmokeTest.exe
 
       Exit code 0 = all smokes pass. Non-zero = at least one failed (details on stdout).
     -->
@@ -28,7 +28,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\WinformsMVP\WinformsMVP.csproj" />
+    <ProjectReference Include="..\..\src\WinformsMVP\WinformsMVP.csproj" />
   </ItemGroup>
 
   <ItemGroup>

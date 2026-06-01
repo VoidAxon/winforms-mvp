@@ -405,5 +405,5 @@ public class MockUserEditorView : IUserEditorView
 - [HowTo: ウィンドウクローズを扱う](HowTo-Handle-Window-Closing) — クローズ動作のテスト
 - [Reference-Logging#テストでの利用](Reference-Logging#テストでの利用) — ロギングのモック
 - サンプル:
-  - `src/WinformsMVP.Samples.Tests/Presenters/` — Presenter 単体テストの実例
-  - `src/WinformsMVP.Samples.Tests/Mocks/` — モック実装
+  - `tests/WinformsMVP.Samples.Tests/Presenters/` — Presenter 単体テストの実例
+  - `tests/WinformsMVP.Samples.Tests/Mocks/` — モック実装

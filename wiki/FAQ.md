@@ -178,7 +178,7 @@ Assert.False(_view.WasDeleted);
 
 ### Q. テストで View を実体化する必要がありますか?
 
-A. 不要です。`MockXxxView` を実装してインターフェイス越しにテストします。サンプルは `src/WinformsMVP.Samples.Tests/Mocks/` を参照。
+A. 不要です。`MockXxxView` を実装してインターフェイス越しにテストします。サンプルは `tests/WinformsMVP.Samples.Tests/Mocks/` を参照。
 
 ---
 

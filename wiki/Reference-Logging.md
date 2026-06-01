@@ -198,7 +198,7 @@ internal static class Program
 ### パス 3: Microsoft.Extensions.Logging ブリッジ (`net48` 専用)
 
 メインパッケージは M.E.L. のアダプタパッケージを提供しません。実際のアプリケーションは Composition Root に **小さなアダプタを書きます** (~30 行)。
-完成形のサンプルが [`MultiProjectDemo.Shell/Logging/`](https://github.com/VoidAxon/winforms-mvp/tree/master/src/MultiProjectDemo.Shell/Logging) にあるので、コピペで使えます。
+完成形のサンプルが [`MultiProjectDemo.Shell/Logging/`](https://github.com/VoidAxon/winforms-mvp/tree/master/samples/MultiProjectDemo.Shell/Logging) にあるので、コピペで使えます。
 
 アダプタを配置したあとの Composition Root:
 
@@ -343,7 +343,7 @@ public void OnSave_ShouldLogSuccess()
 }
 ```
 
-完全なテストパターン集は `src/WinformsMVP.Samples.Tests/LoggingIntegrationTests.cs` にあります。
+完全なテストパターン集は `tests/WinformsMVP.Samples.Tests/LoggingIntegrationTests.cs` にあります。
 
 ---
 
@@ -366,5 +366,5 @@ public void OnSave_ShouldLogSuccess()
 - [Dependency Injection](Reference-DependencyInjection) — Logging を含む DI コンテナ統合
 - [HowTo: Presenter をテストする](HowTo-Test-A-Presenter) — テスト時のサイレント化・キャプチャパターン
 - サンプル:
-  - [`src/WinformsMVP.Samples/LoggingDemoExample.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/src/WinformsMVP.Samples/LoggingDemoExample.cs) — 基本デモ
-  - [`src/MultiProjectDemo.Shell/Logging/`](https://github.com/VoidAxon/winforms-mvp/tree/master/src/MultiProjectDemo.Shell/Logging) — M.E.L. アダプタの実装例
+  - [`samples/WinformsMVP.Samples/LoggingDemoExample.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/samples/WinformsMVP.Samples/LoggingDemoExample.cs) — 基本デモ
+  - [`samples/MultiProjectDemo.Shell/Logging/`](https://github.com/VoidAxon/winforms-mvp/tree/master/samples/MultiProjectDemo.Shell/Logging) — M.E.L. アダプタの実装例

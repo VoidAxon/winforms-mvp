@@ -287,7 +287,7 @@ public class ProductSelectorPresenter : ControlPresenterBase<IProductSelectorVie
 ### Running Tests
 
 ```bash
-dotnet test src/WindowsMVP.Samples.Tests/WindowsMVP.Samples.Tests.csproj --filter "FullyQualifiedName~ComplexInteractionDemo"
+dotnet test tests/WinformsMVP.Samples.Tests/WinformsMVP.Samples.Tests.csproj --filter "FullyQualifiedName~ComplexInteractionDemo"
 ```
 
 Expected output:
@@ -329,10 +329,10 @@ static void Main()
 
 ```bash
 # Build
-dotnet build src/winforms-mvp.sln
+dotnet build winforms-mvp.sln
 
 # Run the demo
-dotnet run --project src/WinformsMVP.Samples/WinformsMVP.Samples.csproj
+dotnet run --project samples/WinformsMVP.Samples/WinformsMVP.Samples.csproj
 # Then select "Complex Interaction Demo" from the menu
 ```
 

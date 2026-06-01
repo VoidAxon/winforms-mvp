@@ -629,10 +629,10 @@ Dispatcher.Use((ctx, next) =>
 - [Platform Services](Reference-Platform-Services) — Dispatcher を含むサービスの構成
 - [MVP 設計ルール](Design-Rules) — ルール 8 (UI 型を View インターフェイスに露出しない) 、ルール 13 (Tell-Don't-Ask)
 - サンプルコード:
-  - `src/WinformsMVP.Samples/ViewActionExample.cs` — Implicit パターンの最小例
-  - `src/WinformsMVP.Samples/ViewActionExplicitEventExample.cs` — Explicit パターン
-  - `src/WinformsMVP.Samples/ViewActionWithParametersExample.cs` — パラメータ付きアクション
-  - `src/WinformsMVP.Samples/ViewActionStateChangedExample.cs` — 状態駆動更新
-  - `src/WinformsMVP.Samples/CheckBoxDemo/` — CheckBox/RadioButton バインド
-  - `src/WinformsMVP.Samples/BulkBindingDemo/` — 一括バインド
-  - `src/WinformsMVP.Samples/ViewActionMiddlewareExample.cs` — ミドルウェア (Audit / Performance / ErrorDialog)
+  - `samples/WinformsMVP.Samples/ViewActionExample.cs` — Implicit パターンの最小例
+  - `samples/WinformsMVP.Samples/ViewActionExplicitEventExample.cs` — Explicit パターン
+  - `samples/WinformsMVP.Samples/ViewActionWithParametersExample.cs` — パラメータ付きアクション
+  - `samples/WinformsMVP.Samples/ViewActionStateChangedExample.cs` — 状態駆動更新
+  - `samples/WinformsMVP.Samples/CheckBoxDemo/` — CheckBox/RadioButton バインド
+  - `samples/WinformsMVP.Samples/BulkBindingDemo/` — 一括バインド
+  - `samples/WinformsMVP.Samples/ViewActionMiddlewareExample.cs` — ミドルウェア (Audit / Performance / ErrorDialog)

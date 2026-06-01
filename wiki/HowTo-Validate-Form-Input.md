@@ -799,4 +799,4 @@ public void UserModel_ValidateSequential_StopsAtFirstError()
 - [HowTo: Presenter をテストする](HowTo-Test-A-Presenter) — テストパターン詳細
 - [Presenter 基底クラス](Reference-Presenter-Base-Classes) — `View.InputChanged` 等のイベント購読
 - サンプル:
-  - `src/WinformsMVP.Samples/ValidationDemo/` — `ValidationDemoPresenter` / `ValidationDemoForm` で手書きと ModelValidator の両方を扱う完全実装
+  - `samples/WinformsMVP.Samples/ValidationDemo/` — `ValidationDemoPresenter` / `ValidationDemoForm` で手書きと ModelValidator の両方を扱う完全実装

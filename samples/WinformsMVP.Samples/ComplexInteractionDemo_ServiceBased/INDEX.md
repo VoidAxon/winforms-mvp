@@ -150,7 +150,7 @@ The Service-Based implementation **reuses** the following from the original `Com
 
 ### From Command Line
 ```bash
-dotnet run --project src/WinformsMVP.Samples/WinformsMVP.Samples.csproj
+dotnet run --project samples/WinformsMVP.Samples/WinformsMVP.Samples.csproj
 ```
 
 Then in the application, navigate to the Service-Based demo.

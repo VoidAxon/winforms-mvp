@@ -96,19 +96,19 @@ navigator.ShowWindow(new UserEditorPresenter());
 2. ソリューションをビルド
 
    ```bash
-   dotnet build src/winforms-mvp.sln
+   dotnet build winforms-mvp.sln
    ```
 
 3. サンプルアプリを実行
 
    ```bash
-   dotnet run --project src/WinformsMVP.Samples/WinformsMVP.Samples.csproj
+   dotnet run --project samples/WinformsMVP.Samples/WinformsMVP.Samples.csproj
    ```
 
 4. テストを実行
 
    ```bash
-   dotnet test src/WindowsMVP.Samples.Tests/WindowsMVP.Samples.Tests.csproj
+   dotnet test tests/WinformsMVP.Samples.Tests/WinformsMVP.Samples.Tests.csproj
    ```
 
 ---

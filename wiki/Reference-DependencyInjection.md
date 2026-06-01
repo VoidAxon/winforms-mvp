@@ -581,5 +581,5 @@ internal static class Program
 - [ViewMappingRegister](Reference-ViewMappingRegister) — View 解決層の詳細
 - [HowTo: 従来の WinForms から移行する](HowTo-Migrate-From-Legacy-WinForms) — 段階的なリファクタリング
 - サンプル:
-  - `src/MultiProjectDemo.Shell/Program.cs` — 完全な多プロジェクト構成
-  - `src/MultiProjectDemo.UserModule.UI/UserModuleRegistrar.cs` — モジュール登録の実例
+  - `samples/MultiProjectDemo.Shell/Program.cs` — 完全な多プロジェクト構成
+  - `samples/MultiProjectDemo.UserModule/UserModuleRegistrar.cs` — モジュール登録の実例

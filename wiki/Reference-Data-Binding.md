@@ -521,4 +521,4 @@ button.BindProperty(model, m => m.CanSubmit, nameof(button.Enabled));
 - [MVP パターンとは](Concept-MVP-Pattern) — View 実装の責務範囲
 - [Reference-ChangeTracker](Reference-ChangeTracker) — バインドされたモデルの変更追跡
 - サンプル:
-  - `src/WinformsMVP.Samples/ToDoDemo/` — Data Binding の実例
+  - `samples/WinformsMVP.Samples/ToDoDemo/` — Data Binding の実例
