@@ -457,8 +457,10 @@ namespace WinformsMVP.Services.Implementations
                 if (args.Cancel) e.Cancel = true;
             };
 
-            // 3. Inject View into Presenter
-            InjectViewIntoPresenter(presenter, newForm as IViewBase);
+            // 3. Inject View into Presenter via the non-generic internal contract.
+            //    All presenters derive from PresenterBase, which implements IViewAttachable;
+            //    this is a direct virtual call (no reflection).
+            ((IViewAttachable)presenter).AttachView((IViewBase)newForm);
 
             // 4. Initialize business logic
             if (callInitialize && presenter is IInitializable initializable)
@@ -491,23 +493,6 @@ namespace WinformsMVP.Services.Implementations
                     return MvpCloseReason.Normal;
                 default:
                     return MvpCloseReason.Unknown;
-            }
-        }
-
-        private void InjectViewIntoPresenter(IPresenter presenter, IViewBase viewInstance)
-        {
-            Type viewInterfaceType = presenter.ViewInterfaceType;
-            Type attacherType = typeof(IViewAttacher<>).MakeGenericType(viewInterfaceType);
-
-            var attachMethod = attacherType.GetMethod("AttachView");
-
-            if (attachMethod != null)
-            {
-                attachMethod.Invoke(presenter, new object[] { viewInstance });
-            }
-            else
-            {
-                throw new InvalidOperationException($"Presenter {presenter.GetType().Name} does not correctly implement interface {attacherType.Name}.");
             }
         }
 

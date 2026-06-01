@@ -26,13 +26,17 @@ namespace WinformsMVP.Samples.Tests.Services
 
         public interface ITestNavView : IWindowView { }
 
-        /// <summary>Parameterless presenter that records whether it was disposed.</summary>
+        /// <summary>Parameterless presenter that records whether it was disposed / had a view attached.</summary>
         private sealed class TestNavPresenter : WindowPresenterBase<ITestNavView>
         {
             public bool Disposed { get; private set; }
-            protected override void OnViewAttached() { }
+            public bool ViewWasAttached { get; private set; }
+            protected override void OnViewAttached() => ViewWasAttached = true;
             protected override void Cleanup() => Disposed = true;
         }
+
+        /// <summary>An <see cref="IViewBase"/> that is NOT an <see cref="ITestNavView"/>.</summary>
+        private sealed class WrongView : IViewBase { }
 
         /// <summary>Parameterized presenter (exercises the <c>TParam</c> overloads).</summary>
         private sealed class TestNavPresenterWithParam : WindowPresenterBase<ITestNavView, int>
@@ -112,6 +116,27 @@ namespace WinformsMVP.Samples.Tests.Services
 
             Assert.Contains("Form", ex.Message);
             Assert.True(presenter.Disposed, "Presenter should be disposed when the view is not a Form.");
+        }
+
+        [Fact]
+        public void IViewAttachable_AttachView_CastsToTViewAndAttaches()
+        {
+            // The non-generic internal contract WindowNavigator uses instead of reflection.
+            var presenter = new TestNavPresenter();
+
+            ((IViewAttachable)presenter).AttachView(new NotAFormView());
+
+            Assert.True(presenter.ViewWasAttached,
+                "AttachView(IViewBase) should cast to TView and route through SetView/OnViewAttached.");
+        }
+
+        [Fact]
+        public void IViewAttachable_AttachView_WithWrongViewType_ThrowsInvalidCast()
+        {
+            var presenter = new TestNavPresenter();
+
+            Assert.Throws<InvalidCastException>(
+                () => ((IViewAttachable)presenter).AttachView(new WrongView()));
         }
     }
 }
