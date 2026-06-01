@@ -1,11 +1,10 @@
-﻿using System;
+using System;
 using WinformsMVP.Logging;
 using WinformsMVP.Common.Events;
-using WinformsMVP.Core.Views;
-using WinformsMVP.MVP.Presenters;
+using WinformsMVP.MVP.Views;
 using WinformsMVP.MVP.ViewActions;
 
-namespace WinformsMVP.Core.Presenters
+namespace WinformsMVP.MVP.Presenters
 {
     /// <summary>
     /// Base class for all presenters providing common functionality.

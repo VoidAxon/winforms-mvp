@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using WinformsMVP.Core.Views;
+using WinformsMVP.MVP.Views;
 using WinformsMVP.MVP.Presenters;
 using WinformsMVP.MVP.ViewActions;
 using WinformsMVP.Samples.Tests.Mocks;
@@ -10,7 +10,7 @@ using Xunit;
 namespace WinformsMVP.Samples.Tests.ViewActions
 {
     /// <summary>
-    /// Integration tests for <see cref="WinformsMVP.Core.Presenters.PresenterBase{TView}"/>
+    /// Integration tests for <see cref="WinformsMVP.MVP.Presenters.PresenterBase{TView}"/>
     /// + <see cref="ViewActionDispatcher"/> middleware. Specifically verifies the contract
     /// that global middleware (from <c>IPlatformServices.ConfigureDispatcher</c>) is
     /// applied <b>before</b> any local middleware registered inside

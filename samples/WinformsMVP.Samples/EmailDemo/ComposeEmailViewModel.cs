@@ -1,4 +1,4 @@
-using WinformsMVP.Core.Models;
+using WinformsMVP.MVP.Models;
 
 namespace WinformsMVP.Samples.EmailDemo
 {

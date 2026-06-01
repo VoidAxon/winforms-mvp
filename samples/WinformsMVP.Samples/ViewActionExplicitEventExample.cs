@@ -1,7 +1,7 @@
 using System;
 using System.Windows.Forms;
 using WinformsMVP.Common.Events;
-using WinformsMVP.Core.Views;
+using WinformsMVP.MVP.Views;
 using WinformsMVP.MVP.Presenters;
 using WinformsMVP.MVP.ViewActions;
 using WinformsMVP.Services;

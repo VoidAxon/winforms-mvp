@@ -4,7 +4,7 @@ using System.Linq;
 using System.Windows.Forms;
 using WinformsMVP.Common;
 using WinformsMVP.Common.Events;
-using WinformsMVP.Core.Views;
+using WinformsMVP.MVP.Views;
 using WinformsMVP.MVP.ViewActions;
 
 namespace WinformsMVP.Samples.ToDoDemo

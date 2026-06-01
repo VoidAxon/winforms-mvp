@@ -31,7 +31,7 @@ namespace WinformsMVP.Samples.EmailDemo
     ///     raise <see cref="IRequestClose{TResult}.CloseRequested"/> via the local
     ///     <c>RaiseClose</c> helper, after finalizing dirty state.</description></item>
     ///   <item><description><b>Pull</b> (external close — user clicks X): <c>OnViewClosing</c> subscribes
-    ///     to <see cref="WinformsMVP.Core.Views.IWindowView.Closing"/> and prompts the user
+    ///     to <see cref="WinformsMVP.MVP.Views.IWindowView.Closing"/> and prompts the user
     ///     to save / discard / cancel when there are unsaved changes.</description></item>
     /// </list>
     /// The single-source-of-truth principle: dirty data check lives only in <c>OnViewClosing</c>.

@@ -1,5 +1,5 @@
 using System.Collections.Generic;
-using WinformsMVP.Core.Views;
+using WinformsMVP.MVP.Views;
 
 namespace MultiProjectDemo.OrderModule
 {

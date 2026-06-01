@@ -1,4 +1,4 @@
-using WinformsMVP.Core.Views;
+using WinformsMVP.MVP.Views;
 
 namespace MultiProjectDemo.Shell
 {

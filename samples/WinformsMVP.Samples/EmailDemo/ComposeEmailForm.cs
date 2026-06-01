@@ -4,8 +4,8 @@ using System.Drawing;
 using System.Windows.Forms;
 using WinformsMVP.Common.Events;
 using WinformsMVP.Common.Extensions;
-using WinformsMVP.Core.Models;
-using WinformsMVP.Core.Views;
+using WinformsMVP.MVP.Models;
+using WinformsMVP.MVP.Views;
 using WinformsMVP.MVP.ViewActions;
 
 namespace WinformsMVP.Samples.EmailDemo

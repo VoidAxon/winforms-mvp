@@ -1,5 +1,5 @@
 using System;
-using WinformsMVP.Core.Views;
+using WinformsMVP.MVP.Views;
 
 namespace WinformsMVP.Samples.ToDoDemo
 {

@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 using WinformsMVP.Common;
 using WinformsMVP.Common.EventAggregator;
 using WinformsMVP.Common.Validation.Core;
-using WinformsMVP.Core.Models;
+using WinformsMVP.MVP.Models;
 using WinformsMVP.Logging;
 using WinformsMVP.MVP.ViewActions;
 

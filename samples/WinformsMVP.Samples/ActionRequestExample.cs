@@ -1,6 +1,6 @@
 using System;
 using WinformsMVP.Common.Events;
-using WinformsMVP.Core.Views;
+using WinformsMVP.MVP.Views;
 using WinformsMVP.MVP.Presenters;
 using WinformsMVP.MVP.ViewActions;
 

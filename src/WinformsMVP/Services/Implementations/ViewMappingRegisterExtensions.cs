@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Windows.Forms;
-using WinformsMVP.Core.Views;
+using WinformsMVP.MVP.Views;
 
 namespace WinformsMVP.Services.Implementations
 {

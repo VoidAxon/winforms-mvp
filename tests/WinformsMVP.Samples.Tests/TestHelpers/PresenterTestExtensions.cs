@@ -1,5 +1,5 @@
-using WinformsMVP.Core.Presenters;
-using WinformsMVP.Core.Views;
+using WinformsMVP.MVP.Presenters;
+using WinformsMVP.MVP.Views;
 using WinformsMVP.MVP.ViewActions;
 
 namespace WinformsMVP.Samples.Tests.TestHelpers

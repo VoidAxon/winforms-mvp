@@ -3,7 +3,7 @@ using System;
 namespace WinformsMVP.Common.Events
 {
     /// <summary>
-    /// Event arguments for <see cref="WinformsMVP.Core.Views.IWindowView.Closing"/>.
+    /// Event arguments for <see cref="WinformsMVP.MVP.Views.IWindowView.Closing"/>.
     /// Presenters subscribe to that event and may set <see cref="Cancel"/> to <c>true</c>
     /// to prevent the window from closing.
     /// </summary>

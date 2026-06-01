@@ -3,7 +3,7 @@ using System.Linq;
 using WinformsMVP.Logging;
 using WinformsMVP.Common.Events;
 using WinformsMVP.MVP.Presenters;
-using WinformsMVP.Core.Views;
+using WinformsMVP.MVP.Views;
 using WinformsMVP.MVP.ViewActions;
 using WinformsMVP.Samples.Tests.Mocks;
 using WinformsMVP.Samples.Tests.TestHelpers;

@@ -1,4 +1,4 @@
-namespace WinformsMVP.Core.Views
+namespace WinformsMVP.MVP.Views
 {
     /// <summary>
     /// Marker contract for any view participating in the MVP framework.

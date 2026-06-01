@@ -201,7 +201,7 @@ private void SetupDataBindings()
 
 ### BindableBase的使用
 
-`BindableBase` 是框架提供的基类，位于 `WinformsMVP.Core.Models` 命名空间：
+`BindableBase` 是框架提供的基类，位于 `WinformsMVP.MVP.Models` 命名空间：
 
 ```csharp
 public class UserModel : BindableBase

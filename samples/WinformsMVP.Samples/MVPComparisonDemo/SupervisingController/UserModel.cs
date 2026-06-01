@@ -1,7 +1,7 @@
 using System;
 using System.ComponentModel;
 using System.Text;
-using WinformsMVP.Core.Models;
+using WinformsMVP.MVP.Models;
 
 namespace WinformsMVP.Samples.MVPComparisonDemo.SupervisingController
 {

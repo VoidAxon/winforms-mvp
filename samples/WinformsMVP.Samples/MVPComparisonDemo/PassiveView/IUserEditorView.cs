@@ -1,5 +1,5 @@
 using System;
-using WinformsMVP.Core.Views;
+using WinformsMVP.MVP.Views;
 using WinformsMVP.MVP.ViewActions;
 
 namespace WinformsMVP.Samples.MVPComparisonDemo.PassiveView

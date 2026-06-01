@@ -1,6 +1,6 @@
 using System;
-using WinformsMVP.Core.Presenters;
-using WinformsMVP.Core.Views;
+using WinformsMVP.MVP.Presenters;
+using WinformsMVP.MVP.Views;
 
 namespace WinformsMVP.MVP.Presenters
 {

@@ -54,7 +54,7 @@ namespace WinformsMVP.MVP.ViewActions
         /// <c>ILoggerFactory.CreateLogger</c> to surface dispatch failures.
         /// </summary>
         /// <remarks>
-        /// <see cref="WinformsMVP.Core.Presenters.PresenterBase{TView}"/> wires this property to the
+        /// <see cref="WinformsMVP.MVP.Presenters.PresenterBase{TView}"/> wires this property to the
         /// presenter's logger on first access of its <c>Dispatcher</c> property, so user code typically
         /// does not need to set it.
         /// </remarks>

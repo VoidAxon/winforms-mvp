@@ -6,7 +6,7 @@ namespace WinformsMVP.Common
     /// WinForms types into Presenter code.
     /// </summary>
     /// <remarks>
-    /// Presenters subscribed to <see cref="WinformsMVP.Core.Views.IWindowView.Closing"/>
+    /// Presenters subscribed to <see cref="WinformsMVP.MVP.Views.IWindowView.Closing"/>
     /// should inspect this value before deciding whether to prompt for unsaved changes:
     /// <list type="bullet">
     ///   <item><description><see cref="Normal"/>: standard close path — perform dirty-data checks here.</description></item>

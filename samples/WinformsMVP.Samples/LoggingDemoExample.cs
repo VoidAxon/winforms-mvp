@@ -4,7 +4,7 @@ using System.Windows.Forms;
 using WinformsMVP.Common.Events;
 using WinformsMVP.Logging;
 using WinformsMVP.MVP.Presenters;
-using WinformsMVP.Core.Views;
+using WinformsMVP.MVP.Views;
 using WinformsMVP.MVP.ViewActions;
 using WinformsMVP.Services;
 using WinformsMVP.Services.Implementations;

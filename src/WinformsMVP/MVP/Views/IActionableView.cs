@@ -1,6 +1,6 @@
 using WinformsMVP.MVP.ViewActions;
 
-namespace WinformsMVP.Core.Views
+namespace WinformsMVP.MVP.Views
 {
     /// <summary>
     /// A view that participates in the ViewAction system by exposing an <see cref="IViewActionBinder"/>.

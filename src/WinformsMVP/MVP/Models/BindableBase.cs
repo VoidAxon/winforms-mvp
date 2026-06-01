@@ -1,8 +1,8 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
-namespace WinformsMVP.Core.Models
+namespace WinformsMVP.MVP.Models
 {
     public class BindableBase : INotifyPropertyChanged
     {

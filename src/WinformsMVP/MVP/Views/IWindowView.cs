@@ -1,8 +1,8 @@
-﻿using System;
+using System;
 using System.Windows.Forms;
 using WinformsMVP.Common.Events;
 
-namespace WinformsMVP.Core.Views
+namespace WinformsMVP.MVP.Views
 {
     /// <summary>
     /// Interface for views that represent top-level windows (Forms / dialogs).

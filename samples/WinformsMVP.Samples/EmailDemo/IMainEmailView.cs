@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using WinformsMVP.Core.Views;
+using WinformsMVP.MVP.Views;
 using WinformsMVP.Samples.EmailDemo.Models;
 
 namespace WinformsMVP.Samples.EmailDemo

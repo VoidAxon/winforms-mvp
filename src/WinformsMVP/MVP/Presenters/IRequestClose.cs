@@ -17,7 +17,7 @@ namespace WinformsMVP.MVP.Presenters
     /// <para>
     /// <b>Pull direction (NOT this interface):</b> when something outside the Presenter
     /// initiates the close — user clicks X, system shutdown, parent window closing —
-    /// the Presenter receives an <see cref="WinformsMVP.Core.Views.IWindowView.Closing"/>
+    /// the Presenter receives an <see cref="WinformsMVP.MVP.Views.IWindowView.Closing"/>
     /// event and can set <see cref="WindowClosingEventArgs.Cancel"/> to block it.
     /// </para>
     /// <para>

@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Windows.Forms;
-using WinformsMVP.Core.Views;
+using WinformsMVP.MVP.Views;
 using WinformsMVP.Services;
 using WinformsMVP.Services.Implementations;
 using Xunit;
