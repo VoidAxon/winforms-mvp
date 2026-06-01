@@ -24,10 +24,10 @@ dotnet build src/WinformsMVP/WinformsMVP.csproj
 ### Running Tests
 ```bash
 # Run all tests using xUnit
-dotnet test src/WindowsMVP.Samples.Tests/WindowsMVP.Samples.Tests.csproj
+dotnet test src/WinformsMVP.Samples.Tests/WinformsMVP.Samples.Tests.csproj
 
 # Run tests with detailed output
-dotnet test src/WindowsMVP.Samples.Tests/WindowsMVP.Samples.Tests.csproj -v detailed
+dotnet test src/WinformsMVP.Samples.Tests/WinformsMVP.Samples.Tests.csproj -v detailed
 ```
 
 ### Running the Sample Application
@@ -3799,7 +3799,7 @@ public void ProductSelector_PublishesMessage_OrderSummaryReceives()
 
 - `src/WinformsMVP.Samples/`: Sample WinForms application (SDK-style project)
 
-- `src/WindowsMVP.Samples.Tests/`: xUnit test project (SDK-style project)
+- `src/WinformsMVP.Samples.Tests/`: xUnit test project (SDK-style project)
 
 ## Development Notes
 
