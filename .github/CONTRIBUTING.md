@@ -50,7 +50,7 @@ dotnet run --project samples/WinformsMVP.Samples/WinformsMVP.Samples.csproj
 
 ### バグ報告
 
-[Bug report テンプレート](.github/ISSUE_TEMPLATE/bug_report.md) を使って以下を記載してください:
+[Bug report テンプレート](ISSUE_TEMPLATE/bug_report.md) を使って以下を記載してください:
 
 1. 再現手順 (最小サンプルコードがあると助かります)
 2. 期待される動作
@@ -60,7 +60,7 @@ dotnet run --project samples/WinformsMVP.Samples/WinformsMVP.Samples.csproj
 
 ### 機能リクエスト
 
-[Feature request テンプレート](.github/ISSUE_TEMPLATE/feature_request.md) を使ってください:
+[Feature request テンプレート](ISSUE_TEMPLATE/feature_request.md) を使ってください:
 
 1. 解決したい問題
 2. 提案する API のスケッチ
