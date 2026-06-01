@@ -91,7 +91,9 @@ namespace WinformsMVP.Common
         /// Initializes a ChangeTracker with the specified initial value.
         /// </summary>
         /// <param name="initialValue">The initial value to start tracking.</param>
-        /// <param name="comparer">Custom comparison function for values. If null, EqualityHelper is used.</param>
+        /// <param name="comparer">Custom comparison function for values. If null, the comparer is resolved
+        /// from T: value equality (IEquatable&lt;T&gt;/IComparable&lt;T&gt;/Equals override) uses EqualityHelper,
+        /// otherwise the global ChangeTrackerDefaults.Comparer deep-compare hook is used.</param>
         /// <exception cref="ArgumentNullException">When initialValue is null.</exception>
         /// <remarks>
         /// The clone and comparer strategies are resolved once at construction time based on

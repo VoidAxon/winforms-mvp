@@ -3346,7 +3346,7 @@ public void OnOpenFile_WhenUserCancels_DoesNotLoadFile()
 2. 未実装 → グローバルフック `ChangeTrackerDefaults.Cloner`(既定 = 組み込みリフレクション深いコピー `ObjectCloner`)
 
 **比較の解決順序:**
-1. コンストラクタに渡した `comparer` → それを使用
+1. コンストラクタに渡した `comparer` → それを使用(`Func<T, T, bool>` 版と `IEqualityComparer<T>` 版の 2 つのコンストラクタ・オーバーロードが利用可能)
 2. T が値等価性(`IEquatable<T>`/`IComparable<T>`/`Equals` オーバーライド)を持つ → それを使用
 3. いずれも無い → グローバルフック `ChangeTrackerDefaults.Comparer`(既定 = リフレクション深い比較)
 
@@ -3447,6 +3447,7 @@ Console.WriteLine(tracker.CurrentValue.Address.City);  // "Osaka" (期待値: "T
 - `UpdateCurrentValue(T)` - 現在の値を更新（IsChangedChangedイベントを発火）
 - `IsChanged` - 現在の値が元の値と異なるかどうか（キャッシュ付き）
 - `AcceptChanges()` - 現在の値を新しいベースラインとして確定
+- `AcceptChanges(T newValue)` - 指定した値を新しいベースライン兼現在値として確定
 - `RejectChanges()` - ベースラインに戻す
 - `IsChangedWith(T)` - 指定された値が元の値と異なるかチェック
 - `GetOriginalValue()` - 元の値のコピーを取得
