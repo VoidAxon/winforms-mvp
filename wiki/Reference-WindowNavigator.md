@@ -309,6 +309,19 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView, EditUserPara
 
 完全な設計詳細は [ウィンドウクローズモデル](Concept-Window-Closing-Model) を参照してください。
 
+### エラーの2分類: 業務エラー vs 設定エラー
+
+`InteractionResult.IsError` は **業務側のエラー** を表します。これは Presenter 自身が `IRequestClose` で `InteractionStatus.Error` を push したときにだけ発生します。
+
+一方、**ビュー解決・設定の誤り** は `IsError` では返らず、**例外として送出されます** (コードベースの規約: 設定/プログラミングミスは握りつぶさず大きく失敗させる):
+
+| 失敗 | 送出される例外 |
+|------|--------------|
+| ビューインターフェイスに実装が未登録 | `KeyNotFoundException` |
+| 登録された実装が `Form` でない / `IWindowView` 未実装 / Presenter が `IViewAttacher<TView>` 未実装 | `InvalidOperationException` |
+
+> いずれの場合も、ウィンドウは表示され得ないため Presenter は送出前に Dispose されます。これらは起動時の配線ミスであり、`ShowDialog`/`Show` に到達する前に投げられます。`IsError` を待つコードではなく、`ViewMappingRegister` への登録を正しく行うことで防いでください。
+
 ---
 
 ## Presenter からのアクセス

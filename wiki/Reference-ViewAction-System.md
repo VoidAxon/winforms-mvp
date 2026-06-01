@@ -276,7 +276,52 @@ private void OnOpenDocument(string filePath)
 }
 ```
 
-**型不一致は実行時拒否**: `Register<string>` に対して `Dispatch(action, 42)` (int) を呼ぶと、Dispatcher はハンドラを呼ばずにログだけ出します。これによりミドルウェアパイプラインも走りません。
+**型不一致は実行時拒否**: `Register<string>` に対して `Dispatch(action, 42)` (int) を呼ぶと、既定 (Lenient) では Dispatcher はハンドラを呼ばずにログだけ出します。これによりミドルウェアパイプラインも走りません (後述の Strict モードでは例外になります)。
+
+---
+
+## 厳格な検証モード (DispatchValidationMode)
+
+Dispatcher の既定動作は **グレースフルデグラデーション** です。以下の 2 つの「配線ミス」は、ログを出すだけで握りつぶされます (本番では堅牢で望ましい挙動):
+
+- **未登録のアクションキーをディスパッチ** (= `Register` し忘れ、またはキーのタイプミス) → 何も起きない
+- **ペイロードの型不一致** (`Register<string>` に `int` を渡す等) → ハンドラは呼ばれない
+
+便利な反面、開発中はこれらが「ボタンを押しても無反応」という **静かな失敗** になり、原因の特定が難しくなります。`ViewActionDispatcher.ValidationMode` でこの挙動を切り替えられます。
+
+```csharp
+public enum DispatchValidationMode
+{
+    Lenient = 0,  // 既定。ログを出して無視 (本番向け)
+    Strict  = 1,  // 上記 2 つの配線ミスで InvalidOperationException を投げる
+}
+```
+
+**Strict にしてよい範囲 / してはいけない範囲:**
+
+| 事象 | Lenient (既定) | Strict |
+|------|---------------|--------|
+| 未登録キーのディスパッチ | ログのみ | **例外** |
+| ペイロード型不一致 | ログのみ | **例外** |
+| ハンドラが例外を投げた | catch してログ | catch してログ (**変化なし**) |
+| `CanExecute` が `false` (無効状態) | 何もしない | 何もしない (**変化なし**) |
+
+Strict が対象とするのは **設定ミスだけ** です。ハンドラ/`CanExecute` の例外は常に捕捉・ログされ (集中エラーハンドリングを維持)、無効化されたアクション (`CanExecute == false`) はエラー扱いしません。
+
+**推奨される使い方**: Debug ビルドでのみ Strict を有効化します。これは新しい PlatformServices API を必要とせず、既存の `ConfigureDispatcher` フックで配線できます (これは全 Dispatch より前に適用されます):
+
+```csharp
+PlatformServices.Default = new DefaultPlatformServices(
+    viewMappingRegister: register,
+    configureDispatcher: d =>
+    {
+#if DEBUG
+        d.ValidationMode = DispatchValidationMode.Strict;
+#endif
+    });
+```
+
+これにより「`Register` し忘れ / キーのタイプミス / ペイロード型違い」が、初回ディスパッチ時に **その場で例外として表面化** します。本番ビルドは既定の Lenient のままなので、ユーザー影響はありません。
 
 ---
 
