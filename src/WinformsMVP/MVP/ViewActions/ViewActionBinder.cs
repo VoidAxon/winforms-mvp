@@ -148,7 +148,7 @@ namespace WinformsMVP.MVP.ViewActions
         /// <item><b>Implicit Pattern:</b> If ActionTriggered event has no subscribers, only the callback fires</item>
         /// </list>
         /// </remarks>
-        public void Bind(Action<ViewAction> onActionTriggered)
+        private void Bind(Action<ViewAction> onActionTriggered)
         {
             Unbind();
 

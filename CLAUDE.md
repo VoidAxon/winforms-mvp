@@ -730,6 +730,23 @@ var mapping = new Dictionary<ViewAction, RadioButton>
 _binder.AddRange(mapping);
 ```
 
+**Method 3: Collection initializer (at construction time)**
+
+Because `ViewActionBinder` implements `IEnumerable<ActionBinding>` and exposes `Add(ViewAction actionKey, params Component[] controls)`, you can populate it with a C# collection initializer when the binder is created. Each `{ ... }` entry compiles to one `Add(...)` call:
+
+```csharp
+_binder = new ViewActionBinder
+{
+    { CommonActions.Save,   _saveButton, _saveMenuItem },  // one action → multiple controls
+    { CommonActions.Delete, _deleteButton },
+    { CommonActions.Cancel, _cancelButton },
+};
+```
+
+The first element of each entry is the `actionKey`; the rest are captured by the `params Component[]` parameter, so a single entry can bind **multiple controls to the same action** (something the tuple-based `AddRange` cannot express).
+
+> **Note:** A collection initializer only works at object-creation time (`new ViewActionBinder { ... }`). To add bindings to an existing binder, use `Add(...)` or `AddRange(...)`.
+
 **Benefits:**
 - Reduces code from N lines to 1 line
 - Easier to maintain when adding/removing options
