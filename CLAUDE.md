@@ -245,3 +245,18 @@ Use for cross-presenter/cross-module events. Do **not** use for parent-child coo
 - **Adding a Form/Dialog:** define `IXxxView : IWindowView` → presenter extends `WindowPresenterBase<TView>[, TParam]` → implement the Form → register the mapping → show via `WindowNavigator`.
 - **Adding a UserControl:** define `IXxxView : IViewBase` → presenter extends `ControlPresenterBase<TView>[, TParam]` → implement the UserControl → create the presenter in the parent, passing the view (and params).
 - The `wiki/` folder mirrors every subsystem above with Concept / HowTo / Reference / Tutorial pages — consult it before duplicating explanation here.
+
+## Releasing
+
+Releases are **tag-driven**. Pushing a tag matching `v*` triggers `.github/workflows/release.yml`, which builds, runs the test suite (gate), packs the two shippable packages (`WinformsMVP`, `WinformsMVP.DependencyInjection`), asserts the analyzer is bundled, publishes to **GitHub Packages**, and creates a **GitHub Release** with the `.nupkg` files attached.
+
+```bash
+git tag v1.0.0-preview.1 && git push origin v1.0.0-preview.1   # preview
+git tag v1.0.0           && git push origin v1.0.0             # stable
+```
+
+- The package version is the tag minus the leading `v`. There is no version in any `.csproj` — **never** hardcode one; pass it only via the tag (the workflow injects `-p:Version=`).
+- A tag containing `-` (e.g. `-preview.1`) → NuGet prerelease (hidden by default) **and** the workflow passes `--prerelease` to mark the GitHub Release as pre-release. A clean tag → stable.
+- Only `WinformsMVP` and `WinformsMVP.DependencyInjection` publish; everything else is `IsPackable=false` via `Directory.Build.props`. The analyzer ships **inside** the core package (`analyzers/dotnet/cs/`), not standalone.
+- GitHub Packages requires consumer authentication (a PAT) even for public repos; the auth-free fallback is downloading the `.nupkg` from the Release. Both routes are documented for consumers in `README.md`.
+- Full maintainer guide (workflow internals, first-time setup, consuming, troubleshooting, cleanup): [wiki/HowTo-Release.md](wiki/HowTo-Release.md).

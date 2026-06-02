@@ -65,6 +65,7 @@ WinForms アプリケーションのための **Model-View-Presenter** フレー
 - [Presenter をテストする](HowTo-Test-A-Presenter) — モック、テストパターン
 - [従来の WinForms から移行する](HowTo-Migrate-From-Legacy-WinForms) — 段階的なリファクタリング
 - [エラー処理戦略](HowTo-Handle-Errors) — `IMessageService` / `InteractionResult<T>` / グローバルハンドラ
+- [リリースする](HowTo-Release) — タグ駆動で GitHub Packages へ発行 + GitHub Release 作成
 
 ---
 
