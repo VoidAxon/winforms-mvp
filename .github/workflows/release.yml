@@ -55,7 +55,7 @@ jobs:
       - name: Assert analyzer is bundled in the core package
         shell: pwsh
         run: |
-          $pkg = Get-ChildItem artifacts/WinformsMVP.*.nupkg | Where-Object { $_.Name -notlike '*DependencyInjection*' } | Select-Object -First 1
+          $pkg = Get-ChildItem "artifacts/WinformsMVP.[0-9]*.nupkg" | Select-Object -First 1
           if (-not $pkg) { throw "Core package not found in artifacts" }
           Add-Type -AssemblyName System.IO.Compression.FileSystem
           $zip = [System.IO.Compression.ZipFile]::OpenRead($pkg.FullName)
@@ -69,7 +69,7 @@ jobs:
 
       - name: Push to GitHub Packages
         shell: pwsh
-        run: dotnet nuget push "artifacts/*.nupkg" --source "https://nuget.pkg.github.com/VoidAxon/index.json" --api-key ${{ secrets.GITHUB_TOKEN }} --skip-duplicate
+        run: dotnet nuget push "artifacts/*.nupkg" --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" --api-key ${{ secrets.GITHUB_TOKEN }} --skip-duplicate
 
       - name: Create GitHub Release
         shell: pwsh
@@ -77,6 +77,12 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           $files = Get-ChildItem artifacts/*.nupkg | ForEach-Object { $_.FullName }
-          $ghArgs = @("${{ github.ref_name }}") + $files + @('--title', "${{ github.ref_name }}", '--generate-notes')
-          if ($env:IS_PRERELEASE -eq 'true') { $ghArgs += '--prerelease' }
-          gh release create @ghArgs
+          $exists = gh release view "${{ github.ref_name }}" 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "Release ${{ github.ref_name }} already exists; uploading assets with --clobber"
+            foreach ($f in $files) { gh release upload "${{ github.ref_name }}" $f --clobber }
+          } else {
+            $ghArgs = @("${{ github.ref_name }}") + $files + @('--title', "${{ github.ref_name }}", '--generate-notes')
+            if ($env:IS_PRERELEASE -eq 'true') { $ghArgs += '--prerelease' }
+            gh release create @ghArgs
+          }
