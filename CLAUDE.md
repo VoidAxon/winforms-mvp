@@ -229,7 +229,7 @@ Use for cross-presenter/cross-module events. Do **not** use for parent-child coo
 │   │   ├── Services/                  Service interfaces + implementations
 │   │   └── Common/                    Utilities, events, EventAggregator, ChangeTracker, validation
 │   ├── WinformsMVP.DependencyInjection/   Optional M.E.DI integration
-│   └── WinformsMVP.Analyzers/             Roslyn analyzers (not in the .sln)
+│   └── WinformsMVP.Analyzers/             Roslyn analyzers (in the .sln, build-only — bundled into WinformsMVP package)
 ├── samples/    Sample/demo apps (WinformsMVP.Samples, MultiProjectDemo.*)
 ├── tests/      WinformsMVP.Samples.Tests (xUnit), WinformsMVP.Net40SmokeTest
 ├── docs/  wiki/  tools/

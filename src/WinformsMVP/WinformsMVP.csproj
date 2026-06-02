@@ -41,4 +41,38 @@
     <None Remove="obj\**" />
   </ItemGroup>
 
+  <!--
+    Bundle the MVP Roslyn analyzers into this package. Consumers that reference
+    WinformsMVP automatically get the MVP design-rule checks at compile time, with
+    no extra package to install.
+
+    We use an MSBuild Target (not a ProjectReference) to trigger the analyzer build.
+    A ProjectReference would cause NuGet to check TFM compatibility, which fails for
+    net40 because netstandard2.0 requires .NET Framework 4.6.1+. The analyzer runs
+    inside the C# compiler — TFM compatibility is irrelevant here.
+
+    The analyzer ships under analyzers/dotnet/cs (no TFM segment) so the single
+    netstandard2.0 build applies to both net40 and net48 consumers.
+  -->
+  <!--
+    Run only on the outer dispatch build (TargetFramework is empty) so we don't
+    fire once per TFM. RemoveProperties strips TargetFramework from global props
+    so the inner MSBuild call does not inherit net40/net48 into a netstandard2.0 project.
+  -->
+  <Target Name="BuildMVPAnalyzers"
+          BeforeTargets="Build;Pack"
+          Condition="'$(DesignTimeBuild)' != 'true' AND '$(TargetFramework)' == ''">
+    <MSBuild Projects="$(MSBuildThisFileDirectory)..\WinformsMVP.Analyzers\WinformsMVP.Analyzers.csproj"
+             Properties="Configuration=$(Configuration)"
+             RemoveProperties="TargetFramework"
+             Targets="Build" />
+  </Target>
+
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)..\WinformsMVP.Analyzers\bin\$(Configuration)\netstandard2.0\WinformsMVP.Analyzers.dll"
+          Pack="true"
+          PackagePath="analyzers/dotnet/cs"
+          Visible="false" />
+  </ItemGroup>
+
 </Project>

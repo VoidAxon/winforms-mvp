@@ -36,7 +36,10 @@ namespace WinformsMVP.Analyzers
             title: "Presenter should not create UI controls",
             messageFormat: "Presenter '{0}' should not create UI control of type '{1}'. This violates separation of concerns.",
             category: Category,
-            defaultSeverity: DiagnosticSeverity.Error,
+            // Warning, not Error: the analyzer now ships inside the WinformsMVP package, so an
+            // Error would break the build of any consumer the moment they install the framework.
+            // Teams that want it enforced can raise it to error via .editorconfig.
+            defaultSeverity: DiagnosticSeverity.Warning,
             isEnabledByDefault: true,
             description: "Presenters must handle use-case logic only, not View logic. Creating UI controls is a View responsibility. This is Rule 3 of MVP design rules.");
 
@@ -46,7 +49,8 @@ namespace WinformsMVP.Analyzers
             title: "No UI element types in View interfaces and Presenters",
             messageFormat: "{0} '{1}' contains UI element type '{2}'. View interfaces and Presenters must not expose UI types.",
             category: Category,
-            defaultSeverity: DiagnosticSeverity.Error,
+            // Warning, not Error: shipped inside the WinformsMVP package; see MVP003 note.
+            defaultSeverity: DiagnosticSeverity.Warning,
             isEnabledByDefault: true,
             description: "View interfaces and Presenters must never expose WinForms UI types (Button, TextBox, etc.) in properties, fields, parameters, or return types. This ensures proper separation of concerns and testability. This is Rule 4 of MVP design rules.");
 
@@ -66,7 +70,8 @@ namespace WinformsMVP.Analyzers
             title: "Presenter should access View only through interface",
             messageFormat: "Presenter '{0}' references concrete Form type '{1}'. Use View interface instead.",
             category: Category,
-            defaultSeverity: DiagnosticSeverity.Error,
+            // Warning, not Error: shipped inside the WinformsMVP package; see MVP003 note.
+            defaultSeverity: DiagnosticSeverity.Warning,
             isEnabledByDefault: true,
             description: "Presenters must access View only through its interface, never through concrete Form types. This ensures testability and separation of concerns. This is Rule 7 of MVP design rules.");
 
