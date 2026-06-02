@@ -69,7 +69,11 @@ jobs:
 
       - name: Push to GitHub Packages
         shell: pwsh
-        run: dotnet nuget push "artifacts/*.nupkg" --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" --api-key ${{ secrets.GITHUB_TOKEN }} --skip-duplicate
+        # dotnet nuget push does not expand a quoted wildcard path on its own; enumerate the files explicitly.
+        run: |
+          Get-ChildItem artifacts/*.nupkg | ForEach-Object {
+            dotnet nuget push $_.FullName --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" --api-key ${{ secrets.GITHUB_TOKEN }} --skip-duplicate
+          }
 
       - name: Create GitHub Release
         shell: pwsh
