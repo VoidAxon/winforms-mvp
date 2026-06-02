@@ -1,0 +1,82 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write   # create GitHub Releases
+  packages: write   # push to GitHub Packages
+
+jobs:
+  release:
+    runs-on: windows-latest   # net40/net48 + WinForms require .NET Framework MSBuild (Windows only)
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Derive version from tag
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}" -replace '^v', ''
+          "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          if ($version -match '-') {
+            "IS_PRERELEASE=true" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          } else {
+            "IS_PRERELEASE=false" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          }
+          Write-Host "Releasing $version (prerelease=$($version -match '-'))"
+
+      - name: Restore
+        run: dotnet restore winforms-mvp.sln
+
+      - name: Build (Release)
+        shell: pwsh
+        run: dotnet build winforms-mvp.sln -c Release --no-restore -p:Version=$env:VERSION
+
+      - name: Test (gate)
+        run: dotnet test tests/WinformsMVP.Samples.Tests/WinformsMVP.Samples.Tests.csproj -c Release --no-build
+
+      - name: Pack
+        shell: pwsh
+        run: |
+          dotnet pack src/WinformsMVP/WinformsMVP.csproj -c Release -p:Version=$env:VERSION -o artifacts
+          dotnet pack src/WinformsMVP.DependencyInjection/WinformsMVP.DependencyInjection.csproj -c Release -p:Version=$env:VERSION -o artifacts
+
+      - name: Assert analyzer is bundled in the core package
+        shell: pwsh
+        run: |
+          $pkg = Get-ChildItem artifacts/WinformsMVP.*.nupkg | Where-Object { $_.Name -notlike '*DependencyInjection*' } | Select-Object -First 1
+          if (-not $pkg) { throw "Core package not found in artifacts" }
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $zip = [System.IO.Compression.ZipFile]::OpenRead($pkg.FullName)
+          try {
+            $entry = $zip.Entries | Where-Object { $_.FullName -eq 'analyzers/dotnet/cs/WinformsMVP.Analyzers.dll' }
+          } finally {
+            $zip.Dispose()
+          }
+          if (-not $entry) { throw "Analyzer DLL missing from $($pkg.Name) - expected analyzers/dotnet/cs/WinformsMVP.Analyzers.dll" }
+          Write-Host "OK: analyzer bundled in $($pkg.Name)"
+
+      - name: Push to GitHub Packages
+        shell: pwsh
+        run: dotnet nuget push "artifacts/*.nupkg" --source "https://nuget.pkg.github.com/VoidAxon/index.json" --api-key ${{ secrets.GITHUB_TOKEN }} --skip-duplicate
+
+      - name: Create GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $files = Get-ChildItem artifacts/*.nupkg | ForEach-Object { $_.FullName }
+          $ghArgs = @("${{ github.ref_name }}") + $files + @('--title', "${{ github.ref_name }}", '--generate-notes')
+          if ($env:IS_PRERELEASE -eq 'true') { $ghArgs += '--prerelease' }
+          gh release create @ghArgs
