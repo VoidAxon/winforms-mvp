@@ -11,16 +11,14 @@ WPF 風のコマンドバインドとクリーンアーキテクチャを .NET F
 
 ---
 
-## Installation
+## インストール
 
-The packages are published to **GitHub Packages**. GitHub Packages requires
-authentication for NuGet restore even from public repositories, so pick one of
-the two routes below.
+パッケージは **GitHub Packages** に公開されています。GitHub Packages は、public リポジトリであっても NuGet の復元に認証が必要です。以下の2つの方法のいずれかを選んでください。
 
-### Option A — GitHub Packages feed (recommended for ongoing use)
+### 方法A — GitHub Packages フィード（継続利用におすすめ）
 
-1. Create a GitHub Personal Access Token (classic) with the `read:packages` scope.
-2. Add a `nuget.config` next to your solution:
+1. `read:packages` スコープを持つ GitHub Personal Access Token（classic）を作成します。
+2. ソリューションの隣に `nuget.config` を置きます:
 
    ```xml
    <?xml version="1.0" encoding="utf-8"?>
@@ -37,21 +35,19 @@ the two routes below.
    </configuration>
    ```
 
-   Prefer supplying the PAT via an environment variable or
-   `dotnet nuget add source ... --username ... --password ...` over committing it.
+   PAT はコミットせず、環境変数や `dotnet nuget add source ... --username ... --password ...` で渡すことを推奨します。
 
-3. Install (the `--prerelease` flag is required while only preview versions exist):
+3. インストールします（プレビュー版しか無い間は `--prerelease` が必須です）:
 
    ```bash
    dotnet add package WinformsMVP --prerelease
    dotnet add package WinformsMVP.DependencyInjection --prerelease
    ```
 
-### Option B — download the .nupkg from Releases (no authentication)
+### 方法B — Releases から .nupkg をダウンロード（認証不要）
 
-1. Open the repository's **Releases** page and download the `.nupkg` files for the
-   version you want.
-2. Put them in a local folder, register it as a source, and install:
+1. リポジトリの **Releases** ページを開き、目的のバージョンの `.nupkg` ファイルをダウンロードします。
+2. ローカルフォルダに置き、ソースとして登録してインストールします:
 
    ```bash
    dotnet nuget add source C:\path\to\folder --name winformsmvp-local
@@ -239,19 +235,13 @@ GitHub Issues / Pull Requests からどうぞ。
 
 ---
 
-## Cutting a release (maintainers)
+## リリースの切り方（メンテナ向け）
 
-Releases are tag-driven. Pushing a tag that starts with `v` triggers
-`.github/workflows/release.yml`, which builds, runs the test suite, packs both
-packages, publishes them to GitHub Packages, and creates a GitHub Release with
-the `.nupkg` files attached.
+リリースはタグ駆動です。`v` で始まるタグを push すると `.github/workflows/release.yml` が起動し、ビルド・テスト実行・両パッケージのパック・GitHub Packages への発行・`.nupkg` を添付した GitHub Release の作成までを自動で行います。
 
 ```bash
 git tag v1.0.0-preview.1
 git push origin v1.0.0-preview.1
 ```
 
-A tag containing a hyphen (e.g. `v1.0.0-preview.1`) is published as a NuGet
-prerelease and marked as a GitHub pre-release. A clean tag (e.g. `v1.0.0`) is a
-stable release. The package version is taken directly from the tag (the leading
-`v` is stripped).
+ハイフンを含むタグ（例 `v1.0.0-preview.1`）は NuGet のプレリリースとして発行され、GitHub Release もプレリリースとして印が付きます。ハイフンの無いタグ（例 `v1.0.0`）は安定版リリースになります。パッケージのバージョンはタグから直接取得されます（先頭の `v` は除去されます）。
