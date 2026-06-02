@@ -11,6 +11,55 @@ WPF 風のコマンドバインドとクリーンアーキテクチャを .NET F
 
 ---
 
+## Installation
+
+The packages are published to **GitHub Packages**. GitHub Packages requires
+authentication for NuGet restore even from public repositories, so pick one of
+the two routes below.
+
+### Option A — GitHub Packages feed (recommended for ongoing use)
+
+1. Create a GitHub Personal Access Token (classic) with the `read:packages` scope.
+2. Add a `nuget.config` next to your solution:
+
+   ```xml
+   <?xml version="1.0" encoding="utf-8"?>
+   <configuration>
+     <packageSources>
+       <add key="github-voidaxon" value="https://nuget.pkg.github.com/VoidAxon/index.json" />
+     </packageSources>
+     <packageSourceCredentials>
+       <github-voidaxon>
+         <add key="Username" value="YOUR_GITHUB_USERNAME" />
+         <add key="ClearTextPassword" value="YOUR_PAT_WITH_read_packages" />
+       </github-voidaxon>
+     </packageSourceCredentials>
+   </configuration>
+   ```
+
+   Prefer supplying the PAT via an environment variable or
+   `dotnet nuget add source ... --username ... --password ...` over committing it.
+
+3. Install (the `--prerelease` flag is required while only preview versions exist):
+
+   ```bash
+   dotnet add package WinformsMVP --prerelease
+   dotnet add package WinformsMVP.DependencyInjection --prerelease
+   ```
+
+### Option B — download the .nupkg from Releases (no authentication)
+
+1. Open the repository's **Releases** page and download the `.nupkg` files for the
+   version you want.
+2. Put them in a local folder, register it as a source, and install:
+
+   ```bash
+   dotnet nuget add source C:\path\to\folder --name winformsmvp-local
+   dotnet add package WinformsMVP --prerelease
+   ```
+
+---
+
 ## 主な特徴
 
 - 🎮 **ViewAction システム** — WPF の `ICommand` 相当を WinForms に。型安全なアクションキー、宣言的バインド、`CanExecute` による自動 Enabled 制御
@@ -187,3 +236,22 @@ winforms-mvp/
 
 バグ報告・機能提案・プルリクエストを歓迎します。
 GitHub Issues / Pull Requests からどうぞ。
+
+---
+
+## Cutting a release (maintainers)
+
+Releases are tag-driven. Pushing a tag that starts with `v` triggers
+`.github/workflows/release.yml`, which builds, runs the test suite, packs both
+packages, publishes them to GitHub Packages, and creates a GitHub Release with
+the `.nupkg` files attached.
+
+```bash
+git tag v1.0.0-preview.1
+git push origin v1.0.0-preview.1
+```
+
+A tag containing a hyphen (e.g. `v1.0.0-preview.1`) is published as a NuGet
+prerelease and marked as a GitHub pre-release. A clean tag (e.g. `v1.0.0`) is a
+stable release. The package version is taken directly from the tag (the leading
+`v` is stripped).
