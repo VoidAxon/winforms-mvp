@@ -13,6 +13,9 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\WinformsMVP\WinformsMVP.csproj" />
     <ProjectReference Include="..\..\src\WinformsMVP.DependencyInjection\WinformsMVP.DependencyInjection.csproj" />
+    <ProjectReference Include="..\..\src\WinformsMVP.Analyzers\WinformsMVP.Analyzers.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
   </ItemGroup>
 
   <ItemGroup>
