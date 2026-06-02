@@ -8,6 +8,12 @@
     <LangVersion>latest</LangVersion>
     <UseWindowsForms>true</UseWindowsForms>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+
+    <!-- Shippable: opt in to packing (Directory.Build.props defaults to false). -->
+    <IsPackable>true</IsPackable>
+    <PackageId>WinformsMVP</PackageId>
+    <Description>A WinForms Model-View-Presenter (Supervising Controller) framework for .NET Framework, with compile-time MVP design-rule analyzers bundled in. Multi-targets net40 and net48.</Description>
+    <PackageTags>mvp;winforms;model-view-presenter;desktop;dotnet-framework;analyzers</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
@@ -23,6 +29,18 @@
   -->
   <ItemGroup Condition="'$(TargetFramework)' == 'net40'">
     <PackageReference Include="System.ValueTuple" Version="4.5.0" />
+    <!--
+      GitHub-hosted runners do not ship the net40 targeting pack. This package
+      supplies the net40 reference assemblies (including WinForms) so the net40
+      target compiles without a locally installed targeting pack. Build-only:
+      PrivateAssets="all" keeps it out of the package's dependency list.
+    -->
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net40" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+
+  <!-- Pack the repo-root README into the package (referenced by PackageReadmeFile in Directory.Build.props). -->
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" Visible="false" />
   </ItemGroup>
 
   <!--

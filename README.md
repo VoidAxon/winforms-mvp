@@ -11,6 +11,51 @@ WPF 風のコマンドバインドとクリーンアーキテクチャを .NET F
 
 ---
 
+## インストール
+
+パッケージは **GitHub Packages** に公開されています。GitHub Packages は、public リポジトリであっても NuGet の復元に認証が必要です。以下の2つの方法のいずれかを選んでください。
+
+### 方法A — GitHub Packages フィード（継続利用におすすめ）
+
+1. `read:packages` スコープを持つ GitHub Personal Access Token（classic）を作成します。
+2. ソリューションの隣に `nuget.config` を置きます:
+
+   ```xml
+   <?xml version="1.0" encoding="utf-8"?>
+   <configuration>
+     <packageSources>
+       <add key="github-voidaxon" value="https://nuget.pkg.github.com/VoidAxon/index.json" />
+     </packageSources>
+     <packageSourceCredentials>
+       <github-voidaxon>
+         <add key="Username" value="YOUR_GITHUB_USERNAME" />
+         <add key="ClearTextPassword" value="YOUR_PAT_WITH_read_packages" />
+       </github-voidaxon>
+     </packageSourceCredentials>
+   </configuration>
+   ```
+
+   PAT はコミットせず、環境変数や `dotnet nuget add source ... --username ... --password ...` で渡すことを推奨します。
+
+3. インストールします（プレビュー版しか無い間は `--prerelease` が必須です）:
+
+   ```bash
+   dotnet add package WinformsMVP --prerelease
+   dotnet add package WinformsMVP.DependencyInjection --prerelease
+   ```
+
+### 方法B — Releases から .nupkg をダウンロード（認証不要）
+
+1. リポジトリの **Releases** ページを開き、目的のバージョンの `.nupkg` ファイルをダウンロードします。
+2. ローカルフォルダに置き、ソースとして登録してインストールします:
+
+   ```bash
+   dotnet nuget add source C:\path\to\folder --name winformsmvp-local
+   dotnet add package WinformsMVP --prerelease
+   ```
+
+---
+
 ## 主な特徴
 
 - 🎮 **ViewAction システム** — WPF の `ICommand` 相当を WinForms に。型安全なアクションキー、宣言的バインド、`CanExecute` による自動 Enabled 制御
@@ -187,3 +232,16 @@ winforms-mvp/
 
 バグ報告・機能提案・プルリクエストを歓迎します。
 GitHub Issues / Pull Requests からどうぞ。
+
+---
+
+## リリースの切り方（メンテナ向け）
+
+リリースはタグ駆動です。`v` で始まるタグを push すると `.github/workflows/release.yml` が起動し、ビルド・テスト実行・両パッケージのパック・GitHub Packages への発行・`.nupkg` を添付した GitHub Release の作成までを自動で行います。
+
+```bash
+git tag v1.0.0-preview.1
+git push origin v1.0.0-preview.1
+```
+
+ハイフンを含むタグ（例 `v1.0.0-preview.1`）は NuGet のプレリリースとして発行され、GitHub Release もプレリリースとして印が付きます。ハイフンの無いタグ（例 `v1.0.0`）は安定版リリースになります。パッケージのバージョンはタグから直接取得されます（先頭の `v` は除去されます）。

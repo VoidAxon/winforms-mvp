@@ -8,6 +8,12 @@
     <LangVersion>latest</LangVersion>
     <UseWindowsForms>true</UseWindowsForms>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+
+    <!-- Shippable: opt in to packing (Directory.Build.props defaults to false). -->
+    <IsPackable>true</IsPackable>
+    <PackageId>WinformsMVP.DependencyInjection</PackageId>
+    <Description>Microsoft.Extensions.DependencyInjection integration for the WinformsMVP framework: presenter factory, module registration, and service wiring.</Description>
+    <PackageTags>mvp;winforms;dependency-injection;di;microsoft-extensions-dependencyinjection</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
@@ -21,6 +27,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\WinformsMVP\WinformsMVP.csproj" />
+  </ItemGroup>
+
+  <!-- Pack the repo-root README into the package (referenced by PackageReadmeFile in Directory.Build.props). -->
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" Visible="false" />
   </ItemGroup>
 
   <ItemGroup>

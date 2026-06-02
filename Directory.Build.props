@@ -1,0 +1,32 @@
+<Project>
+
+  <!--
+    Shared NuGet package metadata for all shippable projects. This file is
+    auto-imported by every project under the repo root.
+
+    IsPackable defaults to false here: nothing is packable unless a project
+    explicitly opts in with <IsPackable>true</IsPackable>. This prevents
+    accidentally publishing samples, tests, or the (bundled) analyzer project.
+
+    Note: do NOT put the README <None Include> here. Directory.Build.props is
+    imported at the TOP of each project, before the csproj body sets
+    IsPackable=true, so an IsPackable-conditioned item here would evaluate
+    against the default (false) and be skipped. The README item lives in each
+    shippable csproj instead.
+  -->
+  <PropertyGroup>
+    <Authors>VoidAxon</Authors>
+    <Company>VoidAxon</Company>
+    <Copyright>Copyright (c) 2026 VoidAxon</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/VoidAxon/winforms-mvp</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/VoidAxon/winforms-mvp</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+</Project>
