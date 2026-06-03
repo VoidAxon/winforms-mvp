@@ -312,7 +312,7 @@ Modal で済むなら `ShowAsModal<TResult>()` の戻り値 (`InteractionResult<
 
 ```csharp
 var result = Navigator.For(presenter).ShowAsModal<UserResult>();
-if (result.IsSuccess)
+if (result.IsOk)
     ReloadUser(result.Value.Id);
 ```
 
@@ -323,7 +323,7 @@ Navigator.ShowWindow<DocumentPresenter, EditResult>(
     presenter,
     onClosed: result =>
     {
-        if (result.IsSuccess)
+        if (result.IsOk)
             ReloadList();
     });
 ```

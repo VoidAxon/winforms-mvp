@@ -111,7 +111,7 @@ private void OnOpenFile()
         Title = "Select a file to open",
     });
 
-    if (result.IsSuccess)
+    if (result.IsOk)
     {
         LoadFile(result.Value);
     }
@@ -151,7 +151,7 @@ public InteractionResult<Customer> LoadCustomer(int customerId)
 private void OnEditCustomer(int id)
 {
     var result = LoadCustomer(id);
-    if (result.IsSuccess)
+    if (result.IsOk)
         View.Customer = result.Value;
     else
         Messages.ShowError(result.ErrorMessage, "Error");

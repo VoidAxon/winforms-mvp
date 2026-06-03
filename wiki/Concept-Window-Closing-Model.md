@@ -206,13 +206,13 @@ private void OnEditUser(int userId)
                           .WithParam(parameters)
                           .ShowAsModal<UserResult>();
 
-    if (result.IsSuccess)
+    if (result.IsOk)
         ReloadUser(result.Value.UserId);
     // result.IsCancelled の場合は何もしない
 }
 ```
 
-ユーザーが Save を押した場合も、× を押して「変更を破棄しますか? → はい」を選んだ場合も、戻り値は **同じ `InteractionResult<TResult>`** に集約されます。呼び出し元は経路を意識せず、`IsSuccess` / `IsCancelled` / `IsError` で分岐できます。
+ユーザーが Save を押した場合も、× を押して「変更を破棄しますか? → はい」を選んだ場合も、戻り値は **同じ `InteractionResult<TResult>`** に集約されます。呼び出し元は経路を意識せず、`IsOk` / `IsCancelled` / `IsError` で分岐できます。
 
 ---
 

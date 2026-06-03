@@ -421,17 +421,22 @@ presenter.Dispatcher.Dispatch(CommonActions.Save);   // 本物の経路
 
 ### `MockWindowNavigator` で結果を設定しても反映されない
 
-**原因**: 型引数が `SetupModalResult` と `Dispatch` で一致していない。
+**原因**: 設定したプロパティが、呼び出したオーバーロードに対応していない。`MockWindowNavigator` は 2 つの別プロパティで戻りを制御します。
 
-**対処**: パラメータあり/なしで型引数が違う。
+- **結果あり版** `ShowWindowAsModal<…, TResult>` → `ShowModalBoolResult` (`true`→`Ok` / `false`→`Cancel`) を見る。`ShowModalInteractionResult` は無視される。
+- **結果なし版** `ShowWindowAsModal<…>` → `ShowModalInteractionResult` をそのまま返す。
+
+**対処**: 呼び出すオーバーロードに合うプロパティを設定する。
 
 ```csharp
-// パラメータなし
-_platform.WindowNavigator.SetupModalResult<MyPresenter, MyResult>(...);
+// 結果あり版を駆動するなら ShowModalBoolResult
+_platform.WindowNavigator.ShowModalBoolResult = false;   // Cancel をシミュレート
 
-// パラメータあり
-_platform.WindowNavigator.SetupModalResult<MyPresenter, MyParam, MyResult>(...);
+// 結果なし版を駆動するなら ShowModalInteractionResult
+_platform.WindowNavigator.ShowModalInteractionResult = InteractionResult.Error("失敗");
 ```
+
+なお結果あり版の `Value` は常に `default(TResult)` です。特定の戻り値が必要なら `MockWindowNavigator` を拡張してください。
 
 ---
 

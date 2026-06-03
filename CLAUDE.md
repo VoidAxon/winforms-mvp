@@ -201,7 +201,7 @@ See [wiki/Reference-Logging.md](wiki/Reference-Logging.md).
 
 Layers, in order of preference:
 1. **`IMessageService`** for all user-facing messages (never `MessageBox.Show()`).
-2. **`InteractionResult<T>`** for failable operations (`IsSuccess`/`IsCancelled`/`IsError`) instead of exception-based control flow.
+2. **`InteractionResult<T>`** for failable operations (`IsOk`/`IsCancelled`/`IsError`) instead of exception-based control flow.
 3. **`DialogDefaults`** for centralized/localizable default messages.
 4. **Global exception handler** (`Application.ThreadException`, `AppDomain.UnhandledException`) for production crash reporting.
 

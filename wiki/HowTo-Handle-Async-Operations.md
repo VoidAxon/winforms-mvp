@@ -114,7 +114,7 @@ public class CustomerListPresenter : WindowPresenterBase<ICustomerListView>
     private async void OnImport()
     {
         var fileResult = Dialogs.ShowOpenFileDialog(/* ... */);
-        if (!fileResult.IsSuccess) return;
+        if (!fileResult.IsOk) return;
 
         View.IsLoading = true;
 

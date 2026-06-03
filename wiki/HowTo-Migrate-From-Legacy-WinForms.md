@@ -249,12 +249,12 @@ private void OnOpenFile()
         Filter = "Text files (*.txt)|*.txt|All files (*.*)|*.*",
     });
 
-    if (result.IsSuccess)
+    if (result.IsOk)
         LoadFile(result.Value);
 }
 ```
 
-`InteractionResult<string>` は `IsSuccess` / `IsCancelled` / `IsError` で分岐できます。詳しくは [Platform Services](Reference-Platform-Services) を参照。
+`InteractionResult<string>` は `IsOk` / `IsCancelled` / `IsError` で分岐できます。詳しくは [Platform Services](Reference-Platform-Services) を参照。
 
 ---
 
@@ -354,7 +354,7 @@ private void OnEdit()
                           .WithParam(parameters)
                           .ShowAsModal<UserResult>();
 
-    if (result.IsSuccess)
+    if (result.IsOk)
         Reload();
 }
 ```
@@ -412,7 +412,7 @@ public class MyPresenter : WindowPresenterBase<IMyView>
     {
         var result = _legacyForms.OpenForm<CustomerData>("LegacyCustomerEditor");
 
-        if (result.IsSuccess)
+        if (result.IsOk)
             View.ShowCustomer(result.Value);
     }
 }

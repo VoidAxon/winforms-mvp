@@ -217,17 +217,18 @@ public void OnDelete_UserDeclines_DoesNotRemove()
 
 `MockWindowNavigator` で子 Presenter の起動と戻り値をセットします。
 
+モーダルの戻りは `ShowModalBoolResult` で切り替えます (`true`→`Ok` / `false`→`Cancel`)。表示された Presenter は `ShowModalCalls` で検証します。
+
 ```csharp
 [Fact]
 public void OnEditUser_OpensEditorAndReloadsOnSuccess()
 {
     _view.SelectedUserId = 1;
-    _platform.WindowNavigator.SetupModalResult<EditUserPresenter, EditUserParameters, UserResult>(
-        result: InteractionResult<UserResult>.Ok(new UserResult { Id = 1, Name = "Updated" }));
+    _platform.WindowNavigator.ShowModalBoolResult = true;   // Ok を返す
 
     _presenter.Dispatcher.Dispatch(MainActions.EditUser);
 
-    Assert.True(_platform.WindowNavigator.ShownPresenters
+    Assert.True(_platform.WindowNavigator.ShowModalCalls
         .Any(p => p is EditUserPresenter));
     Assert.True(_view.ReloadCalled);
 }
@@ -236,14 +237,15 @@ public void OnEditUser_OpensEditorAndReloadsOnSuccess()
 public void OnEditUser_WhenCancelled_DoesNotReload()
 {
     _view.SelectedUserId = 1;
-    _platform.WindowNavigator.SetupModalResult<EditUserPresenter, EditUserParameters, UserResult>(
-        result: InteractionResult<UserResult>.Cancel());
+    _platform.WindowNavigator.ShowModalBoolResult = false;   // Cancel を返す
 
     _presenter.Dispatcher.Dispatch(MainActions.EditUser);
 
     Assert.False(_view.ReloadCalled);
 }
 ```
+
+> 結果あり版モーダルの `Value` は常に `default(TResult)` です。特定の戻り値に依存するアサーションが必要なら `MockWindowNavigator` を拡張してください。
 
 ### ロギングを検証する
 

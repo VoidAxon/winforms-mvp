@@ -45,7 +45,7 @@ public class ConfirmDeleteDialogPresenter : WindowPresenterBase<IConfirmDeleteVi
 
 // 呼び出し側
 var result = Navigator.For(new ConfirmDeleteDialogPresenter()).ShowAsModal<bool>();
-if (result.IsSuccess && result.Value)
+if (result.IsOk && result.Value)
 {
     DeleteItem();
 }
@@ -205,7 +205,7 @@ public class CustomerListPresenter : WindowPresenterBase<ICustomerListView>
                               .WithParam(parameters)
                               .ShowAsModal<CustomerResult>();
 
-        if (result.IsSuccess)
+        if (result.IsOk)
         {
             // ユーザーが Save を押した
             ReloadCustomer(result.Value.Id);

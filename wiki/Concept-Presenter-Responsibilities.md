@@ -317,7 +317,7 @@ public class CustomerEditPresenter
             Email = _view.Email
         };
         var result = _service.Save(c);               // ② delegate to the service
-        if (result.IsSuccess) _view.ShowSaved();     // ③ report back
+        if (result.IsOk) _view.ShowSaved();     // ③ report back
         else _view.ShowError(result.Error);
     }
 }

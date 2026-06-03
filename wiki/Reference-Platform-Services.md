@@ -135,7 +135,7 @@ private void OnImport()
         Title = "Select a file to import",
     });
 
-    if (result.IsSuccess)
+    if (result.IsOk)
     {
         var path = result.Value;
         ImportFile(path);
@@ -242,7 +242,7 @@ private void OnOpenEditor()
                           .WithParam(parameters)
                           .ShowAsModal<UserResult>();
 
-    if (result.IsSuccess)
+    if (result.IsOk)
         ReloadList();
 }
 ```
@@ -259,11 +259,11 @@ private void OnOpenEditor()
 ```csharp
 public class InteractionResult<T>
 {
-    public bool IsSuccess   { get; }
+    public bool IsOk   { get; }
     public bool IsCancelled { get; }
     public bool IsError     { get; }
 
-    public T      Value        { get; }   // IsSuccess のとき有効
+    public T      Value        { get; }   // IsOk のとき有効
     public string ErrorMessage { get; }   // IsError のとき有効
     public Exception Exception { get; }   // IsError のとき有効 (任意)
 
@@ -294,7 +294,7 @@ public InteractionResult<Customer> LoadCustomer(int customerId)
 
 // 呼び出し側
 var result = LoadCustomer(id);
-if (result.IsSuccess)
+if (result.IsOk)
     View.Customer = result.Value;
 else
     Messages.ShowError(result.ErrorMessage, "Error");
@@ -381,7 +381,7 @@ public void OnSave_ShowsSuccessMessage()
 | `MockMessageService` | `InfoMessageShown` / `WarningMessageShown` / `ErrorMessageShown` / `LastInfoMessage` / `ConfirmYesNoResult` (= 戻り値設定) |
 | `MockDialogProvider` | `OpenFileDialogResult` / `SaveFileDialogResult` (= 戻り値設定) / `WasShown` |
 | `MockFileService` | `Files` (in-memory dictionary) / `ReadCount` / `WriteCount` |
-| `MockWindowNavigator` | `ShownPresenters` / `LastParameter` / `SetupModalResult(...)` |
+| `MockWindowNavigator` | `ShowModalCalls` / `LastPresenter` / `LastParameters` / `ShowModalBoolResult` (= 戻り値設定) / `ShowModalInteractionResult` |
 
 詳しいテストパターンは [HowTo: Presenter をテストする](HowTo-Test-A-Presenter) を参照してください。
 

@@ -128,7 +128,7 @@ public class OrderProcessorPresenter : WindowPresenterBase<IOrderProcessorView>
     private void OnExport()
     {
         var result = Dialogs.ShowSaveFileDialog("Export Orders");   // ← Platform はプロパティ
-        if (result.IsSuccess)
+        if (result.IsOk)
             _orderService.ExportTo(result.Value);
     }
 }
@@ -250,7 +250,7 @@ private void OnOpenFile()
         Filter = "Text files (*.txt)|*.txt",
     });
 
-    if (result.IsSuccess)
+    if (result.IsOk)
         LoadFile(result.Value);
 }
 ```
