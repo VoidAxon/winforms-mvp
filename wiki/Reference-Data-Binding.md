@@ -203,15 +203,17 @@ priceUpDown.Bind(model, m => m.Price);
 label.Bind(model, m => m.Status);
 totalLabel.Bind(model, m => m.Total);
 
-// 表示形式をカスタマイズ
-summaryLabel.Bind(model, m => $"Total: {m.ItemCount} items");
+// 表示形式をカスタマイズしたいときは、モデル側に整形済みプロパティを用意してそれをバインドする
+summaryLabel.Bind(model, m => m.Summary);   // Summary は model 側で "Total: N items" に整形済み
 ```
+
+> ⚠️ **`Bind` に渡せるのは「単一プロパティへのアクセス式」だけです。** 内部で式からプロパティ名を抽出して `DataBindings` に登録するため、`m => $"Total: {m.ItemCount} items"` のような **文字列補間や計算式はコンパイルは通っても実行時に `ArgumentException` で落ちます**。整形が必要なら、モデルに `Summary` のような整形済みプロパティを置き (元のプロパティの `PropertyChanged` で再計算)、それをバインドしてください。
 
 | | |
 |---|---|
 | バインド対象 | `Text` プロパティ |
 | 双方向 | ❌ (Model → Label のみ、Label はユーザー編集不可) |
-| 型 | 任意 (内部で `ToString()`) |
+| 型 | 任意 (内部で `ToString()`)。式は **単一プロパティアクセスのみ** (計算式・補間は不可) |
 
 ### ComboBox
 

@@ -187,6 +187,15 @@ public class RegistrationModel : IValidatableObject
 }
 ```
 
+> ⚠️ **`ValidationResult` は同名の型が 2 つあります。`using` に注意してください。**
+>
+> | 場面 | 使う型 | 特徴 |
+> |---|---|---|
+> | `IValidatableObject.Validate` の戻り値 (上の例) | **`System.ComponentModel.DataAnnotations.ValidationResult`** | `IsValid` プロパティは **ない**。成功は `ValidationResult.Success` (= `null`) を返す/何も `yield` しない |
+> | `IModelValidator.ValidateAll` / `ValidateSequential` の戻り値 (前節) | **`WinformsMVP.Common.Validation.Core.ValidationResult`** | `IsValid` プロパティが **ある** |
+>
+> `Validate` を実装するファイルでは **`using System.ComponentModel.DataAnnotations;`** が必要です (上のコードの `using` がそれ)。ここで誤って `using WinformsMVP.Common.Validation.Core;` だけを書くと、`Validate` の戻り値型が framework 版になり `IValidatableObject` 契約を満たさず **コンパイルエラー**。両方の `using` があると **あいまい参照** になるため、`Validate` 側は DataAnnotations 版を完全修飾するか、framework 版の `using` を別ファイルに分けてください。
+
 `Validator.TryValidateObject` が `IValidatableObject.Validate` を自動的に呼ぶため、`_validator.ValidateAll(model)` だけで属性ベース検証 + クロスフィールド検証の両方が走ります。
 
 ---
