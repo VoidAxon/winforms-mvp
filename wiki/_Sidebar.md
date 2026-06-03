@@ -8,9 +8,9 @@
 **コンセプト**
 
 - [MVP パターンとは](Concept-MVP-Pattern)
-- [Presenter の責務と肥大化の防止](Concept-Presenter-Responsibilities)
 - [アーキテクチャ概観](Concept-Architecture-Overview)
 - [ウィンドウクローズモデル](Concept-Window-Closing-Model)
+- [Presenter の責務と肥大化の防止](Concept-Presenter-Responsibilities)
 
 **設計ルール**
 
