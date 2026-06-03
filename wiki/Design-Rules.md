@@ -185,7 +185,7 @@ private void InitializeActionBindings()
 }
 ```
 
-**Why**: 依存方向の一方向性 ([鉄則 3](Concept-MVP-Pattern#3-つの鉄則-three-iron-rules)) を保つ。View は誰がそのイベントを聞いているか知らなくてよい。
+**Why**: **依存の反転** ([鉄則 3](Concept-MVP-Pattern#3-つの鉄則-three-iron-rules)) を保つ。ここで一方向なのは「通信の流れ」ではなく「型依存」です — 上の Good 例でも `SaveRequested` イベントは View → Presenter へ流れますが、View は Presenter の具象型を知らず、誰がそのイベントを聞いているかも知りません。View が `presenter.Save()` を直接呼ぶと、この型依存の反転が崩れます。
 
 ---
 
@@ -281,21 +281,38 @@ public class ParentPresenter
     }
 }
 
-// ✅ Good — 共有 Service または子 Presenter 経由
+// ✅ Good — 子 Presenter の「コマンドインターフェイス」経由 (または共有 Service)
+public interface IChildCommands           // 子が対外的に公開するコマンド契約
+{
+    void UpdateStatus(string status);
+}
+
+public class ChildPresenter : ControlPresenterBase<IChildView>, IChildCommands
+{
+    public void UpdateStatus(string status)   // ✅ インターフェイス契約なので Rule 16 を満たす
+        => View.Status = status;
+    // 他の handler / helper は private のまま
+}
+
 public class ParentPresenter
 {
-    private ChildPresenter _childPresenter;
+    private readonly IChildCommands _child;   // 具象型ではなくインターフェイスを保持
+
+    public ParentPresenter(IChildCommands child) { _child = child; }
 
     private void OnUpdate()
     {
-        _childPresenter.UpdateStatus("Updated");  // 子 Presenter を呼ぶ
+        _child.UpdateStatus("Updated");   // 子 View には触れず、子 Presenter にコマンドを送る
         // または: _sharedService.SetStatus("Updated");
     }
 }
 ```
 
-**Why**: 各 View の状態は対応する Presenter が排他的に管理する。他の Presenter が直接触ると整合性管理が困難。
-詳細は [HowTo: Presenter 間の通信方法](HowTo-Communicate-Between-Presenters)。
+**Why**: 各 View の状態は対応する Presenter が排他的に管理する。他の Presenter が子 View を直接触ると整合性管理が困難。
+
+子へは **コマンドインターフェイス越し** に呼ぶのが既定形です。具象型に裸の `public` メソッドを生やすと、(1) [Rule 16](#rule-16-presenter-メソッドの可視性) の「公開面は契約のみ」に抵触し、(2) 親が子の具象型に固定されてテストで mock できなくなります。インターフェイスにすればこの両方が消え、`IChildCommands` を mock するだけで親を単体テストできます。同一アセンブリ内の小さな連携なら `internal` メソッドでも可 (公開面を広げないため) ですが、横アセンブリ・mock 可能性を考えると既定はインターフェイスです。
+
+> **方向の非対称性**: 「親 → 子」はコマンド (インターフェイス) でよいが、「子 → 親」は直接呼び出し禁止 — 所有関係が逆転し循環するため。子から親への通知はイベントか `IEventAggregator` を使う。**下りはコマンドインターフェイス、上りはイベント**。直接命令か EventAggregator かの選び分け (所有関係の有無で決める) は [HowTo: Presenter 間の通信方法](HowTo-Communicate-Between-Presenters) を参照。
 
 ---
 
@@ -424,7 +441,7 @@ View.DisplayOrders(orders);
 | メソッドの種類 | 可視性 |
 |--------------|------|
 | コンストラクタ | `public` (DI が要求) |
-| インターフェイス契約 (例: `IRequestClose<T>.CloseRequested`) | `public` (契約が要求) |
+| インターフェイス契約 (例: `IRequestClose<T>.CloseRequested`、親→子のコマンドインターフェイス `IChildCommands` 等) | `public` (契約が要求) |
 | ライフサイクルフック (`OnInitialize`、`RegisterViewActions`、`Cleanup`) | `protected override` |
 | ViewAction ハンドラ (`OnSave`、`OnCancel`、...) | `private` |
 | View イベントハンドラ (`OnViewClosing`、...) | `private` |
@@ -464,7 +481,7 @@ public class GoodPresenter : WindowPresenterBase<IMyView>, IRequestClose<MyResul
 | 通知したいこと | 使う手段 |
 |------------|------|
 | ウィンドウの結果 | `IRequestClose<T>.CloseRequested` を実装 |
-| 親子間の連携 | 親が子のメソッドを直接呼ぶ |
+| 親子間の連携 (親 → 子) | 親が子の **コマンドインターフェイス** のメソッドを呼ぶ (具象型ではなくインターフェイス越し。[Rule 10](#rule-10-view-にアクセスするのは-presenter-だけ) 参照) |
 | 共有ステート | Service に持たせて、Service のイベントを発行 |
 | モジュール横断 | `IEventAggregator.Publish` |
 
@@ -491,8 +508,23 @@ public class GoodPresenter : WindowPresenterBase<IMyView>, IRequestClose<MyResul
 
 ## 自動検証 (Roslyn Analyzer)
 
-将来的にこれらルールの一部は Roslyn Analyzer で自動検証される予定です。
-現時点では code review でのチェックリストとして使ってください。
+これらのルールの **一部は、すでに Roslyn Analyzer によってコンパイル時に自動検証されています**。
+アナライザは `WinformsMVP` パッケージに同梱されており (`analyzers/dotnet/cs`)、メインパッケージを参照するだけで消費側のビルドでも自動的に走ります — 別途インストールは不要です。
+
+| 診断 ID | タイトル | 対応ルール |
+|---------|---------|----------|
+| `MVP001` | View インターフェイスは `View` で終える | [Rule 1](#rule-1-view-命名規約) |
+| `MVP002` | Presenter クラスは `Presenter` で終える | [Rule 2](#rule-2-presenter-命名規約) |
+| `MVP003` | Presenter で UI コントロールを生成しない | [Rule 3](#rule-3-責務分離) |
+| `MVP004` | View / Presenter に UI 型を露出させない | [Rule 4](#rule-4-view-インターフェイスと-presenter-に-ui-型を入れない) |
+| `MVP006` | 公開 Presenter メソッドは `void` を返す | [Rule 7](#rule-7-presenter-メソッドの戻り値を持たせない) |
+| `MVP007` | View は具象 Form ではなくインターフェイス越しに扱う | [Rule 8](#rule-8-view-にはインターフェイス越しにのみアクセス) |
+| `MVP008` | 公開 View メソッドはインターフェイスに定義する | [Rule 9](#rule-9-view-メソッドの可視性) |
+| `MVP013` | インターフェイスメソッド名に UI コントロール型を入れない | [Rule 14](#rule-14-インターフェイスに-ui-コントロール名を入れない) |
+
+> 既定の重大度はすべて **Warning** です (フレームワークをインストールしただけでビルドが壊れないように)。チームで厳格化したい場合は `.editorconfig` で個別に `error` へ引き上げられます。
+
+それ以外のルール (Rule 5・6・10〜12・15〜17) はアナライザ化されていないため、引き続き **コードレビューのチェックリスト** として使ってください。
 
 ---
 
