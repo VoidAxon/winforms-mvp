@@ -20,7 +20,15 @@ namespace WinformsMVP.Common.Extensions
 
             var propertyName = PropertyNameHelper.GetName(propertyExpression);
 
-            control.DataBindings.Clear();
+            // Remove only a previous binding for the SAME control property, so that multiple
+            // properties on one control (e.g. Text + ReadOnly, or a button's Text + Enabled) can
+            // coexist. Clearing the whole DataBindings collection would wipe unrelated bindings.
+            for (int i = control.DataBindings.Count - 1; i >= 0; i--)
+            {
+                if (string.Equals(control.DataBindings[i].PropertyName, controlPropertyName, StringComparison.Ordinal))
+                    control.DataBindings.RemoveAt(i);
+            }
+
             control.DataBindings.Add(controlPropertyName, viewModel, propertyName, false, DataSourceUpdateMode.OnPropertyChanged);
         }
 
