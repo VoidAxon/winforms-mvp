@@ -93,7 +93,9 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView>
         Dispatcher.Register(
             CommonActions.Save,
             OnSave,
-            canExecute: () => _changeTracker.IsChanged);   // ← 自動 Enable/Disable
+            // View が CurrentValue をその場編集するパターンでは IsChangedWith で実時比較する。
+            // 素の IsChanged はキャッシュで、in-place 編集では更新されない (下記「比較の解決順序」直後の注記参照)。
+            canExecute: () => _changeTracker.IsChangedWith(_changeTracker.CurrentValue));
 
         Dispatcher.Register(CommonActions.Reset, OnReset);
     }
@@ -232,8 +234,12 @@ _changeTracker.IsChangedChanged += (s, e) =>
 
 ### 2. パフォーマンス最適化
 
-`IsChanged` プロパティは結果をキャッシュし、値が変更されるまで再計算しません。
-頻繁にアクセスしても比較コストは累積しません。
+`IsChanged` プロパティは結果をキャッシュし、頻繁にアクセスしても比較コストは累積しません。
+
+> ⚠️ **キャッシュが無効化されるのは `UpdateCurrentValue` / `AcceptChanges` / `RejectChanges` を呼んだときだけです。** `ChangeTracker` は `INotifyPropertyChanged` を購読しないため、`CurrentValue` を View にバインドしてユーザーがその場 (in-place) で編集しても `IsChanged` のキャッシュは更新されず、**陳腐な値を返します**。正しい使い方は次の 2 つ:
+>
+> - **実時比較 (低頻度チェック向け)**: キャッシュを読まず `IsChangedWith(現在の値)` を呼ぶ。Save / ウィンドウクローズのような一発判定に最適。本ページの例はこちらを使用。
+> - **キャッシュを生かす (イベント駆動 UI 向け)**: View 変更のたびに `UpdateCurrentValue(viewの値)` を呼ぶ。キャッシュ `IsChanged` が常に正しく保たれ、`IsChangedChanged` イベントで `RaiseCanExecuteChanged` を駆動できる。実例は `samples/.../EmailDemo/ComposeEmailPresenter.cs`。
 
 ### 3. 検証サポート (派生クラス)
 
@@ -259,7 +265,7 @@ public class ValidatedChangeTracker<T> : ChangeTracker<T> where T : class
 
 ### 4. ウィンドウクローズとの連携
 
-`IsChanged` をウィンドウクローズ時のダーティチェックに使うのが典型パターンです。
+ウィンドウクローズ時のダーティチェックに使うのが典型パターンです (一発判定なので実時比較 `IsChangedWith` を使う)。
 
 ```csharp
 // Pull 方向のクローズハンドラ (詳細は [ウィンドウクローズモデル](Concept-Window-Closing-Model))
@@ -267,7 +273,7 @@ private void OnViewClosing(object sender, WindowClosingEventArgs args)
 {
     if (args.Reason == CloseReason.SystemShutdown) return;
 
-    if (_changeTracker.IsChanged &&
+    if (_changeTracker.IsChangedWith(_changeTracker.CurrentValue) &&
         !Messages.ConfirmYesNo("Discard unsaved changes?", "Confirm"))
     {
         args.Cancel = true;
@@ -283,14 +289,14 @@ private void OnSave()
 }
 ```
 
-`OnSave` で `AcceptChanges()` を呼んでから `RaiseClose` する順序は重要です。これにより、その後にフレームワークが Pull 方向のハンドラを呼んでも、`IsChanged == false` なので再確認ダイアログが出ません。
+`OnSave` で `AcceptChanges()` を呼んでから `RaiseClose` する順序は重要です。`AcceptChanges()` でベースラインが現在値に更新されるため、その後にフレームワークが Pull 方向のハンドラを呼んでも `IsChangedWith(CurrentValue)` が `false` を返し、再確認ダイアログが出ません。
 
 ---
 
 ## 関連ページ
 
 - [ウィンドウクローズモデル](Concept-Window-Closing-Model) — ダーティチェックとの連携
-- [ViewAction システム](Reference-ViewAction-System) — `CanExecute: () => _changeTracker.IsChanged` パターン
+- [ViewAction システム](Reference-ViewAction-System) — `CanExecute: () => _changeTracker.IsChangedWith(...)` パターン
 - [HowTo: ウィンドウクローズを扱う](HowTo-Handle-Window-Closing) — 完全な実装例
 - サンプル:
   - `samples/WinformsMVP.Samples/WindowClosingDemo/` — ChangeTracker + クローズモデルの組み合わせ

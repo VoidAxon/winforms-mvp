@@ -274,8 +274,10 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView>
         Dispatcher.Register(
             CommonActions.Save,
             OnSave,
-            // 「変更がある」かつ「妥当」のときだけ Save 可能
-            canExecute: () => _tracker.IsChanged
+            // 「変更がある」かつ「妥当」のときだけ Save 可能。
+            // CurrentValue をその場編集するため、キャッシュ IsChanged ではなく IsChangedWith で実時比較する
+            // (理由は [ChangeTracker](Reference-ChangeTracker) の「パフォーマンス最適化」の注記を参照)。
+            canExecute: () => _tracker.IsChangedWith(_tracker.CurrentValue)
                            && _tracker.IsCurrentValueValid(_validator));
     }
 
