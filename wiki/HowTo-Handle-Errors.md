@@ -460,12 +460,12 @@ catch (Exception ex) { Logger.LogError(ex, "Save failed silently"); }
 [Fact]
 public void OnSave_WhenExceptionThrown_ShowsError()
 {
-    _platform.UserRepository.SaveShouldThrow = true;
+    _repository.SaveShouldThrow = true;   // 業務依存はコンストラクタ注入した mock repo
 
     _presenter.Dispatcher.Dispatch(CommonActions.Save);
 
     Assert.True(_platform.MessageService.ErrorMessageShown);
-    Assert.Contains("Failed to save", _platform.MessageService.LastErrorMessage);
+    Assert.True(_platform.MessageService.HasCall(MessageType.Error, "Failed to save"));
 }
 ```
 

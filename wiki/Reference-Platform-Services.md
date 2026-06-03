@@ -370,7 +370,7 @@ public void OnSave_ShowsSuccessMessage()
     presenter.Dispatcher.Dispatch(CommonActions.Save);
 
     Assert.True(mockPlatform.MessageService.InfoMessageShown);
-    Assert.Contains("Saved", mockPlatform.MessageService.LastInfoMessage);
+    Assert.True(mockPlatform.MessageService.HasCall(MessageType.Info, "Saved"));
 }
 ```
 
@@ -378,9 +378,9 @@ public void OnSave_ShowsSuccessMessage()
 
 | サービスのモック | 検証用プロパティ |
 |---------------|--------------|
-| `MockMessageService` | `InfoMessageShown` / `WarningMessageShown` / `ErrorMessageShown` / `LastInfoMessage` / `ConfirmYesNoResult` (= 戻り値設定) |
-| `MockDialogProvider` | `OpenFileDialogResult` / `SaveFileDialogResult` (= 戻り値設定) / `WasShown` |
-| `MockFileService` | `Files` (in-memory dictionary) / `ReadCount` / `WriteCount` |
+| `MockMessageService` | `InfoMessageShown` / `WarningMessageShown` / `ErrorMessageShown` / `ConfirmDialogShown` / `Calls` / `GetLastCall().Message` / `HasCall(type, contains)` / `ConfirmYesNoResult` (= 戻り値設定) |
+| `MockDialogProvider` | `OpenFileDialogResult` / `SaveFileDialogResult` / `FolderBrowserDialogResult` / `PrintPreviewDialogResult` (= 戻り値設定。`string` は空/null で `Cancel`) |
+| `MockFileService` | `AddFile(path, contents)` (= 事前投入) / `Exists` / `ReadAllText` / `WriteAllText` / `Clear()` |
 | `MockWindowNavigator` | `ShowModalCalls` / `LastPresenter` / `LastParameters` / `ShowModalBoolResult` (= 戻り値設定) / `ShowModalInteractionResult` |
 
 詳しいテストパターンは [HowTo: Presenter をテストする](HowTo-Test-A-Presenter) を参照してください。
