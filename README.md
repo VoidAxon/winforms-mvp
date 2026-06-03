@@ -233,15 +233,4 @@ winforms-mvp/
 バグ報告・機能提案・プルリクエストを歓迎します。
 GitHub Issues / Pull Requests からどうぞ。
 
----
-
-## リリースの切り方（メンテナ向け）
-
-リリースはタグ駆動です。`v` で始まるタグを push すると `.github/workflows/release.yml` が起動し、ビルド・テスト実行・両パッケージのパック・GitHub Packages への発行・`.nupkg` を添付した GitHub Release の作成までを自動で行います。
-
-```bash
-git tag v1.0.0-preview.1
-git push origin v1.0.0-preview.1
-```
-
-ハイフンを含むタグ（例 `v1.0.0-preview.1`）は NuGet のプレリリースとして発行され、GitHub Release もプレリリースとして印が付きます。ハイフンの無いタグ（例 `v1.0.0`）は安定版リリースになります。パッケージのバージョンはタグから直接取得されます（先頭の `v` は除去されます）。
+リリース手順（メンテナ向け）は [HowTo: リリースする](wiki/HowTo-Release.md) を参照してください。
