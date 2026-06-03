@@ -170,5 +170,20 @@ namespace WinformsMVP.Samples.Tests.Common
 
             Assert.Throws<NotSupportedException>(() => ObjectCloner.DeepCopy(src));
         }
+
+        [Fact]
+        public void DeepCopy_DictionaryWithCustomComparer_PreservesComparer()
+        {
+            var src = new Dictionary<string, PlainPoco>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["Key"] = new PlainPoco { Id = 1, Name = "a" }
+            };
+
+            var copy = ObjectCloner.DeepCopy(src);
+
+            // The custom comparer must survive the copy: case-insensitive lookup still works.
+            Assert.True(copy.ContainsKey("KEY"));
+            Assert.Equal("a", copy["key"].Name);
+        }
     }
 }

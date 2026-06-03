@@ -20,11 +20,18 @@ namespace WinformsMVP.Common.EventAggregator
     ///   <item><b>Thread Safety:</b> Supports concurrent publishing and subscribing</item>
     /// </list>
     ///
-    /// <para><b>⚠️ Weak Reference Considerations:</b></para>
+    /// <para><b>⚠️ Weak Reference Considerations — pass an instance method, not a capturing lambda:</b></para>
     /// <para>
-    /// Subscriptions use weak references for automatic memory management. If the subscriber object has no other
-    /// strong references, it may be GC'd, causing the subscription to automatically expire. For Presenter scenarios,
-    /// this is typically not an issue since Presenters usually exist as fields.
+    /// Subscriptions hold the handler's target via a weak reference. Pass an <b>instance method</b>
+    /// (e.g. <c>Subscribe&lt;T&gt;(OnProductAdded)</c>): the target is the Presenter itself, so the subscription
+    /// lives as long as the Presenter is referenced as a field — the recommended pattern.
+    /// </para>
+    /// <para>
+    /// Passing a lambda that captures <c>this</c> (e.g. <c>Subscribe&lt;T&gt;(msg =&gt; View.Update(msg))</c>) is a
+    /// silent trap: the handler's target is a compiler-generated closure object that nothing else strongly
+    /// references, so the next GC collects it and the subscription expires with no notification (the classic
+    /// WPF <c>WeakEventManager</c> pitfall). A <c>filter</c> predicate is fine as a lambda — it is evaluated
+    /// synchronously per message and is not retained as the subscription target.
     /// </para>
     ///
     /// <example>
@@ -71,13 +78,15 @@ namespace WinformsMVP.Common.EventAggregator
     /// });
     /// </code>
     ///
-    /// <b>Subscription with Filter:</b>
+    /// <b>Subscription with Filter (handler is an instance method; only the filter is a lambda):</b>
     /// <code>
-    /// // Only receive messages for specific product ID
-    /// _eventAggregator.Subscribe&lt;ProductUpdatedMessage&gt;(
-    ///     msg => View.UpdateProduct(msg.Product),
-    ///     filter: msg => msg.Product.Id == _targetProductId
+    /// // Only receive messages for a specific product ID
+    /// _subscription = _eventAggregator.Subscribe&lt;ProductUpdatedMessage&gt;(
+    ///     OnProductUpdated,                                  // ✅ instance method — stays alive
+    ///     filter: msg => msg.Product.Id == _targetProductId  // ✅ lambda filter is fine
     /// );
+    ///
+    /// private void OnProductUpdated(ProductUpdatedMessage msg) => View.UpdateProduct(msg.Product);
     /// </code>
     /// </example>
     /// </summary>
@@ -177,8 +186,26 @@ namespace WinformsMVP.Common.EventAggregator
         /// Publish a message to all subscribers.
         ///
         /// <para>
-        /// Can be called from any thread. Subscriber handlers are automatically marshaled to the UI thread (if needed).
-        /// Dead subscriptions (subscribers already GC'd) are automatically cleaned up.
+        /// Can be called from any thread.
+        /// </para>
+        ///
+        /// <para><b>Delivery semantics (important):</b></para>
+        /// <list type="bullet">
+        ///   <item><b>Same thread as the captured context</b> (typically publishing from the UI thread):
+        ///   handlers run <b>synchronously</b> — they have all completed by the time <c>Publish</c> returns.</item>
+        ///   <item><b>A different thread</b> (e.g. publishing from a background thread): each handler is
+        ///   marshaled to the UI thread via <c>SynchronizationContext.Post</c> — <b>fire-and-forget</b>.
+        ///   <c>Publish</c> returns immediately and the handlers run later, asynchronously, with no ordering
+        ///   guarantee relative to the publisher. There is no synchronous <c>Send</c> option. Do not assume a
+        ///   handler has finished (or its side effects are visible) just because <c>Publish</c> has returned.</item>
+        ///   <item>If no <c>SynchronizationContext</c> was captured at construction, handlers run synchronously
+        ///   on the publishing thread with no marshaling.</item>
+        /// </list>
+        ///
+        /// <para>
+        /// Dead subscriptions (subscribers already GC'd) are pruned lazily here, during publish. A message type
+        /// that is subscribed often but published rarely may retain already-collected entries until its next
+        /// publish; this is bounded and harmless. Dispose subscriptions explicitly for prompt removal.
         /// </para>
         /// </summary>
         /// <typeparam name="T">Message type</typeparam>

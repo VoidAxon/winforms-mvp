@@ -145,15 +145,17 @@ public class ProductSelectorPresenter : ControlPresenterBase<IProductSelectorVie
 
 条件にマッチするメッセージだけを受信できます。
 
+ハンドラはインスタンスメソッドで渡します（理由は[ベストプラクティス](#ベストプラクティス)を参照）。`filter` はその場で評価される軽量な述語なのでラムダで構いません。
+
 ```csharp
 // 高優先度の商品だけ受信
-_eventAggregator.Subscribe<ProductAddedMessage>(
-    msg => View.HighlightProduct(msg.Product),
+_subscription = _eventAggregator.Subscribe<ProductAddedMessage>(
+    OnHighPriorityProductAdded,
     filter: msg => msg.Product.Priority > 5);
 
 // 特定の顧客のメッセージだけ受信
-_eventAggregator.Subscribe<OrderPlacedMessage>(
-    msg => UpdateCustomerOrders(msg.OrderId),
+_subscription = _eventAggregator.Subscribe<OrderPlacedMessage>(
+    OnOrderPlaced,
     filter: msg => msg.CustomerId == _currentCustomerId);
 ```
 
@@ -172,10 +174,12 @@ Task.Run(() =>
 });
 
 // 購読者 — UI スレッド上で実行される
-_eventAggregator.Subscribe<DataLoadedMessage>(msg =>
+_subscription = _eventAggregator.Subscribe<DataLoadedMessage>(OnDataLoaded);
+
+private void OnDataLoaded(DataLoadedMessage msg)
 {
     View.Data = msg.Data;   // ✅ UI コントロールに安全にアクセス可能
-});
+}
 ```
 
 > **重要**: `EventAggregator` は構築時に `SynchronizationContext` をキャプチャするため、**UI スレッド上で構築する** 必要があります。
@@ -202,10 +206,12 @@ private List<OrderItem> GetCurrentOrderSnapshot()
 }
 
 // 購読側 (応答者)
-_eventAggregator.Subscribe<GetOrderSnapshotRequest>(request =>
+_subscription = _eventAggregator.Subscribe<GetOrderSnapshotRequest>(OnGetOrderSnapshot);
+
+private void OnGetOrderSnapshot(GetOrderSnapshotRequest request)
 {
     request.Snapshot = _orderItems.ToList();
-});
+}
 ```
 
 ---
@@ -260,7 +266,27 @@ protected override void Cleanup()
 
 弱参照によって最終的には自動でクリーンアップされますが、`Dispose` で明示的に外す方が即座に効果があります。
 
-### 3. 強い型のメッセージクラスを使う
+### 3. ハンドラはインスタンスメソッドで渡す（キャプチャするラムダを渡さない）
+
+> **⚠️ 重要 — 静かに失効する落とし穴**
+>
+> 購読は**弱参照**でハンドラの対象オブジェクトを保持します。`OnProductAdded` のような**インスタンスメソッド**を渡せば、対象は Presenter 自身であり、Presenter がフィールドとして生きている限り購読も生きます（推奨パターン）。
+>
+> 一方、`this` をキャプチャするラムダ（例: `msg => View.Update(msg)`）を渡すと、ハンドラの対象はコンパイラが生成した**クロージャオブジェクト**になります。このクロージャを強参照しているのはどこにもなく、戻り値の `IDisposable` も弱参照しか持ちません。その結果、**次の GC でクロージャが回収され、購読が何の通知もなく失効します**（WPF の `WeakEventManager` で知られる古典的な罠）。
+
+```csharp
+// ✅ Good — インスタンスメソッド。対象は Presenter なので生き続ける
+_subscription = _eventAggregator.Subscribe<ProductAddedMessage>(OnProductAdded);
+
+private void OnProductAdded(ProductAddedMessage msg) => View.AddItem(msg.Product, msg.Quantity);
+
+// ❌ Bad — this をキャプチャするラムダ。クロージャは GC され購読が静かに失効する
+_eventAggregator.Subscribe<ProductAddedMessage>(msg => View.AddItem(msg.Product, msg.Quantity));
+```
+
+`filter` 述語はメッセージ受信のたびに同期評価されるだけで保持対象にはならないため、ラムダで問題ありません。
+
+### 4. 強い型のメッセージクラスを使う
 
 ```csharp
 // ✅ Good — 専用のメッセージ型
@@ -270,7 +296,7 @@ public class ProductAddedMessage { ... }
 _eventAggregator.Publish(new Dictionary<string, object> { ... });
 ```
 
-### 4. メッセージの命名規約
+### 5. メッセージの命名規約
 
 | 種類 | サフィックス | 例 |
 |------|-----------|----|
@@ -279,7 +305,7 @@ _eventAggregator.Publish(new Dictionary<string, object> { ... });
 | データ通知 | `Message` または `Loaded` | `DataLoadedMessage` |
 | 要求/問い合わせ | `Request` | `GetOrderSnapshotRequest` |
 
-### 5. メッセージは不変にする
+### 6. メッセージは不変にする
 
 ```csharp
 public class ProductAddedMessage
@@ -291,7 +317,7 @@ public class ProductAddedMessage
 
 C# 8.0 以下なら `get; private set;` か `readonly` フィールドを使います。
 
-### 6. 過度に使わない
+### 7. 過度に使わない
 
 EventAggregator は間接層を追加するため、必要な場面でだけ使います。
 

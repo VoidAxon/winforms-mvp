@@ -196,7 +196,7 @@ navigator.ShowWindow(new UserEditorPresenter());
 | | 対応バージョン |
 |---|---|
 | ターゲットフレームワーク | .NET Framework 4.0 / 4.8 (multi-targeting) |
-| 言語 | C# 7.3 以上 |
+| 言語 | コンパイル済み DLL を配布するため利用側の C# バージョンは不問（ライブラリ本体は `LangVersion=latest` でビルド） |
 | プロジェクト形式 | SDK-style `.csproj` |
 | テストフレームワーク | xUnit 2.9 |
 | IDE | Visual Studio 2019+、JetBrains Rider、VS Code |

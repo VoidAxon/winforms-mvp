@@ -261,11 +261,14 @@ public class UserListPresenter : WindowPresenterBase<IUserListView>
 
     protected override void OnViewAttached()
     {
-        _subscription = _eventAggregator.Subscribe<UserLoggedOutNotification>(_ =>
-        {
-            View.ClearList();
-            View.ShowLoginPrompt();
-        });
+        // ハンドラはインスタンスメソッドで渡す（this をキャプチャするラムダは弱参照下で静かに失効する）
+        _subscription = _eventAggregator.Subscribe<UserLoggedOutNotification>(OnUserLoggedOut);
+    }
+
+    private void OnUserLoggedOut(UserLoggedOutNotification _)
+    {
+        View.ClearList();
+        View.ShowLoginPrompt();
     }
 
     protected override void Cleanup()

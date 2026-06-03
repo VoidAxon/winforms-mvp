@@ -18,6 +18,17 @@ namespace WinformsMVP.Common
     /// fall back to field-by-field POCO copy — usable on net40/net48, but for guaranteed
     /// semantics implement <see cref="ICloneable"/> or replace
     /// <see cref="ChangeTrackerDefaults.Cloner"/>.
+    /// <para>
+    /// Known limitations of the <see cref="IList"/>/<see cref="IDictionary"/> paths:
+    /// </para>
+    /// <list type="bullet">
+    ///   <item>The concrete type must have a public parameterless constructor.
+    ///   Read-only or immutable collections (e.g. <c>ReadOnlyCollection&lt;T&gt;</c>) throw —
+    ///   implement <see cref="ICloneable"/> or swap the cloner for those.</item>
+    ///   <item>A <see cref="IDictionary"/>'s key comparer is preserved only when the type exposes a
+    ///   <c>Comparer</c> property and a matching single-argument constructor (true for
+    ///   <c>Dictionary&lt;K,V&gt;</c>); for other dictionaries the default comparer is used.</item>
+    /// </list>
     /// </remarks>
     public static class ObjectCloner
     {
@@ -97,11 +108,31 @@ namespace WinformsMVP.Common
 
         private static object CopyDictionary(IDictionary source, Type type, Dictionary<object, object> visited)
         {
-            var copy = (IDictionary)Activator.CreateInstance(type);
+            var copy = (IDictionary)CreateDictionary(source, type);
             visited[source] = copy;
             foreach (DictionaryEntry entry in source)
                 copy.Add(Copy(entry.Key, visited), Copy(entry.Value, visited));
             return copy;
+        }
+
+        // Dictionary<TKey,TValue> carries an IEqualityComparer<TKey> that plain construction would
+        // silently drop — e.g. a Dictionary<string,T>(StringComparer.OrdinalIgnoreCase) would come
+        // back case-sensitive, a silent correctness change. Reconstruct with the original comparer
+        // when the source exposes one and a matching constructor exists; otherwise fall back.
+        private static object CreateDictionary(IDictionary source, Type type)
+        {
+            var comparerProperty = type.GetProperty("Comparer");
+            if (comparerProperty != null)
+            {
+                var comparer = comparerProperty.GetValue(source, null);
+                if (comparer != null)
+                {
+                    var ctor = type.GetConstructor(new[] { comparerProperty.PropertyType });
+                    if (ctor != null)
+                        return ctor.Invoke(new[] { comparer });
+                }
+            }
+            return Activator.CreateInstance(type);
         }
 
         private static object CopyList(IList source, Type type, Dictionary<object, object> visited)

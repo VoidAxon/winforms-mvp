@@ -10,7 +10,7 @@
 | 項目 | バージョン |
 |------|----------|
 | .NET Framework | 4.0 または 4.8 |
-| 言語 | C# 7.3 以上 |
+| 言語 | 不問（コンパイル済み DLL を参照するため。利用側プロジェクトの C# バージョンに制約なし） |
 | IDE | Visual Studio 2019 以降 / JetBrains Rider / VS Code |
 | 知識 | C# と WinForms の基本 |
 
