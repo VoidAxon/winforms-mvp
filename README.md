@@ -1,10 +1,17 @@
 # WinForms MVP Framework
 
-[![.NET Framework](https://img.shields.io/badge/.NET%20Framework-4.0%20%7C%204.8-blue.svg)](https://dotnet.microsoft.com/download/dotnet-framework)
+[![.NET Framework](https://img.shields.io/badge/.NET%20Framework-4.8-blue.svg)](https://dotnet.microsoft.com/download/dotnet-framework)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE.txt)
 
-WinForms アプリケーションのための、**Model-View-Presenter (MVP)** フレームワーク。
-WPF 風のコマンドバインドとクリーンアーキテクチャを .NET Framework に持ち込みます。
+.NET Framework 上で WinForms アプリケーションを **構築・保守する** チームのための、**Model-View-Presenter (MVP)** フレームワーク。Presenter から WinForms 型を完全に切り離し、**UI スレッドなしで単体テストできる** クリーンな関心の分離をもたらします。
+
+**こんな課題に効きます:**
+
+- ビジネスロジックがフォームのコードビハインドに癒着していて、単体テストが書けない
+- `MessageBox.Show()` やダイアログ呼び出しが UI と密結合していて、モックできない
+- 画面遷移・ウィンドウのクローズ処理・dirty 判定が場当たり的で、再利用も検証も難しい
+
+WPF 風のコマンドバインドとサービス抽象 (`IMessageService` / `IDialogProvider` …) でこれらを解きほぐします。コアライブラリは **外部依存ゼロ**。主ターゲットは `net48` ですが、`net40` でも動作するため、ランタイムを固定された企業内システムにも導入できます。
 
 > **ドキュメントは [GitHub Wiki](https://github.com/VoidAxon/winforms-mvp/wiki) を参照してください。**
 > 本 README はプロジェクトの入口です。詳細な使い方・設計指針・サンプル解説は Wiki に集約されています。
