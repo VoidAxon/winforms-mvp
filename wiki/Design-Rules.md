@@ -532,6 +532,7 @@ public class GoodPresenter : WindowPresenterBase<IMyView>, IRequestClose<MyResul
 ## 関連ページ
 
 - [MVP パターンとは](Concept-MVP-Pattern) — 鉄則 3 つの概要
+- [Presenter の責務と肥大化の防止](Concept-Presenter-Responsibilities) — Rule 3・13・16・17 を貫く「責務の線引き」の指針
 - [Presenter 基底クラス](Reference-Presenter-Base-Classes) — Rule 16・17 の詳細
 - [ViewAction システム](Reference-ViewAction-System) — Rule 6 の実装手段
 - [HowTo: Presenter 間の通信方法](HowTo-Communicate-Between-Presenters) — Rule 10・17 の実装方針

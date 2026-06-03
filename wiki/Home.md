@@ -32,6 +32,7 @@ WinForms アプリケーションのための **Model-View-Presenter** フレー
 フレームワークが「なぜそうなっているか」を解説します。
 
 - [MVP パターンとは](Concept-MVP-Pattern) — MVC との違い、Supervising Controller パターン
+- [Presenter の責務と肥大化の防止](Concept-Presenter-Responsibilities) — 痩せた監督、Fat Presenter の防ぎ方
 - [アーキテクチャ概観](Concept-Architecture-Overview) — フレームワーク全体図、コンポーネントの関係
 - [ウィンドウクローズモデル](Concept-Window-Closing-Model) — Push / Pull 二方向の設計思想
 
