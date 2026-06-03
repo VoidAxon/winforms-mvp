@@ -22,7 +22,7 @@ namespace WinformsMVP.Common.Validation.Extensions
     /// public class EditUserPresenter : WindowPresenterBase&lt;IEditUserView&gt;
     /// {
     ///     private readonly ChangeTracker&lt;UserModel&gt; _changeTracker;
-    ///     private readonly IModelValidator _validator = ModelValidator.For&lt;UserModel&gt;();
+    ///     private readonly IModelValidator&lt;UserModel&gt; _validator = ModelValidator.For&lt;UserModel&gt;();
     ///
     ///     protected override void OnInitialize()
     ///     {
@@ -94,8 +94,8 @@ namespace WinformsMVP.Common.Validation.Extensions
         /// </remarks>
         public static bool AcceptChangesIfValid<T>(
             this ChangeTracker<T> tracker,
-            IModelValidator validator,
-            out ReadOnlyCollection<ValidationResult> errors) where T : class, ICloneable
+            IModelValidator<T> validator,
+            out ReadOnlyCollection<ModelValidationResult> errors) where T : class, ICloneable
         {
             if (tracker == null)
                 throw new ArgumentNullException(nameof(tracker));
@@ -123,7 +123,7 @@ namespace WinformsMVP.Common.Validation.Extensions
         /// <param name="validator">The ModelValidator to use for validation.</param>
         /// <param name="error">
         /// Output parameter containing the first validation error if validation fails.
-        /// ValidationResult.Success if validation succeeds.
+        /// ModelValidationResult.Success if validation succeeds.
         /// </param>
         /// <returns>
         /// true if validation passed (no errors); otherwise, false.
@@ -156,8 +156,8 @@ namespace WinformsMVP.Common.Validation.Extensions
         /// </remarks>
         public static bool IsCurrentValueValid<T>(
             this ChangeTracker<T> tracker,
-            IModelValidator validator,
-            out ValidationResult error) where T : class, ICloneable
+            IModelValidator<T> validator,
+            out ModelValidationResult error) where T : class, ICloneable
         {
             if (tracker == null)
                 throw new ArgumentNullException(nameof(tracker));
@@ -200,7 +200,7 @@ namespace WinformsMVP.Common.Validation.Extensions
         /// </remarks>
         public static bool IsCurrentValueValid<T>(
             this ChangeTracker<T> tracker,
-            IModelValidator validator) where T : class, ICloneable
+            IModelValidator<T> validator) where T : class, ICloneable
         {
             return IsCurrentValueValid(tracker, validator, out _);
         }
@@ -241,7 +241,7 @@ namespace WinformsMVP.Common.Validation.Extensions
         /// </remarks>
         public static bool RejectChangesIfInvalid<T>(
             this ChangeTracker<T> tracker,
-            IModelValidator validator) where T : class, ICloneable
+            IModelValidator<T> validator) where T : class, ICloneable
         {
             if (tracker == null)
                 throw new ArgumentNullException(nameof(tracker));

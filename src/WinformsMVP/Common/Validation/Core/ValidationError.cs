@@ -4,7 +4,7 @@ namespace WinformsMVP.Common.Validation.Core
 {
     /// <summary>
     /// Represents a single validation error as a lightweight value type.
-    /// Alternative to ValidationResult for simple error scenarios where
+    /// Alternative to ModelValidationResult for simple error scenarios where
     /// immutability and minimal allocation are important.
     /// </summary>
     /// <remarks>
@@ -23,7 +23,7 @@ namespace WinformsMVP.Common.Validation.Core
     /// </para>
     ///
     /// <para>
-    /// <b>When to Use ValidationResult Instead:</b>
+    /// <b>When to Use ModelValidationResult Instead:</b>
     /// - Multiple member names per error
     /// - Need for reference equality
     /// - Integration with DataAnnotations APIs

@@ -5,31 +5,33 @@ using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Reflection;
 using WinformsMVP.Common.Validation.Attributes;
-using ValidationResult = WinformsMVP.Common.Validation.Core.ValidationResult;
 
 namespace WinformsMVP.Common.Validation.Core
 {
     /// <summary>
-    /// Non-generic validator interface for dependency injection and testability.
+    /// Strongly-typed validator interface for a model of type <typeparamref name="T"/>.
+    /// Type safety is preserved end to end: passing the wrong model type is a compile error,
+    /// not a runtime failure.
     /// </summary>
+    /// <typeparam name="T">The model type this validator checks.</typeparam>
     /// <remarks>
     /// <para>
-    /// Use <see cref="ModelValidator.For{T}"/> to create typed validator instances.
+    /// Use <see cref="ModelValidator.For{T}"/> to obtain the cached instance.
     /// </para>
     ///
     /// <para>
     /// <b>Example Usage:</b>
     /// <code>
     /// // Direct usage (type-safe)
-    /// var validator = ModelValidator.For&lt;EmailMessage&gt;();
-    /// var errors = validator.ValidateAll(model);
+    /// IModelValidator&lt;EmailMessage&gt; validator = ModelValidator.For&lt;EmailMessage&gt;();
+    /// var errors = validator.ValidateAll(model);   // model must be EmailMessage
     ///
     /// // Dependency injection (mockable)
     /// public class MyPresenter
     /// {
-    ///     private readonly IModelValidator _validator;
+    ///     private readonly IModelValidator&lt;EmailMessage&gt; _validator;
     ///
-    ///     public MyPresenter(IModelValidator validator)
+    ///     public MyPresenter(IModelValidator&lt;EmailMessage&gt; validator)
     ///     {
     ///         _validator = validator;
     ///     }
@@ -37,22 +39,22 @@ namespace WinformsMVP.Common.Validation.Core
     /// </code>
     /// </para>
     /// </remarks>
-    public interface IModelValidator
+    public interface IModelValidator<T> where T : class
     {
         /// <summary>
         /// Validates all properties and returns all validation errors.
         /// </summary>
-        ReadOnlyCollection<ValidationResult> ValidateAll(object model);
+        ReadOnlyCollection<ModelValidationResult> ValidateAll(T model);
 
         /// <summary>
         /// Validates properties sequentially by Order and returns the first error.
         /// </summary>
-        ValidationResult ValidateSequential(object model);
+        ModelValidationResult ValidateSequential(T model);
 
         /// <summary>
         /// Checks if the model is valid (has no validation errors).
         /// </summary>
-        bool IsValid(object model);
+        bool IsValid(T model);
     }
 
     /// <summary>
@@ -110,7 +112,7 @@ namespace WinformsMVP.Common.Validation.Core
         /// The validator is cached as a singleton per type for optimal performance.
         /// Multiple calls to For&lt;T&gt;() return the same instance.
         /// </remarks>
-        public static IModelValidator For<T>() where T : class
+        public static IModelValidator<T> For<T>() where T : class
         {
             return ModelValidatorImpl<T>.Instance;
         }
@@ -119,7 +121,7 @@ namespace WinformsMVP.Common.Validation.Core
         /// Internal implementation of IModelValidator using generics for type safety.
         /// Each T gets its own static instance and cached metadata.
         /// </summary>
-        private class ModelValidatorImpl<T> : IModelValidator where T : class
+        private class ModelValidatorImpl<T> : IModelValidator<T> where T : class
         {
             // Cache 1: Property name -> minimum Order (for ValidateAll sorting)
             private static readonly Dictionary<string, int> _propertyOrders;
@@ -130,7 +132,7 @@ namespace WinformsMVP.Common.Validation.Core
             /// <summary>
             /// Singleton instance per type T.
             /// </summary>
-            public static readonly IModelValidator Instance = new ModelValidatorImpl<T>();
+            public static readonly IModelValidator<T> Instance = new ModelValidatorImpl<T>();
 
             /// <summary>
             /// Static constructor - runs once per T.
@@ -159,9 +161,6 @@ namespace WinformsMVP.Common.Validation.Core
             /// <exception cref="ArgumentNullException">
             /// Thrown when <paramref name="model"/> is null.
             /// </exception>
-            /// <exception cref="ArgumentException">
-            /// Thrown when <paramref name="model"/> is not of type T.
-            /// </exception>
             /// <remarks>
             /// <para>
             /// Uses .NET's Validator.TryValidateObject for comprehensive validation:
@@ -177,15 +176,10 @@ namespace WinformsMVP.Common.Validation.Core
             /// 3. Sort by Order for consistent display
             /// </para>
             /// </remarks>
-            public ReadOnlyCollection<ValidationResult> ValidateAll(object model)
+            public ReadOnlyCollection<ModelValidationResult> ValidateAll(T model)
             {
                 if (model == null)
                     throw new ArgumentNullException(nameof(model));
-
-                if (!(model is T))
-                    throw new ArgumentException(
-                        $"Expected {typeof(T).Name}, got {model.GetType().Name}",
-                        nameof(model));
 
                 var context = new System.ComponentModel.DataAnnotations.ValidationContext(model, serviceProvider: null, items: null);
                 var standardResults = new List<System.ComponentModel.DataAnnotations.ValidationResult>();
@@ -199,12 +193,12 @@ namespace WinformsMVP.Common.Validation.Core
                     var memberName = r.MemberNames.FirstOrDefault() ?? string.Empty;
                     // Class-level errors (from IValidatableObject) get max order
                     var order = _propertyOrders.TryGetValue(memberName, out var o) ? o : int.MaxValue;
-                    return new ValidationResult(r.ErrorMessage, r.MemberNames, order);
+                    return new ModelValidationResult(r.ErrorMessage, r.MemberNames, order);
                 })
                 .OrderBy(r => r.Order)
                 .ToList();
 
-                return new ReadOnlyCollection<ValidationResult>(ordered);
+                return new ReadOnlyCollection<ModelValidationResult>(ordered);
             }
 
             /// <summary>
@@ -212,13 +206,10 @@ namespace WinformsMVP.Common.Validation.Core
             /// </summary>
             /// <param name="model">The model instance to validate.</param>
             /// <returns>
-            /// The first validation error encountered, or ValidationResult.Success if all validations passed.
+            /// The first validation error encountered, or ModelValidationResult.Success if all validations passed.
             /// </returns>
             /// <exception cref="ArgumentNullException">
             /// Thrown when <paramref name="model"/> is null.
-            /// </exception>
-            /// <exception cref="ArgumentException">
-            /// Thrown when <paramref name="model"/> is not of type T.
             /// </exception>
             /// <remarks>
             /// <para>
@@ -244,22 +235,17 @@ namespace WinformsMVP.Common.Validation.Core
             /// - Short-circuits on first error (typically validates only a few attributes)
             /// </para>
             /// </remarks>
-            public ValidationResult ValidateSequential(object model)
+            public ModelValidationResult ValidateSequential(T model)
             {
                 if (model == null)
                     throw new ArgumentNullException(nameof(model));
 
-                if (!(model is T typedModel))
-                    throw new ArgumentException(
-                        $"Expected {typeof(T).Name}, got {model.GetType().Name}",
-                        nameof(model));
-
                 // Optimization: Create ValidationContext once, reuse for all attributes
-                var context = new System.ComponentModel.DataAnnotations.ValidationContext(typedModel, serviceProvider: null, items: null);
+                var context = new System.ComponentModel.DataAnnotations.ValidationContext(model, serviceProvider: null, items: null);
 
                 foreach (var rule in _orderedRules)
                 {
-                    var propertyValue = rule.PropertyInfo.GetValue(typedModel, null);
+                    var propertyValue = rule.PropertyInfo.GetValue(model, null);
 
                     // Only modify MemberName (no allocation)
                     context.MemberName = rule.PropertyName;
@@ -270,7 +256,7 @@ namespace WinformsMVP.Common.Validation.Core
                     if (result != System.ComponentModel.DataAnnotations.ValidationResult.Success)
                     {
                         // First error - return immediately
-                        return new ValidationResult(
+                        return new ModelValidationResult(
                             result.ErrorMessage,
                             result.MemberNames,
                             rule.Order);
@@ -278,7 +264,7 @@ namespace WinformsMVP.Common.Validation.Core
                 }
 
                 // All validations passed
-                return ValidationResult.Success;
+                return ModelValidationResult.Success;
             }
 
             /// <summary>
@@ -307,7 +293,7 @@ namespace WinformsMVP.Common.Validation.Core
             /// </code>
             /// </para>
             /// </remarks>
-            public bool IsValid(object model)
+            public bool IsValid(T model)
             {
                 return ValidateSequential(model).IsValid;
             }

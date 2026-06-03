@@ -80,7 +80,7 @@ namespace WinformsMVP.Common.Validation.Helpers
         /// </remarks>
         public static bool ValidateAll<T>(
             T model,
-            IModelValidator validator,
+            IModelValidator<T> validator,
             IMessageService messageService = null,
             string errorTitle = "Validation Failed") where T : class
         {
@@ -150,7 +150,7 @@ namespace WinformsMVP.Common.Validation.Helpers
         /// </remarks>
         public static bool ValidateSequential<T>(
             T model,
-            IModelValidator validator,
+            IModelValidator<T> validator,
             IMessageService messageService = null,
             string errorTitle = "Validation Failed") where T : class
         {

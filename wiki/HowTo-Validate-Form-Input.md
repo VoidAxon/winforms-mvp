@@ -126,7 +126,7 @@ using WinformsMVP.Common.Validation.Core;
 
 public class UserEditorPresenter : WindowPresenterBase<IUserEditorView>
 {
-    private readonly IModelValidator _validator = ModelValidator.For<UserModel>();
+    private readonly IModelValidator<UserModel> _validator = ModelValidator.For<UserModel>();
 
     private void OnSave()
     {
@@ -158,11 +158,11 @@ public class UserEditorPresenter : WindowPresenterBase<IUserEditorView>
 
 | メソッド | 戻り値 | 使いどころ |
 |---|---|---|
-| `ValidateAll(model)` | `ReadOnlyCollection<ValidationResult>` (全エラー) | 保存ボタン押下時の最終チェック (全エラーを一覧表示) |
-| `ValidateSequential(model)` | `ValidationResult` (最初の 1 件のみ) | リアルタイム検証 (`[ValidationOrder]` 順、最初のエラーで停止 — 高速 + UX 良) |
+| `ValidateAll(model)` | `ReadOnlyCollection<ModelValidationResult>` (全エラー) | 保存ボタン押下時の最終チェック (全エラーを一覧表示) |
+| `ValidateSequential(model)` | `ModelValidationResult` (最初の 1 件のみ) | リアルタイム検証 (`[ValidationOrder]` 順、最初のエラーで停止 — 高速 + UX 良) |
 | `IsValid(model)` | `bool` | `CanExecute` 述語向け (内部で `ValidateSequential` 使用) |
 
-> 💡 **パフォーマンス**: `ModelValidator.For<T>()` は **型ごとに singleton** です。リフレクションキャッシュにより、初回 ~1-2ms / 2 回目以降 ~0.1-0.5ms で動作します。Presenter のフィールド (`private readonly IModelValidator _validator = ModelValidator.For<UserModel>();`) として保持して問題ありません。
+> 💡 **パフォーマンス**: `ModelValidator.For<T>()` は **型ごとに singleton** です。リフレクションキャッシュにより、初回 ~1-2ms / 2 回目以降 ~0.1-0.5ms で動作します。Presenter のフィールド (`private readonly IModelValidator<UserModel> _validator = ModelValidator.For<UserModel>();`) として保持して問題ありません。
 
 ### IValidatableObject によるクラスレベル検証
 
@@ -187,14 +187,14 @@ public class RegistrationModel : IValidatableObject
 }
 ```
 
-> ⚠️ **`ValidationResult` は同名の型が 2 つあります。`using` に注意してください。**
+> ⚠️ **検証の「失敗 1 件」を表す型が 2 つあります。場面で使い分けてください。**
 >
 > | 場面 | 使う型 | 特徴 |
 > |---|---|---|
-> | `IValidatableObject.Validate` の戻り値 (上の例) | **`System.ComponentModel.DataAnnotations.ValidationResult`** | `IsValid` プロパティは **ない**。成功は `ValidationResult.Success` (= `null`) を返す/何も `yield` しない |
-> | `IModelValidator.ValidateAll` / `ValidateSequential` の戻り値 (前節) | **`WinformsMVP.Common.Validation.Core.ValidationResult`** | `IsValid` プロパティが **ある** |
+> | `IValidatableObject.Validate` の戻り値 (上の例) | **`System.ComponentModel.DataAnnotations.ValidationResult`** (BCL) | `IsValid` プロパティは **ない**。成功は `ValidationResult.Success` (= `null`) を返す/何も `yield` しない |
+> | `IModelValidator<T>.ValidateAll` / `ValidateSequential` の戻り値 (前節) | **`WinformsMVP.Common.Validation.Core.ModelValidationResult`** (フレームワーク) | `IsValid` プロパティが **ある** |
 >
-> `Validate` を実装するファイルでは **`using System.ComponentModel.DataAnnotations;`** が必要です (上のコードの `using` がそれ)。ここで誤って `using WinformsMVP.Common.Validation.Core;` だけを書くと、`Validate` の戻り値型が framework 版になり `IValidatableObject` 契約を満たさず **コンパイルエラー**。両方の `using` があると **あいまい参照** になるため、`Validate` 側は DataAnnotations 版を完全修飾するか、framework 版の `using` を別ファイルに分けてください。
+> フレームワーク型は `ModelValidationResult` に改名され、BCL の `ValidationResult` と **名前衝突しなくなりました**。それでも役割が違うので取り違えに注意:`IValidatableObject.Validate` を実装するファイルでは **`using System.ComponentModel.DataAnnotations;`** を入れ、戻り値は BCL の `ValidationResult` を `yield` してください (フレームワークの `ModelValidationResult` を返すと契約を満たさずコンパイルエラー)。
 
 `Validator.TryValidateObject` が `IValidatableObject.Validate` を自動的に呼ぶため、`_validator.ValidateAll(model)` だけで属性ベース検証 + クロスフィールド検証の両方が走ります。
 
@@ -261,7 +261,7 @@ public class UserModel
 public class EditUserPresenter : WindowPresenterBase<IEditUserView>
 {
     private ChangeTracker<UserModel> _tracker;
-    private readonly IModelValidator _validator = ModelValidator.For<UserModel>();
+    private readonly IModelValidator<UserModel> _validator = ModelValidator.For<UserModel>();
 
     protected override void OnInitialize()
     {
@@ -586,8 +586,8 @@ public class UserEditorPresenter : WindowPresenterBase<IUserEditorView>
 ```csharp
 public class UserEditorPresenter : WindowPresenterBase<IUserEditorView>
 {
-    private readonly IModelValidator _validator = ModelValidator.For<UserModel>();
-    private ValidationResult _lastError = ValidationResult.Success;
+    private readonly IModelValidator<UserModel> _validator = ModelValidator.For<UserModel>();
+    private ModelValidationResult _lastError = ModelValidationResult.Success;
 
     protected override void OnViewAttached()
     {
@@ -668,7 +668,7 @@ protected override void RegisterViewActions()
 `IModelValidator.IsValid()` は内部で `ValidateSequential` を使うため、最初のエラーで停止します。`CanExecute` 述語に直接呼んで問題ありません。
 
 ```csharp
-private readonly IModelValidator _validator = ModelValidator.For<UserModel>();
+private readonly IModelValidator<UserModel> _validator = ModelValidator.For<UserModel>();
 
 protected override void RegisterViewActions()
 {
