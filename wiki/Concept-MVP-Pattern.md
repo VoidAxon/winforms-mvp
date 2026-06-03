@@ -149,7 +149,7 @@ Passive View 寄りに書くことも可能で、必要に応じて `View.SetXxx
 |------|------|
 | **1. View インターフェイスは UI 型を露出させない** | プロパティ・メソッド・イベント引数すべてに `System.Windows.Forms` 名前空間の型を含めない |
 | **2. Presenter は UI 型を直接扱わない** | `MessageBox.Show()` 禁止。すべてのサービスは `IMessageService` 等の抽象経由 |
-| **3. 依存方向は Presenter → View の片方向のみ** | View から Presenter の **業務メソッド** を呼ばない (参照保持・ライフサイクル呼び出しは可) |
+| **3. View は Presenter の業務メソッドを直接呼ばない** | ユーザー操作は ViewAction (アクションキー) かイベントで Presenter に仲介する。`presenter.Save()` のような業務メソッドの直接呼び出しは禁止。理想は View が Presenter を一切参照しないこと (ViewAction システムがこの方向を仲介するため成立する設計)。レガシー統合では参照保持・ライフサイクル配線までは妥協として許容するが、業務メソッド呼び出しは不可 |
 
 具体例・違反例・許容範囲の詳細は [MVP 設計ルール](Design-Rules) を参照してください。本ページでは「なぜこの 3 つが必要か」を以下の比較で示します。
 

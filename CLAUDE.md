@@ -176,7 +176,7 @@ All presenters have built-in access to platform services via convenience propert
 - `Files` — `IFileService`
 - `Navigator` — `IWindowNavigator`
 - `Logger` — `ILogger`
-- `Platform` — full `ICommonServices` container
+- `Platform` — full `IPlatformServices` container
 
 See [wiki/Reference-Platform-Services.md](wiki/Reference-Platform-Services.md).
 
