@@ -157,7 +157,7 @@ public class UserEditorPresenter : WindowPresenterBase<IUserEditorView>
 private void InitializeActionBindings()
 {
     _binder = new ViewActionBinder();
-    _binder.Add(CommonActions.Save, _saveButton);
+    _binder.Add(StandardActions.Save, _saveButton);
 
     var users = _database.GetAllUsers();  // ❌ こんなものを書かない
     if (users.Count > 0)
@@ -168,8 +168,8 @@ private void InitializeActionBindings()
 private void InitializeActionBindings()
 {
     _binder = new ViewActionBinder();
-    _binder.Add(CommonActions.Save,   _saveButton);
-    _binder.Add(CommonActions.Delete, _deleteButton);
+    _binder.Add(StandardActions.Save,   _saveButton);
+    _binder.Add(StandardActions.Delete, _deleteButton);
     _binder.Add(UserActions.Edit,     _editButton);
 }
 ```
@@ -182,19 +182,15 @@ private void InitializeActionBindings()
 
 ### 静的クラスにまとめる
 
-文字列リテラルを直に渡さず、必ず静的クラスで定数として宣言します。
+文字列リテラルを直に渡さず、必ず静的クラスで定数として宣言します。標準的な動詞 (Save / Cancel / Delete / Refresh / Ok / ...) は**フレームワーク同梱の `StandardActions`** をそのまま使えます — 再定義しないでください。自前の静的クラスで宣言するのは **モジュール固有のアクション** だけです。
 
 ```csharp
-// アプリ全体で共通のアクション
-public static class CommonActions
-{
-    public static readonly ViewAction Save    = ViewAction.Create("Common.Save");
-    public static readonly ViewAction Cancel  = ViewAction.Create("Common.Cancel");
-    public static readonly ViewAction Delete  = ViewAction.Create("Common.Delete");
-    public static readonly ViewAction Refresh = ViewAction.Create("Common.Refresh");
-}
+using WinformsMVP.MVP.ViewActions;
 
-// モジュール固有のアクション
+// 標準動詞は出荷済みの StandardActions を使う (再定義しない)
+Dispatcher.Register(StandardActions.Save, OnSave);
+
+// モジュール固有のアクションだけ静的クラスで宣言する
 public static class UserEditorActions
 {
     public static readonly ViewAction EditUser       = ViewAction.Create("UserEditor.Edit");
@@ -230,12 +226,12 @@ public static class MainActions
 
 ```csharp
 Dispatcher.Register(
-    CommonActions.Save,
+    StandardActions.Save,
     OnSave,
     canExecute: () => View.HasUnsavedChanges);
 
 Dispatcher.Register(
-    CommonActions.Delete,
+    StandardActions.Delete,
     OnDelete,
     canExecute: () => View.HasSelectedItem);
 ```
@@ -588,7 +584,7 @@ PlatformServices.Default = new DefaultPlatformServices(
 protected override void RegisterViewActions()
 {
     Dispatcher.Use(new PerformanceMiddleware(Logger, slowThresholdMs: 50));
-    Dispatcher.Register(CommonActions.Save, OnSave);
+    Dispatcher.Register(StandardActions.Save, OnSave);
 }
 ```
 

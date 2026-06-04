@@ -90,14 +90,14 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView>
     protected override void RegisterViewActions()
     {
         Dispatcher.Register(
-            CommonActions.Save,
+            StandardActions.Save,
             OnSave,
             // tracker は「変わったか」を答えるだけ。現在値は View から渡す。
             // (Save の活性を編集に追随させるには、View の変更時に RaiseCanExecuteChanged() を
             //  呼ぶ配線が別途必要 — [HowTo: 入力検証](HowTo-Validate-Form-Input) 参照)
             canExecute: () => _changeTracker.IsChangedWith(View.GetModel()));
 
-        Dispatcher.Register(CommonActions.Reset, OnReset);
+        Dispatcher.Register(StandardActions.Reset, OnReset);
     }
 
     private void OnSave()

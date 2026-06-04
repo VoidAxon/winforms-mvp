@@ -92,7 +92,7 @@ public class UserEditorPresenterTests
         _view.Email    = "john@example.com";
 
         // Act
-        _presenter.Dispatcher.Dispatch(CommonActions.Save);
+        _presenter.Dispatcher.Dispatch(StandardActions.Save);
 
         // Assert — 種別ブール + 本文は HasCall / GetLastCall().Message で検証
         Assert.True(_platform.MessageService.InfoMessageShown);
@@ -118,7 +118,7 @@ public void OnSave_WhenSaveFails_ShowsError()
     _view.UserName = "John";
     _repository.SaveShouldThrow = true;   // 失敗をシミュレート (コンストラクタ注入した mock repo)
 
-    _presenter.Dispatcher.Dispatch(CommonActions.Save);
+    _presenter.Dispatcher.Dispatch(StandardActions.Save);
 
     Assert.True(_platform.MessageService.ErrorMessageShown);
     Assert.True(_platform.MessageService.HasCall(MessageType.Error, "Failed to save"));
@@ -129,7 +129,7 @@ public void OnDelete_WithoutSelection_ShowsWarning()
 {
     _view.SelectedId = null;   // 未選択
 
-    _presenter.Dispatcher.Dispatch(CommonActions.Delete);
+    _presenter.Dispatcher.Dispatch(StandardActions.Delete);
 
     Assert.True(_platform.MessageService.WarningMessageShown);
 }
@@ -198,7 +198,7 @@ public void OnDelete_UserConfirms_RemovesItem()
     _view.SelectedId = 42;
     _platform.MessageService.ConfirmYesNoResult = true;   // Yes を選択
 
-    _presenter.Dispatcher.Dispatch(CommonActions.Delete);
+    _presenter.Dispatcher.Dispatch(StandardActions.Delete);
 
     Assert.True(_platform.MessageService.ConfirmDialogShown);
     Assert.True(_repository.WasDeleted(42));
@@ -210,7 +210,7 @@ public void OnDelete_UserDeclines_DoesNotRemove()
     _view.SelectedId = 42;
     _platform.MessageService.ConfirmYesNoResult = false;  // No を選択
 
-    _presenter.Dispatcher.Dispatch(CommonActions.Delete);
+    _presenter.Dispatcher.Dispatch(StandardActions.Delete);
 
     Assert.True(_platform.MessageService.ConfirmDialogShown);
     Assert.False(_repository.WasDeleted(42));
@@ -282,7 +282,7 @@ public void OnSave_LogsSuccess()
     presenter.AttachView(_view);
     presenter.Initialize();
 
-    presenter.Dispatcher.Dispatch(CommonActions.Save);
+    presenter.Dispatcher.Dispatch(StandardActions.Save);
 
     Assert.Contains(loggerFactory.Logger.Entries,
         e => e.Level == LogLevel.Information && e.Message.Contains("saved"));
@@ -302,7 +302,7 @@ public void OnSave_LogsSuccess()
 presenter.OnSave();
 
 // ✅ Right — Dispatcher 経由で呼ぶ (CanExecute も評価される)
-presenter.Dispatcher.Dispatch(CommonActions.Save);
+presenter.Dispatcher.Dispatch(StandardActions.Save);
 
 // ✅ Right — View イベントをシミュレート (Mocks/ のビューは WindowClosingEventArgs を受け取る)
 view.RaiseClosing(new WindowClosingEventArgs(CloseReason.Normal));
@@ -368,7 +368,7 @@ TestAddTask()
 [Fact]
 public void OnSave_ShowsMessageAndUpdatesView()
 {
-    _presenter.Dispatcher.Dispatch(CommonActions.Save);
+    _presenter.Dispatcher.Dispatch(StandardActions.Save);
     Assert.True(_platform.MessageService.InfoMessageShown);
     Assert.Equal(1, _view.SavedCount);
 }

@@ -98,9 +98,9 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView, EditUserPara
 
     protected override void RegisterViewActions()
     {
-        Dispatcher.Register(CommonActions.Save, OnSave,
+        Dispatcher.Register(StandardActions.Save, OnSave,
             canExecute: () => View.IsValid);
-        Dispatcher.Register(CommonActions.Cancel, OnCancel);
+        Dispatcher.Register(StandardActions.Cancel, OnCancel);
     }
 
     private void OnSave() => /* ... */;
@@ -312,7 +312,7 @@ Presenter を **本物のエントリーポイントから** 駆動してくだ�
 
 ```csharp
 // ❌ Wrong:   presenter.OnSave();
-// ✅ Right:   presenter.Dispatcher.Dispatch(CommonActions.Save);
+// ✅ Right:   presenter.Dispatcher.Dispatch(StandardActions.Save);
 // ✅ Right:   view.RaiseClosing(CloseReason.Normal);
 // ✅ Right:   presenter.CloseRequested += (s, e) => captured = e;
 ```

@@ -43,10 +43,6 @@
 
 `IRequestClose<TResult>` インターフェイスのイベント。Presenter が能動的にウィンドウを閉じたいときに発火する。
 
-### CommonActions
-
-`WinformsMVP.MVP.ViewActions.CommonActions` 静的クラス。アプリ横断で使われる標準アクション (`Save`、`Cancel`、`Delete`、`Refresh` 等) を提供する。
-
 ### ControlPresenterBase
 
 UserControl 系の View を扱う Presenter 基底クラス。`ControlPresenterBase<TView>` (パラメータなし) と `ControlPresenterBase<TView, TParam>` (パラメータあり) の 2 種類がある。
@@ -226,6 +222,10 @@ MVP の中央コンポーネント。ユースケースロジックを持ち、V
 DI パターンの 1 つ。`PlatformServices.Default` 経由でサービスにアクセスする方式。コンストラクタが不要で、最も簡単な構成。
 
 詳細: [Dependency Injection § Service Locator](Reference-DependencyInjection#pattern-1-service-locator-単純な-presenter-向け)
+
+### StandardActions
+
+`WinformsMVP.MVP.ViewActions.StandardActions` 静的クラス。アプリ横断で使われる標準アクション (`Save`、`Cancel`、`Delete`、`Refresh`、`Ok`、`Reset` 等) を出荷時に提供する。モジュール固有のアクションは自前の静的クラスで `ViewAction.Create(...)` して宣言する。
 
 ### Supervising Controller
 

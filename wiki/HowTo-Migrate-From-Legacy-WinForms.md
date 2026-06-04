@@ -116,7 +116,7 @@ public class AboutPresenter : WindowPresenterBase<IAboutView>
 
     protected override void RegisterViewActions()
     {
-        Dispatcher.Register(CommonActions.Close, () => /* ... */);
+        Dispatcher.Register(StandardActions.Close, () => /* ... */);
     }
 }
 
@@ -130,7 +130,7 @@ public partial class AboutForm : Form, IAboutView
     {
         InitializeComponent();
         _binder = new ViewActionBinder();
-        _binder.Add(CommonActions.Close, btnClose);
+        _binder.Add(StandardActions.Close, btnClose);
     }
 
     public string Version

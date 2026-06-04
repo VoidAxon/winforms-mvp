@@ -181,7 +181,7 @@ public class MyForm : Form, IMyView
 private void InitializeActionBindings()
 {
     _binder = new ViewActionBinder();
-    _binder.Add(CommonActions.Save, btnSave);
+    _binder.Add(StandardActions.Save, btnSave);
 }
 ```
 

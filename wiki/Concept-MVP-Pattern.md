@@ -207,7 +207,7 @@ public class UserEditorPresenter : WindowPresenterBase<IUserEditorView>
     }
 
     protected override void RegisterViewActions()
-        => Dispatcher.Register(CommonActions.Save, OnSave);
+        => Dispatcher.Register(StandardActions.Save, OnSave);
 
     private void OnSave()
     {

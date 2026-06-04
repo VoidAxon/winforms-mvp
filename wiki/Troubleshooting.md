@@ -414,7 +414,7 @@ presenter.Initialize();   // 後
 **対処**: `internal` 等に格上げせず、Dispatcher 経由で呼ぶ。
 
 ```csharp
-presenter.Dispatcher.Dispatch(CommonActions.Save);   // 本物の経路
+presenter.Dispatcher.Dispatch(StandardActions.Save);   // 本物の経路
 ```
 
 これで `CanExecute` も評価され、production と同じ経路をテストできます。詳しくは [HowTo: Presenter をテストする § テストを駆動するときのルール](HowTo-Test-A-Presenter#テストを駆動するときのルール) 参照。

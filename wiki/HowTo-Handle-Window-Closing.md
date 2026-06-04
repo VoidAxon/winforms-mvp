@@ -29,8 +29,8 @@ public class ConfirmDeleteDialogPresenter : WindowPresenterBase<IConfirmDeleteVi
 
     protected override void RegisterViewActions()
     {
-        Dispatcher.Register(CommonActions.Ok,     OnOk);
-        Dispatcher.Register(CommonActions.Cancel, OnCancel);
+        Dispatcher.Register(StandardActions.Ok,     OnOk);
+        Dispatcher.Register(StandardActions.Cancel, OnCancel);
     }
 
     private void OnOk()
@@ -84,9 +84,9 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView, EditUserPara
 
     protected override void RegisterViewActions()
     {
-        Dispatcher.Register(CommonActions.Save, OnSave,
+        Dispatcher.Register(StandardActions.Save, OnSave,
             canExecute: () => _changeTracker.IsChanged);
-        Dispatcher.Register(CommonActions.Cancel, OnCancel);
+        Dispatcher.Register(StandardActions.Cancel, OnCancel);
     }
 
     // ── Pull 方向: × ボタン / Alt+F4 ────────────────────────────
@@ -320,7 +320,7 @@ public void Save_FiresCloseRequestedWithResult()
     _presenter.CloseRequested += (s, e) => captured = e;
 
     // Act
-    _presenter.Dispatcher.Dispatch(CommonActions.Save);
+    _presenter.Dispatcher.Dispatch(StandardActions.Save);
 
     // Assert
     Assert.NotNull(captured);
@@ -334,7 +334,7 @@ public void Cancel_FiresCloseRequestedWithCancelStatus()
     CloseRequestedEventArgs<UserResult> captured = null;
     _presenter.CloseRequested += (s, e) => captured = e;
 
-    _presenter.Dispatcher.Dispatch(CommonActions.Cancel);
+    _presenter.Dispatcher.Dispatch(StandardActions.Cancel);
 
     Assert.NotNull(captured);
     Assert.Null(captured.Result);

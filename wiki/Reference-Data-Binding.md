@@ -430,7 +430,7 @@ public class UserEditorForm : Form, IUserEditorView
         // ... コントロール生成 + レイアウト
 
         _binder = new ViewActionBinder();
-        _binder.Add(CommonActions.Save, _btnSave);
+        _binder.Add(StandardActions.Save, _btnSave);
     }
 
     public ViewActionBinder ActionBinder => _binder;

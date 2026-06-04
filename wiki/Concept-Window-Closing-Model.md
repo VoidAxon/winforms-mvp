@@ -37,7 +37,7 @@ sequenceDiagram
     participant Caller as 呼び出し元
 
     User->>Form: Save ボタンクリック
-    Form->>Presenter: Dispatch(CommonActions.Save)
+    Form->>Presenter: Dispatch(StandardActions.Save)
     Presenter->>Presenter: 業務処理 + AcceptChanges()
     Presenter->>Navigator: CloseRequested (result, Ok)
     Navigator->>Form: form.Close()

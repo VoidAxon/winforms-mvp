@@ -49,7 +49,7 @@ public class UserEditorPresenter : WindowPresenterBase<IUserEditorView>
 {
     protected override void RegisterViewActions()
     {
-        Dispatcher.Register(CommonActions.Save, OnSave,
+        Dispatcher.Register(StandardActions.Save, OnSave,
             canExecute: () => View.HasUnsavedChanges);
     }
 
@@ -70,7 +70,7 @@ public class UserEditorForm : Form, IUserEditorView
     {
         InitializeComponent();
         _binder = new ViewActionBinder();
-        _binder.Add(CommonActions.Save, _saveButton);
+        _binder.Add(StandardActions.Save, _saveButton);
     }
 
     public string UserName

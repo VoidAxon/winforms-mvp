@@ -272,7 +272,7 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView>
     protected override void RegisterViewActions()
     {
         Dispatcher.Register(
-            CommonActions.Save,
+            StandardActions.Save,
             OnSave,
             // データは View から取得。tracker は「変わったか」、validator は「妥当か」を答えるだけ。
             canExecute: () => _tracker.IsChangedWith(View.GetModel())
@@ -642,7 +642,7 @@ public event EventHandler InputChanged;
 ```csharp
 protected override void RegisterViewActions()
 {
-    Dispatcher.Register(CommonActions.Save, OnSave,
+    Dispatcher.Register(StandardActions.Save, OnSave,
         canExecute: () => Validate());          // ← 検証が通っているときだけ Enabled
 }
 ```
@@ -660,7 +660,7 @@ private void OnInputChanged(object sender, EventArgs e)
 
 protected override void RegisterViewActions()
 {
-    Dispatcher.Register(CommonActions.Save, OnSave,
+    Dispatcher.Register(StandardActions.Save, OnSave,
         canExecute: () => _isValidCached);
 }
 ```
@@ -675,7 +675,7 @@ private readonly IModelValidator<UserModel> _validator = ModelValidator.For<User
 protected override void RegisterViewActions()
 {
     Dispatcher.Register(
-        CommonActions.Save,
+        StandardActions.Save,
         OnSave,
         canExecute: () => _validator.IsValid(View.GetModel()));
 }
@@ -742,7 +742,7 @@ public void Save_WithInvalidEmail_ShowsFieldError()
     _view.Email    = "not-an-email";
     _view.RaiseInputChanged();
 
-    _presenter.Dispatcher.Dispatch(CommonActions.Save);
+    _presenter.Dispatcher.Dispatch(StandardActions.Save);
 
     Assert.Contains("Invalid email", _view.FieldErrors[nameof(_view.Email)]);
     Assert.False(_view.SavedCalled);
@@ -756,7 +756,7 @@ public void Save_WithAllValid_PersistsData()
     _view.Phone    = "090-1234-5678";
     _view.RaiseInputChanged();
 
-    _presenter.Dispatcher.Dispatch(CommonActions.Save);
+    _presenter.Dispatcher.Dispatch(StandardActions.Save);
 
     Assert.True(_view.SavedCalled);
     Assert.True(_platform.MessageService.InfoMessageShown);
@@ -768,7 +768,7 @@ public void CanExecute_BecomesFalse_WhenAnyFieldInvalid()
     _view.UserName = "";    // 不正
     _view.RaiseInputChanged();
 
-    Assert.False(_presenter.Dispatcher.CanExecute(CommonActions.Save));
+    Assert.False(_presenter.Dispatcher.CanExecute(StandardActions.Save));
 }
 ```
 

@@ -62,7 +62,7 @@ public class CustomerListPresenter : WindowPresenterBase<ICustomerListView>
 
     protected override void RegisterViewActions()
     {
-        Dispatcher.Register(CommonActions.Refresh, OnRefresh);
+        Dispatcher.Register(StandardActions.Refresh, OnRefresh);
     }
 
     private async void OnRefresh()
@@ -382,7 +382,7 @@ private bool _isRunning;
 
 protected override void RegisterViewActions()
 {
-    Dispatcher.Register(CommonActions.Refresh, OnRefresh,
+    Dispatcher.Register(StandardActions.Refresh, OnRefresh,
         canExecute: () => !_isRunning);
 }
 
@@ -418,7 +418,7 @@ public async Task OnRefresh_LoadsData()
     _platform.CustomerRepository.SetupGetAllAsync(
         new[] { new Customer { Name = "Alice" } });
 
-    _presenter.Dispatcher.Dispatch(CommonActions.Refresh);
+    _presenter.Dispatcher.Dispatch(StandardActions.Refresh);
 
     // 非同期完了を待つ
     await Task.Yield();
@@ -433,7 +433,7 @@ public async Task OnRefresh_WhenRepositoryThrows_ShowsError()
 {
     _platform.CustomerRepository.GetAllAsyncShouldThrow = true;
 
-    _presenter.Dispatcher.Dispatch(CommonActions.Refresh);
+    _presenter.Dispatcher.Dispatch(StandardActions.Refresh);
     await Task.Yield();
 
     Assert.True(_platform.MessageService.ErrorMessageShown);

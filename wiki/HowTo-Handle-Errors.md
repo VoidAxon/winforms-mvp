@@ -462,7 +462,7 @@ public void OnSave_WhenExceptionThrown_ShowsError()
 {
     _repository.SaveShouldThrow = true;   // 業務依存はコンストラクタ注入した mock repo
 
-    _presenter.Dispatcher.Dispatch(CommonActions.Save);
+    _presenter.Dispatcher.Dispatch(StandardActions.Save);
 
     Assert.True(_platform.MessageService.ErrorMessageShown);
     Assert.True(_platform.MessageService.HasCall(MessageType.Error, "Failed to save"));
