@@ -261,6 +261,12 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView>
     {
         _tracker = new ChangeTracker<UserModel>(LoadUser(_userId));
         View.Bind(_tracker.CurrentValue);
+
+        // 編集のたびに CanExecute を再評価させる。canExecute 述語は「RaiseCanExecuteChanged が
+        // 呼ばれたとき」だけ再計算されるので、これが無いと Save ボタンの活性状態が更新されない。
+        // (CurrentValue はデータバインドのため INotifyPropertyChanged。その変更通知に乗る)
+        ((INotifyPropertyChanged)_tracker.CurrentValue).PropertyChanged +=
+            (s, e) => Dispatcher.RaiseCanExecuteChanged();
     }
 
     protected override void RegisterViewActions()
@@ -294,6 +300,10 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView>
     }
 }
 ```
+
+> **CanExecute を連動させるには再評価のトリガが要ります。** `canExecute` 述語は登録時と `RaiseCanExecuteChanged()` 呼び出し時にしか再計算されません ([アクション外で状態が変わったら呼ぶ](Reference-ViewAction-System))。上記は編集通知 (`PropertyChanged`) に乗せて呼んでいます。
+>
+> もう 1 つの定番は **キャッシュ `IsChanged` を活かす**形です:View 変更時に `_tracker.UpdateCurrentValue(viewの値)` を呼ぶと、キャッシュが更新され `IsChangedChanged` が発火するので、そのハンドラで `RaiseCanExecuteChanged()` を呼ぶ。実例は `samples/.../EmailDemo/ComposeEmailPresenter.cs`。
 
 ### 入力が無効になったら巻き戻す
 
