@@ -55,9 +55,22 @@ namespace WinformsMVP.Common
         public event EventHandler IsChangedChanged;
 
         /// <summary>
-        /// Gets the currently tracked value.
-        /// To change the value, use the UpdateCurrentValue() method.
+        /// The working snapshot currently held by the tracker.
         /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Exposed mainly for **ad-hoc inspection during development** (e.g. peeking at the
+        /// post-change value in the debugger). It is intentionally hidden from IntelliSense
+        /// (<see cref="EditorBrowsableAttribute"/>) to discourage using it as your data source.
+        /// </para>
+        /// <para>
+        /// ChangeTracker is a change-<i>detection</i> tool, not the owner of your data. Treat the
+        /// View (or your model) as the source of truth: pass the current value into
+        /// <see cref="IsChangedWith"/> to test "changed?", and reset the baseline with
+        /// <see cref="AcceptChanges(T)"/> after a successful save.
+        /// </para>
+        /// </remarks>
+        [EditorBrowsable(EditorBrowsableState.Never)]
         public T CurrentValue
         {
             get

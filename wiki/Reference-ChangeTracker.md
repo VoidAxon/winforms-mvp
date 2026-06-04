@@ -83,9 +83,8 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView>
     protected override void OnInitialize()
     {
         var user = LoadUser(userId);
-        _changeTracker = new ChangeTracker<UserModel>(user);
-
-        View.Model = _changeTracker.CurrentValue;
+        _changeTracker = new ChangeTracker<UserModel>(user);   // ベースラインのスナップショット
+        View.ShowUser(user);                                    // データは View が保持・編集する
     }
 
     protected override void RegisterViewActions()
@@ -93,47 +92,49 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView>
         Dispatcher.Register(
             CommonActions.Save,
             OnSave,
-            // View が CurrentValue をその場編集するパターンでは IsChangedWith で実時比較する。
-            // 素の IsChanged はキャッシュで、in-place 編集では更新されない (下記「比較の解決順序」直後の注記参照)。
-            canExecute: () => _changeTracker.IsChangedWith(_changeTracker.CurrentValue));
+            // tracker は「変わったか」を答えるだけ。現在値は View から渡す。
+            // (Save の活性を編集に追随させるには、View の変更時に RaiseCanExecuteChanged() を
+            //  呼ぶ配線が別途必要 — [HowTo: 入力検証](HowTo-Validate-Form-Input) 参照)
+            canExecute: () => _changeTracker.IsChangedWith(View.GetModel()));
 
         Dispatcher.Register(CommonActions.Reset, OnReset);
     }
 
     private void OnSave()
     {
-        SaveUser(_changeTracker.CurrentValue);
-        _changeTracker.AcceptChanges();                    // ← 新しいベースライン
+        var model = View.GetModel();              // データは View から取得(tracker からではない)
+        SaveUser(model);
+        _changeTracker.AcceptChanges(model);      // 保存できた値を新しいベースラインに
     }
 
     private void OnReset()
     {
-        _changeTracker.RejectChanges();                    // ← ベースラインに戻す
-        View.Model = _changeTracker.CurrentValue;
+        // 編集を破棄してベースラインを再表示する
+        View.ShowUser(_changeTracker.GetOriginalValue());
     }
 }
 ```
+
+> **ChangeTracker はデータを持ちません。** データの源は常に View(またはモデル)です。tracker には「ベースライン」と「変わったか」の判定だけを任せ、現在値は `View.GetModel()` のように View から取り出して `IsChangedWith` に渡します。`CurrentValue` プロパティは開発時のデバッグ確認用で、IntelliSense からは隠してあります。
 
 ---
 
 ## なぜ深いコピーが必要か
 
-浅いコピー (MemberwiseClone) は、参照型プロパティが元のオブジェクトと **同じインスタンスを共有** してしまいます。これは `RejectChanges()` が機能しなくなる致命的な不具合を引き起こします。
+浅いコピー (MemberwiseClone) は、参照型プロパティが元のオブジェクトと **同じインスタンスを共有** してしまいます。すると tracker が取るベースラインのスナップショットが元オブジェクトから独立せず、変更検出が壊れます。
 
 ### 浅いコピーの問題
 
 ```csharp
 var user = new UserModel { Address = new Address { City = "Tokyo" } };
-var tracker = new ChangeTracker<UserModel>(user);
+var tracker = new ChangeTracker<UserModel>(user);   // ベースラインのスナップショットを取る
 
-// Address が Clone されていないため、ベースラインと現在値で同じ Address インスタンスを共有
-tracker.CurrentValue.Address.City = "Osaka";
+// 浅いコピーだと、ベースラインは user と同じ Address インスタンスを共有してしまう。
+// その状態で(View 上で)元オブジェクトを編集すると…
+user.Address.City = "Osaka";
 
-// RejectChanges を呼んでも...
-tracker.RejectChanges();
-
-// 元の値も変更されてしまう
-Console.WriteLine(tracker.CurrentValue.Address.City);  // "Osaka" (期待値: "Tokyo")
+// ベースラインまで一緒に書き換わるため、変更を検出できない
+bool changed = tracker.IsChangedWith(user);   // 浅いコピーだと false(期待: true)
 ```
 
 ### 正しい `Clone()` の実装
@@ -191,8 +192,8 @@ public void Clone_CreatesIndependentCopy()
 
 | メンバー | 型 | 説明 |
 |---------|----|----|
-| `CurrentValue` | `T` | 現在追跡している値 (読み取り専用) |
-| `IsChanged` | `bool` | 現在値がベースラインと異なるか (結果キャッシュあり) |
+| `CurrentValue` | `T` | tracker が保持する作業スナップショット (読み取り専用)。**開発時のデバッグ確認用**で、IntelliSense からは隠してある (`[EditorBrowsable(Never)]`)。データの源は View であって tracker ではない |
+| `IsChanged` | `bool` | 現在値がベースラインと異なるか (結果キャッシュあり。詳細は「パフォーマンス最適化」の注記)。ダーティ判定は通常 `IsChangedWith(View の値)` を使う |
 
 ### メソッド
 
@@ -236,10 +237,9 @@ _changeTracker.IsChangedChanged += (s, e) =>
 
 `IsChanged` プロパティは結果をキャッシュし、頻繁にアクセスしても比較コストは累積しません。
 
-> ⚠️ **キャッシュが無効化されるのは `UpdateCurrentValue` / `AcceptChanges` / `RejectChanges` を呼んだときだけです。** `ChangeTracker` は `INotifyPropertyChanged` を購読しないため、`CurrentValue` を View にバインドしてユーザーがその場 (in-place) で編集しても `IsChanged` のキャッシュは更新されず、**陳腐な値を返します**。正しい使い方は次の 2 つ:
+> ⚠️ **`IsChanged`(キャッシュ版)が再計算されるのは `AcceptChanges` / `RejectChanges` / `UpdateCurrentValue` を呼んだときだけです。** `ChangeTracker` はあなたのデータを所有せず `INotifyPropertyChanged` も購読しないため、View 側で編集された値を `IsChanged` は感知できません。**ダーティ判定は現在値を渡して実時比較する `IsChangedWith(View.GetModel())` で行ってください**(キャッシュを読まない)。Save / ウィンドウクローズのような一発判定に最適で、本ページの例もこの形です。
 >
-> - **実時比較 (低頻度チェック向け)**: キャッシュを読まず `IsChangedWith(現在の値)` を呼ぶ。Save / ウィンドウクローズのような一発判定に最適。本ページの例はこちらを使用。
-> - **キャッシュを生かす (イベント駆動 UI 向け)**: View 変更のたびに `UpdateCurrentValue(viewの値)` を呼ぶ。キャッシュ `IsChanged` が常に正しく保たれ、`IsChangedChanged` イベントで `RaiseCanExecuteChanged` を駆動できる。実例は `samples/.../EmailDemo/ComposeEmailPresenter.cs`。
+> tracker に現在値を反映させたい場合 (イベント駆動 UI 等) は、View 変更時に `UpdateCurrentValue(View.GetModel())` を呼べばキャッシュ `IsChanged` が保たれ `IsChangedChanged` も発火します (実例 `samples/.../EmailDemo/ComposeEmailPresenter.cs`)。それでもデータの源は View です。
 
 ### 3. 検証サポート (派生クラス)
 
@@ -273,7 +273,7 @@ private void OnViewClosing(object sender, WindowClosingEventArgs args)
 {
     if (args.Reason == CloseReason.SystemShutdown) return;
 
-    if (_changeTracker.IsChangedWith(_changeTracker.CurrentValue) &&
+    if (_changeTracker.IsChangedWith(View.GetModel()) &&
         !Messages.ConfirmYesNo("Discard unsaved changes?", "Confirm"))
     {
         args.Cancel = true;
@@ -283,13 +283,14 @@ private void OnViewClosing(object sender, WindowClosingEventArgs args)
 // Push 方向 (Save ボタン)
 private void OnSave()
 {
-    SaveData();
-    _changeTracker.AcceptChanges();                       // ← Close 前に確定
+    var model = View.GetModel();
+    SaveData(model);
+    _changeTracker.AcceptChanges(model);                  // ← Close 前に確定(保存値を新ベースラインに)
     RaiseClose(result, InteractionStatus.Ok);
 }
 ```
 
-`OnSave` で `AcceptChanges()` を呼んでから `RaiseClose` する順序は重要です。`AcceptChanges()` でベースラインが現在値に更新されるため、その後にフレームワークが Pull 方向のハンドラを呼んでも `IsChangedWith(CurrentValue)` が `false` を返し、再確認ダイアログが出ません。
+`OnSave` で `AcceptChanges(model)` を呼んでから `RaiseClose` する順序は重要です。ベースラインが保存値に更新されるため、その後にフレームワークが Pull 方向のハンドラを呼んでも `IsChangedWith(View.GetModel())` が `false` を返し、再確認ダイアログが出ません。
 
 ---
 
