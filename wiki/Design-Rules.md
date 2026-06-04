@@ -281,38 +281,37 @@ public class ParentPresenter
     }
 }
 
-// ✅ Good — 子 Presenter の「コマンドインターフェイス」経由 (または共有 Service)
-public interface IChildCommands           // 子が対外的に公開するコマンド契約
+// ✅ Good — 子 View には触れず、子 Presenter にコマンドを送る。
+// 性質で選ぶ: 一回的コマンド → 直接、共有・観測される状態 → 共有 Store/Model。
+public class ChildPresenter : ControlPresenterBase<IChildView>
 {
-    void UpdateStatus(string status);
-}
-
-public class ChildPresenter : ControlPresenterBase<IChildView>, IChildCommands
-{
-    public void UpdateStatus(string status)   // ✅ インターフェイス契約なので Rule 16 を満たす
-        => View.Status = status;
+    // 既定形: internal メソッド。同一アセンブリの親からのみ呼べ、公開面を広げない。
+    internal void UpdateStatus(string status) => View.Status = status;
     // 他の handler / helper は private のまま
 }
 
 public class ParentPresenter
 {
-    private readonly IChildCommands _child;   // 具象型ではなくインターフェイスを保持
-
-    public ParentPresenter(IChildCommands child) { _child = child; }
+    private readonly ChildPresenter _child;   // 親が具象の子をコンポジションで所有
 
     private void OnUpdate()
     {
-        _child.UpdateStatus("Updated");   // 子 View には触れず、子 Presenter にコマンドを送る
-        // または: _sharedService.SetStatus("Updated");
+        _child.UpdateStatus("Updated");   // 子 View には触れず、子 Presenter に命令
+        // 共有・観測される状態なら、命令ではなく: _statusStore.Set("Updated");
     }
 }
+
+// 差し替え/テストの「縫い目」が要るときだけ、コマンドインターフェイスへ引き上げる:
+//   public interface IChildCommands { void UpdateStatus(string status); }
+//   class ChildPresenter : ..., IChildCommands { public void UpdateStatus(...) {...} }
+//   class ParentPresenter { ParentPresenter(IChildCommands child) {...} }   // mock 可能
 ```
 
 **Why**: 各 View の状態は対応する Presenter が排他的に管理する。他の Presenter が子 View を直接触ると整合性管理が困難。
 
-子へは **コマンドインターフェイス越し** に呼ぶのが既定形です。具象型に裸の `public` メソッドを生やすと、(1) [Rule 16](#rule-16-presenter-メソッドの可視性) の「公開面は契約のみ」に抵触し、(2) 親が子の具象型に固定されてテストで mock できなくなります。インターフェイスにすればこの両方が消え、`IChildCommands` を mock するだけで親を単体テストできます。同一アセンブリ内の小さな連携なら `internal` メソッドでも可 (公開面を広げないため) ですが、横アセンブリ・mock 可能性を考えると既定はインターフェイスです。
+子へ命令を出す形式は **`internal` メソッドを軽い既定** とします — 同一アセンブリ・親が具象の子を所有する通常ケースでは、これで十分かつ公開面を広げません。差し替えやテストで親を mock したい「縫い目」が要るときだけ **コマンドインターフェイス** へ引き上げます (`IChildCommands` を mock すれば親を単体テストできる)。**接口は必須ではなく、その縫い目が要るときの選択肢**です。いずれの形式でも子の handler / helper は `private` のまま ([Rule 16](#rule-16-presenter-メソッドの可視性))。なお『その操作に第三の Presenter が関心を持つ』『子の状態を問い合わせたい』なら、それはもう一回的コマンドではなく**共有・観測される状態**です — 直接命令ではなく共有 Model / Store に載せます (**性質で選ぶ: 状態 → Store、一回的コマンド → 直接**)。
 
-> **方向の非対称性**: 「親 → 子」はコマンド (インターフェイス) でよいが、「子 → 親」は直接呼び出し禁止 — 所有関係が逆転し循環するため。子から親への通知はイベントか `IEventAggregator` を使う。**下りはコマンドインターフェイス、上りはイベント**。直接命令か EventAggregator かの選び分け (所有関係の有無で決める) は [HowTo: Presenter 間の通信方法](HowTo-Communicate-Between-Presenters) を参照。
+> **方向の非対称性**: 「親 → 子」はコマンド (既定 `internal` メソッド) でよいが、「子 → 親」は直接呼び出し禁止 — 所有関係が逆転し循環するため。子から親への通知はイベントか `IEventAggregator` を使う。**下りはコマンド、上りはイベント**。直接命令か EventAggregator かの選び分け (所有関係の有無で決める) は [HowTo: Presenter 間の通信方法](HowTo-Communicate-Between-Presenters) を参照。
 
 ---
 
@@ -436,14 +435,21 @@ View.DisplayOrders(orders);
 
 ## Rule 16: Presenter メソッドの可視性
 
-> **Presenter の公開メンバーは、コンストラクタとインターフェイス契約だけに限定する。ハンドラやヘルパーは `private`。**
+> **Presenter を、外部から命令的に突けるサービスにしない。公開面の既定はコンストラクタ・`Initialize`・`Dispose` のみ。ViewAction の handler / helper は必ず `private`。**
+
+このルールは「公開メンバーの白名単」ではなく、**1 つの不変量**で考えます — *Presenter のユースケース行動は、正当な通路 (ViewAction = 視点の意図 + ライフサイクル = 構築 / `Initialize` / `Dispose`) からのみ駆動され、任意の外部メソッド呼び出しからは駆動されない*。この不変量は **入站 (他者が呼んで Presenter を動かすメソッド) と 出站 (Presenter が出すイベント/通知) を非対称に**扱います:
+
+- **入站 = 命令面 → 厳しく圧縮する。** 硬い約束: ViewAction の handler / helper は必ず `private`。`public Save()` を生やすと Dispatcher の `CanExecute`・ミドルウェアを迂回する経路ができ、Presenter がサービス化します。これが本ルールの非協商部分です。
+- **出站 = 通知面 → 本ルールの対象外。** 公開イベントは Presenter を命令的に突けるようにはしないので、最小化の精神と矛盾しません。出站側の線引き (出力ポートは可 / 共有ステート通知は不可) は [Rule 17](#rule-17-presenter-イベントの可視性) が担います。
+- **親→子の狭いコマンドは許容される例外。** 露出形式は `internal` メソッド (同一アセンブリ・親が具象の子を所有する通常ケース) を軽い既定とし、差し替え/テストの「縫い目」が要るときだけコマンドインターフェイスへ引き上げます — **接口は必須ではありません**。[Rule 10](#rule-10-view-にアクセスするのは-presenter-だけ) 参照。
 
 | メソッドの種類 | 可視性 |
 |--------------|------|
-| コンストラクタ | `public` (DI が要求) |
-| インターフェイス契約 (例: `IRequestClose<T>.CloseRequested`、親→子のコマンドインターフェイス `IChildCommands` 等) | `public` (契約が要求) |
+| コンストラクタ / `Initialize` / `Dispose` | `public` (既定の公開面) |
+| インターフェイス契約 (例: `IRequestClose<T>.CloseRequested`) | `public` (契約が要求) |
+| 親→子の狭いコマンド | 既定 `internal`。縫い目が要るときだけ公開コマンドインターフェイス |
 | ライフサイクルフック (`OnInitialize`、`RegisterViewActions`、`Cleanup`) | `protected override` |
-| ViewAction ハンドラ (`OnSave`、`OnCancel`、...) | `private` |
+| ViewAction ハンドラ (`OnSave`、`OnCancel`、...) | `private` (硬い約束) |
 | View イベントハンドラ (`OnViewClosing`、...) | `private` |
 | ヘルパー (`RaiseClose`、検証、フォーマッタ) | `private` |
 
@@ -474,15 +480,17 @@ public class GoodPresenter : WindowPresenterBase<IMyView>, IRequestClose<MyResul
 
 ## Rule 17: Presenter イベントの可視性
 
-> **Presenter が公開するイベントは `IRequestClose<TResult>.CloseRequested` を除いてゼロにする。**
+> **Presenter のイベントは「上向きの出力ポート / 単発の結果通知」に限る。共有・観測可能なステートを Presenter のイベントで通知しない (それは Model / Service の責務)。**
 
-他の通知ニーズには別の手段を使う:
+これは [Rule 16](#rule-16-presenter-メソッドの可視性) の不変量の**出站側の系**です。`IRequestClose<TResult>.CloseRequested` のような出力ポート/単発通知イベントを公開しても Presenter を命令的に突けるようにはならないので、最小化の精神と矛盾せず**許容されます**。禁じるのは Presenter を「観測されるステート保持者」にすること — `IsDirtyChanged` のような状態イベントを生やすと、本来 Model / Service が持つべき観測点が Presenter に漏れます。
+
+通知の性質ごとに手段を選びます:
 
 | 通知したいこと | 使う手段 |
 |------------|------|
-| ウィンドウの結果 | `IRequestClose<T>.CloseRequested` を実装 |
-| 親子間の連携 (親 → 子) | 親が子の **コマンドインターフェイス** のメソッドを呼ぶ (具象型ではなくインターフェイス越し。[Rule 10](#rule-10-view-にアクセスするのは-presenter-だけ) 参照) |
-| 共有ステート | Service に持たせて、Service のイベントを発行 |
+| ウィンドウの結果 (上向き・単発) | `IRequestClose<T>.CloseRequested` を実装 (✅ 出力ポート) |
+| 親子間の連携 (親 → 子) | 親が子 Presenter にコマンドを送る (既定 `internal` メソッド、縫い目が要るときコマンドインターフェイス。[Rule 10](#rule-10-view-にアクセスするのは-presenter-だけ) 参照) |
+| 共有・観測されるステート | Service / Store に持たせて、その変更通知イベントを発行 |
 | モジュール横断 | `IEventAggregator.Publish` |
 
 ```csharp

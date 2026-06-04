@@ -58,8 +58,8 @@
 
 最も単純で結合度の強い方法。親 Presenter が、自分が所有する子 Presenter のメソッドを直接呼びます。
 
-> ⚠️ **使う前に必ず確認** — Presenter に `public` メソッドを追加すると、ViewAction の Dispatcher と CanExecute をバイパスする経路が作られ、`Presenter` がサービス化してしまいます ([Rule 16・17](Reference-Presenter-Base-Classes#公開-api-は最小限に保つ) 参照)。
-> 「親子関係が明確だから」という理由だけでは不十分です。下記の **4 条件をすべて満たす場合のみ** この選択肢を使ってください。それ以外は **選択肢 2 (共有 Model)** を選びます。
+> ⚠️ **使う前に必ず確認** — Presenter に外部から呼べるメソッドを生やすと、ViewAction の Dispatcher と CanExecute をバイパスする経路が生まれ、`Presenter` がサービス化しかねません ([Rule 16](Reference-Presenter-Base-Classes#公開-api-は最小限に保つ) 参照。だから露出は `public` でなく `internal` に絞る — 後述)。
+> 下記の **4 条件は「これは本物の一回的コマンドか」を判定する基準**です。4 条件をすべて満たすなら、直接コマンドが正しい道具です。逆にどれかが崩れたら (特に第三者が関心を持つ / 子の状態を問い合わせたい)、それはもう一回的コマンドではなく**共有・観測される状態**なので、命令ではなく **選択肢 2 (共有 Model)** に載せます — **性質で選ぶ**のであって、Model が常に優先なのではありません。
 
 ### こんなときに (厳密な 4 条件、すべて満たすこと)
 
@@ -103,7 +103,7 @@ public class SearchPanelPresenter : ControlPresenterBase<ISearchPanelView>
 
 ### なぜ `public` ではなく `internal` か
 
-`public` メソッドはアセンブリ外の任意の呼び出し元に「Presenter をサービスとして使う」道を開いてしまいます。`internal` にしておけば、同一アセンブリ内の親 Presenter からのみ呼ばれることが型レベルで保証されます。これは Rule 16 (handler は private) と Rule 17 (public 表面は最小限) の精神を、どうしてもメソッドが必要な狭いケースに適用する妥協案です。
+`public` メソッドはアセンブリ外の任意の呼び出し元に「Presenter をサービスとして使う」道を開いてしまいます。`internal` にしておけば、同一アセンブリ内の親 Presenter からのみ呼ばれることが型レベルで保証されます。これは Rule 16 (入站の命令面を最小化し、handler は private) の精神を、どうしてもメソッドが必要な狭いケースに適用したものです。差し替えやテストで親を mock したい「縫い目」が要るなら、`internal` メソッドをコマンドインターフェイスへ引き上げます (接口は必須ではなく、その縫い目が要るときの選択肢)。
 
 ### 「もう Model にすべき」サイン
 

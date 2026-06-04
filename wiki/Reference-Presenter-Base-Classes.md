@@ -258,13 +258,13 @@ var presenter = new SearchPanelPresenter(_searchPanel, parameters);
 | View イベントハンドラ (`OnViewClosing`、...) | `private` |
 | ヘルパー (`RaiseClose`、検証、フォーマッタ等) | `private` |
 
-### 公開イベントは原則ゼロ
+### 公開イベントは出力ポートに限る
 
-Presenter が公開するイベントは、`IRequestClose<TResult>` を実装する場合の `CloseRequested` を除いて **ゼロ** にします。他の通知ニーズには別の手段を使ってください:
+Presenter が公開するイベントは「**上向きの出力ポート / 単発の結果通知**」(`IRequestClose<TResult>.CloseRequested` など) に限ります。出力ポートのイベントは Presenter を命令的に突けるようにはしないので、最小化と矛盾せず**許容されます**。禁じるのは、**共有・観測されるステートを Presenter のイベントで通知すること** (それは Model / Service の責務) — `IsDirtyChanged` のような状態イベントを生やすと、本来 Model / Service が持つべき観測点が Presenter に漏れます。他の通知ニーズには別の手段を使ってください:
 
-- **ウィンドウの結果通知** → `IRequestClose<T>.CloseRequested` を実装
-- **親子の連携** → 親が子のメソッドを呼ぶ (または最終手段として 1 つだけイベントを購読)
-- **共有ステート (注文・認証等)** → ステートは Service に持たせ、Service からイベント発火
+- **ウィンドウの結果通知 (上向き・単発)** → `IRequestClose<T>.CloseRequested` を実装 (✅ 出力ポート)
+- **親子の連携 (親 → 子)** → 親が子 Presenter にコマンドを送る (既定 `internal` メソッド、縫い目が要るときコマンドインターフェイス)
+- **共有・観測されるステート (注文・認証等)** → ステートは Service / Store に持たせ、その変更通知イベントを発火
 - **モジュール横断の通知** → `IEventAggregator` で publish (弱参照、UI スレッド整列)
 
 ### NG パターン
