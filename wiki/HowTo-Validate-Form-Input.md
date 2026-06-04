@@ -154,7 +154,7 @@ public class UserEditorPresenter : WindowPresenterBase<IUserEditorView>
 
 ### ValidateAll vs ValidateSequential
 
-`IModelValidator` には 3 つのメソッドがあり、用途で使い分けます。
+`IModelValidator<T>` には 3 つのメソッドがあり、用途で使い分けます。
 
 | メソッド | 戻り値 | 使いどころ |
 |---|---|---|
@@ -665,7 +665,7 @@ protected override void RegisterViewActions()
 
 ### ModelValidator
 
-`IModelValidator.IsValid()` は内部で `ValidateSequential` を使うため、最初のエラーで停止します。`CanExecute` 述語に直接呼んで問題ありません。
+`IModelValidator<T>.IsValid()` は内部で `ValidateSequential` を使うため、最初のエラーで停止します。`CanExecute` 述語に直接呼んで問題ありません。
 
 ```csharp
 private readonly IModelValidator<UserModel> _validator = ModelValidator.For<UserModel>();
