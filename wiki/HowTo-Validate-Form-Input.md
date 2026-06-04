@@ -247,7 +247,12 @@ public class UserModel
 
 ## ChangeTracker と検証を組み合わせる
 
-[ChangeTracker](Reference-ChangeTracker) (変更追跡) と `IModelValidator<T>` (検証) は **独立した別々の関心事**です。フレームワークは両者を融合するヘルパーを **あえて提供しません**。`ChangeTracker` は検証を一切知らないまま保ち、合成は **Presenter がユースケースとして明示的に編成**します ([単一責任](Concept-MVP-Pattern))。「検証 → 通れば確定 → 保存」という流れが Presenter のハンドラにそのまま見えるのが正しい形です。
+[ChangeTracker](Reference-ChangeTracker) (変更追跡) と `IModelValidator<T>` (検証) は **無関係な別々の関心事**です。
+
+- **`ChangeTracker`** はベースラインから「**変わったか**」を答える検出ツール。**データの所有者ではありません**。
+- **`IModelValidator<T>`** は「**妥当か**」を答えるだけ。
+
+データは **View(が保持・バインドする編集モデル)** が持ち、Presenter が 2 つのツールを **それぞれ別々に** 呼んで編成します。融合ヘルパーはフレームワークでは提供しません ([単一責任](Concept-MVP-Pattern))。
 
 ### 典型パターン: 保存時の検証 + CanExecute 連動
 
@@ -259,14 +264,9 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView>
 
     protected override void OnInitialize()
     {
-        _tracker = new ChangeTracker<UserModel>(LoadUser(_userId));
-        View.Bind(_tracker.CurrentValue);
-
-        // 編集のたびに CanExecute を再評価させる。canExecute 述語は「RaiseCanExecuteChanged が
-        // 呼ばれたとき」だけ再計算されるので、これが無いと Save ボタンの活性状態が更新されない。
-        // (CurrentValue はデータバインドのため INotifyPropertyChanged。その変更通知に乗る)
-        ((INotifyPropertyChanged)_tracker.CurrentValue).PropertyChanged +=
-            (s, e) => Dispatcher.RaiseCanExecuteChanged();
+        var user = LoadUser(_userId);
+        _tracker = new ChangeTracker<UserModel>(user);   // ベースラインのスナップショット(変更検出専用)
+        View.ShowUser(user);                              // 表示は意味のある View メソッドで(View が編集モデルを保持)
     }
 
     protected override void RegisterViewActions()
@@ -274,54 +274,46 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView>
         Dispatcher.Register(
             CommonActions.Save,
             OnSave,
-            // 2 つのプリミティブを述語で組み合わせるだけ:「変更がある」かつ「妥当」のとき Save 可能。
-            // CurrentValue をその場編集するため IsChangedWith で実時比較する
-            // (理由は [ChangeTracker](Reference-ChangeTracker) の「パフォーマンス最適化」の注記を参照)。
-            canExecute: () => _tracker.IsChangedWith(_tracker.CurrentValue)
-                           && _validator.IsValid(_tracker.CurrentValue));
+            // データは View から取得。tracker は「変わったか」、validator は「妥当か」を答えるだけ。
+            canExecute: () => _tracker.IsChangedWith(View.GetModel())
+                           && _validator.IsValid(View.GetModel()));
     }
+
+    // View が入力変更を通知したら CanExecute を再評価する
+    // (canExecute 述語は登録時と RaiseCanExecuteChanged() 呼び出し時にしか再計算されない)
+    private void OnInputChanged(object sender, EventArgs e)
+        => Dispatcher.RaiseCanExecuteChanged();
 
     private void OnSave()
     {
-        var model = _tracker.CurrentValue;
+        var model = View.GetModel();           // データは View から取得(tracker からではない)
 
-        // 1. 検証
         var errors = _validator.ValidateAll(model);
         if (errors.Any())
         {
             View.ShowValidationErrors(errors.Select(e => e.ErrorMessage).ToList());
-            return;   // tracker は dirty のまま
+            return;                            // エラーを見せて Save をブロックするだけ。何も巻き戻さない
         }
 
-        // 2. 通ったら確定して保存
-        _tracker.AcceptChanges();
         SaveUser(model);
+        _tracker.AcceptChanges(model);         // 保存できた値を新しいベースラインに(dirty 解消)
         Messages.ShowInfo("Saved.");
     }
 }
 ```
 
-> **CanExecute を連動させるには再評価のトリガが要ります。** `canExecute` 述語は登録時と `RaiseCanExecuteChanged()` 呼び出し時にしか再計算されません ([アクション外で状態が変わったら呼ぶ](Reference-ViewAction-System))。上記は編集通知 (`PropertyChanged`) に乗せて呼んでいます。
+> **CanExecute の再評価にはトリガが要ります。** `canExecute` 述語は登録時と `RaiseCanExecuteChanged()` 呼び出し時にしか再計算されません ([アクション外で状態が変わったら呼ぶ](Reference-ViewAction-System))。View が入力変更イベントを公開し、Presenter がそれを購読して `RaiseCanExecuteChanged()` を呼びます。
 >
-> もう 1 つの定番は **キャッシュ `IsChanged` を活かす**形です:View 変更時に `_tracker.UpdateCurrentValue(viewの値)` を呼ぶと、キャッシュが更新され `IsChangedChanged` が発火するので、そのハンドラで `RaiseCanExecuteChanged()` を呼ぶ。実例は `samples/.../EmailDemo/ComposeEmailPresenter.cs`。
+> キャッシュ `IsChanged` を使いたい場合は、View 変更時に `_tracker.UpdateCurrentValue(View.GetModel())` を呼んで tracker にも現在値を反映し、`IsChangedChanged` ハンドラで `RaiseCanExecuteChanged()` を呼ぶ形にできます (実例 `samples/.../EmailDemo/ComposeEmailPresenter.cs`)。それでもデータの源は View です。
 
-### 入力が無効になったら巻き戻す
+### 検証は「巻き戻し」と無関係
 
-「入力中に妥当でなくなったら元の値に戻す」UX も、同じく Presenter が明示的に編成します。`RejectChanges()` は新しい現在値を作り直すので、戻したあとは View を再バインドします。
+「入力が無効になったら自動で元に戻す」を `ChangeTracker.RejectChanges()` で実装しては **いけません**。`RejectChanges()` は **スナップショット全体をベースラインに戻す** 操作です。3 項目編集して 1 項目だけ無効なときに呼ぶと、**妥当だった残り 2 項目まで巻き戻ってしまいます**。検証はフィールド単位、`RejectChanges` はセッション全体——粒度が噛み合いません。
 
-```csharp
-private void OnInputChanged(object sender, EventArgs e)
-{
-    if (!_validator.IsValid(_tracker.CurrentValue))
-    {
-        _tracker.RejectChanges();
-        View.Bind(_tracker.CurrentValue);   // 巻き戻した値を再バインド
-        Messages.ShowWarning("Invalid input — reverted to last valid value.");
-    }
-}
-```
+- **検証失敗時**:エラーを表示して Save をブロックするだけ。`ChangeTracker` には一切触れない。
+- **`RejectChanges()` の正しい用途**:ユーザーが明示的に「キャンセル/破棄」したときに、編集セッション**全体**を捨てる操作 (個々のフィールド単位ではない)。
 
-検証と変更追跡をそれぞれ単体でテストでき、依存も増えません。
+検証と変更追跡はそれぞれ単体でテストでき、互いに依存しません。
 
 ---
 
