@@ -243,27 +243,33 @@ var presenter = new SearchPanelPresenter(_searchPanel, parameters);
 
 ## 公開 API は最小限に保つ
 
-> **Presenter は "サービス" ではありません**。
+> **Presenter は "サービス" ではありません** — 外部から命令的に突けるサービスにしない、という 1 つの不変量で考えます。
 
-ルール 16 と 17 ([MVP 設計ルール](Design-Rules)) で詳述しますが、公開メンバーが増えるほど契約が広がり、呼び出し側がフレームワークの「View → Action → Dispatcher → Handler」経路を迂回する誘惑が生まれます。
+ここが [MVP 設計ルール](Design-Rules) の **Rule 16・17 の正準の落とし所**です (Design-Rules 側はルール文と本ページへの参照のみ)。ルールは「公開メンバーの白名単」ではなく、*Presenter のユースケース行動は正当な通路 — ViewAction (視点の意図) + ライフサイクル (構築 / `Initialize` / `Dispose`) — からのみ駆動され、任意の外部メソッド呼び出しからは駆動されない* という不変量です。これを **入站 (他者が呼んで Presenter を動かすメソッド) と 出站 (Presenter が出すイベント/通知) で非対称に**適用します:
+
+- **入站 = 命令面 → 厳しく圧縮する。** 硬い約束: ViewAction の handler / helper は必ず `private`。`public Save()` を生やすと Dispatcher の `CanExecute`・ミドルウェアを迂回する経路ができ、Presenter がサービス化します。これが非協商部分です。
+- **出站 = 通知面 → 圧縮対象ではない。** 上向きの出力ポート / 通知イベントは公開してよい (後述)。公開イベントは Presenter を命令的に突けるようにはしないからです。
 
 ### メソッドの可視性ガイドライン
 
 | メソッドの種類 | 可視性 |
 |--------------|------|
-| コンストラクタ | `public` (DI が要求) |
+| コンストラクタ / `Initialize` / `Dispose` | `public` (既定の公開面) |
 | インターフェイス契約 (例: `IRequestClose<T>.CloseRequested`) | `public` (契約が要求) |
+| 親→子の狭いコマンド | 既定 `internal` (同一アセンブリ)。縫い目が要るときだけ公開コマンドインターフェイス — 接口は強制しない |
 | ライフサイクルフック (`OnInitialize`、`OnViewAttached`、`RegisterViewActions`、`Cleanup`) | `protected override` |
-| ViewAction ハンドラ (`OnSave`、`OnCancel`、...) | `private` |
+| ViewAction ハンドラ (`OnSave`、`OnCancel`、...) | `private` (硬い約束) |
 | View イベントハンドラ (`OnViewClosing`、...) | `private` |
 | ヘルパー (`RaiseClose`、検証、フォーマッタ等) | `private` |
 
-### 公開イベントは出力ポートに限る
+### 出站イベント: 公開してよいもの / 禁じるもの
 
-Presenter が公開するイベントは「**上向きの出力ポート / 単発の結果通知**」(`IRequestClose<TResult>.CloseRequested` など) に限ります。出力ポートのイベントは Presenter を命令的に突けるようにはしないので、最小化と矛盾せず**許容されます**。禁じるのは、**共有・観測されるステートを Presenter のイベントで通知すること** (それは Model / Service の責務) — `IsDirtyChanged` のような状態イベントを生やすと、本来 Model / Service が持つべき観測点が Presenter に漏れます。他の通知ニーズには別の手段を使ってください:
+圧縮するのは**入站の命令面**であって、出站の通知ではありません。**上向きの出力ポート / 単発の結果通知イベント** (`IRequestClose<TResult>.CloseRequested` など) は**公開して構いません** — Presenter を命令的に突けるようにはしないからです。**公開してはいけない**のは、内部状態を載せたイベント (`IsDirtyChanged`) や View イベントを再発行するイベント (`SelectionChanged`) — それらは本来 Model / Service / Store が持つべき観測点を Presenter に漏らします。下の NG / OK 例がちょうどこの境界を描きます。
+
+通知の性質ごとに手段を選びます:
 
 - **ウィンドウの結果通知 (上向き・単発)** → `IRequestClose<T>.CloseRequested` を実装 (✅ 出力ポート)
-- **親子の連携 (親 → 子)** → 親が子 Presenter にコマンドを送る (既定 `internal` メソッド、縫い目が要るときコマンドインターフェイス)
+- **親子の連携 (親 → 子)** → **まず共有 Model / イベントを検討する**。直接命令は**窄い例外**で、本物の一回的コマンド (`Reset()` 等、他に関係者がなく子の状態問い合わせも不要) のときだけ使います。その場合も **handler は `private` のまま (硬線)**、露出形式は既定 `internal`、差し替え / テストの縫い目が要るときだけコマンドインターフェイス (**接口は強制しない**)。[Rule 10](Design-Rules#rule-10-view-にアクセスするのは-presenter-だけ) ・ [HowTo: Presenter 間の通信方法](HowTo-Communicate-Between-Presenters) 参照
 - **共有・観測されるステート (注文・認証等)** → ステートは Service / Store に持たせ、その変更通知イベントを発火
 - **モジュール横断の通知** → `IEventAggregator` で publish (弱参照、UI スレッド整列)
 
@@ -283,7 +289,7 @@ public class BadPresenter : WindowPresenterBase<IMyView>
 ### OK パターン
 
 ```csharp
-// ✅ コンストラクタ + 契約イベントだけ
+// ✅ 公開面はコンストラクタ + 出力ポートの契約イベント (CloseRequested) だけ
 public class GoodPresenter : WindowPresenterBase<IMyView>, IRequestClose<MyResult>
 {
     public event EventHandler<CloseRequestedEventArgs<MyResult>> CloseRequested;

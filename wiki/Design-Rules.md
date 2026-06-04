@@ -309,7 +309,7 @@ public class ParentPresenter
 
 **Why**: 各 View の状態は対応する Presenter が排他的に管理する。他の Presenter が子 View を直接触ると整合性管理が困難。
 
-子へ命令を出す形式は **`internal` メソッドを軽い既定** とします — 同一アセンブリ・親が具象の子を所有する通常ケースでは、これで十分かつ公開面を広げません。差し替えやテストで親を mock したい「縫い目」が要るときだけ **コマンドインターフェイス** へ引き上げます (`IChildCommands` を mock すれば親を単体テストできる)。**接口は必須ではなく、その縫い目が要るときの選択肢**です。いずれの形式でも子の handler / helper は `private` のまま ([Rule 16](#rule-16-presenter-メソッドの可視性))。なお『その操作に第三の Presenter が関心を持つ』『子の状態を問い合わせたい』なら、それはもう一回的コマンドではなく**共有・観測される状態**です — 直接命令ではなく共有 Model / Store に載せます (**性質で選ぶ: 状態 → Store、一回的コマンド → 直接**)。
+**まず共有 Model / イベントを検討し、直接命令は本物の一回的コマンドに限る窄い例外**として扱います。その直接命令を出す形式は **`internal` メソッドを軽い既定** とします — 同一アセンブリ・親が具象の子を所有する通常ケースでは、これで十分かつ公開面を広げません。差し替えやテストで親を mock したい「縫い目」が要るときだけ **コマンドインターフェイス** へ引き上げます (`IChildCommands` を mock すれば親を単体テストできる)。**接口は必須ではなく、その縫い目が要るときの選択肢**です。いずれの形式でも子の handler / helper は `private` のまま ([Rule 16](#rule-16-presenter-メソッドの可視性))。なお『その操作に第三の Presenter が関心を持つ』『子の状態を問い合わせたい』なら、それはもう一回的コマンドではなく**共有・観測される状態**です — 直接命令ではなく共有 Model / Store に載せます (**性質で選ぶ: 状態 → Store、一回的コマンド → 直接**)。
 
 > **方向の非対称性**: 「親 → 子」はコマンド (既定 `internal` メソッド) でよいが、「子 → 親」は直接呼び出し禁止 — 所有関係が逆転し循環するため。子から親への通知はイベントか `IEventAggregator` を使う。**下りはコマンド、上りはイベント**。直接命令か EventAggregator かの選び分け (所有関係の有無で決める) は [HowTo: Presenter 間の通信方法](HowTo-Communicate-Between-Presenters) を参照。
 
@@ -437,44 +437,15 @@ View.DisplayOrders(orders);
 
 > **Presenter を、外部から命令的に突けるサービスにしない。公開面の既定はコンストラクタ・`Initialize`・`Dispose` のみ。ViewAction の handler / helper は必ず `private`。**
 
-このルールは「公開メンバーの白名単」ではなく、**1 つの不変量**で考えます — *Presenter のユースケース行動は、正当な通路 (ViewAction = 視点の意図 + ライフサイクル = 構築 / `Initialize` / `Dispose`) からのみ駆動され、任意の外部メソッド呼び出しからは駆動されない*。この不変量は **入站 (他者が呼んで Presenter を動かすメソッド) と 出站 (Presenter が出すイベント/通知) を非対称に**扱います:
+「公開メンバーの白名単」ではなく **1 つの不変量** (*Presenter のユースケース行動は正当な通路 = ViewAction + ライフサイクル (構築 / `Initialize` / `Dispose`) からのみ駆動される*) で、**入站と出站で非対称に**適用します:
 
-- **入站 = 命令面 → 厳しく圧縮する。** 硬い約束: ViewAction の handler / helper は必ず `private`。`public Save()` を生やすと Dispatcher の `CanExecute`・ミドルウェアを迂回する経路ができ、Presenter がサービス化します。これが本ルールの非協商部分です。
-- **出站 = 通知面 → 本ルールの対象外。** 公開イベントは Presenter を命令的に突けるようにはしないので、最小化の精神と矛盾しません。出站側の線引き (出力ポートは可 / 共有ステート通知は不可) は [Rule 17](#rule-17-presenter-イベントの可視性) が担います。
-- **親→子の狭いコマンドは許容される例外。** 露出形式は `internal` メソッド (同一アセンブリ・親が具象の子を所有する通常ケース) を軽い既定とし、差し替え/テストの「縫い目」が要るときだけコマンドインターフェイスへ引き上げます — **接口は必須ではありません**。[Rule 10](#rule-10-view-にアクセスするのは-presenter-だけ) 参照。
+- **入站 = 命令面 → 厳しく圧縮する。** handler / helper は必ず `private` (非協商)。`public Save()` は Dispatcher の `CanExecute`・ミドルウェアを迂回します。
+- **出站 = 通知面 → 本ルールの対象外** ([Rule 17](#rule-17-presenter-イベントの可視性) が担う)。
+- **親→子の狭いコマンドは許容される例外。** 露出形式は `internal` 既定、縫い目が要るときだけコマンドインターフェイス — **接口は必須ではありません** ([Rule 10](#rule-10-view-にアクセスするのは-presenter-だけ))。
 
-| メソッドの種類 | 可視性 |
-|--------------|------|
-| コンストラクタ / `Initialize` / `Dispose` | `public` (既定の公開面) |
-| インターフェイス契約 (例: `IRequestClose<T>.CloseRequested`) | `public` (契約が要求) |
-| 親→子の狭いコマンド | 既定 `internal`。縫い目が要るときだけ公開コマンドインターフェイス |
-| ライフサイクルフック (`OnInitialize`、`RegisterViewActions`、`Cleanup`) | `protected override` |
-| ViewAction ハンドラ (`OnSave`、`OnCancel`、...) | `private` (硬い約束) |
-| View イベントハンドラ (`OnViewClosing`、...) | `private` |
-| ヘルパー (`RaiseClose`、検証、フォーマッタ) | `private` |
+> 📍 **本文・可視性テーブル・NG/OK 例の正準は [Reference: Presenter 基底クラス](Reference-Presenter-Base-Classes#公開-api-は最小限に保つ)** にあります。Design-Rules 側はこのルール文のみを保持します。
 
-```csharp
-// ❌ Bad — Presenter を "サービス" にしている
-public class BadPresenter : WindowPresenterBase<IMyView>
-{
-    public void Save() { ... }                       // Dispatcher / CanExecute を迂回
-    public bool CanSave => _changeTracker.IsChanged; // Tell-Don't-Ask 違反
-}
-
-// ✅ Good — コンストラクタ + 契約イベントだけ
-public class GoodPresenter : WindowPresenterBase<IMyView>, IRequestClose<MyResult>
-{
-    public event EventHandler<CloseRequestedEventArgs<MyResult>> CloseRequested;
-
-    public GoodPresenter(IMyRepository repo) { ... }
-
-    protected override void RegisterViewActions() { ... }
-    private void OnSave() { ... }
-    private void RaiseClose(MyResult r, InteractionStatus s) => ...;
-}
-```
-
-**Why**: 公開メンバーが増えるほど契約が広がり、フレームワークの「View → Action → Dispatcher → Handler」経路を迂回する誘惑が生まれる。
+**Why**: 入站の公開面が増えるほど契約が広がり、フレームワークの「View → Action → Dispatcher → Handler」経路を迂回する誘惑が生まれる。
 
 ---
 
