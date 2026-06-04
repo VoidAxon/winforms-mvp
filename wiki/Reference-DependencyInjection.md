@@ -127,7 +127,7 @@ public class OrderProcessorPresenter : WindowPresenterBase<IOrderProcessorView>
 
     private void OnExport()
     {
-        var result = Dialogs.ShowSaveFileDialog("Export Orders");   // ← Platform はプロパティ
+        var result = Dialogs.ShowSaveFileDialog(new SaveFileDialogOptions { Title = "Export Orders" });   // ← Platform はプロパティ
         if (result.IsOk)
             _orderService.ExportTo(result.Value);
     }
@@ -279,8 +279,17 @@ internal static class Program
         // 1. ServiceCollection を構築
         var services = new ServiceCollection();
 
-        // フレームワークサービス
-        services.AddSingleton<IPlatformServices, DefaultPlatformServices>();
+        // View 解決層: View レジストリを作って Form を登録する (Service 解決とは別の関心事)。
+        // これを省くと PlatformServices の View マッピングが空になり、開窓時に Form を
+        // 解決できず実行時に失敗する —「DI を使うなら IViewMappingRegister は不要」は誤り。
+        var viewRegistry = new ViewMappingRegister();
+        viewRegistry.RegisterFromAssembly(typeof(Program).Assembly);
+        services.AddSingleton<IViewMappingRegister>(viewRegistry);
+
+        // フレームワークサービス: DefaultPlatformServices には必ず View レジストリを渡す。
+        // (serviceProvider を渡すと、未登録 View をコンテナにフォールバック解決できる)
+        services.AddSingleton<IPlatformServices>(sp =>
+            new DefaultPlatformServices(viewRegistry, loggerFactory: null, serviceProvider: sp));
         services.AddSingleton<IMessageService, MessageService>();
         services.AddSingleton<IDialogProvider, DialogProvider>();
         services.AddSingleton<IFileService, FileService>();
@@ -495,6 +504,8 @@ internal static class Program
 
         PlatformServices.Default = new DefaultPlatformServices(
             viewMappingRegister: viewRegistry,
+            // AsFrameworkLoggerFactory() は同梱メソッドではなくサンプルの ~30 行アダプタ (下の注記参照)。
+            // ログ不要なら loggerFactory: null でよい。
             loggerFactory: loggerFactory.AsFrameworkLoggerFactory(),
             serviceProvider: provider);
 
@@ -507,6 +518,8 @@ internal static class Program
 }
 ```
 
+> ⚠️ **`AsFrameworkLoggerFactory()` はフレームワーク同梱のメソッドではありません。** コアパッケージは `Microsoft.Extensions.Logging` に依存しない設計なので、`WinformsMVP.DependencyInjection` もログ用アダプタを含みません (依存は `Microsoft.Extensions.DependencyInjection.Abstractions` のみ)。M.E.L. の `ILoggerFactory` を框架の `WinformsMVP.Logging.ILoggerFactory` に橋渡しするには、~30 行のアダプタを自分で書きます (**net48 専用**)。実装例は `samples/MultiProjectDemo.Shell/Logging/MicrosoftLoggingExtensions.cs` と [Logging リファレンス](Reference-Logging) を参照。ログが不要なら `loggerFactory: null` で構いません。
+
 ### グローバル Dispatcher ミドルウェアの設定 (4 引数版コンストラクタ)
 
 `DefaultPlatformServices` には **4 引数版** のコンストラクタもあり、第 4 引数 `configureDispatcher` (`Action<ViewActionDispatcher>`) ですべての Presenter に共通する `ViewActionDispatcher` のミドルウェアを設定できます。
@@ -514,7 +527,7 @@ internal static class Program
 ```csharp
 PlatformServices.Default = new DefaultPlatformServices(
     viewMappingRegister: viewRegistry,
-    loggerFactory: loggerFactory.AsFrameworkLoggerFactory(),
+    loggerFactory: loggerFactory.AsFrameworkLoggerFactory(),   // サンプル同梱のアダプタ (上の注記参照)。不要なら null
     serviceProvider: provider,
     configureDispatcher: d => d
         .Use(new AuditMiddleware(auditSink, () => CurrentUser.Name))
