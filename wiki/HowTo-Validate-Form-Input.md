@@ -245,15 +245,9 @@ public class UserModel
 
 ---
 
-## ChangeTracker と組み合わせる
+## ChangeTracker と検証を組み合わせる
 
-[ChangeTracker](Reference-ChangeTracker) で編集中の Model を追跡している場合、検証と組み合わせた拡張メソッドが使えます (`WinformsMVP.Common.Validation.Extensions` 名前空間)。
-
-| メソッド | 動作 |
-|---|---|
-| `tracker.AcceptChangesIfValid(validator, out errors)` | 検証通過時のみ `AcceptChanges()` を実行。失敗時はエラーを返し、tracker は dirty のまま |
-| `tracker.IsCurrentValueValid(validator)` | 検証だけ実行 (状態は変えない)。`CanExecute` 述語向け |
-| `tracker.RejectChangesIfInvalid(validator)` | 検証失敗時に自動で `RejectChanges()`。リアルタイム入力時の自動巻き戻し用 |
+[ChangeTracker](Reference-ChangeTracker) (変更追跡) と `IModelValidator<T>` (検証) は **独立した別々の関心事**です。フレームワークは両者を融合するヘルパーを **あえて提供しません**。`ChangeTracker` は検証を一切知らないまま保ち、合成は **Presenter がユースケースとして明示的に編成**します ([単一責任](Concept-MVP-Pattern))。「検証 → 通れば確定 → 保存」という流れが Presenter のハンドラにそのまま見えるのが正しい形です。
 
 ### 典型パターン: 保存時の検証 + CanExecute 連動
 
@@ -274,44 +268,50 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView>
         Dispatcher.Register(
             CommonActions.Save,
             OnSave,
-            // 「変更がある」かつ「妥当」のときだけ Save 可能。
-            // CurrentValue をその場編集するため、キャッシュ IsChanged ではなく IsChangedWith で実時比較する
+            // 2 つのプリミティブを述語で組み合わせるだけ:「変更がある」かつ「妥当」のとき Save 可能。
+            // CurrentValue をその場編集するため IsChangedWith で実時比較する
             // (理由は [ChangeTracker](Reference-ChangeTracker) の「パフォーマンス最適化」の注記を参照)。
             canExecute: () => _tracker.IsChangedWith(_tracker.CurrentValue)
-                           && _tracker.IsCurrentValueValid(_validator));
+                           && _validator.IsValid(_tracker.CurrentValue));
     }
 
     private void OnSave()
     {
-        if (_tracker.AcceptChangesIfValid(_validator, out var errors))
-        {
-            SaveUser(_tracker.CurrentValue);
-            Messages.ShowInfo("Saved.");
-        }
-        else
+        var model = _tracker.CurrentValue;
+
+        // 1. 検証
+        var errors = _validator.ValidateAll(model);
+        if (errors.Any())
         {
             View.ShowValidationErrors(errors.Select(e => e.ErrorMessage).ToList());
+            return;   // tracker は dirty のまま
         }
+
+        // 2. 通ったら確定して保存
+        _tracker.AcceptChanges();
+        SaveUser(model);
+        Messages.ShowInfo("Saved.");
     }
 }
 ```
 
-### RejectChangesIfInvalid で自動巻き戻し
+### 入力が無効になったら巻き戻す
 
-入力中に妥当でなくなったら自動で元の値に戻す、という UX が必要なときに使います。
+「入力中に妥当でなくなったら元の値に戻す」UX も、同じく Presenter が明示的に編成します。`RejectChanges()` は新しい現在値を作り直すので、戻したあとは View を再バインドします。
 
 ```csharp
 private void OnInputChanged(object sender, EventArgs e)
 {
-    if (_tracker.RejectChangesIfInvalid(_validator))
+    if (!_validator.IsValid(_tracker.CurrentValue))
     {
+        _tracker.RejectChanges();
+        View.Bind(_tracker.CurrentValue);   // 巻き戻した値を再バインド
         Messages.ShowWarning("Invalid input — reverted to last valid value.");
-        View.Refresh();
     }
 }
 ```
 
-> ⚠️ `AcceptChangesIfValid` / `IsCurrentValueValid` / `RejectChangesIfInvalid` は **`where T : class, ICloneable` 制約** があります。`ICloneable` を実装していない Model の場合は、これらの拡張メソッドは使えません。代わりに `_validator.ValidateAll(_tracker.CurrentValue)` を直接呼んでください。
+検証と変更追跡をそれぞれ単体でテストでき、依存も増えません。
 
 ---
 
