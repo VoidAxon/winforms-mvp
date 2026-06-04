@@ -331,8 +331,10 @@ public void OnSave_ShouldLogSuccess()
     var loggerFactory = new MockLoggerFactory();
     var platform = new DefaultPlatformServices(null, loggerFactory);
 
-    var presenter = new MyPresenter();
-    presenter.SetPlatformServices(platform);
+    // WithPlatformServices はテストプロジェクト用ヘルパー (パッケージ非同梱)。
+    // internal な SetPlatformServices を dynamic 経由で呼ぶ。詳細は Platform Services の
+    // 「モックでのテスト」を参照。
+    var presenter = new MyPresenter().WithPlatformServices(platform);
     presenter.AttachView(mockView);
     presenter.Initialize();
 

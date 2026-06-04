@@ -197,7 +197,7 @@ A. 現時点では .NET Framework 専用です。.NET (Core 系) 対応は将来
 
 ### Q. Visual Studio のフォームデザイナは使えますか?
 
-A. はい。`Form` / `UserControl` を継承しているので、通常通りデザイナで編集できます。`InitializeActionBindings()` メソッドは `InitializeComponent()` の後に呼んでください。
+A. はい。`Form` / `UserControl` を継承しているので、通常通りデザイナで編集できます。ViewAction のバインドを組み立てるメソッド (サンプルでは各 Form が自前で定義する private メソッドを慣習的に `InitializeActionBindings()` と命名 — フレームワークの API ではなく命名規約です) は、コントロール生成後に走らせる必要があるので `InitializeComponent()` の後に呼んでください。
 
 ### Q. WPF アプリの一部に組み込めますか?
 

@@ -768,7 +768,7 @@ public void CanExecute_BecomesFalse_WhenAnyFieldInvalid()
     _view.UserName = "";    // 不正
     _view.RaiseInputChanged();
 
-    Assert.False(_presenter.Dispatcher.CanExecute(StandardActions.Save));
+    Assert.False(_presenter.Dispatcher.CanDispatch(StandardActions.Save));
 }
 ```
 

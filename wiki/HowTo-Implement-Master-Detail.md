@@ -420,7 +420,7 @@ public void CanDelete_WhenNoCustomerSelected_IsFalse()
     _view.SelectedCustomer = null;
     _view.RaiseSelectedCustomerChanged();
 
-    Assert.False(_presenter.Dispatcher.CanExecute(OrderActions.DeleteOrder));
+    Assert.False(_presenter.Dispatcher.CanDispatch(OrderActions.DeleteOrder));
 }
 
 [Fact]

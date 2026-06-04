@@ -163,7 +163,7 @@ View.InputChanged += (s, e) => Dispatcher.RaiseCanExecuteChanged();
 
 2. `CanExecute` が `false` で短絡されている
 
-   `Dispatcher.CanExecute(action)` で確認できる。
+   `Dispatcher.CanDispatch(action)` で確認できる。
 
 3. パラメータ型が不一致
 
@@ -397,7 +397,7 @@ PlatformServices.Default = new DefaultPlatformServices(
 
 **原因**: `WithPlatformServices` を `Initialize()` の **後** に呼んでいる。
 
-**対処**: `AttachView` → `WithPlatformServices` → `Initialize` の順で呼ぶ。
+**対処**: `WithPlatformServices` は **`Initialize()` より前**に呼ぶ。制約はそれだけで、`AttachView` との前後は問わない (下の例では `AttachView` より前に呼んでいる)。
 
 ```csharp
 var presenter = new MyPresenter()

@@ -70,6 +70,12 @@ namespace MyFirstMvpApp
 {
     public class MainPresenter : WindowPresenterBase<IMainView>
     {
+        protected override void OnViewAttached()
+        {
+            // View 注入直後のフック。購読するイベントが無ければ空でよいが、
+            // OnViewAttached は abstract なので override は必須。
+        }
+
         protected override void OnInitialize()
         {
             View.WelcomeMessage = "Hello MVP!";
@@ -81,6 +87,7 @@ namespace MyFirstMvpApp
 **ポイント**
 
 - `WindowPresenterBase<TView>` を継承するだけで、Form 向け Presenter になる。
+- `OnViewAttached()` は `protected abstract` なので **全 Presenter で override 必須**。購読するものが無ければ空実装でよい。
 - `OnInitialize()` は View アタッチ直後・表示前に 1 回呼ばれる初期化フック。
 - `View` プロパティで画面を操作する (画面そのものではなくインターフェイス越し)。
 

@@ -516,7 +516,7 @@ public class ToDoPresenterTests
         _view.SelectedItem = null;
         _view.RaiseSelectionChanged();
 
-        Assert.False(_presenter.Dispatcher.CanExecute(ToDoActions.Delete));
+        Assert.False(_presenter.Dispatcher.CanDispatch(ToDoActions.Delete));
     }
 
     [Fact]

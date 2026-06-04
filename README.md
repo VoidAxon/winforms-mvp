@@ -209,7 +209,7 @@ navigator.ShowWindow(new UserEditorPresenter());
 | IDE | Visual Studio 2019+、JetBrains Rider、VS Code |
 
 メインパッケージ (`WinformsMVP`) は **外部依存ゼロ** で `net40` / `net48` をマルチターゲットします。
-`Microsoft.Extensions.Logging` / `Microsoft.Extensions.DependencyInjection` 連携が必要な場合のみ、別パッケージ・別アダプタを利用してください (`net48` 以降)。
+`Microsoft.Extensions.DependencyInjection` 連携が必要なら、オプションパッケージ **`WinformsMVP.DependencyInjection`** を使います (`net48` 以降)。`Microsoft.Extensions.Logging` 連携については出荷パッケージは無く、M.E.L. の `ILoggerFactory` を框架の `ILoggerFactory` に橋渡しする **~30 行のアダプタを自分で書きます** ([Logging](https://github.com/VoidAxon/winforms-mvp/wiki/Reference-Logging) 参照、`net48` 以降)。
 
 ---
 
