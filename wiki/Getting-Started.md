@@ -183,7 +183,7 @@ namespace MyFirstMvpApp
         string WelcomeMessage { get; set; }
         string UserName { get; }
 
-        event EventHandler GreetClicked;
+        event EventHandler GreetRequested;
     }
 }
 ```
@@ -191,7 +191,7 @@ namespace MyFirstMvpApp
 **ポイント**
 
 - `UserName` は読み取り専用プロパティ (Presenter が入力値を取得するため)。
-- `GreetClicked` は View が公開する **抽象的なイベント**。Presenter は「Button」を知らずに「挨拶が要求された」という意図だけを受け取る。
+- `GreetRequested` は View が公開する **抽象的なイベント**。Presenter は「Button」を知らずに「挨拶が要求された」という意図だけを受け取る。
 - `Button` 等の WinForms 型はインターフェイスに露出させない。
 
 ### 3.2 Presenter で View のイベントを購読する
@@ -206,10 +206,10 @@ public class MainPresenter : WindowPresenterBase<IMainView>
 
     protected override void OnViewAttached()
     {
-        View.GreetClicked += OnGreetClicked;
+        View.GreetRequested += OnGreetRequested;
     }
 
-    private void OnGreetClicked(object sender, EventArgs e)
+    private void OnGreetRequested(object sender, EventArgs e)
     {
         View.WelcomeMessage = $"Hello, {View.UserName}!";
     }
@@ -219,7 +219,7 @@ public class MainPresenter : WindowPresenterBase<IMainView>
 **ポイント**
 
 - `OnViewAttached()` は View が presenter にアタッチされた直後に呼ばれるフック。ここで View のイベントを購読する。
-- Presenter は `Button` の存在を知らない。「`GreetClicked` が起きたら何をするか」だけを書く。
+- Presenter は `Button` の存在を知らない。「`GreetRequested` が起きたら何をするか」だけを書く。
 
 ### 3.3 Form (View 実装) を更新する
 
@@ -230,7 +230,7 @@ public class MainForm : Form, IMainView
     private readonly TextBox _nameTextBox;
     private readonly Button _greetButton;
 
-    public event EventHandler GreetClicked;
+    public event EventHandler GreetRequested;
 
     public MainForm()
     {
@@ -246,8 +246,8 @@ public class MainForm : Form, IMainView
         Controls.Add(_nameTextBox);
         Controls.Add(_greetButton);
 
-        // Translate WinForms Button.Click into the abstract GreetClicked event.
-        _greetButton.Click += (s, e) => GreetClicked?.Invoke(this, EventArgs.Empty);
+        // Translate WinForms Button.Click into the abstract GreetRequested event.
+        _greetButton.Click += (s, e) => GreetRequested?.Invoke(this, EventArgs.Empty);
     }
 
     public string WelcomeMessage
@@ -397,7 +397,7 @@ public class MainForm : Form, IMainView
 Presenter から `MessageBox.Show()` を直接呼ぶのは **MVP 違反** です。代わりに `Messages` プロパティ越しに `IMessageService` を使います。
 
 ```csharp
-private void OnGreetClicked(object sender, EventArgs e)
+private void OnGreetRequested(object sender, EventArgs e)
 {
     Messages.ShowInfo($"Hello, {View.UserName}!", "Greeting");
 }
