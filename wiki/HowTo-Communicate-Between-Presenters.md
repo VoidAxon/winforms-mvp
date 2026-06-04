@@ -407,7 +407,7 @@ public class MainPresenter
 
 代わりに共有 Model か EventAggregator を使う。
 
-### ❌ Presenter が public イベントを公開
+### ❌ Presenter のイベントで共有ステートを通知する
 
 ```csharp
 // ❌ Bad — Presenter がイベントを公開してステート通知にしている
@@ -417,7 +417,9 @@ public class OrderPresenter : WindowPresenterBase<IOrderView>
 }
 ```
 
-通知は共有 Model 側に持たせる ([Presenter 基底クラス#公開-api-は最小限に保つ](Reference-Presenter-Base-Classes#公開-api-は最小限に保つ) 参照)。
+禁じられるのは **共有ステートの通知を Presenter のイベントで担わせること** です (それは Model の責務)。共有ステートの変更通知は共有 Model 側に持たせます。
+
+一方、**上向きの出力ポート / 単発の結果通知イベント** (`IRequestClose<TResult>.CloseRequested` など) を公開することは最小化の精神と矛盾せず、許容されます — 規則が本当に対象とするのは「外部から命令的に突ける入口」であって、出口側の通知イベントではありません。境界の根拠は [Presenter の責務](Concept-Presenter-Responsibilities) を参照。
 
 ### ❌ EventAggregator でステートを管理しようとする
 

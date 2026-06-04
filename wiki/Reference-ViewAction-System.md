@@ -313,6 +313,8 @@ Strict が対象とするのは **設定ミスだけ** です。ハンドラ/`Ca
 ```csharp
 PlatformServices.Default = new DefaultPlatformServices(
     viewMappingRegister: register,
+    loggerFactory: null,
+    serviceProvider: null,
     configureDispatcher: d =>
     {
 #if DEBUG
@@ -672,7 +674,7 @@ Dispatcher.Use((ctx, next) =>
 
 - [Presenter 基底クラス](Reference-Presenter-Base-Classes) — `Dispatcher` プロパティ、`RegisterViewActions` フック
 - [Platform Services](Reference-Platform-Services) — Dispatcher を含むサービスの構成
-- [MVP 設計ルール](Design-Rules) — ルール 8 (UI 型を View インターフェイスに露出しない) 、ルール 13 (Tell-Don't-Ask)
+- [MVP 設計ルール](Design-Rules) — ルール 4 (UI 型を View インターフェイスに露出しない) 、ルール 7 (Tell-Don't-Ask)
 - サンプルコード:
   - `samples/WinformsMVP.Samples/ViewActionExample.cs` — Implicit パターンの最小例
   - `samples/WinformsMVP.Samples/ViewActionExplicitEventExample.cs` — Explicit パターン
