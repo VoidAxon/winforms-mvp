@@ -276,40 +276,6 @@ namespace WinformsMVP.Common
         }
 
         // ----------------------------------------------------------------------------------
-        // Validation support
-        // ----------------------------------------------------------------------------------
-
-        /// <summary>
-        /// Checks whether changes can be accepted.
-        /// </summary>
-        /// <param name="error">Error message if changes cannot be accepted. Null if acceptable.</param>
-        /// <returns>True if changes can be accepted, otherwise false.</returns>
-        /// <remarks>
-        /// Default implementation always returns true.
-        /// Override this method in derived classes if custom validation is needed.
-        /// </remarks>
-        public virtual bool CanAcceptChanges(out string error)
-        {
-            error = null;
-            return true;
-        }
-
-        /// <summary>
-        /// Checks whether changes can be rejected.
-        /// </summary>
-        /// <param name="error">Error message if changes cannot be rejected. Null if rejectable.</param>
-        /// <returns>True if changes can be rejected, otherwise false.</returns>
-        /// <remarks>
-        /// Default implementation always returns true.
-        /// Override this method in derived classes if custom validation is needed.
-        /// </remarks>
-        public virtual bool CanRejectChanges(out string error)
-        {
-            error = null;
-            return true;
-        }
-
-        // ----------------------------------------------------------------------------------
         // Private helper methods
         // ----------------------------------------------------------------------------------
 

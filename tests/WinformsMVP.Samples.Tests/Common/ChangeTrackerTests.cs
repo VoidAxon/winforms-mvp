@@ -15,7 +15,6 @@ namespace WinformsMVP.Samples.Tests.Common
     /// - IsChangedChanged event
     /// - IsChanged caching
     /// - Thread safety
-    /// - Validation support (CanAcceptChanges, CanRejectChanges)
     /// - Deep copy requirements
     /// </summary>
     public class ChangeTrackerTests
@@ -535,72 +534,6 @@ namespace WinformsMVP.Samples.Tests.Common
             // Assert - Verify no exceptions are thrown
             Task.WaitAll(tasks.ToArray());
             Assert.True(true);
-        }
-
-        #endregion
-
-        #region Validation Support Tests
-
-        [Fact]
-        public void CanAcceptChanges_DefaultImplementation_ReturnsTrue()
-        {
-            // Arrange
-            var model = new TestModel { Id = 1, Name = "Test" };
-            var tracker = new ChangeTracker<TestModel>(model);
-
-            // Act
-            var canAccept = tracker.CanAcceptChanges(out string error);
-
-            // Assert
-            Assert.True(canAccept);
-            Assert.Null(error);
-        }
-
-        [Fact]
-        public void CanRejectChanges_DefaultImplementation_ReturnsTrue()
-        {
-            // Arrange
-            var model = new TestModel { Id = 1, Name = "Test" };
-            var tracker = new ChangeTracker<TestModel>(model);
-
-            // Act
-            var canReject = tracker.CanRejectChanges(out string error);
-
-            // Assert
-            Assert.True(canReject);
-            Assert.Null(error);
-        }
-
-        // Test validation support in derived classes
-        private class ValidatedChangeTracker : ChangeTracker<TestModel>
-        {
-            public ValidatedChangeTracker(TestModel initialValue) : base(initialValue) { }
-
-            public override bool CanAcceptChanges(out string error)
-            {
-                if (CurrentValue.Name == "Invalid")
-                {
-                    error = "Name cannot be 'Invalid'";
-                    return false;
-                }
-                error = null;
-                return true;
-            }
-        }
-
-        [Fact]
-        public void DerivedClass_CustomValidation_Works()
-        {
-            // Arrange
-            var model = new TestModel { Id = 1, Name = "Valid" };
-            var tracker = new ValidatedChangeTracker(model);
-
-            // Act - Change to invalid value
-            tracker.UpdateCurrentValue(new TestModel { Id = 2, Name = "Invalid" });
-
-            // Assert
-            Assert.False(tracker.CanAcceptChanges(out string error));
-            Assert.Equal("Name cannot be 'Invalid'", error);
         }
 
         #endregion

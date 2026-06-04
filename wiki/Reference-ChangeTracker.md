@@ -200,12 +200,10 @@ public void Clone_CreatesIndependentCopy()
 | メソッド | 説明 |
 |---------|----|
 | `UpdateCurrentValue(T value)` | 現在値を更新 (`IsChangedChanged` イベントを発火することがある) |
-| `AcceptChanges()` | 現在値を新しいベースラインとして確定 |
+| `AcceptChanges()` / `AcceptChanges(T value)` | ベースラインを確定。引数版は指定値を新しいベースラインにする(保存後に View の値で呼ぶ) |
 | `RejectChanges()` | ベースラインに戻す |
-| `IsChangedWith(T value)` | 指定された値がベースラインと異なるか判定 |
+| `IsChangedWith(T value)` | 指定値(通常は View の現在値)がベースラインと異なるか判定。**ダーティ判定はこれを使う** |
 | `GetOriginalValue()` | ベースラインのコピーを取得 |
-| `CanAcceptChanges(out string error)` | 変更を確定可能かチェック (派生クラスでオーバーライドして検証ロジックを差し込む) |
-| `CanRejectChanges(out string error)` | 変更を破棄可能かチェック (同上) |
 
 ---
 
@@ -241,29 +239,7 @@ _changeTracker.IsChangedChanged += (s, e) =>
 >
 > tracker に現在値を反映させたい場合 (イベント駆動 UI 等) は、View 変更時に `UpdateCurrentValue(View.GetModel())` を呼べばキャッシュ `IsChanged` が保たれ `IsChangedChanged` も発火します (実例 `samples/.../EmailDemo/ComposeEmailPresenter.cs`)。それでもデータの源は View です。
 
-### 3. 検証サポート (派生クラス)
-
-`CanAcceptChanges` / `CanRejectChanges` をオーバーライドすると、確定・破棄前の追加検証を挟めます。
-
-```csharp
-public class ValidatedChangeTracker<T> : ChangeTracker<T> where T : class
-{
-    public ValidatedChangeTracker(T initialValue) : base(initialValue) { }
-
-    public override bool CanAcceptChanges(out string error)
-    {
-        if (CurrentValue is IValidatable validatable && !validatable.IsValid)
-        {
-            error = "Validation failed";
-            return false;
-        }
-        error = null;
-        return true;
-    }
-}
-```
-
-### 4. ウィンドウクローズとの連携
+### 3. ウィンドウクローズとの連携
 
 ウィンドウクローズ時のダーティチェックに使うのが典型パターンです (一発判定なので実時比較 `IsChangedWith` を使う)。
 
