@@ -54,6 +54,7 @@ namespace WinformsMVP.Samples.Tests.Services
                 form, presenter, (r, s) => results.Add((r, s)), disposeForm);
             controller.BindSink();
             controller.WireFormEvents();
+            // These tests rely on Form.Show()/Close() raising FormClosing/FormClosed synchronously on the test thread (no message pump). That is exactly the contract the controller depends on.
             return (form, presenter, results, controller);
         }
 
@@ -162,6 +163,7 @@ namespace WinformsMVP.Samples.Tests.Services
             controller.ConvergeWithoutShow();
             Assert.Single(results);
             Assert.Equal("early", results[0].Item1);
+            Assert.True(presenter.Disposed);
         }
     }
 }

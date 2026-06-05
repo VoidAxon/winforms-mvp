@@ -4,7 +4,6 @@ using WinformsMVP.Common;
 using WinformsMVP.Logging;
 using WinformsMVP.MVP.Presenters;
 using WinformsMVP.MVP.Views;
-using WinformsMVP.Services;
 
 namespace WinformsMVP.Services.Implementations
 {
@@ -129,9 +128,12 @@ namespace WinformsMVP.Services.Implementations
 
         private void Converge()
         {
-            _onClosed?.Invoke(_pendingResult, _pendingStatus);
-            (_presenter as IDisposable)?.Dispose();
-            if (_disposeForm) _form.Dispose();
+            try { _onClosed?.Invoke(_pendingResult, _pendingStatus); }
+            finally
+            {
+                (_presenter as IDisposable)?.Dispose();
+                if (_disposeForm) _form.Dispose();
+            }
         }
     }
 }
