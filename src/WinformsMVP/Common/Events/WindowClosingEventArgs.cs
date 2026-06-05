@@ -20,10 +20,21 @@ namespace WinformsMVP.Common.Events
         /// </summary>
         public CloseReason Reason { get; }
 
+        private bool _cancel;
+
         /// <summary>
         /// Set to <c>true</c> to prevent the window from closing. Default is <c>false</c>.
         /// </summary>
-        public bool Cancel { get; set; }
+        /// <remarks>
+        /// Write-once veto: once set to <c>true</c> it stays <c>true</c>. The event is multicast,
+        /// so this guarantees one subscriber's veto cannot be silently undone by a later subscriber.
+        /// Assignments of <c>false</c> are therefore ignored.
+        /// </remarks>
+        public bool Cancel
+        {
+            get => _cancel;
+            set { if (value) _cancel = true; }
+        }
 
         public WindowClosingEventArgs(CloseReason reason)
         {
