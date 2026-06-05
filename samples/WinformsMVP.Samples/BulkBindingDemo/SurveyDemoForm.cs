@@ -277,15 +277,5 @@ namespace WinformsMVP.Samples.BulkBindingDemo
 
         #endregion
 
-        #region IWindowView Implementation
-
-        bool IWindowView.IsDisposed => base.IsDisposed;
-
-        void IWindowView.Activate()
-        {
-            this.Activate();
-        }
-
-        #endregion
     }
 }

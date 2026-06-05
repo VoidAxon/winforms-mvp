@@ -87,13 +87,6 @@ namespace MultiProjectDemo.UserModule
 
         public event EventHandler SelectionChanged;
 
-        #region IWindowView plumbing
-
-        bool IWindowView.IsDisposed => base.IsDisposed;
-        void IWindowView.Activate() => Activate();
-
-        #endregion
-
         /// <summary>Wrapper so ListBox.Items.Add can carry both the display string and the User.</summary>
         private class UserRow
         {

@@ -290,17 +290,6 @@ namespace WinformsMVP.Samples.CheckBoxDemo
 
         #endregion
 
-        #region IWindowView Implementation
-
-        bool IWindowView.IsDisposed => base.IsDisposed;
-
-        void IWindowView.Activate()
-        {
-            this.Activate();
-        }
-
-        #endregion
-
         #region Events
 
         public event EventHandler SettingsChanged;

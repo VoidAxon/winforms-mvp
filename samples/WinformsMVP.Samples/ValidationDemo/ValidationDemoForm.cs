@@ -347,15 +347,5 @@ namespace WinformsMVP.Samples.ValidationDemo
 
         #endregion
 
-        #region IWindowView Implementation
-
-        bool IWindowView.IsDisposed => base.IsDisposed;
-
-        void IWindowView.Activate()
-        {
-            this.Activate();
-        }
-
-        #endregion
     }
 }

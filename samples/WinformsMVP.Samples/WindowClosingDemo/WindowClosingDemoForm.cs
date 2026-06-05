@@ -110,9 +110,5 @@ namespace WinformsMVP.Samples.WindowClosingDemo
 
         public event EventHandler EditChanged;
 
-        // The Form writes ZERO closing code: closing is handled entirely by the Presenter
-        // overriding CanClose(CloseReason). Form's own members satisfy IsDisposed/Activate.
-        bool IWindowView.IsDisposed => base.IsDisposed;
-        void IWindowView.Activate() => this.Activate();
     }
 }

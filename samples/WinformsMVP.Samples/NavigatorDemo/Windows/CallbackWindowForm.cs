@@ -80,8 +80,5 @@ namespace WinformsMVP.Samples.NavigatorDemo
             );
         }
 
-        bool IWindowView.IsDisposed => base.IsDisposed;
-        void IWindowView.Activate() => this.Activate();
-
     }
 }

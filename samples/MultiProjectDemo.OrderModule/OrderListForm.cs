@@ -72,11 +72,5 @@ namespace MultiProjectDemo.OrderModule
             _listView.EndUpdate();
         }
 
-        #region IWindowView plumbing
-
-        bool IWindowView.IsDisposed => base.IsDisposed;
-        void IWindowView.Activate() => Activate();
-
-        #endregion
     }
 }

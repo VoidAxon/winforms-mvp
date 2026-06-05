@@ -75,11 +75,5 @@ namespace MultiProjectDemo.Shell
 
         public void RequestExit() => Close();
 
-        #region IWindowView plumbing
-
-        bool IWindowView.IsDisposed => base.IsDisposed;
-        void IWindowView.Activate() => Activate();
-
-        #endregion
     }
 }

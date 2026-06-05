@@ -66,11 +66,5 @@ namespace MultiProjectDemo.UserModule
 
         public void SetTitle(string title) => Text = title;
 
-        #region IWindowView plumbing
-
-        bool IWindowView.IsDisposed => base.IsDisposed;
-        void IWindowView.Activate() => Activate();
-
-        #endregion
     }
 }
