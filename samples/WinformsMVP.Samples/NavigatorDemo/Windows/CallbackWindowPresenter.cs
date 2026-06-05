@@ -10,10 +10,9 @@ namespace WinformsMVP.Samples.NavigatorDemo
     /// </summary>
     /// <remarks>
     /// The framework closes the window automatically when the Presenter calls
-    /// <c>this.RequestClose(...)</c> — there is no need for the Presenter to touch the Form directly.
+    /// <c>RequestClose(...)</c> — there is no need for the Presenter to touch the Form directly.
     /// </remarks>
-    public class CallbackWindowPresenter : WindowPresenterBase<ICallbackWindowView>,
-                                            IRequestClose<string>
+    public class CallbackWindowPresenter : WindowPresenterBase<ICallbackWindowView>
     {
         protected override void OnViewAttached()
         {
@@ -39,12 +38,12 @@ namespace WinformsMVP.Samples.NavigatorDemo
                 return;
             }
 
-            this.RequestClose(text, InteractionStatus.Ok);
+            RequestClose(text, InteractionStatus.Ok);
         }
 
         private void OnCancel()
         {
-            this.RequestClose(null, InteractionStatus.Cancel);
+            RequestClose(InteractionStatus.Cancel);
         }
     }
 

@@ -24,7 +24,7 @@ namespace WinformsMVP.Samples.WindowClosingDemo
     /// <list type="bullet">
     ///   <item><description>
     ///     <b>Push</b>: <c>OnSave</c> / <c>OnCancel</c> finalize the dirty flag and call
-    ///     <c>this.RequestClose(...)</c>. The framework then closes the form.
+    ///     <c>RequestClose(...)</c>. The framework then closes the form.
     ///   </description></item>
     ///   <item><description>
     ///     <b>Pull</b>: <see cref="CanClose"/> handles external close requests (user clicks X,
@@ -39,8 +39,7 @@ namespace WinformsMVP.Samples.WindowClosingDemo
     /// the close proceed.
     /// </para>
     /// </remarks>
-    public class WindowClosingDemoPresenter : WindowPresenterBase<IWindowClosingDemoView>,
-                                               IRequestClose<string>
+    public class WindowClosingDemoPresenter : WindowPresenterBase<IWindowClosingDemoView>
     {
         private string _baseline;          // The text snapshot used to compute dirty state.
         private bool IsDirty => View.Text != _baseline;
@@ -92,14 +91,14 @@ namespace WinformsMVP.Samples.WindowClosingDemo
             var saved = View.Text;
             _baseline = saved;            // Commit: dirty flag becomes false.
             View.StatusMessage = "Saving and closing…";
-            this.RequestClose(saved, InteractionStatus.Ok);
+            RequestClose(saved, InteractionStatus.Ok);
         }
 
         private void OnCancel()
         {
             _baseline = View.Text;        // Treat current as committed; skip the dirty prompt.
             View.StatusMessage = "Cancelled.";
-            this.RequestClose(null, InteractionStatus.Cancel);
+            RequestClose(InteractionStatus.Cancel);
         }
     }
 }

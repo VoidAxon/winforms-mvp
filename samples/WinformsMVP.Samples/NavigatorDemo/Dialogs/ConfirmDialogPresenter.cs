@@ -17,8 +17,7 @@ namespace WinformsMVP.Samples.NavigatorDemo
     /// Confirm dialog - takes parameters, returns <see cref="bool"/>.
     /// </summary>
     public class ConfirmDialogPresenter :
-        WindowPresenterBase<IConfirmDialogView, ConfirmDialogParameters>,
-        IRequestClose<bool>
+        WindowPresenterBase<IConfirmDialogView, ConfirmDialogParameters>
     {
         protected override void OnViewAttached()
         {
@@ -40,9 +39,9 @@ namespace WinformsMVP.Samples.NavigatorDemo
             View.SetDefaultChoice(parameters.DefaultYes);
         }
 
-        private void OnYes()    => this.RequestClose(true, InteractionStatus.Ok);
-        private void OnNo()     => this.RequestClose(false, InteractionStatus.Ok);
-        private void OnCancel() => this.RequestClose(false, InteractionStatus.Cancel);
+        private void OnYes()    => RequestClose(true, InteractionStatus.Ok);
+        private void OnNo()     => RequestClose(false, InteractionStatus.Ok);
+        private void OnCancel() => RequestClose(false, InteractionStatus.Cancel);
     }
 
     public static class ConfirmDialogActions

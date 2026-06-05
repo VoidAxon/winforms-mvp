@@ -9,13 +9,11 @@ namespace WinformsMVP.Samples.NavigatorDemo
     /// Simple modal dialog - no parameters, no return value.
     /// </summary>
     /// <remarks>
-    /// Demonstrates the minimal <see cref="IRequestClose{TResult}"/> implementation:
-    /// mark the Presenter with <see cref="IRequestClose{TResult}"/> and call
-    /// <c>this.RequestClose(...)</c> to close with a result. No <c>CanClose(CloseReason)</c>
+    /// Demonstrates the minimal push-close implementation: call <c>RequestClose(...)</c>
+    /// (the protected base method) to close with a status. No <c>CanClose(CloseReason)</c>
     /// override is needed because there is no dirty state — a user clicking X is treated as Cancel.
     /// </remarks>
-    public class SimpleDialogPresenter : WindowPresenterBase<ISimpleDialogView>,
-                                          IRequestClose<object>
+    public class SimpleDialogPresenter : WindowPresenterBase<ISimpleDialogView>
     {
         protected override void OnViewAttached()
         {
@@ -36,12 +34,12 @@ namespace WinformsMVP.Samples.NavigatorDemo
         private void OnOk()
         {
             Messages.ShowInfo("You clicked OK!", "Simple Dialog");
-            this.RequestClose(null, InteractionStatus.Ok);
+            RequestClose(InteractionStatus.Ok);
         }
 
         private void OnCancel()
         {
-            this.RequestClose(null, InteractionStatus.Cancel);
+            RequestClose(InteractionStatus.Cancel);
         }
     }
 

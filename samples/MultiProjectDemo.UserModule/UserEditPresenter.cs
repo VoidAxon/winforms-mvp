@@ -10,8 +10,7 @@ namespace MultiProjectDemo.UserModule
     /// <see cref="OnInitialize"/> at the moment the window opens.
     /// </summary>
     public class UserEditPresenter
-        : WindowPresenterBase<IUserEditView, UserEditParameters>,
-          IRequestClose<UserEditResult>
+        : WindowPresenterBase<IUserEditView, UserEditParameters>
     {
         private readonly IUserRepository _repository;
         private int _userId;
@@ -64,9 +63,9 @@ namespace MultiProjectDemo.UserModule
             };
             _repository.Save(user);
 
-            this.RequestClose(new UserEditResult { UserId = user.Id, Name = user.Name }, InteractionStatus.Ok);
+            RequestClose(new UserEditResult { UserId = user.Id, Name = user.Name }, InteractionStatus.Ok);
         }
 
-        private void OnCancel() => this.RequestClose(null, InteractionStatus.Cancel);
+        private void OnCancel() => RequestClose(InteractionStatus.Cancel);
     }
 }

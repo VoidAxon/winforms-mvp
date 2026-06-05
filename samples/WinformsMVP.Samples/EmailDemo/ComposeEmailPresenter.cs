@@ -27,7 +27,7 @@ namespace WinformsMVP.Samples.EmailDemo
     /// Demonstrates the canonical two-direction close pattern:
     /// <list type="bullet">
     ///   <item><description><b>Push</b> (Presenter initiates close): <c>OnSend</c> and <c>OnDiscard</c>
-    ///     call <c>this.RequestClose(...)</c> after finalizing dirty state.</description></item>
+    ///     call <c>RequestClose(...)</c> after finalizing dirty state.</description></item>
     ///   <item><description><b>Pull</b> (external close — user clicks X): <see cref="CanClose"/> prompts
     ///     the user to save / discard / cancel when there are unsaved changes.</description></item>
     /// </list>
@@ -38,8 +38,7 @@ namespace WinformsMVP.Samples.EmailDemo
     /// proceed without prompting.
     /// </remarks>
     public class ComposeEmailPresenter :
-        WindowPresenterBase<IComposeEmailView, ComposeEmailParameters>,
-        IRequestClose<bool>
+        WindowPresenterBase<IComposeEmailView, ComposeEmailParameters>
     {
         private readonly IEmailRepository _repository;
         private ChangeTracker<EmailMessage> _changeTracker;
@@ -179,7 +178,7 @@ namespace WinformsMVP.Samples.EmailDemo
                 if (success)
                 {
                     _changeTracker.AcceptChanges();  // Accept changes, mark as unmodified
-                    this.RequestClose(true, InteractionStatus.Ok);  // Return true indicating sent
+                    RequestClose(true, InteractionStatus.Ok);  // Return true indicating sent
                 }
                 else
                 {
@@ -232,7 +231,7 @@ namespace WinformsMVP.Samples.EmailDemo
                 _changeTracker.RejectChanges();
             }
 
-            this.RequestClose(false, InteractionStatus.Cancel);  // Return false indicating not sent
+            RequestClose(InteractionStatus.Cancel);  // Return false indicating not sent — use no-result overload (null not inferrable)
         }
 
         #endregion

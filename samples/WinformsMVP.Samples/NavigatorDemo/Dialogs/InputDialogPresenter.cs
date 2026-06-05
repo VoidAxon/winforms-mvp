@@ -6,10 +6,9 @@ using WinformsMVP.Services;
 namespace WinformsMVP.Samples.NavigatorDemo
 {
     /// <summary>
-    /// Input dialog - returns a string value through <see cref="IRequestClose{TResult}"/>.
+    /// Input dialog - returns a string value via the base-class <c>RequestClose</c> method.
     /// </summary>
-    public class InputDialogPresenter : WindowPresenterBase<IInputDialogView>,
-                                         IRequestClose<string>
+    public class InputDialogPresenter : WindowPresenterBase<IInputDialogView>
     {
         protected override void OnViewAttached()
         {
@@ -35,12 +34,12 @@ namespace WinformsMVP.Samples.NavigatorDemo
                 return;
             }
 
-            this.RequestClose(input, InteractionStatus.Ok);
+            RequestClose(input, InteractionStatus.Ok);
         }
 
         private void OnCancel()
         {
-            this.RequestClose(null, InteractionStatus.Cancel);
+            RequestClose(InteractionStatus.Cancel);
         }
     }
 
