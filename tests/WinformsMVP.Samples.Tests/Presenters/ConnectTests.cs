@@ -1,10 +1,14 @@
 using System;
+using System.Windows.Forms;
+using WinformsMVP.Common;
 using WinformsMVP.Common.Events;
 using WinformsMVP.MVP.Presenters;
 using WinformsMVP.MVP.ViewActions;
 using WinformsMVP.MVP.Views;
 using WinformsMVP.Samples.Tests.Mocks;
+using WinformsMVP.Services.Implementations;
 using Xunit;
+using CloseReason = WinformsMVP.Common.CloseReason;
 
 namespace WinformsMVP.Samples.Tests.Presenters
 {
@@ -37,6 +41,76 @@ namespace WinformsMVP.Samples.Tests.Presenters
             p.AttachView(new FakeView());
 
             Assert.True(((IViewAttachable)p).IsViewAttached);
+        }
+
+        private sealed class FakeWindowForm : Form, IFakeView
+        {
+            public IViewActionBinder ActionBinder => NullViewActionBinder.Instance;
+            bool IWindowView.IsDisposed => base.IsDisposed;
+            void IWindowView.Activate() => base.Activate();
+            // IWindowView still declares Closing/OnClosing on this branch — satisfy them.
+            public event EventHandler<WindowClosingEventArgs> Closing;
+            public void OnClosing(WindowClosingEventArgs args) => Closing?.Invoke(this, args);
+        }
+
+        private sealed class ResultPresenter : WindowPresenterBase<IFakeView>, IRequestClose<string>
+        {
+            public bool Initialized;
+            protected override void OnViewAttached() { }
+            protected override void OnInitialize() => Initialized = true;
+            public void PushDone(string r) => this.RequestClose(r, InteractionStatus.Ok);
+        }
+
+        [Fact]
+        public void Connect_AttachesAndInitializes_WhenNotYetAttached()
+        {
+            var form = new FakeWindowForm();
+            var presenter = new ResultPresenter();
+
+            presenter.Connect<IFakeView, string>(form, _ => { });
+
+            Assert.True(((IViewAttachable)presenter).IsViewAttached);
+            Assert.True(presenter.Initialized);
+            form.Dispose();
+        }
+
+        [Fact]
+        public void Connect_IsIdempotent_DoesNotReinitialize()
+        {
+            var form = new FakeWindowForm();
+            var presenter = new ResultPresenter();
+            presenter.AttachView(form);
+            presenter.Initialize();
+            presenter.Initialized = false;
+
+            presenter.Connect<IFakeView, string>(form, _ => { });
+
+            Assert.False(presenter.Initialized);
+            form.Dispose();
+        }
+
+        [Fact]
+        public void Connect_Push_DeliversResultToOnClosed()
+        {
+            var form = new FakeWindowForm();
+            var presenter = new ResultPresenter();
+            InteractionResult<string> captured = null;
+            presenter.Connect<IFakeView, string>(form, r => captured = r);
+
+            form.Show();
+            presenter.PushDone("hi");
+
+            Assert.NotNull(captured);
+            Assert.True(captured.IsOk);
+            Assert.Equal("hi", captured.Value);
+        }
+
+        [Fact]
+        public void Connect_NonFormView_Throws()
+        {
+            var presenter = new ResultPresenter();
+            Assert.Throws<ArgumentException>(
+                () => presenter.Connect<IFakeView, string>(new FakeView(), _ => { }));
         }
     }
 }
