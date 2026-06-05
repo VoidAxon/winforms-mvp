@@ -5,8 +5,7 @@ using WinformsMVP.Common;
 using WinformsMVP.Common.Events;
 using WinformsMVP.MVP.Views;
 using WinformsMVP.MVP.Presenters;
-using WinFormsCloseReason = System.Windows.Forms.CloseReason;
-using MvpCloseReason = WinformsMVP.Common.CloseReason;
+using WinformsMVP.Services;
 
 namespace WinformsMVP.Services.Implementations
 {
@@ -471,44 +470,20 @@ namespace WinformsMVP.Services.Implementations
         /// <summary>
         /// Wires the WinForms <c>FormClosing</c> → framework <see cref="IWindowView.OnClosing"/>
         /// bridge for <paramref name="form"/> and returns the per-window
-        /// <see cref="WindowCloseCoordinator"/> that gates it. WinForms <c>CloseReason</c> is
-        /// mapped here and never leaks past this method. A close the Presenter initiated
-        /// (see <see cref="WindowCloseCoordinator.BeginPresenterClose"/>) bypasses the gate.
+        /// <see cref="WindowCloseCoordinator"/> that gates it. The WinForms-to-framework
+        /// <c>CloseReason</c> mapping lives in <see cref="WindowClosingBridge"/>. A close the
+        /// Presenter initiated (see <see cref="WindowCloseCoordinator.BeginPresenterClose"/>)
+        /// bypasses the gate.
         /// </summary>
         private static WindowCloseCoordinator WireCloseGate(Form form)
         {
             var coordinator = new WindowCloseCoordinator((IWindowView)form);
             form.FormClosing += (s, e) =>
             {
-                if (coordinator.ShouldCancel(MapCloseReason(e.CloseReason)))
+                if (coordinator.ShouldCancel(WindowClosingBridge.MapCloseReason(e.CloseReason)))
                     e.Cancel = true;
             };
             return coordinator;
-        }
-
-        /// <summary>
-        /// Maps WinForms <see cref="WinFormsCloseReason"/> to the framework abstraction
-        /// <see cref="MvpCloseReason"/>. WinForms types are intentionally not exposed to
-        /// presenter code; this is the single place the mapping happens.
-        /// </summary>
-        private static MvpCloseReason MapCloseReason(WinFormsCloseReason reason)
-        {
-            switch (reason)
-            {
-                case WinFormsCloseReason.UserClosing:
-                    return MvpCloseReason.Normal;
-                case WinFormsCloseReason.WindowsShutDown:
-                    return MvpCloseReason.SystemShutdown;
-                case WinFormsCloseReason.TaskManagerClosing:
-                    return MvpCloseReason.TaskManager;
-                case WinFormsCloseReason.FormOwnerClosing:
-                case WinFormsCloseReason.MdiFormClosing:
-                    return MvpCloseReason.ParentClosing;
-                case WinFormsCloseReason.ApplicationExitCall:
-                    return MvpCloseReason.Normal;
-                default:
-                    return MvpCloseReason.Unknown;
-            }
         }
 
         #endregion

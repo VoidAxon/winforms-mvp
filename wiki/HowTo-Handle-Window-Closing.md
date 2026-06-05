@@ -12,6 +12,7 @@
 - [シナリオ 3: 結果を返すダイアログ](#シナリオ-3-結果を返すダイアログ)
 - [シナリオ 4: 親ウィンドウから結果を受け取る](#シナリオ-4-親ウィンドウから結果を受け取る)
 - [シナリオ 5: システムシャットダウン時はブロックしない](#シナリオ-5-システムシャットダウン時はブロックしない)
+- [シナリオ 6: WindowNavigator を使わずに閉じる (遺留 Form / アプリシェル)](#シナリオ-6-windownavigator-を使わずに閉じる-遺留-form--アプリシェル)
 - [Form 側のお決まりコード](#form-側のお決まりコード)
 - [テストパターン](#テストパターン)
 
@@ -249,6 +250,45 @@ private void OnViewClosing(object sender, WindowClosingEventArgs args)
 ```
 
 `CloseReason` の値一覧は [Concept-Window-Closing-Model#closereason-列挙](Concept-Window-Closing-Model#closereason-列挙) を参照。
+
+---
+
+## シナリオ 6: WindowNavigator を使わずに閉じる (遺留 Form / アプリシェル)
+
+`Application.Run(new MainForm())` で起動するアプリのシェルや、まだ `WindowNavigator` 経由で表示していない遺留 Form でも、`WindowClosingBridge` を使えば同じ Pull 方向の `IWindowView.Closing` 抽象に手動で参加できます。
+
+> `WindowNavigator` 経由で表示する Form は、このブリッジが **自動で** 張られるため本シナリオは不要です。ここは「Navigator を通さない窓」専用の話です。
+
+```csharp
+public partial class MainShellForm : Form, IMainShellView
+{
+    // ① IWindowView のお決まりコード (詳細は次節)
+    private EventHandler<WindowClosingEventArgs> _closing;
+    event EventHandler<WindowClosingEventArgs> IWindowView.Closing
+    {
+        add => _closing += value;
+        remove => _closing -= value;
+    }
+    void IWindowView.OnClosing(WindowClosingEventArgs args) => _closing?.Invoke(this, args);
+
+    // ② WinForms の FormClosing を 1 行でフレームワークの Closing に転送
+    protected override void OnFormClosing(FormClosingEventArgs e)
+    {
+        base.OnFormClosing(e);
+        WindowClosingBridge.ForwardClosing(this, e);
+    }
+}
+```
+
+`ForwardClosing` がやること:
+
+1. WinForms の `CloseReason` をフレームワークの `CloseReason` に変換する (`WindowClosingBridge.MapCloseReason`)
+2. `IWindowView.OnClosing` を発火し、購読している Presenter にダーティチェックの機会を与える
+3. Presenter が `args.Cancel = true` にしたら、それを WinForms の `e.Cancel` に書き戻す
+
+変換だけが欲しい (`OnClosing` の発火は自前でやる) 場合は、`WindowClosingBridge.MapCloseReason(e.CloseReason)` を直接呼べます。これがマッピングの唯一の実装で、`WindowNavigator` も内部でここに委譲しています。
+
+> **範囲外:** Push 起点の閉じ (Presenter が能動的にウィンドウを閉じる) に対するゲートのスキップは `WindowNavigator` 固有の仕組み (`WindowCloseCoordinator`) です。`WindowNavigator` を使わないコードは「閉じる」操作を自分で握っているので、二重確認を避けたい場合は Push 経路で自前のダーティ確定を行ってください。詳細は [単一情報源の不変条件](Concept-Window-Closing-Model#単一情報源-single-source-of-truth-の不変条件) を参照。
 
 ---
 
