@@ -1,39 +1,18 @@
-using System;
-using WinformsMVP.Common.Events;
-
 namespace WinformsMVP.MVP.Presenters
 {
     /// <summary>
-    /// Implemented by presenters that need to actively request the window to close
-    /// (the Push direction) and return a typed business result to the caller.
+    /// Marker implemented by window presenters that return a typed business result when they
+    /// actively request close (the Push direction). It declares the result type once so the
+    /// <see cref="RequestCloseExtensions.RequestClose{TResult}"/> extension is compile-time typed
+    /// and lines up with <c>WindowNavigator.ShowWindowAsModal&lt;TPresenter, TResult&gt;</c>.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>Push direction (this interface):</b> the Presenter raises
-    /// <see cref="CloseRequested"/> to close the window and pass a
-    /// <typeparamref name="TResult"/> back through
-    /// <c>InteractionResult&lt;TResult&gt;</c>.
-    /// </para>
-    /// <para>
-    /// <b>Pull direction (NOT this interface):</b> when something outside the Presenter
-    /// initiates the close — user clicks X, system shutdown, parent window closing —
-    /// the Presenter receives an <see cref="WinformsMVP.MVP.Views.IWindowView.Closing"/>
-    /// event and can set <see cref="WindowClosingEventArgs.Cancel"/> to block it.
-    /// </para>
-    /// <para>
-    /// Typical implementation is three lines on top of any <c>WindowPresenterBase</c>:
-    /// declare the <see cref="CloseRequested"/> event, and add a small private helper
-    /// that builds a <see cref="CloseRequestedEventArgs{TResult}"/> and raises the event.
-    /// </para>
+    /// Must be implemented on a type deriving from <see cref="WindowPresenterBaseCore{TView}"/>
+    /// (i.e. any <c>WindowPresenterBase</c>); the framework injects the close sink there. Push:
+    /// <c>this.RequestClose(result)</c>. Pull: override <c>CanClose(CloseReason)</c>.
     /// </remarks>
-    /// <typeparam name="TResult">The business result type returned through
-    /// <c>InteractionResult&lt;TResult&gt;</c>.</typeparam>
+    /// <typeparam name="TResult">The business result type.</typeparam>
     public interface IRequestClose<TResult>
     {
-        /// <summary>
-        /// Raised by the Presenter to request the window to close, carrying the
-        /// final business result and status.
-        /// </summary>
-        event EventHandler<CloseRequestedEventArgs<TResult>> CloseRequested;
     }
 }

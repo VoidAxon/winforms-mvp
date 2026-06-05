@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Windows.Forms;
 using WinformsMVP.Common;
-using WinformsMVP.Common.Events;
 using WinformsMVP.MVP.Views;
 using WinformsMVP.MVP.Presenters;
 using WinformsMVP.Services;
@@ -256,44 +255,21 @@ namespace WinformsMVP.Services.Implementations
             Form form,
             Action<InteractionResult<TResult>> setResultCallback)
         {
-            var requestCloser = presenter as IRequestClose<TResult>;
             var closeCoordinator = WireCloseGate(form);
             TResult finalResult = default(TResult);
             InteractionStatus finalStatus = InteractionStatus.Cancel; // Default: user-cancelled (e.g. clicked X)
 
-            EventHandler<CloseRequestedEventArgs<TResult>> closeRequestedHandler = null;
             FormClosedEventHandler formClosedHandler = null;
 
-            // 1. Presenter actively requests close (Push direction via IRequestClose.CloseRequested).
-            //    Pull direction (user clicks X) is handled by the Presenter subscribing to
-            //    IWindowView.Closing — WindowNavigator does NOT inspect CanClose / similar
-            //    APIs on the Presenter.
-            if (requestCloser != null)
-            {
-                closeRequestedHandler = (s, e) =>
-                {
-                    // Presenter has set the result; record before triggering Form.Close().
-                    finalResult = e.Result;
-                    finalStatus = e.Status;
+            // TODO (Task 7): Wire ICloseParticipant.BindCloseSink here once WindowCloseController
+            // exists. Push direction (Presenter-initiated close) is not yet wired through the
+            // navigator; presenters that need it should use the Connect extension (Task 6).
 
-                    // Mark this close as Presenter-initiated so the FormClosing bridge skips the
-                    // cancellation gate: the Presenter already authorized the close, so its own
-                    // Closing handler (and any dirty-state prompt) must not run and veto it.
-                    closeCoordinator.BeginPresenterClose();
-                    form.Close();
-                };
-                requestCloser.CloseRequested += closeRequestedHandler;
-            }
-
-            // 2. After the Form actually closes (FormClosed).
+            // After the Form actually closes (FormClosed).
             formClosedHandler = (s, e) =>
             {
                 // A. Immediately unsubscribe to prevent leaks.
                 form.FormClosed -= formClosedHandler;
-                if (requestCloser != null)
-                {
-                    requestCloser.CloseRequested -= closeRequestedHandler;
-                }
 
                 // B. Wrap final result.
                 InteractionResult<TResult> result;
@@ -326,14 +302,9 @@ namespace WinformsMVP.Services.Implementations
         Form form,
         Action<InteractionResult<TResult>> onClosed)
         {
-            var requestCloser = presenter as IRequestClose<TResult>;
-            var closeCoordinator = WireCloseGate(form);
+            WireCloseGate(form);
 
-            EventHandler<CloseRequestedEventArgs<TResult>> closeRequestedHandler = null;
             FormClosedEventHandler formClosedHandler = null;
-
-            TResult finalResult = default(TResult);
-            InteractionStatus finalStatus = InteractionStatus.Cancel;
 
             // 1. Register in _openForms dictionary (thread-safe).
             if (instanceKey != null)
@@ -347,25 +318,11 @@ namespace WinformsMVP.Services.Implementations
                 }
             }
 
-            // 2. Handle Presenter actively requesting close (Push direction).
-            //    Pull direction (user closing the window) is handled by the Presenter
-            //    subscribing to IWindowView.Closing — WindowNavigator does NOT need to
-            //    inspect any Presenter-side API to decide whether to cancel.
-            if (requestCloser != null)
-            {
-                closeRequestedHandler = (s, e) =>
-                {
-                    finalResult = e.Result;
-                    finalStatus = e.Status;
+            // TODO (Task 7): Wire ICloseParticipant.BindCloseSink here once WindowCloseController
+            // exists. Push direction (Presenter-initiated close) is not yet wired through the
+            // navigator; presenters that need it should use the Connect extension (Task 6).
 
-                    // Presenter-initiated close: bypass the cancellation gate (see modal handler).
-                    closeCoordinator.BeginPresenterClose();
-                    form.Close();
-                };
-                requestCloser.CloseRequested += closeRequestedHandler;
-            }
-
-            // 3. Handle FormClosed: unregister framework references, release resources, fire callback.
+            // 2. Handle FormClosed: unregister framework references, release resources, fire callback.
             formClosedHandler = (s, e) =>
             {
                 // A. Clean up framework state (thread-safe).
@@ -377,33 +334,14 @@ namespace WinformsMVP.Services.Implementations
                     }
                 }
 
-                // B. Wrap final result.
-                InteractionResult<TResult> result;
-                switch (finalStatus)
-                {
-                    case InteractionStatus.Ok:
-                        result = InteractionResult<TResult>.Ok(finalResult);
-                        break;
-                    case InteractionStatus.Error:
-                        result = InteractionResult<TResult>.Error("Operation failed");
-                        break;
-                    case InteractionStatus.Cancel:
-                    default:
-                        result = InteractionResult<TResult>.Cancel();
-                        break;
-                }
-
-                onClosed.Invoke(result);
+                // B. Default to Cancel until Task 7 wires the push-direction sink.
+                onClosed.Invoke(InteractionResult<TResult>.Cancel());
 
                 // C. Release Presenter resources.
                 (presenter as IDisposable)?.Dispose();
 
-                // D. Clean up all event subscriptions and Form resources.
+                // D. Clean up subscriptions and Form resources.
                 form.FormClosed -= formClosedHandler;
-                if (requestCloser != null)
-                {
-                    requestCloser.CloseRequested -= closeRequestedHandler;
-                }
                 form.Dispose();
             };
             form.FormClosed += formClosedHandler;
