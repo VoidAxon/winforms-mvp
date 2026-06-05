@@ -12,7 +12,7 @@ namespace WinformsMVP.MVP.Presenters
     /// <typeparam name="TView">The view interface type, must implement IWindowView</typeparam>
     /// <typeparam name="TParam">The type of initialization parameters</typeparam>
     public abstract class WindowPresenterBase<TView, TParam> :
-        PresenterBase<TView>,
+        WindowPresenterBaseCore<TView>,
         IViewAttacher<TView>,
         IInitializable<TParam>
         where TView : IWindowView
