@@ -55,16 +55,23 @@ TextBox NameTextBox { get; }             bool HasSelection { get; }
 **3. Presenter does use-case logic only, not view logic.** Presenter owns the business workflow (validate → save → notify); the View decides *how* to display things. All data lives in the Model, not just in UI controls.
 
 **4. Keep the Presenter's public surface minimal (Rules 16 & 17).** A Presenter is not a service.
-- `public`: constructor (DI) and interface-contract members (e.g. `IRequestClose<T>.CloseRequested`) only.
-- `protected override`: lifecycle hooks (`OnInitialize`, `OnViewAttached`, `RegisterViewActions`, `Cleanup`).
-- `private`: action handlers (`OnSave`), view-event handlers (`OnViewClosing`), helpers.
-- A Presenter should expose **zero public events** unless it implements `IRequestClose<TResult>`. For other notifications use a Service event or `IEventAggregator`.
+- `public`: constructor (DI) only.
+- `protected override`: lifecycle hooks (`OnInitialize`, `OnViewAttached`, `RegisterViewActions`, `Cleanup`) and close overrides (`CanClose`).
+- `private`: action handlers (`OnSave`), helpers.
+- A Presenter should expose **zero public events**. For cross-presenter notifications use a Service event or `IEventAggregator`. For push-direction close results, implement `IRequestClose<TResult>` (marker, no events) and call `this.RequestClose(result, status)`.
 
 **Testing rule:** never widen visibility for tests. Drive the Presenter through its real entry points so the same `CanExecute` / close logic runs:
 ```csharp
-presenter.Dispatcher.Dispatch(CommonActions.Save);   // not presenter.OnSave()
-view.RaiseClosing(CloseReason.Normal);                // pull-direction close
-presenter.CloseRequested += (s, e) => captured = e;   // push-direction result
+// Action dispatch (works as-is — Dispatcher is public):
+presenter.Dispatcher.Dispatch(CommonActions.Save);            // not presenter.OnSave()
+
+// Pull veto — ICloseParticipant is internal; tests get access via InternalsVisibleTo:
+((ICloseParticipant)presenter).CanCloseGate(CloseReason.Normal, ok => allow = ok);
+
+// Push result — inject a recording sink before Initialize:
+var sink = new RecordingSink(); // implements ICloseSink
+((ICloseParticipant)presenter).BindCloseSink(sink);
+// ... dispatch Save action, then assert sink.Closed
 ```
 
 The framework enforces these rules at compile time via Roslyn analyzers in [src/WinformsMVP.Analyzers/](src/WinformsMVP.Analyzers/).
@@ -83,7 +90,7 @@ PresenterBase<TView>                       [base — do not inherit directly]
 
 - **Forms** are created late-bound by `WindowNavigator` (view injected via `IViewAttacher<TView>`).
 - **UserControls** receive their view (and optional params) via the presenter constructor and dispose with the control.
-- A presenter that returns a result implements `IRequestClose<TResult>` (one event + a tiny `RaiseClose` helper).
+- A presenter that returns a result implements the marker interface `IRequestClose<TResult>` (no members) and calls `this.RequestClose(result, status)` (extension method).
 - Parameterized presenters get runtime data through `IInitializable<TParam>.Initialize(param)` — **never** mix DI-resolved deps and runtime args in the constructor; use a Parameters class.
 
 Lifecycle (Forms): create presenter → Navigator creates view → `AttachView` → `OnViewAttached` → `RegisterViewActions` → framework auto-binds `View.ActionBinder` → `OnInitialize` → window shown.
@@ -136,22 +143,32 @@ var ok = Navigator.For(presenter).WithParam(parameters).ShowAsModal<bool>();
 
 ### Window closing — two-direction model
 
-Closing is event-driven with a single source of truth (no `CanClose()` method on the Presenter):
+Closing policy lives in the Presenter; Forms write zero closing code.
 
-| Direction | Initiator | Event | Trigger |
-|-----------|-----------|-------|---------|
-| **Push**  | Presenter | `IRequestClose<T>.CloseRequested` | user clicked Save/Cancel |
-| **Pull**  | Framework | `IWindowView.Closing` (carries `CloseReason` + `Cancel`) | X / Alt+F4 / shutdown |
+| Direction | Initiator | Mechanism | Trigger |
+|-----------|-----------|-----------|---------|
+| **Pull**  | Framework | `protected virtual bool CanClose(CloseReason reason)` override | X / Alt+F4 / shutdown |
+| **Push**  | Presenter | `this.RequestClose(result, status)` extension (sink injected by framework) | user clicked Save/Cancel |
 
-**Invariant:** dirty-state prompts live ONLY in the Pull handler (`View.Closing`). Push handlers finalize the dirty flag (`AcceptChanges`/`RejectChanges`) **before** calling `RaiseClose`, so the follow-up `FormClosing` sees clean state and doesn't re-prompt. WinForms types are mapped to the framework's `CloseReason` once inside `WindowNavigator.MapCloseReason` and never leak to presenters.
-
-Every Form needs the explicit-interface close boilerplate (because `Form` already has a deprecated `Closing`):
+**Pull (veto a close):** override `CanClose(CloseReason reason)` — return `false` to block, `true` to allow. The framework calls it via `ICloseParticipant.CanCloseGate` before the window closes. For decisions that need a callback (async save, server check), override the two-argument form instead:
 ```csharp
-private EventHandler<WindowClosingEventArgs> _closing;
-event EventHandler<WindowClosingEventArgs> IWindowView.Closing { add => _closing += value; remove => _closing -= value; }
-void IWindowView.OnClosing(WindowClosingEventArgs args) => _closing?.Invoke(this, args);
+protected override void CanClose(CloseReason reason, Action<bool> proceed)
+{
+    // Call proceed(true/false), possibly from a continuation.
+    // Action<bool> — never Task — keeps this net40-safe.
+}
 ```
-See [wiki/Concept-Window-Closing-Model.md](wiki/Concept-Window-Closing-Model.md), [wiki/HowTo-Handle-Window-Closing.md](wiki/HowTo-Handle-Window-Closing.md), `samples/.../WindowClosingDemo/`, and `tests/.../Presenters/WindowClosingTests.cs`.
+Never block `CloseReason.SystemShutdown` or `CloseReason.TaskManager` (return `true` immediately for those).
+
+**Push (actively close, optionally with result):** implement the marker interface `IRequestClose<TResult>` (no members) and call `this.RequestClose(result, InteractionStatus.Ok)`. For a no-result close, the base provides `protected void RequestClose(InteractionStatus status = InteractionStatus.Ok)`.
+
+**Invariant:** dirty-state prompts live ONLY in `CanClose` (Pull). Push handlers finalize the dirty flag (`AcceptChanges`/`RejectChanges`) **before** calling `RequestClose`, so the framework's follow-up `CanClose` call sees clean state and does not re-prompt. WinForms types are mapped to the framework's `CloseReason` once inside the internal `CloseReasonMap` and never leak to presenters.
+
+**Hosting — two ways (single-owner rule: use one or the other, never both):**
+- **Managed** — `WindowNavigator` creates and shows the window (`ShowWindowAsModal<...>` returns `InteractionResult<TResult>`; `ShowWindow<...>` non-modal). This is the default for all MVP-native windows.
+- **Adopted** — for a Form you create and `Show`/`Application.Run` yourself (shell window, legacy migration): call `presenter.Connect(form)` (no result) or `presenter.Connect<TView, TResult>(form, onClosed)` (typed callback) or `presenter.Connect<TView, TParam>(form, param)`. This does attach + initialize + close wiring idempotently.
+
+Forms need no closing code — `IWindowView` has no closing members. See [wiki/Concept-Window-Closing-Model.md](wiki/Concept-Window-Closing-Model.md), [wiki/HowTo-Handle-Window-Closing.md](wiki/HowTo-Handle-Window-Closing.md), `samples/.../WindowClosingDemo/`, and `tests/.../Presenters/CanCloseTests.cs`.
 
 ### View mapping (`IViewMappingRegister`)
 
