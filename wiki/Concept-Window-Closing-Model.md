@@ -38,11 +38,12 @@ sequenceDiagram
 
     User->>Form: Save ボタンクリック
     Form->>Presenter: Dispatch(StandardActions.Save)
-    Presenter->>Presenter: 業務処理 + AcceptChanges()
+    Presenter->>Presenter: 業務処理 (任意で AcceptChanges)
     Presenter->>Navigator: CloseRequested (result, Ok)
+    Navigator->>Navigator: この閉じを Presenter 起点として記録<br/>(WindowCloseCoordinator)
     Navigator->>Form: form.Close()
     Form->>Form: FormClosing 発火
-    Note over Form,Presenter: Pull 方向の Closing ハンドラも走るが<br/>ダーティ状態は既にクリアされているので<br/>確認ダイアログは出ない
+    Note over Form,Presenter: Presenter 起点の閉じなので<br/>Pull 方向の Closing ゲートはスキップされる<br/>(確認ダイアログは出ない)
     Form->>Navigator: FormClosed
     Navigator-->>Caller: InteractionResult<TResult> (Success)
 ```
@@ -78,13 +79,17 @@ sequenceDiagram
 
 > **ダーティ状態の確認ダイアログは、Pull 方向のハンドラ (`View.Closing`) にだけ書く。**
 
-Push 方向のハンドラ (`OnSave` / `OnCancel` / `OnDiscard`) は、`RequestClose` を呼ぶ **前に** ダーティフラグを確定させます。
-その後にフレームワークから発火する `FormClosing → IWindowView.Closing` は **既にクリーンな状態を観測する** ため、二重に確認ダイアログが出ることはありません。
+Presenter が能動的に閉じる場合 (Push)、フレームワークは **その閉じが Presenter 起点であることを知っている** ため、Pull 方向のゲート (`View.Closing`) を **スキップします**。
+`WindowNavigator` は `CloseRequested` を受けて `form.Close()` を呼ぶ直前に、その閉じを「Presenter 起点」として記録します (`WindowCloseCoordinator`)。続いて発火する `FormClosing` ブリッジはこの記録を見て **`OnClosing` を呼びません**。
+したがって **Push 起点の閉じが自分自身の確認ダイアログでブロックされることは構造的に起こりません** —— `AcceptChanges` の呼び出し **順序に依存しない** 保証です。
+
+> **補足:** `AcceptChanges` / `RejectChanges` は依然として呼ぶ価値があります。ただしそれは「二重確認を防ぐため」ではなく、**閉じた後もモデルの状態を正しく保つ**ためです (クローズ抑止のための時間結合ではなくなりました)。
 
 この設計判断により得られるもの:
 
 - Presenter の公開 API は最小限 (`IRequestClose.CloseRequested` イベントのみ)
 - 「ダーティ状態をどう聞くか」のロジックが **1 か所だけに** 集約される
+- 二重確認の回避が **規約 (呼び出し順序) ではなくフレームワークの構造** で保証される
 - テストが 2 方向それぞれを独立に検証できる: Pull は `View.Closing` をシミュレート、Push は `CloseRequested` を観測
 
 ---
@@ -119,7 +124,7 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView>,
     private void OnSave()
     {
         SaveUser(_changeTracker.CurrentValue);
-        _changeTracker.AcceptChanges();              // ← RaiseClose の前に確定
+        _changeTracker.AcceptChanges();              // モデル状態を確定 (クローズ抑止のためではない)
         RaiseClose(new UserResult { /* ... */ }, InteractionStatus.Ok);
     }
 
@@ -129,8 +134,7 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView>,
 }
 ```
 
-**重要なポイント**: `OnSave` で `AcceptChanges()` を呼んでから `RaiseClose` する。
-こうすると、その後に走る Pull 方向の `OnViewClosing` は「ダーティではない」と判定し、再確認ダイアログが出ません。
+**重要なポイント**: Push 起点の閉じでは、フレームワークが Pull 方向の `OnViewClosing` ゲートを **スキップ** するため、再確認ダイアログは出ません。これは `AcceptChanges` の呼び出し順序とは独立した構造的な保証です (`AcceptChanges` はモデル状態を正しく保つために呼びます)。
 
 ---
 
@@ -149,7 +153,7 @@ event EventHandler<WindowClosingEventArgs> IWindowView.Closing
 void IWindowView.OnClosing(WindowClosingEventArgs args) => _closing?.Invoke(this, args);
 ```
 
-Form 自身が `FormClosing` を購読する必要はありません。`WindowNavigator` が `CreateAndBindForm` の際に自動的にブリッジします。
+Form 自身が `FormClosing` を購読する必要はありません。`WindowNavigator` がクローズハンドラ登録時 (`WireCloseGate`) に自動的にブリッジします。
 
 ---
 
@@ -161,7 +165,7 @@ Form 自身が `FormClosing` を購読する必要はありません。`WindowNa
 ```csharp
 public enum CloseReason
 {
-    Normal,           // × / Alt+F4 / Presenter 起点の Form.Close → ダーティチェックすべき
+    Normal,           // × / Alt+F4 → ダーティチェックすべき (Presenter 起点の閉じはゲート自体をスキップするのでここには来ない)
     SystemShutdown,   // Windows がシャットダウン中 → ブロックしない
     TaskManager,      // 強制終了 → ブロックしない
     ParentClosing,    // オーナーウィンドウが閉じている → 通常はそのまま許可

@@ -32,7 +32,7 @@ WindowNavigator
    └── IRequestClose<TResult>    (結果を返す Presenter なら追加で実装)
 ```
 
-> `FormClosing` → `IWindowView.OnClosing` の橋渡しは `WindowNavigator` が内部で行います (フォーム生成時に `FormClosing` を購読し、`CloseReason` をフレームワークの型へ変換して `OnClosing` を呼ぶ)。独立した公開インターフェイスは存在しません。
+> `FormClosing` → `IWindowView.OnClosing` の橋渡しは `WindowNavigator` が内部で行います (クローズハンドラ登録時に `FormClosing` を購読し、`CloseReason` をフレームワークの型へ変換して `OnClosing` を呼ぶ)。Presenter 自身が `CloseRequested` で要求した閉じは、Pull 方向のゲートをスキップします (`WindowCloseCoordinator`)。独立した公開インターフェイスは存在しません。
 
 `IViewMappingRegister` の構成方法は [ViewMappingRegister](Reference-ViewMappingRegister) を、結果の伝達設計は [ウィンドウクローズモデル](Concept-Window-Closing-Model) を参照してください。
 

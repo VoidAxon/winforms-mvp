@@ -216,18 +216,20 @@ void IWindowView.OnClosing(WindowClosingEventArgs args) => _closing?.Invoke(this
 
 ### Save 後に「変更を破棄しますか?」と二重に聞かれる
 
-**原因**: `OnSave` で `AcceptChanges()` を呼び忘れている。
+**原因**: 古いバージョンでは、Push 起点 (`RaiseClose`) の閉じが Pull 方向のゲート (`OnViewClosing`) を再度走らせていたため、`OnSave` で `AcceptChanges()` を呼び忘れると二重確認が出ていました。
 
-**対処**:
+**現在**: フレームワークは Push 起点の閉じを `WindowCloseCoordinator` で識別し、Pull ゲートを **スキップ** します。そのためこの二重確認は **構造的に発生しません** —— `AcceptChanges` の呼び出し順序には依存しなくなりました。`AcceptChanges` は引き続きモデル状態を確定する目的で呼びます。
 
 ```csharp
 private void OnSave()
 {
     SaveData();
-    _changeTracker.AcceptChanges();   // ← RaiseClose の前に確定
+    _changeTracker.AcceptChanges();   // モデル状態を確定 (二重確認の抑止には不要)
     RaiseClose(result, InteractionStatus.Ok);
 }
 ```
+
+詳細は [単一情報源の不変条件](Concept-Window-Closing-Model#単一情報源-single-source-of-truth-の不変条件) を参照。
 
 ### システムシャットダウン時にダーティ確認ダイアログが出てフリーズ
 

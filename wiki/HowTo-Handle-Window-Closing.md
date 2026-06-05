@@ -107,13 +107,13 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView, EditUserPara
     private void OnSave()
     {
         SaveUser(_changeTracker.CurrentValue);
-        _changeTracker.AcceptChanges();     // ← RaiseClose の前に確定
+        _changeTracker.AcceptChanges();     // モデル状態を確定 (クローズ抑止のためではない)
         RaiseClose(BuildResult(), InteractionStatus.Ok);
     }
 
     private void OnCancel()
     {
-        _changeTracker.RejectChanges();     // ← RaiseClose の前に破棄
+        _changeTracker.RejectChanges();     // モデル状態を破棄
         RaiseClose(null, InteractionStatus.Cancel);
     }
 
@@ -126,27 +126,27 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView, EditUserPara
 
 ### なぜ二重確認にならないか
 
-`OnSave` で `AcceptChanges()` を呼んでから `RaiseClose` する順序が重要です。
+Push 起点の閉じでは、フレームワークが Pull 方向のゲート (`OnViewClosing`) を **そもそも呼びません**。`WindowNavigator` は `CloseRequested` を受けて `form.Close()` を呼ぶ直前に、その閉じを「Presenter 起点」として記録し (`WindowCloseCoordinator`)、後続の `FormClosing` ブリッジはその記録を見てゲートをスキップします。
 
 ```
 Save ボタンクリック
    ↓
 OnSave()
    ├─ SaveUser()
-   ├─ AcceptChanges()           ← ダーティフラグをクリア
+   ├─ AcceptChanges()           ← モデル状態を確定 (クローズ抑止には不要)
    └─ RaiseClose(result, Ok)
+        ↓
+   Navigator: この閉じを Presenter 起点として記録 (WindowCloseCoordinator)
         ↓
    Navigator が form.Close()
         ↓
    FormClosing 発火
         ↓
-   IWindowView.Closing 発火
-        ↓
-   OnViewClosing(args)
-        └─ _changeTracker.IsChanged は false なので確認ダイアログ出ない
+   Presenter 起点なのでブリッジは OnViewClosing を呼ばない
+        └─ 確認ダイアログは構造的に出ない (AcceptChanges の順序に依存しない)
 ```
 
-詳細は [単一情報源の不変条件](Concept-Window-Closing-Model#単一情報源-single-source-of-truth-の不変条件) を参照。
+したがって、二重確認の回避は「`AcceptChanges` を `RaiseClose` の前に呼ぶ」という規約ではなく、フレームワークの構造によって保証されます。詳細は [単一情報源の不変条件](Concept-Window-Closing-Model#単一情報源-single-source-of-truth-の不変条件) を参照。
 
 ---
 
@@ -242,7 +242,7 @@ private void OnViewClosing(object sender, WindowClosingEventArgs args)
     if (args.Reason == CloseReason.ParentClosing)
         return;
 
-    // 通常の × / Alt+F4 / Presenter 起点の Close だけ確認
+    // 通常の × / Alt+F4 だけ確認 (Presenter 起点の Close はこのゲートに来ない)
     if (_changeTracker.IsChanged && !Messages.ConfirmYesNo("Discard changes?", "Confirm"))
         args.Cancel = true;
 }
@@ -272,7 +272,7 @@ public partial class EditUserForm : Form, IEditUserView
 }
 ```
 
-Form 自身が `FormClosing` を購読する必要はありません。`WindowNavigator` が `CreateAndBindForm` の中で自動的にブリッジします。
+Form 自身が `FormClosing` を購読する必要はありません。`WindowNavigator` がクローズハンドラ登録時 (`WireCloseGate`) に自動的にブリッジします。
 
 ---
 
