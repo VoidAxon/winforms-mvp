@@ -102,6 +102,14 @@ namespace WinformsMVP.Samples.Tests.Presenters
         }
 
         [Fact]
+        public void RequestClose_WithoutSink_DoesNotThrow()
+        {
+            var p = Attached(new FakeView());
+            // No BindCloseSink call — sink is null; must be a silent no-op.
+            p.PushSave("x");
+        }
+
+        [Fact]
         public void Presenter_IsAssignableToIRequestClose()
         {
             Assert.IsAssignableFrom<IRequestClose<string>>(new EditPresenter());

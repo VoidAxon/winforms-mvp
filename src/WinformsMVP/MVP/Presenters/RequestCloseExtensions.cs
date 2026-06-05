@@ -1,3 +1,4 @@
+using System;
 using WinformsMVP.Common;
 
 namespace WinformsMVP.MVP.Presenters
@@ -11,6 +12,14 @@ namespace WinformsMVP.MVP.Presenters
     {
         public static void RequestClose<TResult>(this IRequestClose<TResult> presenter,
             TResult result, InteractionStatus status = InteractionStatus.Ok)
-            => ((ICloseParticipant)presenter).RequestCloseCore(result, status);
+        {
+            var participant = presenter as ICloseParticipant;
+            if (participant == null)
+                throw new InvalidOperationException(
+                    presenter.GetType().Name + " implements IRequestClose<" + typeof(TResult).Name +
+                    "> but does not derive from WindowPresenterBaseCore<TView>. IRequestClose<TResult> " +
+                    "must only be applied to window presenter classes.");
+            participant.RequestCloseCore(result, status);
+        }
     }
 }

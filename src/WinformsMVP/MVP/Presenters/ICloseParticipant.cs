@@ -4,7 +4,7 @@ using WinformsMVP.Common;
 namespace WinformsMVP.MVP.Presenters
 {
     /// <summary>
-    /// Framework-internal hooks the <c>WindowCloseController</c> uses to drive a Presenter's
+    /// Framework-internal hooks the <c>WindowCloseController</c> and <c>presenter.Connect(...)</c> use to drive a Presenter's
     /// close lifecycle without referencing its <c>TView</c> or <c>TResult</c>. Implemented
     /// explicitly by <see cref="WindowPresenterBaseCore{TView}"/>.
     /// </summary>
