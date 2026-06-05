@@ -24,19 +24,30 @@ namespace WinformsMVP.Services.Implementations
         internal WindowCloseCoordinator(IWindowView view) => _view = view;
 
         /// <summary>
-        /// Marks the in-flight close as Presenter-initiated. Called immediately before
-        /// <c>Form.Close()</c> in the <c>CloseRequested</c> handler.
+        /// Marks the next close as Presenter-initiated. Called immediately before
+        /// <c>Form.Close()</c> in the <c>CloseRequested</c> handler. The flag is consumed by the
+        /// first <see cref="ShouldCancel"/> that follows (see its remarks).
         /// </summary>
         internal void BeginPresenterClose() => _initiatedByPresenter = true;
 
         /// <summary>
         /// Invoked from the FormClosing bridge. Returns <c>true</c> if the close must be vetoed.
-        /// Presenter-initiated closes never run the gate; everything else forwards to the View
-        /// so the Presenter's <see cref="IWindowView.Closing"/> handler can decide.
+        /// A Presenter-initiated close skips the gate; everything else forwards to the View so the
+        /// Presenter's <see cref="IWindowView.Closing"/> handler can decide.
         /// </summary>
+        /// <remarks>
+        /// The Presenter-initiated flag is <b>consumed once</b>: it is cleared as it is read. This
+        /// matters when the close it authorized is vetoed by some other <c>FormClosing</c>
+        /// subscriber — the window stays open, but the next (user-driven) close then correctly runs
+        /// the gate instead of being silently skipped by a stuck flag.
+        /// </remarks>
         internal bool ShouldCancel(CloseReason reason)
         {
-            if (_initiatedByPresenter) return false;
+            if (_initiatedByPresenter)
+            {
+                _initiatedByPresenter = false;
+                return false;
+            }
 
             var args = new WindowClosingEventArgs(reason);
             _view.OnClosing(args);

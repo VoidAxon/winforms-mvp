@@ -68,6 +68,26 @@ namespace WinformsMVP.Samples.Tests.Services
             Assert.False(gateRan, "Presenter-initiated close must not invoke the View.Closing gate.");
         }
 
+        [Fact] // The Presenter-initiated flag is consumed once: if that close is vetoed elsewhere,
+               // the next (user-driven) close must run the gate again, not be silently skipped.
+        public void PresenterInitiatedFlag_IsConsumedOnce()
+        {
+            var view = new PassiveView();
+            bool gateRan = false;
+            view.Closing += (s, e) => { gateRan = true; e.Cancel = true; };
+            var sut = new WindowCloseCoordinator(view);
+
+            sut.BeginPresenterClose();
+
+            // First close: Presenter-initiated, gate skipped.
+            Assert.False(sut.ShouldCancel(CloseReason.Normal));
+            Assert.False(gateRan);
+
+            // Second close (e.g. the previous one was vetoed by another handler): gate runs again.
+            Assert.True(sut.ShouldCancel(CloseReason.Normal));
+            Assert.True(gateRan);
+        }
+
         [Fact] // System-level closes still reach the subscriber, which decides to bypass the prompt itself.
         public void SystemShutdown_StillForwardsToSubscriber()
         {
