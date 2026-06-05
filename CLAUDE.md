@@ -58,7 +58,7 @@ TextBox NameTextBox { get; }             bool HasSelection { get; }
 - `public`: constructor (DI) only.
 - `protected override`: lifecycle hooks (`OnInitialize`, `OnViewAttached`, `RegisterViewActions`, `Cleanup`) and close overrides (`CanClose`).
 - `private`: action handlers (`OnSave`), helpers.
-- A Presenter should expose **zero public events**. For cross-presenter notifications use a Service event or `IEventAggregator`. For push-direction close results, implement `IRequestClose<TResult>` (marker, no events) and call `this.RequestClose(result, status)`.
+- A Presenter should expose **zero public events**. For cross-presenter notifications use a Service event or `IEventAggregator`. For push-direction close results, call the base `RequestClose(result, status)` / `RequestClose(status)` — no interface to implement, no extension method.
 
 **Testing rule:** never widen visibility for tests. Drive the Presenter through its real entry points so the same `CanExecute` / close logic runs:
 ```csharp
@@ -90,7 +90,7 @@ PresenterBase<TView>                       [base — do not inherit directly]
 
 - **Forms** are created late-bound by `WindowNavigator` (view injected via `IViewAttacher<TView>`).
 - **UserControls** receive their view (and optional params) via the presenter constructor and dispose with the control.
-- A presenter that returns a result implements the marker interface `IRequestClose<TResult>` (no members) and calls `this.RequestClose(result, status)` (extension method).
+- A presenter that returns a result calls the base `RequestClose(result, status)` method directly — no interface to implement, no extension method. The result type is inferred from the argument.
 - Parameterized presenters get runtime data through `IInitializable<TParam>.Initialize(param)` — **never** mix DI-resolved deps and runtime args in the constructor; use a Parameters class.
 
 Lifecycle (Forms): create presenter → Navigator creates view → `AttachView` → `OnViewAttached` → `RegisterViewActions` → framework auto-binds `View.ActionBinder` → `OnInitialize` → window shown.
@@ -148,7 +148,7 @@ Closing policy lives in the Presenter; Forms write zero closing code.
 | Direction | Initiator | Mechanism | Trigger |
 |-----------|-----------|-----------|---------|
 | **Pull**  | Framework | `protected virtual bool CanClose(CloseReason reason)` override | X / Alt+F4 / shutdown |
-| **Push**  | Presenter | `this.RequestClose(result, status)` extension (sink injected by framework) | user clicked Save/Cancel |
+| **Push**  | Presenter | base `RequestClose(result, status)` / `RequestClose(status)` method (sink injected by framework) | user clicked Save/Cancel |
 
 **Pull (veto a close):** override `CanClose(CloseReason reason)` — return `false` to block, `true` to allow. The framework calls it via `ICloseParticipant.CanCloseGate` before the window closes. For decisions that need a callback (async save, server check), override the two-argument form instead:
 ```csharp
@@ -160,7 +160,7 @@ protected override void CanClose(CloseReason reason, Action<bool> proceed)
 ```
 Never block `CloseReason.SystemShutdown` or `CloseReason.TaskManager` (return `true` immediately for those).
 
-**Push (actively close, optionally with result):** implement the marker interface `IRequestClose<TResult>` (no members) and call `this.RequestClose(result, InteractionStatus.Ok)`. For a no-result close, the base provides `protected void RequestClose(InteractionStatus status = InteractionStatus.Ok)`.
+**Push (actively close, optionally with result):** call the base `RequestClose(result, InteractionStatus.Ok)` — `TResult` is inferred from the argument, no interface to implement. For a cancel or no-result close: `RequestClose(InteractionStatus.Cancel)` (C# resolves to the no-result overload; a window whose result type is literally `InteractionStatus` would disambiguate with `RequestClose<InteractionStatus>(x)`).
 
 **Invariant:** dirty-state prompts live ONLY in `CanClose` (Pull). Push handlers finalize the dirty flag (`AcceptChanges`/`RejectChanges`) **before** calling `RequestClose`, so the framework's follow-up `CanClose` call sees clean state and does not re-prompt. WinForms types are mapped to the framework's `CloseReason` once inside the internal `CloseReasonMap` and never leak to presenters.
 

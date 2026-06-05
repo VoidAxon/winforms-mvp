@@ -19,7 +19,7 @@ This framework resolves those problems by splitting the close responsibility int
 | Direction | Initiator | Mechanism | Typical trigger |
 |-----------|-----------|-----------|----------------|
 | **Pull**  | Framework | `protected virtual bool CanClose(CloseReason reason)` override | X / Alt+F4 / shutdown |
-| **Push**  | Presenter | `this.RequestClose(result, status)` extension | user clicked Save / Cancel / OK |
+| **Push**  | Presenter | base `RequestClose(result, status)` / `RequestClose(status)` method | user clicked Save / Cancel / OK |
 
 Both paths converge on WinForms `FormClosed`. The `ShowWindowAsModal` caller always receives the same `InteractionResult<TResult>`, regardless of which direction caused the close. The mapping from WinForms `FormCloseReason` to the framework's `CloseReason` happens exactly once, inside `CloseReasonMap`, and never leaks to Presenters.
 
@@ -30,7 +30,7 @@ User clicks Save
     ↓
 OnSave() in Presenter
     ├─ commits dirty flag (AcceptChanges) — for model correctness, not to skip the gate
-    └─ this.RequestClose(result, InteractionStatus.Ok)
+    └─ RequestClose(result, InteractionStatus.Ok)
           ↓
     WindowCloseController (ICloseSink.Close)
           ├─ sets _suppressGate = true  ← skips the Pull gate once
@@ -121,32 +121,34 @@ The framework's internal async handling: if `proceed` is called synchronously (b
 
 ## Push direction — `RequestClose`
 
-Implement the marker interface `IRequestClose<TResult>` (no members — it only declares the result type) and call `this.RequestClose(result, status)`:
+Call the base `RequestClose` method directly — no interface to implement, no extension. `TResult` is inferred from the argument:
 
 ```csharp
-public class EditUserPresenter : WindowPresenterBase<IEditUserView>,
-                                  IRequestClose<UserResult>
+public class EditUserPresenter : WindowPresenterBase<IEditUserView>
 {
     private void OnSave()
     {
         var result = new UserResult { Name = View.UserName };
         _changeTracker.AcceptChanges();   // commit model state
-        this.RequestClose(result, InteractionStatus.Ok);
+        RequestClose(result, InteractionStatus.Ok);
     }
 
     private void OnCancel()
     {
         _changeTracker.RejectChanges();
-        this.RequestClose(null, InteractionStatus.Cancel);
+        RequestClose(InteractionStatus.Cancel);   // no-result overload; C# prefers the non-generic candidate
     }
 }
 ```
 
-For a no-result close, the base provides a protected helper that does not require `IRequestClose<TResult>`:
+Two overloads on `WindowPresenterBaseCore<TView>`:
 
 ```csharp
-protected void RequestClose(InteractionStatus status = InteractionStatus.Ok)
+protected void RequestClose(InteractionStatus status = InteractionStatus.Ok);                        // close, no business result
+protected void RequestClose<TResult>(TResult result, InteractionStatus status = InteractionStatus.Ok); // close with a typed result
 ```
+
+Note: `RequestClose(InteractionStatus.Cancel)` resolves to the no-result overload. A window whose result type is literally `InteractionStatus` would disambiguate with `RequestClose<InteractionStatus>(x)` — essentially never needed.
 
 ---
 
@@ -207,16 +209,6 @@ After `Connect`, you own the `Show` / `Application.Run`. The Presenter owns the 
 
 ---
 
-## `IRequestClose<TResult>` as a marker
-
-`IRequestClose<TResult>` has **no members**. It only declares the result type so that:
-
-1. `this.RequestClose(result, status)` is compile-time typed to `TResult`.
-2. `WindowNavigator.ShowWindowAsModal<TPresenter, TResult>` can infer and enforce the result type at the call site.
-
-There is no `CloseRequested` event. There is no `RaiseClose` helper to write. The framework injects the close sink automatically.
-
----
 
 ## Internal bridge — `WindowCloseController`
 

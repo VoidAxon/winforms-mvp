@@ -264,7 +264,7 @@ private void OnSave()
     var model = View.GetModel();
     SaveData(model);
     _changeTracker.AcceptChanges(model);   // commit: baseline = saved value
-    this.RequestClose(result, InteractionStatus.Ok);
+    RequestClose(result, InteractionStatus.Ok);
 }
 ```
 

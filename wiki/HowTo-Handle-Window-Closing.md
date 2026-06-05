@@ -25,8 +25,7 @@ For the design rationale (why the Push/Pull two-direction model) see [Window Clo
 A minimal dialog with no dirty-state: just push a result from the Save/Cancel handler. No `CanClose` override needed when the window should always close on X.
 
 ```csharp
-public class ConfirmDeletePresenter : WindowPresenterBase<IConfirmDeleteView>,
-                                       IRequestClose<bool>
+public class ConfirmDeletePresenter : WindowPresenterBase<IConfirmDeleteView>
 {
     protected override void RegisterViewActions()
     {
@@ -34,8 +33,8 @@ public class ConfirmDeletePresenter : WindowPresenterBase<IConfirmDeleteView>,
         Dispatcher.Register(StandardActions.Cancel, OnCancel);
     }
 
-    private void OnOk()     => this.RequestClose(true,  InteractionStatus.Ok);
-    private void OnCancel() => this.RequestClose(false, InteractionStatus.Cancel);
+    private void OnOk()     => RequestClose(true,  InteractionStatus.Ok);
+    private void OnCancel() => RequestClose(false, InteractionStatus.Cancel);
 }
 
 // Caller
@@ -53,8 +52,7 @@ When the user presses X the window closes with `result.IsCancelled`, requiring n
 Override `CanClose` to prompt when there are unsaved changes. This is the **only place** that hosts the dirty-check dialog.
 
 ```csharp
-public class EditUserPresenter : WindowPresenterBase<IEditUserView, EditUserParameters>,
-                                  IRequestClose<UserResult>
+public class EditUserPresenter : WindowPresenterBase<IEditUserView, EditUserParameters>
 {
     private ChangeTracker<UserModel> _changeTracker;
 
@@ -94,13 +92,13 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView, EditUserPara
     {
         SaveUser(_changeTracker.CurrentValue);
         _changeTracker.AcceptChanges();   // commit model state; CanClose will see clean state
-        this.RequestClose(BuildResult(), InteractionStatus.Ok);
+        RequestClose(BuildResult(), InteractionStatus.Ok);
     }
 
     private void OnCancel()
     {
         _changeTracker.RejectChanges();
-        this.RequestClose(null, InteractionStatus.Cancel);
+        RequestClose(InteractionStatus.Cancel);
     }
 
     private UserResult BuildResult() => new UserResult { /* ... */ };
@@ -114,7 +112,7 @@ The `WindowCloseController` sets an internal suppress flag when `RequestClose` i
 ```
 OnSave()
     ├─ AcceptChanges()         ← model state only
-    └─ this.RequestClose(...)
+    └─ RequestClose(...)
           ↓
     WindowCloseController.Close():  _suppressGate = true, form.Close()
           ↓
@@ -127,7 +125,7 @@ OnSave()
 
 ## Scenario 3: Dialog that returns a business result
 
-Return any type as the result. `IRequestClose<TResult>` is the compile-time contract:
+Return any type as the result. Call `RequestClose(result, status)` — `TResult` is inferred from the argument:
 
 ```csharp
 public class CustomerResult
@@ -136,19 +134,18 @@ public class CustomerResult
     public string Name { get; set; }
 }
 
-public class EditCustomerPresenter : WindowPresenterBase<IEditCustomerView>,
-                                      IRequestClose<CustomerResult>
+public class EditCustomerPresenter : WindowPresenterBase<IEditCustomerView>
 {
     private int _customerId;
 
     private void OnSave()
     {
         var result = new CustomerResult { Id = _customerId, Name = View.CustomerName };
-        this.RequestClose(result, InteractionStatus.Ok);
+        RequestClose(result, InteractionStatus.Ok);
     }
 
     private void OnCancel()
-        => this.RequestClose(null, InteractionStatus.Cancel);
+        => RequestClose(InteractionStatus.Cancel);
 }
 ```
 

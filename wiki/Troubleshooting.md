@@ -200,7 +200,7 @@ protected override bool CanClose(CloseReason reason)
 
 ### Form 側にクローズコードが必要か?
 
-**必要ない。** `IWindowView` にはクローズメンバーが存在しません。Forms にクローズ用のボイラープレートは不要です。クローズ制御はすべて Presenter の `CanClose` override と `this.RequestClose(...)` で行います。
+**必要ない。** `IWindowView` にはクローズメンバーが存在しません。Forms にクローズ用のボイラープレートは不要です。クローズ制御はすべて Presenter の `CanClose` override と基底 `RequestClose(...)` メソッドで行います。
 
 ### Save 後に「変更を破棄しますか?」と二重に聞かれる
 
@@ -211,7 +211,7 @@ private void OnSave()
 {
     SaveData();
     _changeTracker.AcceptChanges();            // model state only
-    this.RequestClose(result, InteractionStatus.Ok);
+    RequestClose(result, InteractionStatus.Ok);
 }
 ```
 

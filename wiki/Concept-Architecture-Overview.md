@@ -83,7 +83,7 @@ MVP パターン自体の思想は [MVP パターンとは](Concept-MVP-Pattern)
 | 親 Form の中に配置する UserControl | `ControlPresenterBase<TView>` |
 | 構成情報を持つ UserControl | `ControlPresenterBase<TView, TParam>` |
 
-結果を呼び出し元に返したい場合は、上記に加えて `IRequestClose<TResult>` を実装します。
+結果を呼び出し元に返したい場合は、基底 `RequestClose(result, status)` を呼ぶだけです。インターフェイスの実装は不要です。
 詳細は [ウィンドウクローズモデル](Concept-Window-Closing-Model) を参照してください。
 
 ---

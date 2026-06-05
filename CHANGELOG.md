@@ -11,7 +11,7 @@
 ### Added (追加)
 
 - **Window closing redesign — `CanClose` Pull gate** — `WindowPresenterBaseCore<TView>` に `protected virtual bool CanClose(CloseReason reason)` override と非同期バリアント `protected virtual void CanClose(CloseReason reason, Action<bool> proceed)` を追加。Presenter のクローズポリシーが一箇所に集約される。
-- **`IRequestClose<TResult>` をマーカーインターフェイスに刷新** — メンバーゼロ。Push close は `this.RequestClose(result, status)` 拡張メソッド (`RequestCloseExtensions`) で行う。型安全性は `IRequestClose<TResult>` 実装によるコンパイル時保証に移行。
+- **Push close は基底 `RequestClose` メソッドに一本化** — `WindowPresenterBaseCore<TView>` に `protected void RequestClose(InteractionStatus status = InteractionStatus.Ok)` (結果なし) と `protected void RequestClose<TResult>(TResult result, InteractionStatus status = InteractionStatus.Ok)` (型付き結果、`TResult` は引数推論) を追加。インターフェイス実装も拡張メソッドも不要になった。`IRequestClose<TResult>` マーカーインターフェイスおよび `RequestCloseExtensions` は削除。
 - **`WindowCloseController`** — 1 Form につき 1 インスタンスの内部コントローラ。Push sink (`ICloseSink`)、Pull bridge (`FormClosing`)、結果収束 (`FormClosed`) を統合。`CloseRequestedBeforeShow` / `ConvergeWithoutShow` でクローズ前表示エッジケースに対応。
 - **Adopted hosting** — `presenter.Connect(form)` / `Connect<TView, TResult>(form, onClosed)` / `Connect<TView, TParam>(form, param)` 拡張メソッド (`WindowPresenterConnectExtensions`)。シェルウィンドウ・レガシー Form 移行時にフレームワークのクローズ機構を接続できる。シングルオーナーポリシーを遵守。
 - ドキュメント体系を Diátaxis フレームワークに沿って再構築。GitHub Wiki に日本語ドキュメントを公開
@@ -30,7 +30,9 @@
 
 - **`WindowClosingEventArgs`** (BREAKING) — `IWindowView.Closing` イベントと共に削除。
 - **`CloseRequestedEventArgs<TResult>`** (BREAKING) — `IRequestClose<TResult>.CloseRequested` イベントと共に削除。
-- **`IRequestClose<TResult>.CloseRequested` イベント** (BREAKING) — `IRequestClose<TResult>` はマーカーインターフェイスに変更。代替: `this.RequestClose(result, status)`。
+- **`IRequestClose<TResult>.CloseRequested` イベント** (BREAKING) — 削除。代替: 基底 `RequestClose(result, status)` メソッド。
+- **`IRequestClose<TResult>` マーカーインターフェイス** (BREAKING) — 削除。Presenter クラスへの実装宣言は不要になった。
+- **`RequestCloseExtensions`** (BREAKING) — 削除。`RequestClose` は基底クラスのメソッドとして直接提供される。
 - **`WindowClosingBridge`** (BREAKING) — 削除。`WindowCloseController` がブリッジ機能を統合。
 - **`WindowCloseCoordinator`** (BREAKING) — 削除。`WindowCloseController` が _suppressGate フラグで同等の保証を提供。
 - `WinformsMVP.Logging.MicrosoftExtensions` アダプタパッケージ
@@ -51,7 +53,7 @@
 
 **Presenters**:
 - Replace `View.Closing += OnViewClosing` with `protected override bool CanClose(CloseReason reason)`.
-- Replace `CloseRequested?.Invoke(this, new CloseRequestedEventArgs<TResult>(result, status))` and the `public event` declaration with `this.RequestClose(result, status)` (requires `IRequestClose<TResult>` marker on the class).
+- Replace `CloseRequested?.Invoke(this, new CloseRequestedEventArgs<TResult>(result, status))` and the `public event` declaration with `RequestClose(result, status)`. Remove `, IRequestClose<TResult>` from the class declaration — it is deleted. No extension method required.
 - The `RaiseClose` helper pattern is no longer needed.
 
 **Tests**:

@@ -209,7 +209,7 @@ private void OnRefresh()
 
 **Why**: 「Tell, Don't Ask」原則。Presenter が能動的に View を更新するモデルに統一すると、View からの戻り値経路 (Ask) を必要としない。
 
-ただし `this.RequestClose(result, status)` によるクローズ要求は例外 (フレームワークが `InteractionResult<TResult>` に変換して呼び出し元に返す。View への戻り値ではない)。詳しくは [ウィンドウクローズモデル](Concept-Window-Closing-Model)。
+ただし基底 `RequestClose(result, status)` によるクローズ要求は例外 (フレームワークが `InteractionResult<TResult>` に変換して呼び出し元に返す。View への戻り値ではない)。詳しくは [ウィンドウクローズモデル](Concept-Window-Closing-Model)。
 
 ---
 
@@ -440,7 +440,7 @@ View.DisplayOrders(orders);
 「公開メンバーの白名単」ではなく **1 つの不変量** (*Presenter のユースケース行動は正当な通路 = ViewAction + ライフサイクル (構築 / `Initialize` / `Dispose`) からのみ駆動される*) で、**入站と出站で非対称に**適用します:
 
 - **入站 = 命令面 → 厳しく圧縮する。** handler / helper は必ず `private` (非協商)。`public Save()` は Dispatcher の `CanExecute`・ミドルウェアを迂回します。
-- **出站 = 通知面 → 本ルールの対象外** ([Rule 17](#rule-17-presenter-イベントの可視性) が担う)。クローズ結果は `IRequestClose<TResult>` マーカーを実装して `this.RequestClose(result, status)` を呼ぶだけ — `public` なイベントを宣言する必要はない。
+- **出站 = 通知面 → 本ルールの対象外** ([Rule 17](#rule-17-presenter-イベントの可視性) が担う)。クローズ結果は基底 `RequestClose(result, status)` を呼ぶだけ — インターフェイス実装も `public` なイベント宣言も不要。
 - **親→子の狭いコマンドは許容される例外。** 露出形式は `internal` 既定、縫い目が要るときだけコマンドインターフェイス — **接口は必須ではありません** ([Rule 10](#rule-10-view-にアクセスするのは-presenter-だけ))。
 
 > 📍 **本文・可視性テーブル・NG/OK 例の正準は [Reference: Presenter 基底クラス](Reference-Presenter-Base-Classes#公開-api-は最小限に保つ)** にあります。Design-Rules 側はこのルール文のみを保持します。
@@ -453,13 +453,13 @@ View.DisplayOrders(orders);
 
 > **Presenter のイベントは「上向きの出力ポート / 単発の結果通知」に限る。共有・観測可能なステートを Presenter のイベントで通知しない (それは Model / Service の責務)。**
 
-これは [Rule 16](#rule-16-presenter-メソッドの可視性) の不変量の**出站側の系**です。ウィンドウのクローズ結果は `IRequestClose<TResult>` マーカーを実装して `this.RequestClose(result, status)` を呼ぶことで返します — `public` なイベントを宣言する必要はなく、フレームワークが `InteractionResult<TResult>` に変換して呼び出し元へ返します。禁じるのは Presenter を「観測されるステート保持者」にすること — `IsDirtyChanged` のような状態イベントを生やすと、本来 Model / Service が持つべき観測点が Presenter に漏れます。
+これは [Rule 16](#rule-16-presenter-メソッドの可視性) の不変量の**出站側の系**です。ウィンドウのクローズ結果は基底 `RequestClose(result, status)` を呼ぶことで返します — インターフェイス実装も `public` なイベント宣言も不要で、フレームワークが `InteractionResult<TResult>` に変換して呼び出し元へ返します。禁じるのは Presenter を「観測されるステート保持者」にすること — `IsDirtyChanged` のような状態イベントを生やすと、本来 Model / Service が持つべき観測点が Presenter に漏れます。
 
 通知の性質ごとに手段を選びます:
 
 | 通知したいこと | 使う手段 |
 |------------|------|
-| ウィンドウの結果 (上向き・単発) | `IRequestClose<TResult>` マーカーを実装し `this.RequestClose(result, status)` を呼ぶ (フレームワークが `InteractionResult<TResult>` に変換して呼び出し元へ返す) |
+| ウィンドウの結果 (上向き・単発) | 基底 `RequestClose(result, status)` を呼ぶ (インターフェイス実装不要。フレームワークが `InteractionResult<TResult>` に変換して呼び出し元へ返す) |
 | 親子間の連携 (親 → 子) | 親が子 Presenter にコマンドを送る (既定 `internal` メソッド、縫い目が要るときコマンドインターフェイス。[Rule 10](#rule-10-view-にアクセスするのは-presenter-だけ) 参照) |
 | 共有・観測されるステート | Service / Store に持たせて、その変更通知イベントを発行 |
 | モジュール横断 | `IEventAggregator.Publish` |
@@ -473,9 +473,9 @@ public class BadPresenter : WindowPresenterBase<IMyView>
 }
 
 // ✅ Good — 公開イベントはなし。結果はフレームワーク経由で返る。
-public class GoodPresenter : WindowPresenterBase<IMyView>, IRequestClose<MyResult>
+public class GoodPresenter : WindowPresenterBase<IMyView>
 {
-    private void OnSave() => this.RequestClose(BuildResult(), InteractionStatus.Ok);
+    private void OnSave() => RequestClose(BuildResult(), InteractionStatus.Ok);
 }
 ```
 
@@ -529,9 +529,9 @@ public class GoodPresenter : WindowPresenterBase<IMyView>, IRequestClose<MyResul
 - [ ] 業務ロジックのみで UI の見せ方を指示しない (Rule 3)
 - [ ] WinForms 型を扱わない (Rule 4)
 - [ ] イベントハンドラは `OnXxx` 命名 (Rule 5)
-- [ ] メソッドは `void` (`IRequestClose` 等の例外を除く) (Rule 7)
+- [ ] メソッドは `void` (Rule 7)
 - [ ] View には `IXxxView` 越しにアクセス (Rule 8)
-- [ ] 公開メンバーはコンストラクタのみ (`IRequestClose<TResult>` なら + マーカー実装) (Rule 16・17)
+- [ ] 公開メンバーはコンストラクタのみ (Rule 16・17)
 
 ### モデル / データ
 - [ ] 状態は Presenter の Model フィールドに、UI ではなく Model が Single Source of Truth (Rule 13)

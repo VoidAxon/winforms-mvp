@@ -121,9 +121,12 @@ DI 管理の依存を持つ子 Presenter を生成するためのファクトリ
 
 詳細: [Dependency Injection § IPresenterFactory](Reference-DependencyInjection#ipresenterfactory-子-presenter-の生成)
 
-### IRequestClose
+### RequestClose
 
-`IRequestClose<TResult>`。業務結果を呼び出し元に返したい Presenter が実装するマーカーインターフェイス。メンバーは 0 個 — 結果型 `TResult` を宣言するだけ。`this.RequestClose(result, status)` 拡張メソッドが型安全に呼べるようになる。
+`WindowPresenterBaseCore<TView>` が提供する Push 方向のクローズメソッド。インターフェイスの実装不要。2 つのオーバーロードがある:
+
+- `protected void RequestClose(InteractionStatus status = InteractionStatus.Ok)` — 業務結果なしで閉じる
+- `protected void RequestClose<TResult>(TResult result, InteractionStatus status = InteractionStatus.Ok)` — 型付き業務結果を返して閉じる (`TResult` は引数から推論される)
 
 詳細: [Window Closing Model](Concept-Window-Closing-Model)
 
@@ -135,7 +138,7 @@ DI 管理の依存を持つ子 Presenter を生成するためのファクトリ
 
 ### InteractionStatus
 
-`InteractionStatus` enum。`Ok` / `Cancel` / `Error` の値を持つ。`this.RequestClose(result, status)` や `ICloseSink.Close(result, status)` の引数として使う。
+`InteractionStatus` enum。`Ok` / `Cancel` / `Error` の値を持つ。`RequestClose(result, status)` や `ICloseSink.Close(result, status)` の引数として使う。
 
 ### IViewBase / IActionableView / IWindowView
 
@@ -213,7 +216,7 @@ MVP の中央コンポーネント。ユースケースロジックを持ち、V
 
 ### Push (方向)
 
-ウィンドウクローズモデルで、Presenter (`OnSave` / `OnCancel` 等) が起点となる方向。`this.RequestClose(result, status)` 拡張メソッドで通知する。
+ウィンドウクローズモデルで、Presenter (`OnSave` / `OnCancel` 等) が起点となる方向。基底 `RequestClose(result, status)` / `RequestClose(status)` メソッドで通知する。
 
 ### RejectChanges
 

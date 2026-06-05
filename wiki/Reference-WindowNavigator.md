@@ -14,7 +14,7 @@
 - [シングルトンウィンドウ](#シングルトンウィンドウ)
 - [Fluent API: TPresenter 型推論](#fluent-api-tpresenter-型推論)
 - [パラメータ vs DI: 役割分担](#パラメータ-vs-di-役割分担)
-- [結果の受け取り (IRequestClose 連携)](#結果の受け取り-irequestclose-連携)
+- [結果の受け取り (RequestClose)](#結果の受け取り-requestclose)
 - [Presenter からのアクセス](#presenter-からのアクセス)
 - [テスト時のモック](#テスト時のモック)
 - [関連ページ](#関連ページ)
@@ -28,11 +28,10 @@
 ```
 WindowNavigator
    ├── IViewMappingRegister      (View インターフェイス → Form クラスの解決)
-   ├── IPresenter                (起動対象の Presenter インスタンス)
-   └── IRequestClose<TResult>    (結果を返す Presenter なら追加で実装)
+   └── IPresenter                (起動対象の Presenter インスタンス)
 ```
 
-> ウィンドウクローズは `WindowCloseController` が管理します (1 Form に 1 インスタンス)。Pull ゲート (`FormClosing`) はプレゼンターの `CanClose` override に転送され、Push ゲート (`this.RequestClose(...)`) はクローズシンクを通じて同じコントローラに到達します。Push 起点の閉じは Pull ゲートをスキップします (`_suppressGate` フラグ)。Forms に閉じるコードは不要です。
+> ウィンドウクローズは `WindowCloseController` が管理します (1 Form に 1 インスタンス)。Pull ゲート (`FormClosing`) はプレゼンターの `CanClose` override に転送され、Push ゲート (基底 `RequestClose(...)`) はクローズシンクを通じて同じコントローラに到達します。Push 起点の閉じは Pull ゲートをスキップします (`_suppressGate` フラグ)。Forms に閉じるコードは不要です。
 
 `IViewMappingRegister` の構成方法は [ViewMappingRegister](Reference-ViewMappingRegister) を、結果の伝達設計は [ウィンドウクローズモデル](Concept-Window-Closing-Model) を参照してください。
 
@@ -274,22 +273,21 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView>
 
 ---
 
-## 結果の受け取り (IRequestClose 連携)
+## 結果の受け取り (RequestClose)
 
-業務結果を呼び出し元に返したい Presenter は `IRequestClose<TResult>` マーカーを実装します。`IRequestClose<TResult>` にメンバーはありません — 結果型を宣言するためだけに存在します。結果を返すには `this.RequestClose(result, status)` 拡張メソッドを呼びます:
+業務結果を呼び出し元に返したい Presenter は、基底 `RequestClose(result, status)` を呼ぶだけです — インターフェイスの実装も拡張メソッドも不要。`TResult` は引数から推論されます:
 
 ```csharp
-public class EditUserPresenter : WindowPresenterBase<IEditUserView, EditUserParameters>,
-                                  IRequestClose<UserResult>
+public class EditUserPresenter : WindowPresenterBase<IEditUserView, EditUserParameters>
 {
     private void OnSave()
     {
         SaveUser(View.UserName);
-        this.RequestClose(new UserResult { UserId = _userId }, InteractionStatus.Ok);
+        RequestClose(new UserResult { UserId = _userId }, InteractionStatus.Ok);
     }
 
     private void OnCancel()
-        => this.RequestClose(null, InteractionStatus.Cancel);
+        => RequestClose(InteractionStatus.Cancel);
 }
 ```
 
@@ -307,7 +305,7 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView, EditUserPara
 
 ### エラーの2分類: 業務エラー vs 設定エラー
 
-`InteractionResult.IsError` は **業務側のエラー** を表します。これは Presenter 自身が `IRequestClose` で `InteractionStatus.Error` を push したときにだけ発生します。
+`InteractionResult.IsError` は **業務側のエラー** を表します。これは Presenter 自身が `RequestClose(result, InteractionStatus.Error)` を呼んだときにだけ発生します。
 
 一方、**ビュー解決・設定の誤り** は `IsError` では返らず、**例外として送出されます** (コードベースの規約: 設定/プログラミングミスは握りつぶさず大きく失敗させる):
 
@@ -398,9 +396,9 @@ public void OnCompose_OpensComposeWindow()
 
 - [Presenter 基底クラス](Reference-Presenter-Base-Classes) — `Navigator` プロパティの位置づけ
 - [ViewMappingRegister](Reference-ViewMappingRegister) — Navigator が依存する View 解決の仕組み
-- [ウィンドウクローズモデル](Concept-Window-Closing-Model) — `IRequestClose<TResult>` と `InteractionResult<TResult>` の詳細
+- [ウィンドウクローズモデル](Concept-Window-Closing-Model) — `RequestClose` / `CanClose` と `InteractionResult<TResult>` の詳細
 - [Dependency Injection](Reference-DependencyInjection) — `IPresenterFactory` で子 Presenter を DI 経由で解決する方法
 - [HowTo: ウィンドウクローズを扱う](HowTo-Handle-Window-Closing) — ダーティチェック・保存確認の実装
 - サンプル:
   - `samples/WinformsMVP.Samples/NavigatorDemo/` — Modal / Non-Modal / シングルトン
-  - `samples/WinformsMVP.Samples/WindowClosingDemo/` — `IRequestClose<TResult>` の完全例
+  - `samples/WinformsMVP.Samples/WindowClosingDemo/` — `RequestClose` / `CanClose` の完全例
