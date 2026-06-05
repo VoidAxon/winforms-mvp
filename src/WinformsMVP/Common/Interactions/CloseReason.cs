@@ -6,8 +6,8 @@ namespace WinformsMVP.Common
     /// WinForms types into Presenter code.
     /// </summary>
     /// <remarks>
-    /// Presenters subscribed to <see cref="WinformsMVP.MVP.Views.IWindowView.Closing"/>
-    /// should inspect this value before deciding whether to prompt for unsaved changes:
+    /// Presenters that override <c>CanClose(CloseReason)</c> should inspect this value before
+    /// deciding whether to veto the close:
     /// <list type="bullet">
     ///   <item><description><see cref="Normal"/>: standard close path — perform dirty-data checks here.</description></item>
     ///   <item><description><see cref="SystemShutdown"/> / <see cref="TaskManager"/>: do not prompt; let the process exit.</description></item>
