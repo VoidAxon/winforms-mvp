@@ -15,15 +15,12 @@ namespace WinformsMVP.Samples.Tests.Services
     public class WindowCloseControllerTests
     {
         // A Form that also satisfies IWindowView so the controller's `view is Form` check passes.
-        // NOTE: IWindowView on this branch still declares Closing/OnClosing, implement them
-        // (they are unused by the controller, which talks to ICloseParticipant, not the view).
+        // The controller talks to ICloseParticipant, not the view, so the view stays slim.
         private sealed class FakeWindow : Form, IWindowView
         {
             public IViewActionBinder ActionBinder => NullViewActionBinder.Instance;
             bool IWindowView.IsDisposed => base.IsDisposed;
             void IWindowView.Activate() => base.Activate();
-            public event EventHandler<WinformsMVP.Common.Events.WindowClosingEventArgs> Closing;
-            public void OnClosing(WinformsMVP.Common.Events.WindowClosingEventArgs args) => Closing?.Invoke(this, args);
         }
 
         private sealed class FakeParticipant : ICloseParticipant, IDisposable

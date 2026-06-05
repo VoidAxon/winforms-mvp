@@ -126,8 +126,6 @@ namespace WinformsMVP.Samples.Tests.ViewActions
             public bool IsDisposed { get; private set; }
             public IntPtr Handle => IntPtr.Zero;
             public void Activate() { }
-            public event EventHandler<WinformsMVP.Common.Events.WindowClosingEventArgs> Closing;
-            public void OnClosing(WinformsMVP.Common.Events.WindowClosingEventArgs args) => Closing?.Invoke(this, args);
             public IViewActionBinder ActionBinder => NullViewActionBinder.Instance;
         }
 

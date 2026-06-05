@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using WinformsMVP.Common;
-using WinformsMVP.Common.Events;
 using WinformsMVP.MVP.Presenters;
 using WinformsMVP.MVP.ViewActions;
 using WinformsMVP.MVP.Views;
@@ -24,14 +23,6 @@ namespace WinformsMVP.Samples.Tests.Presenters
             public IntPtr Handle => IntPtr.Zero;
             public IViewActionBinder ActionBinder => NullViewActionBinder.Instance;
             public void Activate() { }
-
-            private EventHandler<WindowClosingEventArgs> _closing;
-            event EventHandler<WindowClosingEventArgs> IWindowView.Closing
-            {
-                add => _closing += value;
-                remove => _closing -= value;
-            }
-            void IWindowView.OnClosing(WindowClosingEventArgs args) => _closing?.Invoke(this, args);
         }
 
         private sealed class RecordingSink : ICloseSink

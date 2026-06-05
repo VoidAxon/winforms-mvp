@@ -1,6 +1,7 @@
 using System;
+using System.Collections.Generic;
 using WinformsMVP.Common;
-using WinformsMVP.Common.Events;
+using WinformsMVP.MVP.Presenters;
 using WinformsMVP.MVP.Views;
 using WinformsMVP.MVP.ViewActions;
 using WinformsMVP.Samples.Tests.Mocks;
@@ -14,12 +15,20 @@ namespace WinformsMVP.Samples.Tests.Presenters
     /// Tests for the minimal Window Closing demo. These tests serve double-duty as
     /// documentation: they show the canonical interaction patterns for testing both
     /// the Push and Pull directions of the framework's close model.
+    /// <list type="bullet">
+    ///   <item><description><b>Pull</b>: drive the presenter's <c>CanClose(reason)</c> gate via
+    ///     <see cref="ICloseParticipant.CanCloseGate"/> and assert allow/block.</description></item>
+    ///   <item><description><b>Push</b>: bind a recording <see cref="ICloseSink"/>, dispatch the
+    ///     Save/Cancel action, and assert the pushed result + status.</description></item>
+    /// </list>
     /// </summary>
     public class WindowClosingDemoPresenterTests
     {
         #region Test scaffolding
 
-        private class MockView : IWindowClosingDemoView
+        // Slim view — closing is the presenter's concern (CanClose), so IWindowClosingDemoView
+        // exposes no closing members.
+        private sealed class MockView : IWindowClosingDemoView
         {
             public string Text { get; set; } = "";
             public string LastStatus { get; private set; }
@@ -31,29 +40,26 @@ namespace WinformsMVP.Samples.Tests.Presenters
             public void Activate() { }
 
             public event EventHandler EditChanged;
-            public event EventHandler<WindowClosingEventArgs> Closing;
 
-            public void OnClosing(WindowClosingEventArgs args)
-                => Closing?.Invoke(this, args);
-
-            // Test helpers.
+            // Test helper.
             public void SimulateEdit(string newText)
             {
                 Text = newText;
                 EditChanged?.Invoke(this, EventArgs.Empty);
             }
+        }
 
-            public WindowClosingEventArgs RaiseClosing(CloseReason reason = CloseReason.Normal)
-            {
-                var args = new WindowClosingEventArgs(reason);
-                OnClosing(args);
-                return args;
-            }
+        private sealed class RecordingSink : ICloseSink
+        {
+            public readonly List<(object result, InteractionStatus status)> Closed
+                = new List<(object, InteractionStatus)>();
+            public void Close(object result, InteractionStatus status) => Closed.Add((result, status));
         }
 
         private readonly MockPlatformServices _platform = new MockPlatformServices();
         private readonly MockView _view = new MockView();
         private readonly WindowClosingDemoPresenter _presenter;
+        private readonly RecordingSink _sink = new RecordingSink();
 
         public WindowClosingDemoPresenterTests()
         {
@@ -62,133 +68,120 @@ namespace WinformsMVP.Samples.Tests.Presenters
 
             _presenter.AttachView(_view);
             _presenter.Initialize();
+            ((ICloseParticipant)_presenter).BindCloseSink(_sink);
+        }
+
+        /// <summary>Drive the Pull gate for <paramref name="reason"/> and return whether it allowed the close.</summary>
+        private bool RunCanClose(CloseReason reason = CloseReason.Normal)
+        {
+            bool allow = false;
+            ((ICloseParticipant)_presenter).CanCloseGate(reason, ok => allow = ok);
+            return allow;
         }
 
         #endregion
 
-        // ─── Pull direction ──────────────────────────────────────────────────────────
+        // ─── Pull direction (CanClose) ───────────────────────────────────────────────
 
         [Fact]
-        public void Closing_WithoutEdits_AllowsClose()
+        public void CanClose_WithoutEdits_AllowsClose()
         {
-            var args = _view.RaiseClosing();
-
-            Assert.False(args.Cancel);
+            Assert.True(RunCanClose());
             Assert.False(_platform.MessageService.ConfirmDialogShown);
         }
 
         [Fact]
-        public void Closing_AfterEdit_UserConfirmsDiscard_AllowsClose()
+        public void CanClose_AfterEdit_UserConfirmsDiscard_AllowsClose()
         {
             _view.SimulateEdit("modified");
             _platform.MessageService.ConfirmYesNoResult = true;  // "discard"
 
-            var args = _view.RaiseClosing();
-
-            Assert.False(args.Cancel);
+            Assert.True(RunCanClose());
             Assert.True(_platform.MessageService.ConfirmDialogShown);
         }
 
         [Fact]
-        public void Closing_AfterEdit_UserDeclinesDiscard_BlocksClose()
+        public void CanClose_AfterEdit_UserDeclinesDiscard_BlocksClose()
         {
             _view.SimulateEdit("modified");
             _platform.MessageService.ConfirmYesNoResult = false;  // "no, keep editing"
 
-            var args = _view.RaiseClosing();
-
-            Assert.True(args.Cancel);
+            Assert.False(RunCanClose());
             Assert.Equal("Close cancelled. Continue editing.", _view.LastStatus);
         }
 
         [Fact]
-        public void Closing_OnSystemShutdown_BypassesPrompt()
+        public void CanClose_OnSystemShutdown_BypassesPrompt()
         {
             _view.SimulateEdit("modified");
             _platform.MessageService.ConfirmYesNoResult = false;  // would block if asked
 
-            var args = _view.RaiseClosing(CloseReason.SystemShutdown);
-
-            Assert.False(args.Cancel);
+            Assert.True(RunCanClose(CloseReason.SystemShutdown));
             Assert.False(_platform.MessageService.ConfirmDialogShown);
         }
 
         [Fact]
-        public void Closing_OnTaskManagerKill_BypassesPrompt()
+        public void CanClose_OnTaskManagerKill_BypassesPrompt()
         {
             _view.SimulateEdit("modified");
             _platform.MessageService.ConfirmYesNoResult = false;
 
-            var args = _view.RaiseClosing(CloseReason.TaskManager);
-
-            Assert.False(args.Cancel);
+            Assert.True(RunCanClose(CloseReason.TaskManager));
             Assert.False(_platform.MessageService.ConfirmDialogShown);
         }
 
-        // ─── Push direction ──────────────────────────────────────────────────────────
+        // ─── Push direction (RequestClose via Save/Cancel) ───────────────────────────
 
         [Fact]
-        public void Save_FiresCloseRequestedWithText()
+        public void Save_PushesTextWithOkStatus()
         {
             _view.SimulateEdit("hello");
-
-            CloseRequestedEventArgs<string> captured = null;
-            _presenter.CloseRequested += (s, e) => captured = e;
 
             _presenter.Dispatch(WindowClosingDemoActions.Save);
 
-            Assert.NotNull(captured);
-            Assert.Equal("hello", captured.Result);
-            Assert.Equal(InteractionStatus.Ok, captured.Status);
+            Assert.Single(_sink.Closed);
+            Assert.Equal("hello", _sink.Closed[0].result);
+            Assert.Equal(InteractionStatus.Ok, _sink.Closed[0].status);
         }
 
         [Fact]
-        public void Cancel_FiresCloseRequestedWithCancelStatus()
+        public void Cancel_PushesCancelStatus()
         {
             _view.SimulateEdit("hello");
 
-            CloseRequestedEventArgs<string> captured = null;
-            _presenter.CloseRequested += (s, e) => captured = e;
-
             _presenter.Dispatch(WindowClosingDemoActions.Cancel);
 
-            Assert.NotNull(captured);
-            Assert.Equal(InteractionStatus.Cancel, captured.Status);
+            Assert.Single(_sink.Closed);
+            Assert.Equal(InteractionStatus.Cancel, _sink.Closed[0].status);
         }
 
         // ─── Push then Pull (single-source-of-truth invariant) ───────────────────────
 
         /// <summary>
-        /// After Save (Push direction), the framework will call Form.Close() which fires
-        /// IWindowView.Closing. At that point the dirty flag must already be cleared so
-        /// that the OnViewClosing handler observes "no changes" and does not prompt —
-        /// otherwise the user gets an unwanted confirm popup after clicking Save.
+        /// After Save (Push), the framework closes the form, which runs the Pull gate again.
+        /// Save finalizes the baseline before pushing, so the follow-up <c>CanClose</c> observes
+        /// a clean state and allows the close without re-prompting — otherwise the user would get
+        /// an unwanted confirm popup after clicking Save.
         /// </summary>
         [Fact]
-        public void Save_ThenClosing_DoesNotPrompt()
+        public void Save_ThenCanClose_DoesNotPrompt()
         {
             _view.SimulateEdit("hello");
 
             _presenter.Dispatch(WindowClosingDemoActions.Save);
-            // Simulate framework follow-up Closing after RequestClose.
-            var args = _view.RaiseClosing();
-
-            Assert.False(args.Cancel);
+            // Simulate framework follow-up close gate after RequestClose.
+            Assert.True(RunCanClose());
             Assert.False(_platform.MessageService.ConfirmDialogShown);
         }
 
-        /// <summary>
-        /// Same single-source-of-truth invariant for Cancel.
-        /// </summary>
+        /// <summary>Same single-source-of-truth invariant for Cancel.</summary>
         [Fact]
-        public void Cancel_ThenClosing_DoesNotPrompt()
+        public void Cancel_ThenCanClose_DoesNotPrompt()
         {
             _view.SimulateEdit("hello");
 
             _presenter.Dispatch(WindowClosingDemoActions.Cancel);
-            var args = _view.RaiseClosing();
-
-            Assert.False(args.Cancel);
+            Assert.True(RunCanClose());
             Assert.False(_platform.MessageService.ConfirmDialogShown);
         }
     }

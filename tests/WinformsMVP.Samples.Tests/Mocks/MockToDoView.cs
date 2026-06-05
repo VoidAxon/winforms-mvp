@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using WinformsMVP.Common.Events;
 using WinformsMVP.Samples.ToDoDemo;
 using WinformsMVP.MVP.ViewActions;
 
@@ -29,12 +28,6 @@ namespace WinformsMVP.Samples.Tests.Mocks
         {
             MethodCalls.Add("Activate()");
         }
-
-        // IWindowView.Closing — tests can call RaiseClosing(args) to simulate the framework
-        // triggering a close (e.g. user clicking X).
-        public event EventHandler<WindowClosingEventArgs> Closing;
-        public void OnClosing(WindowClosingEventArgs args) => Closing?.Invoke(this, args);
-        public void RaiseClosing(WindowClosingEventArgs args) => OnClosing(args);
 
         // IToDoView implementation
         public string TaskText { get; set; }

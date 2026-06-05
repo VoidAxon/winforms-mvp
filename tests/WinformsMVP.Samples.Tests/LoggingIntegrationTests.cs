@@ -1,7 +1,6 @@
 using System;
 using System.Linq;
 using WinformsMVP.Logging;
-using WinformsMVP.Common.Events;
 using WinformsMVP.MVP.Presenters;
 using WinformsMVP.MVP.Views;
 using WinformsMVP.MVP.ViewActions;
@@ -29,9 +28,6 @@ namespace WinformsMVP.Samples.Tests
             public bool IsDisposed { get; private set; }
             public void Activate() { }
             public IntPtr Handle => IntPtr.Zero;
-
-            public event EventHandler<WindowClosingEventArgs> Closing;
-            public void OnClosing(WindowClosingEventArgs args) => Closing?.Invoke(this, args);
         }
 
         [Fact]

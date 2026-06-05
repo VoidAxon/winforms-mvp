@@ -1,7 +1,6 @@
 using System;
 using System.Windows.Forms;
 using WinformsMVP.Common;
-using WinformsMVP.Common.Events;
 using WinformsMVP.MVP.Presenters;
 using WinformsMVP.MVP.ViewActions;
 using WinformsMVP.MVP.Views;
@@ -22,9 +21,6 @@ namespace WinformsMVP.Samples.Tests.Presenters
             public IntPtr Handle => IntPtr.Zero;
             public IViewActionBinder ActionBinder => NullViewActionBinder.Instance;
             public void Activate() { }
-
-            public event EventHandler<WindowClosingEventArgs> Closing;
-            void IWindowView.OnClosing(WindowClosingEventArgs args) => Closing?.Invoke(this, args);
         }
 
         private sealed class FakePresenter : WindowPresenterBase<IFakeView>
@@ -48,9 +44,6 @@ namespace WinformsMVP.Samples.Tests.Presenters
             public IViewActionBinder ActionBinder => NullViewActionBinder.Instance;
             bool IWindowView.IsDisposed => base.IsDisposed;
             void IWindowView.Activate() => base.Activate();
-            // IWindowView still declares Closing/OnClosing on this branch — satisfy them.
-            public event EventHandler<WindowClosingEventArgs> Closing;
-            public void OnClosing(WindowClosingEventArgs args) => Closing?.Invoke(this, args);
         }
 
         private sealed class ResultPresenter : WindowPresenterBase<IFakeView>, IRequestClose<string>

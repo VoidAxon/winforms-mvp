@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using WinformsMVP.Common.Events;
 using WinformsMVP.MVP.ViewActions;
 using WinformsMVP.Samples.EmailDemo;
 using WinformsMVP.Samples.EmailDemo.Models;
@@ -33,11 +32,6 @@ namespace WinformsMVP.Samples.Tests.Mocks
         {
             MethodCalls.Add("Activate()");
         }
-
-        // IWindowView.Closing
-        public event EventHandler<WindowClosingEventArgs> Closing;
-        public void OnClosing(WindowClosingEventArgs args) => Closing?.Invoke(this, args);
-        public void RaiseClosing(WindowClosingEventArgs args) => OnClosing(args);
 
         // IMainEmailView implementation
         public IEnumerable<EmailMessage> Emails

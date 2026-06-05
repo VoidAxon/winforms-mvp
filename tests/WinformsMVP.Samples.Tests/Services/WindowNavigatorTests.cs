@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Windows.Forms;
-using WinformsMVP.Common.Events;
 using WinformsMVP.MVP.Presenters;
 using WinformsMVP.MVP.ViewActions;
 using WinformsMVP.MVP.Views;
@@ -58,8 +57,6 @@ namespace WinformsMVP.Samples.Tests.Services
             public IntPtr Handle => IntPtr.Zero;
             public IViewActionBinder ActionBinder => NullViewActionBinder.Instance;
             public void Activate() { }
-            public event EventHandler<WindowClosingEventArgs> Closing { add { } remove { } }
-            public void OnClosing(WindowClosingEventArgs args) { }
         }
 
         private static WindowNavigator NewNavigatorWithEmptyRegistry()
@@ -70,13 +67,6 @@ namespace WinformsMVP.Samples.Tests.Services
         private sealed class TestNavForm : Form, ITestNavView
         {
             public IViewActionBinder ActionBinder => NullViewActionBinder.Instance;
-            private EventHandler<WindowClosingEventArgs> _closing;
-            event EventHandler<WindowClosingEventArgs> IWindowView.Closing
-            {
-                add { _closing += value; }
-                remove { _closing -= value; }
-            }
-            void IWindowView.OnClosing(WindowClosingEventArgs args) => _closing?.Invoke(this, args);
         }
 
         /// <summary>Presenter whose <c>OnInitialize</c> throws, exercising the init-failure path.</summary>

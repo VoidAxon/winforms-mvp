@@ -1,9 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Xunit;
 using WinformsMVP.Common;
-using WinformsMVP.Common.Events;
+using WinformsMVP.MVP.Presenters;
 using WinformsMVP.Samples.EmailDemo;
 using WinformsMVP.Samples.EmailDemo.Models;
 using WinformsMVP.Samples.Tests.Mocks;
@@ -30,6 +31,19 @@ namespace WinformsMVP.Samples.Tests.Presenters
         private MockComposeEmailView _mockView;
         private MockEmailRepository _mockRepository;
         private ComposeEmailPresenter _presenter;
+        private RecordingSink _sink;
+
+        /// <summary>
+        /// Records every Push close the presenter routes through the framework sink. The result
+        /// type is <c>bool</c> (sent? true/false), matching <c>IRequestClose&lt;bool&gt;</c>.
+        /// </summary>
+        private sealed class RecordingSink : ICloseSink
+        {
+            public readonly List<(object result, InteractionStatus status)> Closed
+                = new List<(object, InteractionStatus)>();
+            public bool Any => Closed.Count > 0;
+            public void Close(object result, InteractionStatus status) => Closed.Add((result, status));
+        }
 
         public ComposeEmailPresenterTests()
         {
@@ -55,6 +69,10 @@ namespace WinformsMVP.Samples.Tests.Presenters
             // 5. Attach view and initialize with default parameters (New mode)
             _presenter.AttachView(_mockView);
             _presenter.Initialize(new ComposeEmailParameters { Mode = ComposeMode.New });
+
+            // 6. Bind a recording sink so Push closes (RequestClose) can be observed.
+            _sink = new RecordingSink();
+            ((ICloseParticipant)_presenter).BindCloseSink(_sink);
 
             // Clear initialization calls for clean test assertions
             _mockServices.Reset();
@@ -265,9 +283,6 @@ namespace WinformsMVP.Samples.Tests.Presenters
             _mockView.Body = "Test body content";
             _mockRepository.SendEmailAsyncResult = true;
 
-            bool closeRequested = false;
-            _presenter.CloseRequested += (s, e) => closeRequested = true;
-
             // Act
             _presenter.Dispatch(ComposeEmailActions.Send);
 
@@ -276,7 +291,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
 
             // Assert
             Assert.Contains("SendEmailAsync(Test Email)", _mockRepository.MethodCalls);
-            Assert.True(closeRequested);  // Window should close on successful send
+            Assert.True(_sink.Any);  // Window should close on successful send
         }
 
         /// <summary>
@@ -472,20 +487,9 @@ namespace WinformsMVP.Samples.Tests.Presenters
         [Fact]
         public void OnDiscard_WithoutUserChanges_RequestsClose()
         {
-            // Arrange - fresh presenter with no user-made changes
-            bool closeRequested = false;
-            bool resultReceived = false;
-            bool resultValue = true;
-
-            _presenter.CloseRequested += (s, e) =>
-            {
-                closeRequested = true;
-                resultReceived = true;
-                resultValue = e.Result;
-            };
-
-            // If ChangeTracker thinks there are changes, user needs to confirm
-            // If no changes, should close immediately
+            // Arrange - fresh presenter with no user-made changes.
+            // If ChangeTracker thinks there are changes, user needs to confirm.
+            // If no changes, should close immediately.
             if (_mockView.IsDirty)
             {
                 _mockServices.MessageService.ConfirmYesNoResult = true;  // User confirms discard
@@ -494,10 +498,10 @@ namespace WinformsMVP.Samples.Tests.Presenters
             // Act
             _presenter.Dispatch(ComposeEmailActions.Discard);
 
-            // Assert - close should be requested
-            Assert.True(closeRequested);
-            Assert.True(resultReceived);
-            Assert.False(resultValue);  // Result should be false (not sent)
+            // Assert - close should be pushed with result false (not sent).
+            Assert.Single(_sink.Closed);
+            Assert.Equal(false, _sink.Closed[0].result);
+            Assert.Equal(InteractionStatus.Cancel, _sink.Closed[0].status);
         }
 
         /// <summary>
@@ -511,15 +515,12 @@ namespace WinformsMVP.Samples.Tests.Presenters
             _mockView.SimulateEmailDataChange();
             _mockServices.MessageService.ConfirmYesNoResult = true;
 
-            bool closeRequested = false;
-            _presenter.CloseRequested += (s, e) => closeRequested = true;
-
             // Act
             _presenter.Dispatch(ComposeEmailActions.Discard);
 
-            // Assert - should show confirmation dialog
+            // Assert - should show confirmation dialog and push the close.
             Assert.True(_mockServices.MessageService.ConfirmDialogShown);
-            Assert.True(closeRequested);
+            Assert.True(_sink.Any);
         }
 
         #endregion
@@ -527,20 +528,20 @@ namespace WinformsMVP.Samples.Tests.Presenters
         #region Window Closing Tests (Pull direction — user clicks X)
 
         /// <summary>
-        /// Simulates the framework raising <c>IWindowView.Closing</c> (what happens when the
-        /// user clicks X, Alt+F4, or the framework calls Form.Close() in response to a
-        /// Presenter-initiated <c>CloseRequested</c>).
+        /// Drives the presenter's Pull gate (<c>CanClose(reason)</c>) the way the framework's
+        /// close controller does — what happens when the user clicks X, Alt+F4, or the framework
+        /// calls Form.Close() in response to a Presenter-initiated <c>RequestClose</c>. Returns
+        /// whether the gate allowed the close.
         /// </summary>
-        private WindowClosingEventArgs RaiseClosing(CloseReason reason = CloseReason.Normal)
+        private bool RunCanClose(CloseReason reason = CloseReason.Normal)
         {
-            var args = new WindowClosingEventArgs(reason);
-            _mockView.RaiseClosing(args);
-            return args;
+            bool allow = false;
+            ((ICloseParticipant)_presenter).CanCloseGate(reason, ok => allow = ok);
+            return allow;
         }
 
         /// <summary>
-        /// When there is no dirty state, Closing should not be cancelled and the user is
-        /// not prompted.
+        /// When there is no dirty state, the close is allowed and the user is not prompted.
         /// </summary>
         [Fact]
         public void Closing_WithoutDirtyState_AllowsCloseAndDoesNotPrompt()
@@ -550,21 +551,21 @@ namespace WinformsMVP.Samples.Tests.Presenters
             if (_mockView.IsDirty)
             {
                 _mockServices.MessageService.ConfirmYesNoCancelResult = ConfirmResult.No;
-                RaiseClosing();
+                RunCanClose();
                 _mockServices.MessageService.Calls.Clear();
             }
 
             // Act
-            var args = RaiseClosing();
+            bool allow = RunCanClose();
 
             // Assert
-            Assert.False(args.Cancel);
+            Assert.True(allow);
             Assert.False(_mockServices.MessageService.ConfirmDialogShown);
         }
 
         /// <summary>
         /// When there are unsaved changes and the user picks "Cancel" in the prompt,
-        /// Closing should be cancelled (args.Cancel == true).
+        /// the close is blocked (the gate proceeds with false).
         /// </summary>
         [Fact]
         public void Closing_WithDirtyState_UserSelectsCancel_BlocksClose()
@@ -577,15 +578,15 @@ namespace WinformsMVP.Samples.Tests.Presenters
             _mockServices.MessageService.ConfirmYesNoCancelResult = ConfirmResult.Cancel;
 
             // Act
-            var args = RaiseClosing();
+            bool allow = RunCanClose();
 
             // Assert
             Assert.True(_mockServices.MessageService.ConfirmDialogShown);
-            Assert.True(args.Cancel);  // close blocked
+            Assert.False(allow);  // close blocked
         }
 
         /// <summary>
-        /// When the user picks "No" (discard), Closing proceeds.
+        /// When the user picks "No" (discard), the close proceeds.
         /// </summary>
         [Fact]
         public void Closing_WithDirtyState_UserSelectsNo_AllowsClose()
@@ -596,16 +597,16 @@ namespace WinformsMVP.Samples.Tests.Presenters
             _mockServices.MessageService.ConfirmYesNoCancelResult = ConfirmResult.No;
 
             // Act
-            var args = RaiseClosing();
+            bool allow = RunCanClose();
 
             // Assert
             Assert.True(_mockServices.MessageService.ConfirmDialogShown);
-            Assert.False(args.Cancel);  // close proceeds
+            Assert.True(allow);  // close proceeds
         }
 
         /// <summary>
         /// When the user picks "Yes" (save draft and close), the draft is saved
-        /// (fire-and-forget) and Closing proceeds.
+        /// (fire-and-forget) and the close proceeds.
         /// </summary>
         [Fact]
         public async Task Closing_WithDirtyState_UserSelectsYes_SavesDraftAndAllowsClose()
@@ -619,11 +620,11 @@ namespace WinformsMVP.Samples.Tests.Presenters
             _mockRepository.MethodCalls.Clear();
 
             // Act
-            var args = RaiseClosing();
+            bool allow = RunCanClose();
             await Task.Delay(50);  // OnSaveDraft is async fire-and-forget
 
             // Assert
-            Assert.False(args.Cancel);  // close proceeds even while save is in flight
+            Assert.True(allow);  // close proceeds even while save is in flight
             Assert.Contains("SaveDraftAsync(Test)", _mockRepository.MethodCalls);
         }
 
@@ -640,11 +641,11 @@ namespace WinformsMVP.Samples.Tests.Presenters
             _mockServices.MessageService.ConfirmYesNoCancelResult = ConfirmResult.Cancel;
 
             // Act
-            var args = RaiseClosing(CloseReason.SystemShutdown);
+            bool allow = RunCanClose(CloseReason.SystemShutdown);
 
             // Assert
             Assert.False(_mockServices.MessageService.ConfirmDialogShown);
-            Assert.False(args.Cancel);  // system shutdown always proceeds
+            Assert.True(allow);  // system shutdown always proceeds
         }
 
         /// <summary>
@@ -657,15 +658,15 @@ namespace WinformsMVP.Samples.Tests.Presenters
             _mockView.SimulateEmailDataChange();
             _mockServices.MessageService.ConfirmYesNoCancelResult = ConfirmResult.Cancel;
 
-            var args = RaiseClosing(CloseReason.TaskManager);
+            bool allow = RunCanClose(CloseReason.TaskManager);
 
             Assert.False(_mockServices.MessageService.ConfirmDialogShown);
-            Assert.False(args.Cancel);
+            Assert.True(allow);
         }
 
         /// <summary>
         /// When OnSend completes successfully it calls AcceptChanges then RequestClose.
-        /// The follow-up Closing event (raised by the framework when it calls form.Close())
+        /// The follow-up Pull gate (run by the framework when it calls form.Close())
         /// should observe IsChanged == false and NOT prompt.
         /// </summary>
         [Fact]
@@ -678,24 +679,21 @@ namespace WinformsMVP.Samples.Tests.Presenters
             _mockView.SimulateEmailDataChange();
             _mockRepository.SendEmailAsyncResult = true;
 
-            bool closeRequested = false;
-            _presenter.CloseRequested += (s, e) => closeRequested = true;
-
             // Act — simulate Send completing (AcceptChanges + RequestClose).
             _presenter.Dispatch(ComposeEmailActions.Send);
             await Task.Delay(50);
-            // Then framework triggers Closing in response to RequestClose.
-            var args = RaiseClosing();
+            // Then framework runs the close gate in response to RequestClose.
+            bool allow = RunCanClose();
 
             // Assert
-            Assert.True(closeRequested);
+            Assert.True(_sink.Any);
             Assert.False(_mockServices.MessageService.ConfirmDialogShown);
-            Assert.False(args.Cancel);
+            Assert.True(allow);
         }
 
         /// <summary>
         /// When OnDiscard is confirmed it calls RejectChanges then RequestClose.
-        /// The follow-up Closing event should observe IsChanged == false and NOT prompt.
+        /// The follow-up Pull gate should observe IsChanged == false and NOT prompt.
         /// </summary>
         [Fact]
         public void OnDiscard_FollowedByClosing_DoesNotPrompt()
@@ -705,24 +703,21 @@ namespace WinformsMVP.Samples.Tests.Presenters
             _mockView.SimulateEmailDataChange();
             _mockServices.MessageService.ConfirmYesNoResult = true;  // confirm discard
 
-            bool closeRequested = false;
-            _presenter.CloseRequested += (s, e) => closeRequested = true;
-
-            // Act — Discard then Closing.
+            // Act — Discard then run the close gate.
             _presenter.Dispatch(ComposeEmailActions.Discard);
             var initialCalls = _mockServices.MessageService.Calls.Count;
-            var args = RaiseClosing();
+            bool allow = RunCanClose();
             var afterClosingCalls = _mockServices.MessageService.Calls.Count;
             var callsDump = string.Join(", ",
                 _mockServices.MessageService.Calls.ConvertAll(c => $"{c.Type}:{c.Message}"));
 
-            // Assert — Closing should NOT add any new prompts (the dirty state was
+            // Assert — the gate should NOT add any new prompts (the dirty state was
             // already finalized by OnDiscard's RejectChanges).
-            Assert.True(closeRequested);
+            Assert.True(_sink.Any);
             Assert.True(initialCalls == afterClosingCalls,
-                $"Closing handler added {afterClosingCalls - initialCalls} extra call(s). " +
+                $"CanClose gate added {afterClosingCalls - initialCalls} extra call(s). " +
                 $"All calls: [{callsDump}]");
-            Assert.False(args.Cancel);
+            Assert.True(allow);
         }
 
         #endregion
@@ -846,14 +841,12 @@ namespace WinformsMVP.Samples.Tests.Presenters
             Assert.True(_mockView.IsDirty);
 
             // 4. Send email
-            bool closeRequested = false;
-            _presenter.CloseRequested += (s, e) => closeRequested = true;
             _presenter.Dispatch(ComposeEmailActions.Send);
             await Task.Delay(100);  // Wait for async operation
 
             // Assert - verify complete workflow
             Assert.Contains("SendEmailAsync(Important Message)", _mockRepository.MethodCalls);
-            Assert.True(closeRequested);
+            Assert.True(_sink.Any);
             // Note: IsDirty is cleared via ChangeTracker.AcceptChanges() which triggers IsChangedChanged event
             // The actual dirty flag is managed internally by ChangeTracker
         }
