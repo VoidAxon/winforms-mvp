@@ -258,6 +258,7 @@ namespace WinformsMVP.Services.Implementations
             Action<InteractionResult<TResult>> setResultCallback)
         {
             var requestCloser = presenter as IRequestClose<TResult>;
+            var closeCoordinator = WireCloseGate(form);
             TResult finalResult = default(TResult);
             InteractionStatus finalStatus = InteractionStatus.Cancel; // Default: user-cancelled (e.g. clicked X)
 
@@ -276,10 +277,10 @@ namespace WinformsMVP.Services.Implementations
                     finalResult = e.Result;
                     finalStatus = e.Status;
 
-                    // Trigger Form close. FormClosing → IWindowView.OnClosing fires after this;
-                    // the Presenter's Closing handler is expected to allow the close (since
-                    // dirty state should already have been finalized in the OnSave/OnCancel
-                    // logic that produced the CloseRequested event).
+                    // Mark this close as Presenter-initiated so the FormClosing bridge skips the
+                    // cancellation gate: the Presenter already authorized the close, so its own
+                    // Closing handler (and any dirty-state prompt) must not run and veto it.
+                    closeCoordinator.BeginPresenterClose();
                     form.Close();
                 };
                 requestCloser.CloseRequested += closeRequestedHandler;
@@ -327,6 +328,7 @@ namespace WinformsMVP.Services.Implementations
         Action<InteractionResult<TResult>> onClosed)
         {
             var requestCloser = presenter as IRequestClose<TResult>;
+            var closeCoordinator = WireCloseGate(form);
 
             EventHandler<CloseRequestedEventArgs<TResult>> closeRequestedHandler = null;
             FormClosedEventHandler formClosedHandler = null;
@@ -357,6 +359,8 @@ namespace WinformsMVP.Services.Implementations
                     finalResult = e.Result;
                     finalStatus = e.Status;
 
+                    // Presenter-initiated close: bypass the cancellation gate (see modal handler).
+                    closeCoordinator.BeginPresenterClose();
                     form.Close();
                 };
                 requestCloser.CloseRequested += closeRequestedHandler;
@@ -441,34 +445,45 @@ namespace WinformsMVP.Services.Implementations
             }
 
             // Critical: Ensure View implements IWindowView interface
-            if (!(newForm is IWindowView windowView))
+            if (!(newForm is IWindowView))
             {
                 throw new InvalidOperationException($"View {newForm.GetType().Name} must implement IWindowView interface to support WindowNavigator's non-modal functionality.");
             }
 
-            // 2. Bridge WinForms FormClosing to the framework's IWindowView.OnClosing.
-            //    Presenters subscribe to IWindowView.Closing to decide whether to allow
-            //    the close (e.g. prompt on unsaved changes). WinForms types do not leak
-            //    beyond this bridge.
-            newForm.FormClosing += (s, e) =>
-            {
-                var args = new WindowClosingEventArgs(MapCloseReason(e.CloseReason));
-                windowView.OnClosing(args);
-                if (args.Cancel) e.Cancel = true;
-            };
+            // The FormClosing → IWindowView.OnClosing bridge is wired by WireCloseGate when the
+            // close handlers are attached (it needs the per-window WindowCloseCoordinator), so it
+            // is intentionally NOT set up here.
 
-            // 3. Inject View into Presenter via the non-generic internal contract.
+            // 2. Inject View into Presenter via the non-generic internal contract.
             //    All presenters derive from PresenterBase, which implements IViewAttachable;
             //    this is a direct virtual call (no reflection).
             ((IViewAttachable)presenter).AttachView((IViewBase)newForm);
 
-            // 4. Initialize business logic
+            // 3. Initialize business logic
             if (callInitialize && presenter is IInitializable initializable)
             {
                 initializable.Initialize();
             }
 
             return newForm;
+        }
+
+        /// <summary>
+        /// Wires the WinForms <c>FormClosing</c> → framework <see cref="IWindowView.OnClosing"/>
+        /// bridge for <paramref name="form"/> and returns the per-window
+        /// <see cref="WindowCloseCoordinator"/> that gates it. WinForms <c>CloseReason</c> is
+        /// mapped here and never leaks past this method. A close the Presenter initiated
+        /// (see <see cref="WindowCloseCoordinator.BeginPresenterClose"/>) bypasses the gate.
+        /// </summary>
+        private static WindowCloseCoordinator WireCloseGate(Form form)
+        {
+            var coordinator = new WindowCloseCoordinator((IWindowView)form);
+            form.FormClosing += (s, e) =>
+            {
+                if (coordinator.ShouldCancel(MapCloseReason(e.CloseReason)))
+                    e.Cancel = true;
+            };
+            return coordinator;
         }
 
         /// <summary>
