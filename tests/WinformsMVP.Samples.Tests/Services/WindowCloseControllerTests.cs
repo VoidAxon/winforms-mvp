@@ -19,8 +19,6 @@ namespace WinformsMVP.Samples.Tests.Services
         private sealed class FakeWindow : Form, IWindowView
         {
             public IViewActionBinder ActionBinder => NullViewActionBinder.Instance;
-            bool IWindowView.IsDisposed => base.IsDisposed;
-            void IWindowView.Activate() => base.Activate();
         }
 
         private sealed class FakeParticipant : ICloseParticipant, IDisposable

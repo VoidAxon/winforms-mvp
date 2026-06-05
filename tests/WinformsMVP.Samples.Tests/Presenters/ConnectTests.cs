@@ -17,10 +17,8 @@ namespace WinformsMVP.Samples.Tests.Presenters
 
         private sealed class FakeView : IFakeView
         {
-            public bool IsDisposed => false;
             public IntPtr Handle => IntPtr.Zero;
             public IViewActionBinder ActionBinder => NullViewActionBinder.Instance;
-            public void Activate() { }
         }
 
         private sealed class FakePresenter : WindowPresenterBase<IFakeView>
@@ -42,8 +40,6 @@ namespace WinformsMVP.Samples.Tests.Presenters
         private sealed class FakeWindowForm : Form, IFakeView
         {
             public IViewActionBinder ActionBinder => NullViewActionBinder.Instance;
-            bool IWindowView.IsDisposed => base.IsDisposed;
-            void IWindowView.Activate() => base.Activate();
         }
 
         private sealed class ResultPresenter : WindowPresenterBase<IFakeView>

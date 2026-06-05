@@ -53,10 +53,8 @@ namespace WinformsMVP.Samples.Tests.Services
         /// </summary>
         private sealed class NotAFormView : ITestNavView
         {
-            public bool IsDisposed => false;
             public IntPtr Handle => IntPtr.Zero;
             public IViewActionBinder ActionBinder => NullViewActionBinder.Instance;
-            public void Activate() { }
         }
 
         private static WindowNavigator NewNavigatorWithEmptyRegistry()

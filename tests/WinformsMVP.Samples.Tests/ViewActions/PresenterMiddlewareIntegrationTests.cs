@@ -123,9 +123,7 @@ namespace WinformsMVP.Samples.Tests.ViewActions
         // Minimal IWindowView mock - just enough to drive a WindowPresenterBase.
         public class TestView : IWindowView
         {
-            public bool IsDisposed { get; private set; }
             public IntPtr Handle => IntPtr.Zero;
-            public void Activate() { }
             public IViewActionBinder ActionBinder => NullViewActionBinder.Instance;
         }
 

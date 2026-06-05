@@ -25,8 +25,6 @@ namespace WinformsMVP.Samples.Tests
             public IViewActionBinder ActionBinder { get; } = NullViewActionBinder.Instance;
             public object Tag { get; set; }
 
-            public bool IsDisposed { get; private set; }
-            public void Activate() { }
             public IntPtr Handle => IntPtr.Zero;
         }
 

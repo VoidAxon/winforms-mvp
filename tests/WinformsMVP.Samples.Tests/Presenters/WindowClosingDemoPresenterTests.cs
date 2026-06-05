@@ -35,9 +35,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             public string StatusMessage { set { LastStatus = value; } }
             public IViewActionBinder ActionBinder { get; } = NullViewActionBinder.Instance;
 
-            public bool IsDisposed { get; private set; }
             public IntPtr Handle => IntPtr.Zero;
-            public void Activate() { }
 
             public event EventHandler EditChanged;
 

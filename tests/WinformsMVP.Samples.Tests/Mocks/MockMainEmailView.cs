@@ -25,13 +25,7 @@ namespace WinformsMVP.Samples.Tests.Mocks
         public List<string> MethodCalls { get; } = new List<string>();
 
         // IWindowView members
-        public bool IsDisposed { get; private set; } = false;
         public IntPtr Handle => IntPtr.Zero;
-
-        public void Activate()
-        {
-            MethodCalls.Add("Activate()");
-        }
 
         // IMainEmailView implementation
         public IEnumerable<EmailMessage> Emails
