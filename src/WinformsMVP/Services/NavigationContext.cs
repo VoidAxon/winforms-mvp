@@ -49,7 +49,7 @@ namespace WinformsMVP.Services
 
         /// <summary>
         /// Shows the presenter as a modal window and waits for a typed business result
-        /// raised via <see cref="IRequestClose{TResult}.CloseRequested"/>.
+        /// the presenter pushes via <c>RequestClose(result, status)</c>.
         /// </summary>
         public InteractionResult<TResult> ShowAsModal<TResult>(IWin32Window owner = null)
             => Nav.ShowWindowAsModal<TPresenter, TResult>(Presenter, owner);

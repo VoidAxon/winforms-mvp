@@ -36,14 +36,22 @@ namespace WinformsMVP.MVP.Presenters
         protected virtual void CanClose(CloseReason reason, Action<bool> proceed)
             => proceed(CanClose(reason));
 
-        /// <summary>Push a close with no result. Use the <c>RequestClose(result, status)</c>
-        /// extension (from <see cref="IRequestClose{TResult}"/>) when returning a typed result.</summary>
+        /// <summary>Push a close with no business result.</summary>
         protected void RequestClose(InteractionStatus status = InteractionStatus.Ok)
             => _closeSink?.Close(null, status);
 
-        void ICloseParticipant.BindCloseSink(ICloseSink sink) => _closeSink = sink;
-        void ICloseParticipant.RequestCloseCore(object result, InteractionStatus status)
+        /// <summary>
+        /// Push a close carrying a typed business result. <typeparamref name="TResult"/> is inferred
+        /// from <paramref name="result"/>, so the call stays compile-time typed without the result
+        /// type occupying a class type parameter (which would collide with <c>TParam</c>). The result
+        /// is boxed to <see cref="object"/> and cast back to the concrete type at the show / Connect
+        /// boundary. Note: <c>RequestClose(InteractionStatus.Cancel)</c> resolves to the no-result
+        /// overload above (C# prefers the non-generic candidate).
+        /// </summary>
+        protected void RequestClose<TResult>(TResult result, InteractionStatus status = InteractionStatus.Ok)
             => _closeSink?.Close(result, status);
+
+        void ICloseParticipant.BindCloseSink(ICloseSink sink) => _closeSink = sink;
         void ICloseParticipant.CanCloseGate(CloseReason reason, Action<bool> proceed)
             => CanClose(reason, proceed);
     }
