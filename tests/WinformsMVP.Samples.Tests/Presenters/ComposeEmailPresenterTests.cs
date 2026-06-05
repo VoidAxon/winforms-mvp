@@ -20,7 +20,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
     /// 2. Using MockComposeEmailView to mock the view
     /// 3. Using MockEmailRepository to provide test data
     /// 4. Testing ChangeTracker integration for dirty state management
-    /// 5. Testing IRequestClose pattern for window closing
+    /// 5. Testing push-close (RequestClose) pattern for window closing
     /// 6. Testing validation logic and error handling
     /// 7. Testing async operations (Send, SaveDraft)
     /// 8. Testing different compose modes (New, Reply, Forward)
@@ -34,8 +34,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
         private RecordingSink _sink;
 
         /// <summary>
-        /// Records every Push close the presenter routes through the framework sink. The result
-        /// type is <c>bool</c> (sent? true/false), matching <c>IRequestClose&lt;bool&gt;</c>.
+        /// Records every Push close the presenter routes through the framework sink.
         /// </summary>
         private sealed class RecordingSink : ICloseSink
         {
@@ -498,9 +497,9 @@ namespace WinformsMVP.Samples.Tests.Presenters
             // Act
             _presenter.Dispatch(ComposeEmailActions.Discard);
 
-            // Assert - close should be pushed with result false (not sent).
+            // Assert - close should be pushed with Cancel status and no result (discard = cancel, no payload).
             Assert.Single(_sink.Closed);
-            Assert.Equal(false, _sink.Closed[0].result);
+            Assert.Null(_sink.Closed[0].result);
             Assert.Equal(InteractionStatus.Cancel, _sink.Closed[0].status);
         }
 

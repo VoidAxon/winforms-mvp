@@ -46,12 +46,12 @@ namespace WinformsMVP.Samples.Tests.Presenters
             void IWindowView.Activate() => base.Activate();
         }
 
-        private sealed class ResultPresenter : WindowPresenterBase<IFakeView>, IRequestClose<string>
+        private sealed class ResultPresenter : WindowPresenterBase<IFakeView>
         {
             public bool Initialized;
             protected override void OnViewAttached() { }
             protected override void OnInitialize() => Initialized = true;
-            public void PushDone(string r) => this.RequestClose(r, InteractionStatus.Ok);
+            public void PushDone(string r) => RequestClose(r, InteractionStatus.Ok);
         }
 
         [Fact]

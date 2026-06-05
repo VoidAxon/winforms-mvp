@@ -31,8 +31,7 @@ namespace WinformsMVP.Samples.Tests.Services
             public bool Disposed;
 
             public void BindCloseSink(ICloseSink sink) => BoundSink = sink;
-            public void RequestCloseCore(object result, InteractionStatus status)
-                => BoundSink.Close(result, status);
+            public void Push(object result, InteractionStatus status) => BoundSink.Close(result, status);
             public void CanCloseGate(CloseReason reason, Action<bool> proceed)
             {
                 if (AsyncGate != null) { AsyncGate(reason, proceed); return; }
@@ -90,7 +89,7 @@ namespace WinformsMVP.Samples.Tests.Services
             presenter.SyncDecision = _ => false; // gate would block, push must bypass it
 
             form.Show();
-            presenter.RequestCloseCore("payload", InteractionStatus.Ok);
+            presenter.Push("payload", InteractionStatus.Ok);
 
             Assert.Single(results);
             Assert.Equal("payload", results[0].Item1);
@@ -154,7 +153,7 @@ namespace WinformsMVP.Samples.Tests.Services
         {
             var (form, presenter, results, controller) = Build();
 
-            presenter.RequestCloseCore("early", InteractionStatus.Ok); // no Show() yet
+            presenter.Push("early", InteractionStatus.Ok); // no Show() yet
 
             Assert.True(controller.CloseRequestedBeforeShow);
             controller.ConvergeWithoutShow();

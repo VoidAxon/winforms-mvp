@@ -32,7 +32,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             public void Close(object result, InteractionStatus status) => Closed.Add((result, status));
         }
 
-        private sealed class EditPresenter : WindowPresenterBase<IFakeView>, IRequestClose<string>
+        private sealed class EditPresenter : WindowPresenterBase<IFakeView>
         {
             protected override void OnViewAttached() { }
             protected override bool CanClose(CloseReason reason)
@@ -40,7 +40,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
                 if (reason != CloseReason.Normal) return true;
                 return !View.HasUnsavedChanges;
             }
-            public void PushSave(string r) => this.RequestClose(r, InteractionStatus.Ok);
+            public void PushSave(string r) => RequestClose(r, InteractionStatus.Ok);
         }
 
         private static EditPresenter Attached(FakeView view)
@@ -100,10 +100,5 @@ namespace WinformsMVP.Samples.Tests.Presenters
             p.PushSave("x");
         }
 
-        [Fact]
-        public void Presenter_IsAssignableToIRequestClose()
-        {
-            Assert.IsAssignableFrom<IRequestClose<string>>(new EditPresenter());
-        }
     }
 }

@@ -12,8 +12,8 @@ namespace WinformsMVP.Samples.Tests.Presenters
     /// <summary>
     /// Presenter-level closing-contract coverage that complements <see cref="CanCloseTests"/>.
     /// CanCloseTests already covers the synchronous gate (default-allow, dirty-blocks-Normal,
-    /// shutdown-bypass), push-routes-through-sink, the no-sink no-op, and IRequestClose
-    /// assignability. This suite adds the cases it does not exercise:
+    /// shutdown-bypass), push-routes-through-sink, and the no-sink no-op.
+    /// This suite adds the cases it does not exercise:
     /// <list type="bullet">
     ///   <item><description>the <b>asynchronous</b> Pull gate (decision deferred until a callback fires);</description></item>
     ///   <item><description>per-<see cref="CloseReason"/> coverage of a dirty-blocking gate (which reasons bypass);</description></item>
@@ -62,7 +62,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
         /// close; every non-Normal reason bypasses the dirty check (shutdown / task-manager / parent /
         /// unknown must never be blocked by a modal prompt). Also exercises the no-result Push path.
         /// </summary>
-        private sealed class DirtyGuardPresenter : WindowPresenterBase<IFakeView>, IRequestClose<string>
+        private sealed class DirtyGuardPresenter : WindowPresenterBase<IFakeView>
         {
             protected override void OnViewAttached() { }
             protected override bool CanClose(CloseReason reason)
