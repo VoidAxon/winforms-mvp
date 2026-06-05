@@ -457,18 +457,6 @@ namespace WinformsMVP.Samples.EmailDemo
 
         #endregion
 
-        #region IWindowView Closing
-
-        private EventHandler<WindowClosingEventArgs> _closing;
-        event EventHandler<WindowClosingEventArgs> IWindowView.Closing
-        {
-            add => _closing += value;
-            remove => _closing -= value;
-        }
-        void IWindowView.OnClosing(WindowClosingEventArgs args) => _closing?.Invoke(this, args);
-
-        #endregion
-
         #region IDisposable
 
         private IContainer components = null;

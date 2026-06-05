@@ -1,6 +1,4 @@
-using System;
 using WinformsMVP.Common;
-using WinformsMVP.Common.Events;
 using WinformsMVP.MVP.Presenters;
 using WinformsMVP.MVP.ViewActions;
 using WinformsMVP.Services;
@@ -11,15 +9,12 @@ namespace WinformsMVP.Samples.NavigatorDemo
     /// Non-modal window with callback result.
     /// </summary>
     /// <remarks>
-    /// The framework calls <c>Form.Close()</c> automatically when
-    /// <see cref="IRequestClose{TResult}.CloseRequested"/> is raised — there is no need for
-    /// the Presenter to touch the Form directly.
+    /// The framework closes the window automatically when the Presenter calls
+    /// <c>this.RequestClose(...)</c> — there is no need for the Presenter to touch the Form directly.
     /// </remarks>
     public class CallbackWindowPresenter : WindowPresenterBase<ICallbackWindowView>,
                                             IRequestClose<string>
     {
-        public event EventHandler<CloseRequestedEventArgs<string>> CloseRequested;
-
         protected override void OnViewAttached()
         {
         }
@@ -44,16 +39,13 @@ namespace WinformsMVP.Samples.NavigatorDemo
                 return;
             }
 
-            RaiseClose(text, InteractionStatus.Ok);
+            this.RequestClose(text, InteractionStatus.Ok);
         }
 
         private void OnCancel()
         {
-            RaiseClose(null, InteractionStatus.Cancel);
+            this.RequestClose(null, InteractionStatus.Cancel);
         }
-
-        private void RaiseClose(string result, InteractionStatus status)
-            => CloseRequested?.Invoke(this, new CloseRequestedEventArgs<string>(result, status));
     }
 
     public static class CallbackWindowActions

@@ -11,9 +11,8 @@ namespace WinformsMVP.Samples.WindowClosingDemo
     /// Form implementation of <see cref="IWindowClosingDemoView"/>.
     /// </summary>
     /// <remarks>
-    /// The interesting bits live in the <c>IWindowView Closing</c> region at the bottom of
-    /// the class — that is the minimum boilerplate every Form needs in order to participate
-    /// in the framework's close pipeline.
+    /// The Form writes no closing code at all — the close pipeline is driven by the Presenter
+    /// overriding <c>CanClose(CloseReason)</c> (Pull) and calling <c>this.RequestClose(...)</c> (Push).
     /// </remarks>
     public class WindowClosingDemoForm : Form, IWindowClosingDemoView
     {
@@ -112,23 +111,9 @@ namespace WinformsMVP.Samples.WindowClosingDemo
 
         public event EventHandler EditChanged;
 
-        // ─── IWindowView Closing ─────────────────────────────────────────────────────
-        // Boilerplate that EVERY Form implementing IWindowView needs:
-        //   1. Override IWindowView.IsDisposed and IWindowView.Activate (here Form's own
-        //      members satisfy them implicitly, so no shims required).
-        //   2. Use *explicit* interface implementation for Closing and OnClosing to avoid
-        //      name collisions with Form's deprecated 1.x Closing event / protected OnClosing.
-        //   3. Forward OnClosing(args) to the explicit-interface Closing event.
-
+        // The Form writes ZERO closing code: closing is handled entirely by the Presenter
+        // overriding CanClose(CloseReason). Form's own members satisfy IsDisposed/Activate.
         bool IWindowView.IsDisposed => base.IsDisposed;
         void IWindowView.Activate() => this.Activate();
-
-        private EventHandler<WindowClosingEventArgs> _closing;
-        event EventHandler<WindowClosingEventArgs> IWindowView.Closing
-        {
-            add => _closing += value;
-            remove => _closing -= value;
-        }
-        void IWindowView.OnClosing(WindowClosingEventArgs args) => _closing?.Invoke(this, args);
     }
 }

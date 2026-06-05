@@ -1,6 +1,4 @@
-using System;
 using WinformsMVP.Common;
-using WinformsMVP.Common.Events;
 using WinformsMVP.MVP.Presenters;
 using WinformsMVP.MVP.ViewActions;
 using WinformsMVP.Services;
@@ -12,15 +10,13 @@ namespace WinformsMVP.Samples.NavigatorDemo
     /// </summary>
     /// <remarks>
     /// Demonstrates the minimal <see cref="IRequestClose{TResult}"/> implementation:
-    /// declare the <c>CloseRequested</c> event and a small private helper that raises it.
-    /// No subscription to <c>View.Closing</c> is needed because there is no dirty state
-    /// — a user clicking X is treated as Cancel.
+    /// mark the Presenter with <see cref="IRequestClose{TResult}"/> and call
+    /// <c>this.RequestClose(...)</c> to close with a result. No <c>CanClose(CloseReason)</c>
+    /// override is needed because there is no dirty state — a user clicking X is treated as Cancel.
     /// </remarks>
     public class SimpleDialogPresenter : WindowPresenterBase<ISimpleDialogView>,
                                           IRequestClose<object>
     {
-        public event EventHandler<CloseRequestedEventArgs<object>> CloseRequested;
-
         protected override void OnViewAttached()
         {
             // No close-handling needed: no dirty state to protect.
@@ -40,16 +36,13 @@ namespace WinformsMVP.Samples.NavigatorDemo
         private void OnOk()
         {
             Messages.ShowInfo("You clicked OK!", "Simple Dialog");
-            RaiseClose(null, InteractionStatus.Ok);
+            this.RequestClose(null, InteractionStatus.Ok);
         }
 
         private void OnCancel()
         {
-            RaiseClose(null, InteractionStatus.Cancel);
+            this.RequestClose(null, InteractionStatus.Cancel);
         }
-
-        private void RaiseClose(object result, InteractionStatus status)
-            => CloseRequested?.Invoke(this, new CloseRequestedEventArgs<object>(result, status));
     }
 
     public static class SimpleDialogActions

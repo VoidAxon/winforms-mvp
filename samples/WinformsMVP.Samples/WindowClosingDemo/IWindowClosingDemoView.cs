@@ -14,8 +14,8 @@ namespace WinformsMVP.Samples.WindowClosingDemo
     ///   <item><description>An <see cref="EditChanged"/> event so the Presenter can detect dirty state.</description></item>
     ///   <item><description>A <see cref="StatusMessage"/> setter the Presenter updates with feedback.</description></item>
     /// </list>
-    /// The window-closing API (<see cref="IWindowView.Closing"/> / <see cref="IWindowView.OnClosing"/>)
-    /// is inherited from <see cref="IWindowView"/>.
+    /// Window closing is handled by the Presenter overriding <c>CanClose(CloseReason)</c>;
+    /// the View exposes no closing members.
     /// </remarks>
     public interface IWindowClosingDemoView : IWindowView
     {

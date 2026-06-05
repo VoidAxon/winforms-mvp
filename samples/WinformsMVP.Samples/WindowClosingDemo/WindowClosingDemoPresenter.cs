@@ -1,6 +1,4 @@
-using System;
 using WinformsMVP.Common;
-using WinformsMVP.Common.Events;
 using WinformsMVP.MVP.Presenters;
 using WinformsMVP.MVP.ViewActions;
 
@@ -25,41 +23,31 @@ namespace WinformsMVP.Samples.WindowClosingDemo
     /// Two directions of close are demonstrated:
     /// <list type="bullet">
     ///   <item><description>
-    ///     <b>Push</b>: <c>OnSave</c> / <c>OnCancel</c> finalize the dirty flag and raise
-    ///     <see cref="IRequestClose{TResult}.CloseRequested"/> via the local <c>RaiseClose</c>
-    ///     helper. The framework then closes the form.
+    ///     <b>Push</b>: <c>OnSave</c> / <c>OnCancel</c> finalize the dirty flag and call
+    ///     <c>this.RequestClose(...)</c>. The framework then closes the form.
     ///   </description></item>
     ///   <item><description>
-    ///     <b>Pull</b>: <c>OnViewClosing</c> handles external close requests (user clicks X,
-    ///     system shutdown, etc.). It inspects <see cref="WindowClosingEventArgs.Reason"/> to
-    ///     decide whether to prompt — system shutdowns must NEVER block.
+    ///     <b>Pull</b>: <see cref="CanClose"/> handles external close requests (user clicks X,
+    ///     system shutdown, etc.). It inspects the <see cref="CloseReason"/> to decide whether
+    ///     to prompt — system shutdowns must NEVER block.
     ///   </description></item>
     /// </list>
     /// <para>
     /// The single-source-of-truth invariant: dirty-state checks live ONLY in
-    /// <c>OnViewClosing</c>. Push-direction handlers prepare the dirty flag (set it to false)
-    /// before they call <c>RaiseClose</c>, so the follow-up Closing event observes a clean
-    /// state and lets the close proceed.
+    /// <see cref="CanClose"/>. Push-direction handlers prepare the dirty flag (set it to false)
+    /// before they request close, so the follow-up close check observes a clean state and lets
+    /// the close proceed.
     /// </para>
     /// </remarks>
     public class WindowClosingDemoPresenter : WindowPresenterBase<IWindowClosingDemoView>,
                                                IRequestClose<string>
     {
-        public event EventHandler<CloseRequestedEventArgs<string>> CloseRequested;
-
         private string _baseline;          // The text snapshot used to compute dirty state.
         private bool IsDirty => View.Text != _baseline;
 
         protected override void OnViewAttached()
-        {
-            // Pull-direction subscription. This is the ONLY place dirty state is checked
-            // for closing — both user-driven closes and the framework's follow-up close
-            // after RaiseClose flow through here.
-            View.Closing += OnViewClosing;
-
             // Detect user edits so the Save button's CanExecute can refresh.
-            View.EditChanged += (s, e) => Dispatcher.RaiseCanExecuteChanged();
-        }
+            => View.EditChanged += (s, e) => Dispatcher.RaiseCanExecuteChanged();
 
         protected override void OnInitialize()
         {
@@ -75,6 +63,28 @@ namespace WinformsMVP.Samples.WindowClosingDemo
             Dispatcher.Register(WindowClosingDemoActions.Cancel, OnCancel);
         }
 
+        // ─── Pull direction ──────────────────────────────────────────────────────────
+
+        protected override bool CanClose(CloseReason reason)
+        {
+            // Bypass the prompt on system-level shutdowns: the process is leaving anyway,
+            // and a modal MessageBox here will hang application exit.
+            if (reason == CloseReason.SystemShutdown || reason == CloseReason.TaskManager)
+                return true;
+
+            // Normal user-driven close (X / Alt+F4 / Form.Close()).
+            if (!IsDirty) return true;
+
+            bool discard = Messages.ConfirmYesNo(
+                "You have unsaved changes. Discard and close?",
+                "Unsaved Changes");
+
+            if (!discard)
+                View.StatusMessage = "Close cancelled. Continue editing.";
+
+            return discard;
+        }
+
         // ─── Push direction ──────────────────────────────────────────────────────────
 
         private void OnSave()
@@ -82,44 +92,14 @@ namespace WinformsMVP.Samples.WindowClosingDemo
             var saved = View.Text;
             _baseline = saved;            // Commit: dirty flag becomes false.
             View.StatusMessage = "Saving and closing…";
-            RaiseClose(saved, InteractionStatus.Ok);
+            this.RequestClose(saved, InteractionStatus.Ok);
         }
 
         private void OnCancel()
         {
             _baseline = View.Text;        // Treat current as committed; skip the dirty prompt.
             View.StatusMessage = "Cancelled.";
-            RaiseClose(null, InteractionStatus.Cancel);
-        }
-
-        private void RaiseClose(string result, InteractionStatus status)
-            => CloseRequested?.Invoke(this, new CloseRequestedEventArgs<string>(result, status));
-
-        // ─── Pull direction ──────────────────────────────────────────────────────────
-
-        private void OnViewClosing(object sender, WindowClosingEventArgs args)
-        {
-            // Bypass the prompt on system-level shutdowns: the process is leaving anyway,
-            // and a modal MessageBox here will hang application exit.
-            if (args.Reason == CloseReason.SystemShutdown ||
-                args.Reason == CloseReason.TaskManager)
-            {
-                return;
-            }
-
-            // Normal user-driven close (X / Alt+F4 / Form.Close()).
-            if (IsDirty)
-            {
-                bool discard = Messages.ConfirmYesNo(
-                    "You have unsaved changes. Discard and close?",
-                    "Unsaved Changes");
-
-                if (!discard)
-                {
-                    args.Cancel = true;   // Block the close.
-                    View.StatusMessage = "Close cancelled. Continue editing.";
-                }
-            }
+            this.RequestClose(null, InteractionStatus.Cancel);
         }
     }
 }

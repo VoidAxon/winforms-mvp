@@ -92,12 +92,5 @@ namespace WinformsMVP.Samples.ComplexInteractionDemo.OrderManagement
             MessageBox.Show(message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
 
-        private EventHandler<WindowClosingEventArgs> _closing;
-        event EventHandler<WindowClosingEventArgs> IWindowView.Closing
-        {
-            add => _closing += value;
-            remove => _closing -= value;
-        }
-        void IWindowView.OnClosing(WindowClosingEventArgs args) => _closing?.Invoke(this, args);
     }
 }

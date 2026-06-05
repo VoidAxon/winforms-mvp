@@ -1,6 +1,5 @@
 using System;
 using WinformsMVP.Common;
-using WinformsMVP.Common.Events;
 using WinformsMVP.MVP.Presenters;
 using WinformsMVP.MVP.ViewActions;
 using WinformsMVP.Services;
@@ -21,8 +20,6 @@ namespace WinformsMVP.Samples.NavigatorDemo
         WindowPresenterBase<IConfirmDialogView, ConfirmDialogParameters>,
         IRequestClose<bool>
     {
-        public event EventHandler<CloseRequestedEventArgs<bool>> CloseRequested;
-
         protected override void OnViewAttached()
         {
         }
@@ -43,12 +40,9 @@ namespace WinformsMVP.Samples.NavigatorDemo
             View.SetDefaultChoice(parameters.DefaultYes);
         }
 
-        private void OnYes()    => RaiseClose(true, InteractionStatus.Ok);
-        private void OnNo()     => RaiseClose(false, InteractionStatus.Ok);
-        private void OnCancel() => RaiseClose(false, InteractionStatus.Cancel);
-
-        private void RaiseClose(bool result, InteractionStatus status)
-            => CloseRequested?.Invoke(this, new CloseRequestedEventArgs<bool>(result, status));
+        private void OnYes()    => this.RequestClose(true, InteractionStatus.Ok);
+        private void OnNo()     => this.RequestClose(false, InteractionStatus.Ok);
+        private void OnCancel() => this.RequestClose(false, InteractionStatus.Cancel);
     }
 
     public static class ConfirmDialogActions

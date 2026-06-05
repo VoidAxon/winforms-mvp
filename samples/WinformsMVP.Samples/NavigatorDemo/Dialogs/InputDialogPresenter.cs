@@ -1,6 +1,4 @@
-using System;
 using WinformsMVP.Common;
-using WinformsMVP.Common.Events;
 using WinformsMVP.MVP.Presenters;
 using WinformsMVP.MVP.ViewActions;
 using WinformsMVP.Services;
@@ -13,8 +11,6 @@ namespace WinformsMVP.Samples.NavigatorDemo
     public class InputDialogPresenter : WindowPresenterBase<IInputDialogView>,
                                          IRequestClose<string>
     {
-        public event EventHandler<CloseRequestedEventArgs<string>> CloseRequested;
-
         protected override void OnViewAttached()
         {
         }
@@ -39,16 +35,13 @@ namespace WinformsMVP.Samples.NavigatorDemo
                 return;
             }
 
-            RaiseClose(input, InteractionStatus.Ok);
+            this.RequestClose(input, InteractionStatus.Ok);
         }
 
         private void OnCancel()
         {
-            RaiseClose(null, InteractionStatus.Cancel);
+            this.RequestClose(null, InteractionStatus.Cancel);
         }
-
-        private void RaiseClose(string result, InteractionStatus status)
-            => CloseRequested?.Invoke(this, new CloseRequestedEventArgs<string>(result, status));
     }
 
     public static class InputDialogActions

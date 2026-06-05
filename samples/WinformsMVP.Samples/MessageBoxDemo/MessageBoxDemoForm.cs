@@ -188,14 +188,6 @@ namespace WinformsMVP.Samples.MessageBoxDemo
             this.Activate();
         }
 
-        private EventHandler<WindowClosingEventArgs> _closing;
-        event EventHandler<WindowClosingEventArgs> IWindowView.Closing
-        {
-            add => _closing += value;
-            remove => _closing -= value;
-        }
-        void IWindowView.OnClosing(WindowClosingEventArgs args) => _closing?.Invoke(this, args);
-
         #endregion
     }
 }

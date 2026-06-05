@@ -1,7 +1,6 @@
 using System;
 using System.Text.RegularExpressions;
 using WinformsMVP.Common;
-using WinformsMVP.Common.Events;
 using WinformsMVP.MVP.Presenters;
 using WinformsMVP.MVP.ViewActions;
 using WinformsMVP.Samples.EmailDemo.Models;
@@ -28,23 +27,20 @@ namespace WinformsMVP.Samples.EmailDemo
     /// Demonstrates the canonical two-direction close pattern:
     /// <list type="bullet">
     ///   <item><description><b>Push</b> (Presenter initiates close): <c>OnSend</c> and <c>OnDiscard</c>
-    ///     raise <see cref="IRequestClose{TResult}.CloseRequested"/> via the local
-    ///     <c>RaiseClose</c> helper, after finalizing dirty state.</description></item>
-    ///   <item><description><b>Pull</b> (external close — user clicks X): <c>OnViewClosing</c> subscribes
-    ///     to <see cref="WinformsMVP.MVP.Views.IWindowView.Closing"/> and prompts the user
-    ///     to save / discard / cancel when there are unsaved changes.</description></item>
+    ///     call <c>this.RequestClose(...)</c> after finalizing dirty state.</description></item>
+    ///   <item><description><b>Pull</b> (external close — user clicks X): <see cref="CanClose"/> prompts
+    ///     the user to save / discard / cancel when there are unsaved changes.</description></item>
     /// </list>
-    /// The single-source-of-truth principle: dirty data check lives only in <c>OnViewClosing</c>.
+    /// The single-source-of-truth principle: dirty data check lives only in <see cref="CanClose"/>.
     /// Push-direction handlers (<c>OnSend</c>, <c>OnDiscard</c>) finalize the
     /// <see cref="ChangeTracker{T}"/> state before requesting close, so the
-    /// <c>OnViewClosing</c> handler observes <c>IsChanged == false</c> and lets the close
+    /// <see cref="CanClose"/> handler observes <c>IsChanged == false</c> and lets the close
     /// proceed without prompting.
     /// </remarks>
     public class ComposeEmailPresenter :
         WindowPresenterBase<IComposeEmailView, ComposeEmailParameters>,
         IRequestClose<bool>
     {
-        public event EventHandler<CloseRequestedEventArgs<bool>> CloseRequested;
         private readonly IEmailRepository _repository;
         private ChangeTracker<EmailMessage> _changeTracker;
         private ComposeMode _mode;
@@ -59,11 +55,6 @@ namespace WinformsMVP.Samples.EmailDemo
         {
             // Subscribe to semantic email data change event
             View.EmailDataChanged += OnEmailDataChanged;
-
-            // Subscribe to window close — Pull direction. Handler decides whether to allow
-            // the close (e.g. prompt on unsaved changes). Push-direction closes come through
-            // here too, but by then dirty state has been finalized so the prompt is skipped.
-            View.Closing += OnViewClosing;
         }
 
         protected override void RegisterViewActions()
@@ -111,36 +102,35 @@ namespace WinformsMVP.Samples.EmailDemo
         /// <summary>
         /// Pull-direction close handler. Runs whenever the underlying Form is about to close
         /// (user clicked X, system shutdown, parent closing, or because Push-direction
-        /// <c>RequestClose</c> triggered <c>Form.Close()</c>).
+        /// <c>RequestClose</c> triggered the close).
         /// </summary>
         /// <remarks>
         /// <list type="bullet">
-        ///   <item><description>System shutdown / task manager: skip prompts, let the process exit.</description></item>
+        ///   <item><description>Only normal user-driven closes are guarded; system shutdown /
+        ///     task manager / parent-closing let the process exit without prompting.</description></item>
         ///   <item><description>Push-direction closes (after <c>OnSend</c> / <c>OnDiscard</c>):
-        ///     <c>IsChanged</c> will be <c>false</c> here, so this handler is a no-op.</description></item>
+        ///     <c>IsChanged</c> will be <c>false</c> here, so this handler allows the close.</description></item>
         ///   <item><description>User clicked X with unsaved changes: prompt Yes/No/Cancel.</description></item>
         /// </list>
         /// </remarks>
-        private void OnViewClosing(object sender, WindowClosingEventArgs args)
+        protected override bool CanClose(CloseReason reason)
         {
-            if (args.Reason != CloseReason.Normal) return;
-            if (_changeTracker == null || !_changeTracker.IsChanged) return;
+            if (reason != CloseReason.Normal) return true;
+            if (_changeTracker == null || !_changeTracker.IsChanged) return true;
 
             var result = Messages.ConfirmYesNoCancel(
                 "You have unsaved changes. Do you want to save as draft?",
                 "Unsaved Changes");
 
             if (result == ConfirmResult.Cancel)
-            {
-                args.Cancel = true;
-                return;
-            }
+                return false;
 
             if (result == ConfirmResult.Yes)
             {
-                OnSaveDraft();  // fire-and-forget like the original CanClose behavior
+                OnSaveDraft();  // fire-and-forget like the original behavior
             }
-            // No: fall through; args.Cancel remains false → window closes.
+            // No: fall through; the close proceeds.
+            return true;
         }
 
         #region Event Handlers
@@ -189,7 +179,7 @@ namespace WinformsMVP.Samples.EmailDemo
                 if (success)
                 {
                     _changeTracker.AcceptChanges();  // Accept changes, mark as unmodified
-                    RaiseClose(true, InteractionStatus.Ok);  // Return true indicating sent
+                    this.RequestClose(true, InteractionStatus.Ok);  // Return true indicating sent
                 }
                 else
                 {
@@ -238,11 +228,11 @@ namespace WinformsMVP.Samples.EmailDemo
                     return;
                 }
                 // Finalize dirty state BEFORE RequestClose so that the Pull-direction
-                // OnViewClosing handler sees IsChanged == false and does not re-prompt.
+                // CanClose handler sees IsChanged == false and does not re-prompt.
                 _changeTracker.RejectChanges();
             }
 
-            RaiseClose(false, InteractionStatus.Cancel);  // Return false indicating not sent
+            this.RequestClose(false, InteractionStatus.Cancel);  // Return false indicating not sent
         }
 
         #endregion
@@ -346,8 +336,5 @@ namespace WinformsMVP.Samples.EmailDemo
         }
 
         #endregion
-
-        private void RaiseClose(bool result, InteractionStatus status)
-            => CloseRequested?.Invoke(this, new CloseRequestedEventArgs<bool>(result, status));
     }
 }
