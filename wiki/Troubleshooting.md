@@ -179,74 +179,60 @@ View.InputChanged += (s, e) => Dispatcher.RaiseCanExecuteChanged();
 
 ### × ボタンを押しても確認ダイアログが出ない
 
-**原因**: `View.Closing` イベントを Presenter で購読していない。
+**原因**: Presenter で `CanClose(CloseReason)` を override していない。
 
 **対処**:
 
 ```csharp
-protected override void OnViewAttached()
+protected override bool CanClose(CloseReason reason)
 {
-    View.Closing += OnViewClosing;
-}
+    if (reason == CloseReason.SystemShutdown || reason == CloseReason.TaskManager)
+        return true;
 
-private void OnViewClosing(object sender, WindowClosingEventArgs args)
-{
     if (_changeTracker.IsChanged && !Messages.ConfirmYesNo("Discard?", "Confirm"))
-        args.Cancel = true;
+        return false;
+
+    return true;
 }
 ```
 
-### Form 側に `Closing` イベントを書いても呼ばれない
+詳しくは [HowTo: ウィンドウクローズを扱う § Scenario 2](HowTo-Handle-Window-Closing#scenario-2-dirty-check-on-close) 参照。
 
-**原因**: `IWindowView.Closing` は明示的インターフェイス実装にする必要がある (`Form` の非推奨 `Closing` と名前衝突するため)。
+### Form 側にクローズコードが必要か?
 
-**対処**:
-
-```csharp
-private EventHandler<WindowClosingEventArgs> _closing;
-event EventHandler<WindowClosingEventArgs> IWindowView.Closing
-{
-    add => _closing += value;
-    remove => _closing -= value;
-}
-void IWindowView.OnClosing(WindowClosingEventArgs args) => _closing?.Invoke(this, args);
-```
-
-詳しくは [HowTo: ウィンドウクローズを扱う § Form 側のお決まりコード](HowTo-Handle-Window-Closing#form-側のお決まりコード) 参照。
+**必要ない。** `IWindowView` にはクローズメンバーが存在しません。Forms にクローズ用のボイラープレートは不要です。クローズ制御はすべて Presenter の `CanClose` override と `this.RequestClose(...)` で行います。
 
 ### Save 後に「変更を破棄しますか?」と二重に聞かれる
 
-**原因**: 古いバージョンでは、Push 起点 (`RaiseClose`) の閉じが Pull 方向のゲート (`OnViewClosing`) を再度走らせていたため、`OnSave` で `AcceptChanges()` を呼び忘れると二重確認が出ていました。
-
-**現在**: フレームワークは Push 起点の閉じを `WindowCloseCoordinator` で識別し、Pull ゲートを **スキップ** します。そのためこの二重確認は **構造的に発生しません** —— `AcceptChanges` の呼び出し順序には依存しなくなりました。`AcceptChanges` は引き続きモデル状態を確定する目的で呼びます。
+`WindowCloseController` が Push 起点の閉じを識別して Pull ゲートをスキップするため、この二重確認は **構造的に発生しません**。`AcceptChanges` の呼び出し順序にも依存しません。`AcceptChanges` はモデル状態を確定するために呼びます。
 
 ```csharp
 private void OnSave()
 {
     SaveData();
-    _changeTracker.AcceptChanges();   // モデル状態を確定 (二重確認の抑止には不要)
-    RaiseClose(result, InteractionStatus.Ok);
+    _changeTracker.AcceptChanges();            // model state only
+    this.RequestClose(result, InteractionStatus.Ok);
 }
 ```
 
-詳細は [単一情報源の不変条件](Concept-Window-Closing-Model#単一情報源-single-source-of-truth-の不変条件) を参照。
+詳細は [Window Closing Model — single-source-of-truth invariant](Concept-Window-Closing-Model#single-source-of-truth-invariant) を参照。
 
 ### システムシャットダウン時にダーティ確認ダイアログが出てフリーズ
 
-**原因**: `CloseReason` をチェックしていない。
+**原因**: `CanClose` で `CloseReason` をチェックしていない。
 
 **対処**:
 
 ```csharp
-private void OnViewClosing(object sender, WindowClosingEventArgs args)
+protected override bool CanClose(CloseReason reason)
 {
-    if (args.Reason == CloseReason.SystemShutdown ||
-        args.Reason == CloseReason.TaskManager)
-        return;       // システム終了は素通り
+    if (reason == CloseReason.SystemShutdown || reason == CloseReason.TaskManager)
+        return true;   // never block
 
-    // 通常のクローズだけ確認
     if (_changeTracker.IsChanged && !Messages.ConfirmYesNo(...))
-        args.Cancel = true;
+        return false;
+
+    return true;
 }
 ```
 

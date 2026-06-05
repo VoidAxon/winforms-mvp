@@ -419,7 +419,7 @@ public class OrderPresenter : WindowPresenterBase<IOrderView>
 
 禁じられるのは **共有ステートの通知を Presenter のイベントで担わせること** です (それは Model の責務)。共有ステートの変更通知は共有 Model 側に持たせます。
 
-一方、**上向きの出力ポート / 単発の結果通知イベント** (`IRequestClose<TResult>.CloseRequested` など) を公開することは最小化の精神と矛盾せず、許容されます — 規則が本当に対象とするのは「外部から命令的に突ける入口」であって、出口側の通知イベントではありません。境界の根拠は [Presenter の責務](Concept-Presenter-Responsibilities) を参照。
+一方、**ウィンドウのクローズ結果を返す** (`IRequestClose<TResult>` マーカーを実装し `this.RequestClose(result, status)` を呼ぶ) ことは最小化の精神と矛盾せず、許容されます — 規則が本当に対象とするのは「外部から命令的に突ける入口」であって、フレームワークが `InteractionResult<TResult>` として返す出口側ではありません。境界の根拠は [Presenter の責務](Concept-Presenter-Responsibilities) を参照。
 
 ### ❌ EventAggregator でステートを管理しようとする
 

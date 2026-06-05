@@ -53,7 +53,7 @@ MyTodoApp/
 | 完了切り替え | ViewAction `ToggleComplete` + Presenter |
 | 入力検証 | Presenter (`canExecute`) |
 | ダーティ追跡 | `ChangeTracker<List<ToDoItem>>` + Presenter |
-| ウィンドウクローズ確認 | `View.Closing` + Presenter |
+| ウィンドウクローズ確認 | `CanClose` override in Presenter |
 
 ---
 
@@ -307,14 +307,7 @@ namespace MyTodoApp
         private static string FormatItem(ToDoItem item)
             => $"[{(item.IsCompleted ? "x" : " ")}] {item.Title}";
 
-        // IWindowView.Closing は明示的実装 (後の Step 8 で使う)
-        private EventHandler<WindowClosingEventArgs> _closing;
-        event EventHandler<WindowClosingEventArgs> IWindowView.Closing
-        {
-            add => _closing += value;
-            remove => _closing -= value;
-        }
-        void IWindowView.OnClosing(WindowClosingEventArgs args) => _closing?.Invoke(this, args);
+        // IWindowView has no closing members — closing policy lives in the Presenter (CanClose).
     }
 }
 ```
@@ -446,32 +439,27 @@ _binder.Add(ToDoActions.Save, _btnSave);
 
 ## Step 8: ウィンドウクローズ時の確認を加える
 
-Pull 方向 (× ボタン) のクローズ要求に対して、未保存があれば確認します。
+Pull 方向 (× ボタン) のクローズ要求に対して、未保存があれば確認します。`CanClose` を override するだけです。Forms にクローズコードを書く必要はありません。
 
 ```csharp
-protected override void OnViewAttached()
+protected override bool CanClose(CloseReason reason)
 {
-    View.SelectionChanged += (s, e) => Dispatcher.RaiseCanExecuteChanged();
-    View.InputChanged     += (s, e) => Dispatcher.RaiseCanExecuteChanged();
-    View.Closing          += OnViewClosing;
-}
-
-private void OnViewClosing(object sender, WindowClosingEventArgs args)
-{
-    if (args.Reason == CloseReason.SystemShutdown ||
-        args.Reason == CloseReason.TaskManager)
-        return;
+    // Never block system-level shutdowns.
+    if (reason == CloseReason.SystemShutdown || reason == CloseReason.TaskManager)
+        return true;
 
     if (_tracker.IsChanged &&
         !Messages.ConfirmYesNo("Discard unsaved changes?", "Confirm"))
     {
-        args.Cancel = true;
+        return false;   // block the close
     }
+
+    return true;
 }
 ```
 
 これでユーザーが × を押すと、未保存ならダイアログが出ます。「いいえ」を選ぶとクローズがブロックされます。
-詳細は [ウィンドウクローズモデル](Concept-Window-Closing-Model) を参照。
+詳細は [Window Closing Model](Concept-Window-Closing-Model) を参照。
 
 ---
 

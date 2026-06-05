@@ -136,11 +136,11 @@ A. 3 通りあります。
 
 ### Q. ダーティチェック (未保存の変更があるとき確認ダイアログ) を実装したい
 
-A. `IWindowView.Closing` イベントを Presenter で購読して `args.Cancel = true` で閉じるのをブロックします。詳しくは [HowTo: ウィンドウクローズを扱う](HowTo-Handle-Window-Closing) を参照。
+A. Presenter で `CanClose(CloseReason reason)` を override して `false` を返すことで閉じをブロックします。Forms にクローズコードを書く必要はありません。詳しくは [HowTo: ウィンドウクローズを扱う](HowTo-Handle-Window-Closing) を参照。
 
 ### Q. ダイアログから業務結果を返したい
 
-A. Presenter に `IRequestClose<TResult>` を実装し、`CloseRequested` イベントを発火します。呼び出し側は `Navigator.For(presenter).ShowAsModal<TResult>()` で `InteractionResult<TResult>` を受け取ります。詳しくは [ウィンドウクローズモデル](Concept-Window-Closing-Model) を参照。
+A. Presenter に `IRequestClose<TResult>` マーカーを実装し、`this.RequestClose(result, InteractionStatus.Ok)` を呼びます。`IRequestClose<TResult>` にはメンバーがありません — 結果型を宣言するだけです。呼び出し側は `Navigator.For(presenter).ShowAsModal<TResult>()` で `InteractionResult<TResult>` を受け取ります。詳しくは [Window Closing Model](Concept-Window-Closing-Model) を参照。
 
 ### Q. `ShowAsModal` の戻り値で 3 つの型引数を毎回書くのが面倒です
 

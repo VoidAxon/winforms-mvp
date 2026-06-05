@@ -32,7 +32,7 @@ WindowNavigator
    └── IRequestClose<TResult>    (結果を返す Presenter なら追加で実装)
 ```
 
-> `FormClosing` → `IWindowView.OnClosing` の橋渡しは `WindowNavigator` が内部で行います (クローズハンドラ登録時に `FormClosing` を購読し、`CloseReason` をフレームワークの型へ変換して `OnClosing` を呼ぶ)。Presenter 自身が `CloseRequested` で要求した閉じは、Pull 方向のゲートをスキップします (`WindowCloseCoordinator`)。独立した公開インターフェイスは存在しません。
+> ウィンドウクローズは `WindowCloseController` が管理します (1 Form に 1 インスタンス)。Pull ゲート (`FormClosing`) はプレゼンターの `CanClose` override に転送され、Push ゲート (`this.RequestClose(...)`) はクローズシンクを通じて同じコントローラに到達します。Push 起点の閉じは Pull ゲートをスキップします (`_suppressGate` フラグ)。Forms に閉じるコードは不要です。
 
 `IViewMappingRegister` の構成方法は [ViewMappingRegister](Reference-ViewMappingRegister) を、結果の伝達設計は [ウィンドウクローズモデル](Concept-Window-Closing-Model) を参照してください。
 
@@ -276,25 +276,20 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView>
 
 ## 結果の受け取り (IRequestClose 連携)
 
-業務結果を呼び出し元に返したい Presenter は `IRequestClose<TResult>` を実装します。Navigator はその `CloseRequested` イベントを購読し、`InteractionResult<TResult>` として呼び出し元に返します。
+業務結果を呼び出し元に返したい Presenter は `IRequestClose<TResult>` マーカーを実装します。`IRequestClose<TResult>` にメンバーはありません — 結果型を宣言するためだけに存在します。結果を返すには `this.RequestClose(result, status)` 拡張メソッドを呼びます:
 
 ```csharp
 public class EditUserPresenter : WindowPresenterBase<IEditUserView, EditUserParameters>,
                                   IRequestClose<UserResult>
 {
-    public event EventHandler<CloseRequestedEventArgs<UserResult>> CloseRequested;
-
     private void OnSave()
     {
         SaveUser(View.UserName);
-        RaiseClose(new UserResult { UserId = ... }, InteractionStatus.Ok);
+        this.RequestClose(new UserResult { UserId = _userId }, InteractionStatus.Ok);
     }
 
     private void OnCancel()
-        => RaiseClose(null, InteractionStatus.Cancel);
-
-    private void RaiseClose(UserResult result, InteractionStatus status)
-        => CloseRequested?.Invoke(this, new CloseRequestedEventArgs<UserResult>(result, status));
+        => this.RequestClose(null, InteractionStatus.Cancel);
 }
 ```
 

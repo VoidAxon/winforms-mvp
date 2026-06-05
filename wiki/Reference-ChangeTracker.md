@@ -244,29 +244,31 @@ _changeTracker.IsChangedChanged += (s, e) =>
 ウィンドウクローズ時のダーティチェックに使うのが典型パターンです (一発判定なので実時比較 `IsChangedWith` を使う)。
 
 ```csharp
-// Pull 方向のクローズハンドラ (詳細は [ウィンドウクローズモデル](Concept-Window-Closing-Model))
-private void OnViewClosing(object sender, WindowClosingEventArgs args)
+// Pull direction: override CanClose (details in [Window Closing Model](Concept-Window-Closing-Model))
+protected override bool CanClose(CloseReason reason)
 {
-    if (args.Reason == CloseReason.SystemShutdown) return;
+    if (reason == CloseReason.SystemShutdown || reason == CloseReason.TaskManager)
+        return true;
 
     if (_changeTracker.IsChangedWith(View.GetModel()) &&
         !Messages.ConfirmYesNo("Discard unsaved changes?", "Confirm"))
     {
-        args.Cancel = true;
+        return false;
     }
+    return true;
 }
 
-// Push 方向 (Save ボタン)
+// Push direction: Save button
 private void OnSave()
 {
     var model = View.GetModel();
     SaveData(model);
-    _changeTracker.AcceptChanges(model);                  // ← Close 前に確定(保存値を新ベースラインに)
-    RaiseClose(result, InteractionStatus.Ok);
+    _changeTracker.AcceptChanges(model);   // commit: baseline = saved value
+    this.RequestClose(result, InteractionStatus.Ok);
 }
 ```
 
-`OnSave` で `AcceptChanges(model)` を呼んでから `RaiseClose` する順序は重要です。ベースラインが保存値に更新されるため、その後にフレームワークが Pull 方向のハンドラを呼んでも `IsChangedWith(View.GetModel())` が `false` を返し、再確認ダイアログが出ません。
+`AcceptChanges(model)` の後に `RequestClose` を呼ぶことで、ベースラインが保存値に更新されます。続いてフレームワークが `CanClose` を呼んでも `IsChangedWith(View.GetModel())` が `false` を返し、再確認ダイアログが出ません。(この順序は推奨ですが、フレームワーク構造上 Push 起点の閉じは `CanClose` をスキップするため、二重確認が出ない保証は `AcceptChanges` の呼び出し順序に依存しません。)
 
 ---
 

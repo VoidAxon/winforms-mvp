@@ -303,15 +303,47 @@ presenter.OnSave();
 
 // ✅ Right — Dispatcher 経由で呼ぶ (CanExecute も評価される)
 presenter.Dispatcher.Dispatch(StandardActions.Save);
+```
 
-// ✅ Right — View イベントをシミュレート (Mocks/ のビューは WindowClosingEventArgs を受け取る)
-view.RaiseClosing(new WindowClosingEventArgs(CloseReason.Normal));
+### ウィンドウクローズのテスト
 
-// ✅ Right — Presenter のイベントを購読
-presenter.CloseRequested += (s, e) => captured = e;
+Pull ゲート (`CanClose`) は `ICloseParticipant.CanCloseGate` を通じてテストします。`ICloseParticipant` は internal で、テストプロジェクトは `InternalsVisibleTo` で到達できます:
+
+```csharp
+// Pull direction (CanClose) — ICloseParticipant.CanCloseGate
+bool? allow = null;
+((ICloseParticipant)presenter).CanCloseGate(CloseReason.Normal, ok => allow = ok);
+Assert.False(allow);   // e.g. dirty state blocks close
+
+// System shutdown is never blocked
+((ICloseParticipant)presenter).CanCloseGate(CloseReason.SystemShutdown, ok => allow = ok);
+Assert.True(allow);
+```
+
+Push direction (`RequestClose`) は recording sink を注入してテストします:
+
+```csharp
+private sealed class RecordingSink : ICloseSink
+{
+    public readonly List<(object result, InteractionStatus status)> Closed
+        = new List<(object, InteractionStatus)>();
+    public void Close(object result, InteractionStatus status)
+        => Closed.Add((result, status));
+}
+
+// In the test:
+var sink = new RecordingSink();
+((ICloseParticipant)presenter).BindCloseSink(sink);
+
+presenter.Dispatcher.Dispatch(StandardActions.Save);
+
+Assert.Single(sink.Closed);
+Assert.Equal(InteractionStatus.Ok, sink.Closed[0].status);
 ```
 
 `private` だったメソッドを `internal` に変えてテストすると、CanExecute スキップ等の不具合が production で発覚するまで隠れます。
+
+完全な実例: `tests/WinformsMVP.Samples.Tests/Presenters/CanCloseTests.cs` および `WindowClosingDemoPresenterTests.cs`。
 
 ---
 
