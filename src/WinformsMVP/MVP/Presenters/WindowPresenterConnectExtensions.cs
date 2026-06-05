@@ -91,7 +91,7 @@ namespace WinformsMVP.MVP.Presenters
         {
             switch (status)
             {
-                case InteractionStatus.Ok: return InteractionResult<TResult>.Ok((TResult)result);
+                case InteractionStatus.Ok: return InteractionResult<TResult>.Ok(result is TResult typed ? typed : default(TResult));
                 case InteractionStatus.Error: return InteractionResult<TResult>.Error("Operation failed");
                 default: return InteractionResult<TResult>.Cancel();
             }

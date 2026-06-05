@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Windows.Forms;
 using WinformsMVP.Common.Events;
 using WinformsMVP.MVP.Presenters;
 using WinformsMVP.MVP.ViewActions;
@@ -63,6 +64,27 @@ namespace WinformsMVP.Samples.Tests.Services
 
         private static WindowNavigator NewNavigatorWithEmptyRegistry()
             => new WindowNavigator(new ViewMappingRegister());
+
+        /// <summary>A real <see cref="Form"/> implementing <see cref="ITestNavView"/>, so the
+        /// navigator gets past form creation into Initialize. Never actually shown by these tests.</summary>
+        private sealed class TestNavForm : Form, ITestNavView
+        {
+            public IViewActionBinder ActionBinder => NullViewActionBinder.Instance;
+            private EventHandler<WindowClosingEventArgs> _closing;
+            event EventHandler<WindowClosingEventArgs> IWindowView.Closing
+            {
+                add { _closing += value; }
+                remove { _closing -= value; }
+            }
+            void IWindowView.OnClosing(WindowClosingEventArgs args) => _closing?.Invoke(this, args);
+        }
+
+        /// <summary>Presenter whose <c>OnInitialize</c> throws, exercising the init-failure path.</summary>
+        private sealed class ThrowingInitPresenter : WindowPresenterBase<ITestNavView>
+        {
+            protected override void OnViewAttached() { }
+            protected override void OnInitialize() => throw new InvalidOperationException("boom in init");
+        }
 
         #endregion
 
@@ -137,6 +159,43 @@ namespace WinformsMVP.Samples.Tests.Services
 
             Assert.Throws<InvalidCastException>(
                 () => ((IViewAttachable)presenter).AttachView(new WrongView()));
+        }
+
+        [Fact]
+        public void ShowWindow_NonModal_InitThrows_DoesNotLeaveStaleEntryInOpenForms()
+        {
+            // Regression: a non-modal show whose Initialize throws must NOT leave its keyed entry
+            // in _openForms pointing at a disposed form. A subsequent show with the same key must
+            // create a fresh window instead of "activating" the dead one.
+            var registry = new ViewMappingRegister();
+            registry.Register<ITestNavView, TestNavForm>();
+            var navigator = new WindowNavigator(registry);
+
+            object key = "doc-1";
+
+            var failing = new ThrowingInitPresenter();
+            Assert.Throws<InvalidOperationException>(
+                () => navigator.ShowWindow<ThrowingInitPresenter>(failing, keySelector: _ => key));
+
+            // The stale (disposed) form must have been pruned, so the next show creates a new one.
+            var second = new TestNavPresenter();
+            IWindowView view = null;
+            try
+            {
+                view = navigator.ShowWindow<TestNavPresenter>(second, keySelector: _ => key);
+
+                Assert.NotNull(view);
+                Assert.False(second.Disposed,
+                    "A fresh window must be created (the second presenter must not be disposed as a duplicate).");
+                Assert.False(((Form)view).IsDisposed,
+                    "The newly created form must be live, not the stale disposed entry.");
+            }
+            finally
+            {
+                // Close the live non-modal window the navigator opened (the controller disposes it).
+                if (view is Form openedForm && !openedForm.IsDisposed)
+                    openedForm.Close();
+            }
         }
     }
 }

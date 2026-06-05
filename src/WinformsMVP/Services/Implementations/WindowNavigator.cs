@@ -144,8 +144,8 @@ namespace WinformsMVP.Services.Implementations
             var controller = WireController<TResult>(
                 presenter, newForm, WrapWithKeyRemoval(instanceKey, safeOnClosed), disposeForm: false);
 
-            RegisterOpenForm(instanceKey, newForm);
             RunInitialize(presenter, newForm, () => presenter.Initialize(parameters));
+            RegisterOpenForm(instanceKey, newForm);
             controller.WireFormEvents();
 
             if (owner != null)
@@ -190,11 +190,11 @@ namespace WinformsMVP.Services.Implementations
             var controller = WireController<TResult>(
                 presenter, newForm, WrapWithKeyRemoval(instanceKey, onClosed), disposeForm: false);
 
-            RegisterOpenForm(instanceKey, newForm);
             RunInitialize(presenter, newForm, () =>
             {
                 if (presenter is IInitializable initializable) initializable.Initialize();
             });
+            RegisterOpenForm(instanceKey, newForm);
             controller.WireFormEvents();
 
             if (owner != null)
@@ -249,9 +249,14 @@ namespace WinformsMVP.Services.Implementations
         private WindowCloseController WireController<TResult>(
             IPresenter presenter, Form form, Action<InteractionResult<TResult>> onClosed, bool disposeForm)
         {
+            var participant = presenter as ICloseParticipant;
+            if (participant == null)
+                throw new InvalidOperationException(
+                    presenter.GetType().Name + " cannot be shown by WindowNavigator because it does not " +
+                    "derive from WindowPresenterBase / WindowPresenterBaseCore (no close participant).");
             var controller = new WindowCloseController(
                 (IWindowView)form,
-                (ICloseParticipant)presenter,
+                participant,
                 (res, status) => onClosed(BuildResult<TResult>(res, status)),
                 disposeForm);
             controller.BindSink();
@@ -274,7 +279,7 @@ namespace WinformsMVP.Services.Implementations
             switch (status)
             {
                 case InteractionStatus.Ok:
-                    return InteractionResult<TResult>.Ok((TResult)result);
+                    return InteractionResult<TResult>.Ok(result is TResult typed ? typed : default(TResult));
                 case InteractionStatus.Error:
                     return InteractionResult<TResult>.Error("Operation failed");
                 case InteractionStatus.Cancel:
