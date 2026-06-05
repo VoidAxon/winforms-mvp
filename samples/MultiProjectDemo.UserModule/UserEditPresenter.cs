@@ -1,6 +1,4 @@
-using System;
 using WinformsMVP.Common;
-using WinformsMVP.Common.Events;
 using WinformsMVP.MVP.Presenters;
 
 namespace MultiProjectDemo.UserModule
@@ -17,8 +15,6 @@ namespace MultiProjectDemo.UserModule
     {
         private readonly IUserRepository _repository;
         private int _userId;
-
-        public event EventHandler<CloseRequestedEventArgs<UserEditResult>> CloseRequested;
 
         public UserEditPresenter(IUserRepository repository)
         {
@@ -68,12 +64,9 @@ namespace MultiProjectDemo.UserModule
             };
             _repository.Save(user);
 
-            RaiseClose(new UserEditResult { UserId = user.Id, Name = user.Name }, InteractionStatus.Ok);
+            this.RequestClose(new UserEditResult { UserId = user.Id, Name = user.Name }, InteractionStatus.Ok);
         }
 
-        private void OnCancel() => RaiseClose(null, InteractionStatus.Cancel);
-
-        private void RaiseClose(UserEditResult result, InteractionStatus status)
-            => CloseRequested?.Invoke(this, new CloseRequestedEventArgs<UserEditResult>(result, status));
+        private void OnCancel() => this.RequestClose(null, InteractionStatus.Cancel);
     }
 }
