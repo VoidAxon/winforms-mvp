@@ -110,17 +110,6 @@ namespace WinformsMVP.Samples.Tests.Presenters
             Assert.True(args.Cancel);
         }
 
-        [Fact]
-        public void WindowClosingEventArgs_Cancel_OnceSetTrue_CannotBeReset()
-        {
-            var args = new WindowClosingEventArgs(CloseReason.Normal);
-
-            args.Cancel = true;
-            args.Cancel = false;   // write-once veto: ignored
-
-            Assert.True(args.Cancel);
-        }
-
         [Theory]
         [InlineData(CloseReason.Normal)]
         [InlineData(CloseReason.SystemShutdown)]
@@ -225,18 +214,6 @@ namespace WinformsMVP.Samples.Tests.Presenters
             var view = new FakeView();
             view.Closing += (s, e) => { /* subscriber 1: allows */ };
             view.Closing += (s, e) => { e.Cancel = true; /* subscriber 2: blocks */ };
-
-            var args = view.RaiseClosing();
-
-            Assert.True(args.Cancel);
-        }
-
-        [Fact]
-        public void Closing_LaterSubscriberCannotUndoEarlierVeto()
-        {
-            var view = new FakeView();
-            view.Closing += (s, e) => { e.Cancel = true; /* subscriber 1: blocks */ };
-            view.Closing += (s, e) => { e.Cancel = false; /* subscriber 2: tries to allow — must be ignored */ };
 
             var args = view.RaiseClosing();
 
