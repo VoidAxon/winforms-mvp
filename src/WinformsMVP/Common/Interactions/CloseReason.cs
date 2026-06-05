@@ -18,7 +18,7 @@ namespace WinformsMVP.Common
     {
         /// <summary>
         /// Standard close: user clicked the X button, pressed Alt+F4, or the Presenter
-        /// triggered <c>CloseRequested</c>. This is the path where dirty-data prompts belong.
+        /// called <c>RequestClose</c>. This is the path where dirty-data prompts belong.
         /// </summary>
         Normal,
 
