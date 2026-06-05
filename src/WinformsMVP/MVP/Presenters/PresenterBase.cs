@@ -108,6 +108,7 @@ namespace WinformsMVP.MVP.Presenters
         /// the same <see cref="SetView"/> path as the typed <see cref="IViewAttacher{TView}"/>.
         /// </summary>
         void IViewAttachable.AttachView(IViewBase view) => SetView((TView)view);
+        bool IViewAttachable.IsViewAttached => View != null;
 
         /// <summary>
         /// Sets the view for this presenter. Called by derived classes.

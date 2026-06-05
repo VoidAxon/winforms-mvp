@@ -18,5 +18,9 @@ namespace WinformsMVP.MVP.Presenters
     internal interface IViewAttachable
     {
         void AttachView(IViewBase view);
+
+        /// <summary>True once a view has been attached. Lets the <c>Connect</c> extension stay
+        /// idempotent without touching the protected <c>View</c> property.</summary>
+        bool IsViewAttached { get; }
     }
 }
