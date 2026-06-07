@@ -31,7 +31,7 @@ namespace WinformsMVP.Services.Implementations
         /// <exception cref="InvalidOperationException">The registered View is not a <see cref="Form"/>,
         /// does not implement <see cref="IWindowView"/>, or the presenter does not implement the
         /// matching <see cref="IViewAttacher{TView}"/>. The presenter is disposed before the throw.</exception>
-        public InteractionResult<TResult> ShowWindowAsModal<TPresenter, TResult>(TPresenter presenter, IWin32Window owner = null) where TPresenter : IPresenter
+        public InteractionResult<TResult> ShowWindowAsModal<TPresenter, TResult>(TPresenter presenter, IWindowView owner = null) where TPresenter : IPresenter
         {
             var form = CreateFormForPresenter(presenter);
 
@@ -50,24 +50,22 @@ namespace WinformsMVP.Services.Implementations
                 return result;
             }
 
-            if (owner != null)
-                form.ShowDialog(owner);
-            else
-                form.ShowDialog();
+            var resolvedOwner = ResolveOwner(owner);
+            if (resolvedOwner != null) form.ShowDialog(resolvedOwner); else form.ShowDialog();
 
             // Presenter and form are disposed by the controller on FormClosed.
             return result;
         }
 
-        public InteractionResult ShowWindowAsModal<TPresenter>(TPresenter presenter, IWin32Window owner = null)
+        public InteractionResult ShowWindowAsModal<TPresenter>(TPresenter presenter, IWindowView owner = null)
         where TPresenter : IPresenter
         {
             // Internally call generic version, using object as placeholder result type
             return ShowWindowAsModal<TPresenter, object>(presenter, owner);
         }
 
-        /// <inheritdoc cref="ShowWindowAsModal{TPresenter, TResult}(TPresenter, IWin32Window)"/>
-        public InteractionResult<TResult> ShowWindowAsModal<TPresenter, TParam, TResult>(TPresenter presenter, TParam parameters, IWin32Window owner = null)
+        /// <inheritdoc cref="ShowWindowAsModal{TPresenter, TResult}(TPresenter, IWindowView)"/>
+        public InteractionResult<TResult> ShowWindowAsModal<TPresenter, TParam, TResult>(TPresenter presenter, TParam parameters, IWindowView owner = null)
             where TPresenter : IPresenter, IInitializable<TParam>
         {
             var form = CreateFormForPresenter(presenter);
@@ -84,15 +82,13 @@ namespace WinformsMVP.Services.Implementations
                 return result;
             }
 
-            if (owner != null)
-                form.ShowDialog(owner);
-            else
-                form.ShowDialog();
+            var resolvedOwner = ResolveOwner(owner);
+            if (resolvedOwner != null) form.ShowDialog(resolvedOwner); else form.ShowDialog();
 
             return result;
         }
 
-        public InteractionResult ShowWindowAsModal<TPresenter, TParam>(TPresenter presenter, TParam parameters, IWin32Window owner = null)
+        public InteractionResult ShowWindowAsModal<TPresenter, TParam>(TPresenter presenter, TParam parameters, IWindowView owner = null)
             where TPresenter : IPresenter, IInitializable<TParam>
         {
             // Internally call generic version, using object as placeholder result type
@@ -105,7 +101,7 @@ namespace WinformsMVP.Services.Implementations
 
         public IWindowView ShowWindow<TPresenter, TResult>(
             TPresenter presenter,
-            IWin32Window owner = null,
+            IWindowView owner = null,
             Func<TPresenter, object> keySelector = null,
             Action<InteractionResult<TResult>> onClosed = null
             )
@@ -116,7 +112,7 @@ namespace WinformsMVP.Services.Implementations
         }
 
         public IWindowView ShowWindow<TPresenter>(TPresenter presenter,
-        IWin32Window owner = null,
+        IWindowView owner = null,
         Func<TPresenter, object> keySelector = null) where TPresenter : IPresenter
         {
             return ShowWindow<TPresenter, object>(
@@ -129,7 +125,7 @@ namespace WinformsMVP.Services.Implementations
         public IWindowView ShowWindow<TPresenter, TParam, TResult>(
             TPresenter presenter,
             TParam parameters,
-            IWin32Window owner = null,
+            IWindowView owner = null,
             Func<TPresenter, object> keySelector = null,
             Action<InteractionResult<TResult>> onClosed = null)
             where TPresenter : IPresenter, IInitializable<TParam>
@@ -148,10 +144,8 @@ namespace WinformsMVP.Services.Implementations
             RegisterOpenForm(instanceKey, newForm);
             controller.WireFormEvents();
 
-            if (owner != null)
-                newForm.Show(owner);
-            else
-                newForm.Show();
+            var resolvedOwner = ResolveOwner(owner);
+            if (resolvedOwner != null) newForm.Show(resolvedOwner); else newForm.Show();
 
             return (IWindowView)newForm;
         }
@@ -159,7 +153,7 @@ namespace WinformsMVP.Services.Implementations
         public IWindowView ShowWindow<TPresenter, TParam>(
             TPresenter presenter,
             TParam parameters,
-            IWin32Window owner = null,
+            IWindowView owner = null,
             Func<TPresenter, object> keySelector = null)
             where TPresenter : IPresenter, IInitializable<TParam>
         {
@@ -176,7 +170,7 @@ namespace WinformsMVP.Services.Implementations
 
         private IWindowView ShowWindowInternal<TPresenter, TResult>(
             TPresenter presenter,
-            IWin32Window owner,
+            IWindowView owner,
             Func<TPresenter, object> keySelector,
             Action<InteractionResult<TResult>> onClosed)
             where TPresenter : IPresenter
@@ -197,10 +191,8 @@ namespace WinformsMVP.Services.Implementations
             RegisterOpenForm(instanceKey, newForm);
             controller.WireFormEvents();
 
-            if (owner != null)
-                newForm.Show(owner);
-            else
-                newForm.Show();
+            var resolvedOwner = ResolveOwner(owner);
+            if (resolvedOwner != null) newForm.Show(resolvedOwner); else newForm.Show();
 
             return (IWindowView)newForm;
         }
@@ -301,6 +293,18 @@ namespace WinformsMVP.Services.Implementations
         #endregion
 
         #region Utility
+
+        /// <summary>
+        /// Resolves a framework <see cref="IWindowView"/> owner to the WinForms <see cref="IWin32Window"/>
+        /// that <c>Form.ShowDialog</c>/<c>Form.Show</c> require. A null owner means "no owner". A
+        /// non-window view passed as an owner is a misuse and throws.
+        /// </summary>
+        private static IWin32Window ResolveOwner(IWindowView owner)
+        {
+            if (owner == null) return null;
+            if (owner is IWin32Window win) return win;
+            throw new ArgumentException("owner must be a Form-backed view.", nameof(owner));
+        }
 
         /// <summary>
         /// Creates and attaches the Form for <paramref name="presenter"/> (does NOT initialize —

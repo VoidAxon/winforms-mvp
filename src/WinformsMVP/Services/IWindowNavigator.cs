@@ -1,5 +1,4 @@
 using System;
-using System.Windows.Forms;
 using WinformsMVP.Common;
 using WinformsMVP.MVP.Views;
 using WinformsMVP.MVP.Presenters;
@@ -14,14 +13,14 @@ namespace WinformsMVP.Services
 
         IWindowView ShowWindow<TPresenter, TResult>(
             TPresenter presenter,
-            IWin32Window owner = null,
+            IWindowView owner = null,
             Func<TPresenter, object> keySelector = null,
             Action<InteractionResult<TResult>> onClosed = null)
             where TPresenter : IPresenter;
 
         IWindowView ShowWindow<TPresenter>(
             TPresenter presenter,
-            IWin32Window owner = null,
+            IWindowView owner = null,
             Func<TPresenter, object> keySelector = null)
             where TPresenter : IPresenter;
 
@@ -31,12 +30,12 @@ namespace WinformsMVP.Services
 
         InteractionResult ShowWindowAsModal<TPresenter>(
             TPresenter presenter,
-            IWin32Window owner = null)
+            IWindowView owner = null)
             where TPresenter : IPresenter;
 
         InteractionResult<TResult> ShowWindowAsModal<TPresenter, TResult>(
             TPresenter presenter,
-            IWin32Window owner = null)
+            IWindowView owner = null)
             where TPresenter : IPresenter;
 
         // ==================================================
@@ -46,7 +45,7 @@ namespace WinformsMVP.Services
         IWindowView ShowWindow<TPresenter, TParam, TResult>(
             TPresenter presenter,
             TParam parameters,
-            IWin32Window owner = null,
+            IWindowView owner = null,
             Func<TPresenter, object> keySelector = null,
             Action<InteractionResult<TResult>> onClosed = null)
             where TPresenter : IPresenter, IInitializable<TParam>;
@@ -54,7 +53,7 @@ namespace WinformsMVP.Services
         IWindowView ShowWindow<TPresenter, TParam>(
             TPresenter presenter,
             TParam parameters,
-            IWin32Window owner = null,
+            IWindowView owner = null,
             Func<TPresenter, object> keySelector = null)
             where TPresenter : IPresenter, IInitializable<TParam>;
 
@@ -65,13 +64,13 @@ namespace WinformsMVP.Services
         InteractionResult ShowWindowAsModal<TPresenter, TParam>(
             TPresenter presenter,
             TParam parameters,
-            IWin32Window owner = null)
+            IWindowView owner = null)
             where TPresenter : IPresenter, IInitializable<TParam>;
 
         InteractionResult<TResult> ShowWindowAsModal<TPresenter, TParam, TResult>(
             TPresenter presenter,
             TParam parameters,
-            IWin32Window owner = null)
+            IWindowView owner = null)
             where TPresenter : IPresenter, IInitializable<TParam>;
     }
 }

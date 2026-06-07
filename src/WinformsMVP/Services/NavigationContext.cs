@@ -1,5 +1,4 @@
 using System;
-using System.Windows.Forms;
 using WinformsMVP.Common;
 using WinformsMVP.MVP.Views;
 using WinformsMVP.MVP.Presenters;
@@ -44,14 +43,14 @@ namespace WinformsMVP.Services
         /// <summary>
         /// Shows the presenter as a modal window with no business result.
         /// </summary>
-        public InteractionResult ShowAsModal(IWin32Window owner = null)
+        public InteractionResult ShowAsModal(IWindowView owner = null)
             => Nav.ShowWindowAsModal<TPresenter>(Presenter, owner);
 
         /// <summary>
         /// Shows the presenter as a modal window and waits for a typed business result
         /// the presenter pushes via <c>RequestClose(result, status)</c>.
         /// </summary>
-        public InteractionResult<TResult> ShowAsModal<TResult>(IWin32Window owner = null)
+        public InteractionResult<TResult> ShowAsModal<TResult>(IWindowView owner = null)
             => Nav.ShowWindowAsModal<TPresenter, TResult>(Presenter, owner);
 
         /// <summary>
@@ -62,7 +61,7 @@ namespace WinformsMVP.Services
         /// one. The lambda receives the strongly-typed presenter, so presenter properties can
         /// be accessed without casts.</param>
         public IWindowView ShowWindow(
-            IWin32Window owner = null,
+            IWindowView owner = null,
             Func<TPresenter, object> keySelector = null)
             => Nav.ShowWindow<TPresenter>(Presenter, owner, keySelector);
 
@@ -71,7 +70,7 @@ namespace WinformsMVP.Services
         /// with the final result after the window closes.
         /// </summary>
         public IWindowView ShowWindow<TResult>(
-            IWin32Window owner = null,
+            IWindowView owner = null,
             Func<TPresenter, object> keySelector = null,
             Action<InteractionResult<TResult>> onClosed = null)
             => Nav.ShowWindow<TPresenter, TResult>(Presenter, owner, keySelector, onClosed);
@@ -109,21 +108,21 @@ namespace WinformsMVP.Services
         /// Shows the presenter as a modal window with the captured parameters and no
         /// business result.
         /// </summary>
-        public InteractionResult ShowAsModal(IWin32Window owner = null)
+        public InteractionResult ShowAsModal(IWindowView owner = null)
             => Nav.ShowWindowAsModal<TPresenter, TParam>(Presenter, Parameters, owner);
 
         /// <summary>
         /// Shows the presenter as a modal window with the captured parameters and waits
         /// for a typed business result.
         /// </summary>
-        public InteractionResult<TResult> ShowAsModal<TResult>(IWin32Window owner = null)
+        public InteractionResult<TResult> ShowAsModal<TResult>(IWindowView owner = null)
             => Nav.ShowWindowAsModal<TPresenter, TParam, TResult>(Presenter, Parameters, owner);
 
         /// <summary>
         /// Shows the presenter as a non-modal window with the captured parameters.
         /// </summary>
         public IWindowView ShowWindow(
-            IWin32Window owner = null,
+            IWindowView owner = null,
             Func<TPresenter, object> keySelector = null)
             => Nav.ShowWindow<TPresenter, TParam>(Presenter, Parameters, owner, keySelector);
 
@@ -132,7 +131,7 @@ namespace WinformsMVP.Services
         /// invokes <paramref name="onClosed"/> with the final result after the window closes.
         /// </summary>
         public IWindowView ShowWindow<TResult>(
-            IWin32Window owner = null,
+            IWindowView owner = null,
             Func<TPresenter, object> keySelector = null,
             Action<InteractionResult<TResult>> onClosed = null)
             => Nav.ShowWindow<TPresenter, TParam, TResult>(Presenter, Parameters, owner, keySelector, onClosed);
