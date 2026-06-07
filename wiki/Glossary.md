@@ -146,7 +146,7 @@ View インターフェイスの 3 層の継承構造。
 
 - **`IViewBase`** — すべての View 共通の **ルート** (空のマーカー)。義務を課さない。アクション生成コントロールを持たない View (静的なスプラッシュ等) はこれを直接実装してよい。
 - **`IActionableView : IViewBase`** — ViewAction システムに参加する View が実装する中間層。`ActionBinder` (`IViewActionBinder`) を 1 つ公開する。
-- **`IWindowView : IActionableView, IWin32Window`** — Form (ウィンドウ) 用。`Handle`, `IsDisposed`, `Activate` などウィンドウのライフサイクル識別子を追加する。クローズメンバー (`Closing` / `OnClosing` 等) は含まない — クローズ制御は Presenter の `CanClose` override で行う。
+- **`IWindowView : IActionableView`** — Form (ウィンドウ) 用のマーカー。独自メンバーも WinForms 型も持たない (`Handle` / `IsDisposed` / `Activate` も含まない)。クローズ制御は Presenter の `CanClose(CloseReason)` override / `RequestClose(...)` で行い、ライフサイクル・アクティブ化は具象 Form 側でフレームワークが扱う。モーダルダイアログの `owner` として渡せる (Navigator が実行時に実ウィンドウへ解決する)。
 
 慣習として、Form 系の View は `IWindowView` を、UserControl 系の View は `IViewBase` (アクションを持つなら `IActionableView`) を起点に定義する。`IViewBase` は「UserControl 専用」ではなく、全 View の共通ルートである点に注意。
 
