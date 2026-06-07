@@ -1,29 +1,29 @@
-# Window Closing Model
+# ウィンドウクローズモデル
 
-This page explains the design of the framework's **two-direction window closing model**. For concrete code samples see [HowTo: Handle Window Closing](HowTo-Handle-Window-Closing). For the `WindowNavigator` API reference see [WindowNavigator](Reference-WindowNavigator).
+このページでは、フレームワークの **二方向ウィンドウクローズモデル** の設計を解説します。具体的なコードサンプルは [HowTo: ウィンドウクローズを扱う](HowTo-Handle-Window-Closing) を、`WindowNavigator` の API リファレンスは [WindowNavigator](Reference-WindowNavigator) を参照してください。
 
-> **Understanding this model is essential for implementing dirty-checks, save-on-close, and cancel behavior correctly.**
-
----
-
-## Why a dedicated model?
-
-WinForms `Form.FormClosing` aggregates every close trigger — user's X button, system shutdown, task-manager kill, owner-window propagation, and code-driven `Close()` — into one event. That event carries `FormClosingEventArgs`, a WinForms-namespace type, so any Presenter that handles it directly violates two of the [three iron rules of MVP](Concept-MVP-Pattern#3-iron-rules).
-
-This framework resolves those problems by splitting the close responsibility into **two independent directions** and keeping all WinForms details inside one internal component.
+> **ダーティチェック・保存確認・キャンセル動作を正しく実装するには、このモデルを理解することが不可欠です。**
 
 ---
 
-## Mental model: Push and Pull
+## なぜ専用モデルが必要か
 
-| Direction | Initiator | Mechanism | Typical trigger |
-|-----------|-----------|-----------|----------------|
-| **Pull**  | Framework | `protected virtual bool CanClose(CloseReason reason)` override | X / Alt+F4 / shutdown |
-| **Push**  | Presenter | base `RequestClose(result, status)` / `RequestClose(status)` method | user clicked Save / Cancel / OK |
+WinForms の `Form.FormClosing` は、ユーザーの X ボタン・システムシャットダウン・タスクマネージャによる強制終了・オーナーウィンドウの伝播・コードからの `Close()` 呼び出しなど、あらゆるクローズトリガーを 1 つのイベントに集約します。このイベントは `FormClosingEventArgs` という WinForms 名前空間の型を持つため、Presenter が直接ハンドルすると [MVP の 3 つの鉄則](Concept-MVP-Pattern#3-つの鉄則-three-iron-rules) のうち 2 つに違反してしまいます。
 
-Both paths converge on WinForms `FormClosed`. The `ShowWindowAsModal` caller always receives the same `InteractionResult<TResult>`, regardless of which direction caused the close. The mapping from WinForms `FormCloseReason` to the framework's `CloseReason` happens exactly once, inside `CloseReasonMap`, and never leaks to Presenters.
+このフレームワークは、クローズ責務を **2 つの独立した方向** に分割し、すべての WinForms の詳細を 1 つの内部コンポーネントに封じ込めることでこの問題を解決します。
 
-### Push direction — Presenter actively closes
+---
+
+## 概念モデル: Push と Pull
+
+| 方向 | 起点 | 仕組み | 典型的なトリガー |
+|------|------|--------|----------------|
+| **Pull** | フレームワーク | `protected virtual bool CanClose(CloseReason reason)` オーバーライド | X ボタン / Alt+F4 / シャットダウン |
+| **Push** | Presenter | 基底の `RequestClose(result, status)` / `RequestClose(status)` メソッド | ユーザーが Save / Cancel / OK をクリック |
+
+両方のパスは WinForms の `FormClosed` に収束します。`ShowWindowAsModal` の呼び出し元は、どちらの方向でクローズが起きたかに関わらず、常に同じ `InteractionResult<TResult>` を受け取ります。WinForms の `FormCloseReason` からフレームワークの `CloseReason` へのマッピングは `CloseReasonMap` の中で 1 回だけ行われ、Presenter には絶対に漏れません。
+
+### Push 方向 — Presenter が能動的にクローズする
 
 ```
 User clicks Save
@@ -42,7 +42,7 @@ OnSave() in Presenter
           FormClosed → Converge → onClosed callback → InteractionResult(Ok, result)
 ```
 
-### Pull direction — external trigger
+### Pull 方向 — 外部トリガー
 
 ```
 User clicks X (or Alt+F4, system shutdown …)
@@ -62,23 +62,24 @@ WindowCloseController.OnFormClosing
 
 ---
 
-## Single-source-of-truth invariant
+## 単一正本の不変条件
 
-> **Dirty-state prompts live ONLY in `CanClose` (Pull direction).**
+> **ダーティ状態のプロンプトは `CanClose` (Pull 方向) にのみ置く。**
 
-Push handlers finalize the dirty flag (`AcceptChanges` / `RejectChanges`) **before** calling `RequestClose`, so the framework's follow-up `CanClose` call sees clean state and does not re-prompt. The double-prompt prevention is structural — it does not depend on the order of `AcceptChanges` relative to `RequestClose`.
+Push ハンドラは `RequestClose` を呼ぶ **前に** ダーティフラグを確定させます (`AcceptChanges` / `RejectChanges`)。これにより、フレームワークが続けて実行する `CanClose` の呼び出しはクリーンな状態を見るため、再プロンプトは起きません。二重プロンプトの防止は構造的な保証であり、`AcceptChanges` と `RequestClose` の呼び出し順序には依存しません。
 
-Design gains:
-- Dirty-check logic is concentrated in one place
-- Push-direction close cannot accidentally trigger a second dirty-check dialog
-- Both directions can be tested independently and in isolation
-- Callers only see `InteractionResult<TResult>`; they never care which direction caused the close
+設計上の利点:
+
+- ダーティチェックのロジックが 1 箇所に集中する
+- Push 方向のクローズが誤って二重ダーティチェックダイアログを出すことがない
+- 両方向を独立かつ分離してテストできる
+- 呼び出し元は `InteractionResult<TResult>` だけを見ればよく、どちらの方向でクローズが発生したかを気にする必要がない
 
 ---
 
-## Pull gate — `CanClose`
+## Pull ゲート — `CanClose`
 
-Override `CanClose(CloseReason reason)` in your Presenter to veto a close. Return `false` to block, `true` to allow:
+Presenter で `CanClose(CloseReason reason)` をオーバーライドすることでクローズを拒否できます。`false` を返すとブロック、`true` を返すと許可します:
 
 ```csharp
 protected override bool CanClose(CloseReason reason)
@@ -94,9 +95,9 @@ protected override bool CanClose(CloseReason reason)
 }
 ```
 
-### Async Pull gate
+### 非同期 Pull ゲート
 
-When the close decision needs a callback (async save, server round-trip), override the two-argument form. Call `proceed(true)` to allow or `proceed(false)` to block — from inside a continuation if needed. `Action<bool>` is used instead of `Task` to remain net40-safe:
+クローズ判断にコールバック (非同期保存、サーバーラウンドトリップ) が必要な場合は、2 引数の形式をオーバーライドします。`proceed(true)` で許可、`proceed(false)` でブロックします — 必要に応じてコンティニュエーションの中から呼んでも構いません。`Task` ではなく `Action<bool>` を使うことで net40 との互換性を維持します:
 
 ```csharp
 protected override void CanClose(CloseReason reason, Action<bool> proceed)
@@ -115,13 +116,13 @@ protected override void CanClose(CloseReason reason, Action<bool> proceed)
 }
 ```
 
-The framework's internal async handling: if `proceed` is called synchronously (before `CanCloseGate` returns), the answer is applied directly via `e.Cancel`. If it is called from a continuation (after `CanCloseGate` returns), a `proceed(true)` triggers a re-close with the gate suppressed; `proceed(false)` leaves the window open with no action needed.
+フレームワーク内部の非同期処理: `proceed` が同期的に (つまり `CanCloseGate` が返る前に) 呼ばれた場合、答えは `e.Cancel` に直接適用されます。コンティニュエーションから (つまり `CanCloseGate` が返った後に) 呼ばれた場合、`proceed(true)` はゲートを抑制した再クローズをトリガーし、`proceed(false)` はウィンドウを開いたままにします (何もアクションは不要です)。
 
 ---
 
-## Push direction — `RequestClose`
+## Push 方向 — `RequestClose`
 
-Call the base `RequestClose` method directly — no interface to implement, no extension. `TResult` is inferred from the argument:
+基底の `RequestClose` メソッドを直接呼びます — 実装すべきインターフェイスも拡張メソッドも不要です。`TResult` は引数から推論されます:
 
 ```csharp
 public class EditUserPresenter : WindowPresenterBase<IEditUserView>
@@ -141,20 +142,20 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView>
 }
 ```
 
-Two overloads on `WindowPresenterBaseCore<TView>`:
+`WindowPresenterBaseCore<TView>` の 2 つのオーバーロード:
 
 ```csharp
 protected void RequestClose(InteractionStatus status = InteractionStatus.Ok);                        // close, no business result
 protected void RequestClose<TResult>(TResult result, InteractionStatus status = InteractionStatus.Ok); // close with a typed result
 ```
 
-Note: `RequestClose(InteractionStatus.Cancel)` resolves to the no-result overload. A window whose result type is literally `InteractionStatus` would disambiguate with `RequestClose<InteractionStatus>(x)` — essentially never needed.
+注意: `RequestClose(InteractionStatus.Cancel)` は結果なしオーバーロードに解決されます。結果の型がそのまま `InteractionStatus` であるウィンドウは `RequestClose<InteractionStatus>(x)` で明示的に型指定できますが、実際にそのケースが必要になることはほぼありません。
 
 ---
 
-## `CloseReason` enum
+## `CloseReason` 列挙型
 
-The framework uses its own `CloseReason` instead of `System.Windows.Forms.CloseReason` to keep WinForms types out of View interfaces and Presenters entirely.
+このフレームワークは `System.Windows.Forms.CloseReason` の代わりに独自の `CloseReason` を使い、WinForms 型が View インターフェイスや Presenter に一切漏れないようにしています。
 
 ```csharp
 public enum CloseReason
@@ -167,17 +168,17 @@ public enum CloseReason
 }
 ```
 
-The mapping from `FormCloseReason` to this enum happens once in `CloseReasonMap` (internal). That is the only place in the framework that knows WinForms close reasons.
+`FormCloseReason` からこの列挙型へのマッピングは `CloseReasonMap` (内部) で 1 回だけ行われます。フレームワーク内で WinForms のクローズ理由を知っている場所はここだけです。
 
 ---
 
-## Hosting — Managed vs Adopted
+## ホスティング — Managed と Adopted
 
-**Single-owner rule**: use exactly one of the two modes for any given Form. Never mix them.
+**単一オーナーの規則**: 1 つの Form に対して 2 つのモードのいずれか一方だけを使います。混在させないでください。
 
-### Managed hosting (default for MVP-native windows)
+### Managed ホスティング (MVP ネイティブウィンドウのデフォルト)
 
-`WindowNavigator` creates the Form, wires the close controller, and shows it. This is the correct path for all new windows:
+`WindowNavigator` が Form を作成し、クローズコントローラを接続して表示します。すべての新しいウィンドウに対する正規のパスはこちらです:
 
 ```csharp
 // Modal — returns InteractionResult<TResult>
@@ -187,9 +188,9 @@ var result = Navigator.For(presenter).WithParam(parameters).ShowAsModal<UserResu
 Navigator.For(presenter).ShowWindow();
 ```
 
-### Adopted hosting (shell window, legacy migration)
+### Adopted ホスティング (シェルウィンドウ・レガシー移行)
 
-For a Form you create and `Show` / `Application.Run` yourself, call `presenter.Connect(form)`. This does attach + initialize + close wiring idempotently, without showing the form:
+自分で作成して `Show` / `Application.Run` する Form に対しては、`presenter.Connect(form)` を呼びます。これにより、フォームを表示することなく、アタッチ・初期化・クローズ配線をべき等に行います:
 
 ```csharp
 // No-result adoption
@@ -205,27 +206,26 @@ presenter.Connect<IMyView, bool>(form, result =>
 presenter.Connect(form, parameters);
 ```
 
-After `Connect`, you own the `Show` / `Application.Run`. The Presenter owns the close wiring.
+`Connect` 後は `Show` / `Application.Run` の呼び出しは呼び出し元が行います。クローズ配線は Presenter が担当します。
 
 ---
 
+## 内部ブリッジ — `WindowCloseController`
 
-## Internal bridge — `WindowCloseController`
+ウィンドウごとに 1 つの `WindowCloseController` インスタンスが作成されます。このインスタンスは:
 
-One `WindowCloseController` instance is created per window. It:
+- `ICloseSink` (Push シンク) を実装し、保留中の結果とステータスを記録し、抑制フラグをセットして `form.Close()` を呼びます。
+- `FormClosing` (Pull ゲート) をブリッジし、`ICloseParticipant.CanCloseGate` を呼んで `e.Cancel` の決定を適用します。
+- `CloseRequestedBeforeShow` + `ConvergeWithoutShow` を通じて、表示前クローズのエッジケースを処理します。
+- `FormClosed` に収束し、`onClosed` コールバックを呼び出して、Presenter を (Managed モーダル / Adopted の場合は Form も) Dispose します。
 
-- Implements `ICloseSink` (the Push sink): records the pending result and status, sets the suppress flag, calls `form.Close()`.
-- Bridges `FormClosing` (the Pull gate): calls `ICloseParticipant.CanCloseGate`, applies the `e.Cancel` decision.
-- Handles the close-before-show edge case via `CloseRequestedBeforeShow` + `ConvergeWithoutShow`.
-- Converges on `FormClosed`: invokes the `onClosed` callback and disposes the Presenter (and, for Managed modal / Adopted, the Form).
-
-This is the only component in the framework that references `Form` directly.
+フレームワーク内で `Form` を直接参照する唯一のコンポーネントです。
 
 ---
 
-## Caller's view
+## 呼び出し元から見た動作
 
-The caller (parent Presenter) sees only `InteractionResult<TResult>` and never needs to know which direction caused the close:
+呼び出し元 (親 Presenter) は `InteractionResult<TResult>` だけを見ればよく、どちらの方向でクローズが発生したかを知る必要はありません:
 
 ```csharp
 private void OnEditUser()
@@ -242,23 +242,23 @@ private void OnEditUser()
 
 ---
 
-## Summary
+## まとめ
 
-| Concern | Guarantee |
-|---------|-----------|
-| Presenter never sees WinForms types | `CloseReason` is a framework enum; `FormClosingEventArgs` never leaks |
-| Dirty-check centralized in one place | Only `CanClose` contains the prompt |
-| Push close cannot re-trigger the dirty prompt | `_suppressGate` flag is structural, not a calling-order convention |
-| Forms write zero closing code | `IWindowView` has no closing members |
-| Both directions testable independently | Pull via `ICloseParticipant.CanCloseGate`; Push via a bound `ICloseSink` recording fake |
+| 関心事 | 保証 |
+|--------|------|
+| Presenter は WinForms 型を見ない | `CloseReason` はフレームワークの列挙型。`FormClosingEventArgs` は絶対に漏れない |
+| ダーティチェックが 1 箇所に集中する | プロンプトは `CanClose` にのみ存在する |
+| Push クローズがダーティプロンプトを再発火させない | `_suppressGate` フラグは構造的であり、呼び出し順序の規約には依存しない |
+| Form はクローズコードをまったく書かない | `IWindowView` にクローズ関連のメンバーはない |
+| 両方向を独立してテストできる | Pull は `ICloseParticipant.CanCloseGate` 経由、Push は記録用 `ICloseSink` を束縛 |
 
 ---
 
-## Next steps
+## 次のステップ
 
-| Goal | Page |
-|------|------|
-| Concrete code samples for all scenarios | [HowTo: Handle Window Closing](HowTo-Handle-Window-Closing) |
-| Full `WindowNavigator` API | [WindowNavigator](Reference-WindowNavigator) |
-| Dirty-state tracking | [ChangeTracker](Reference-ChangeTracker) |
-| Testing patterns | [HowTo: Test a Presenter](HowTo-Test-A-Presenter) |
+| 目的 | ページ |
+|------|--------|
+| 全シナリオの具体的なコードサンプル | [HowTo: ウィンドウクローズを扱う](HowTo-Handle-Window-Closing) |
+| `WindowNavigator` の完全な API | [WindowNavigator](Reference-WindowNavigator) |
+| ダーティ状態の追跡 | [ChangeTracker](Reference-ChangeTracker) |
+| テストパターン | [HowTo: Presenter をテストする](HowTo-Test-A-Presenter) |
