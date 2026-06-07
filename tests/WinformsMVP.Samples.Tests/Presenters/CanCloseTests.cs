@@ -19,7 +19,6 @@ namespace WinformsMVP.Samples.Tests.Presenters
         private sealed class FakeView : IFakeView
         {
             public bool HasUnsavedChanges { get; set; }
-            public IntPtr Handle => IntPtr.Zero;
             public IViewActionBinder ActionBinder => NullViewActionBinder.Instance;
         }
 

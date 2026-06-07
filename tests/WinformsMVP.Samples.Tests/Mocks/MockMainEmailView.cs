@@ -24,9 +24,6 @@ namespace WinformsMVP.Samples.Tests.Mocks
         // Record method calls
         public List<string> MethodCalls { get; } = new List<string>();
 
-        // IWindowView members
-        public IntPtr Handle => IntPtr.Zero;
-
         // IMainEmailView implementation
         public IEnumerable<EmailMessage> Emails
         {

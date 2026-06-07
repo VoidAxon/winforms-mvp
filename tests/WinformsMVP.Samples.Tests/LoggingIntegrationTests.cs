@@ -25,7 +25,6 @@ namespace WinformsMVP.Samples.Tests
             public IViewActionBinder ActionBinder { get; } = NullViewActionBinder.Instance;
             public object Tag { get; set; }
 
-            public IntPtr Handle => IntPtr.Zero;
         }
 
         [Fact]

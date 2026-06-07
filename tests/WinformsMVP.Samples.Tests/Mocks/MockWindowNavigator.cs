@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Windows.Forms;
 using WinformsMVP.Common;
 using WinformsMVP.MVP.Views;
 using WinformsMVP.MVP.Presenters;
@@ -35,7 +34,7 @@ namespace WinformsMVP.Samples.Tests.Mocks
         // Non-modal window methods
         public IWindowView ShowWindow<TPresenter, TResult>(
             TPresenter presenter,
-            IWin32Window owner = null,
+            IWindowView owner = null,
             Func<TPresenter, object> keySelector = null,
             Action<InteractionResult<TResult>> onClosed = null)
             where TPresenter : IPresenter
@@ -47,7 +46,7 @@ namespace WinformsMVP.Samples.Tests.Mocks
 
         public IWindowView ShowWindow<TPresenter>(
             TPresenter presenter,
-            IWin32Window owner = null,
+            IWindowView owner = null,
             Func<TPresenter, object> keySelector = null)
             where TPresenter : IPresenter
         {
@@ -59,7 +58,7 @@ namespace WinformsMVP.Samples.Tests.Mocks
         public IWindowView ShowWindow<TPresenter, TParam, TResult>(
             TPresenter presenter,
             TParam parameters,
-            IWin32Window owner = null,
+            IWindowView owner = null,
             Func<TPresenter, object> keySelector = null,
             Action<InteractionResult<TResult>> onClosed = null)
             where TPresenter : IPresenter, IInitializable<TParam>
@@ -73,7 +72,7 @@ namespace WinformsMVP.Samples.Tests.Mocks
         public IWindowView ShowWindow<TPresenter, TParam>(
             TPresenter presenter,
             TParam parameters,
-            IWin32Window owner = null,
+            IWindowView owner = null,
             Func<TPresenter, object> keySelector = null)
             where TPresenter : IPresenter, IInitializable<TParam>
         {
@@ -86,7 +85,7 @@ namespace WinformsMVP.Samples.Tests.Mocks
         // Modal window methods
         public InteractionResult ShowWindowAsModal<TPresenter>(
             TPresenter presenter,
-            IWin32Window owner = null)
+            IWindowView owner = null)
             where TPresenter : IPresenter
         {
             ShowModalCalls.Add(presenter);
@@ -96,7 +95,7 @@ namespace WinformsMVP.Samples.Tests.Mocks
 
         public InteractionResult<TResult> ShowWindowAsModal<TPresenter, TResult>(
             TPresenter presenter,
-            IWin32Window owner = null)
+            IWindowView owner = null)
             where TPresenter : IPresenter
         {
             ShowModalCalls.Add(presenter);
@@ -109,7 +108,7 @@ namespace WinformsMVP.Samples.Tests.Mocks
         public InteractionResult ShowWindowAsModal<TPresenter, TParam>(
             TPresenter presenter,
             TParam parameters,
-            IWin32Window owner = null)
+            IWindowView owner = null)
             where TPresenter : IPresenter, IInitializable<TParam>
         {
             ShowModalCalls.Add(presenter);
@@ -121,7 +120,7 @@ namespace WinformsMVP.Samples.Tests.Mocks
         public InteractionResult<TResult> ShowWindowAsModal<TPresenter, TParam, TResult>(
             TPresenter presenter,
             TParam parameters,
-            IWin32Window owner = null)
+            IWindowView owner = null)
             where TPresenter : IPresenter, IInitializable<TParam>
         {
             ShowModalCalls.Add(presenter);

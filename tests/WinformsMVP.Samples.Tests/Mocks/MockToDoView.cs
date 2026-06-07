@@ -20,8 +20,6 @@ namespace WinformsMVP.Samples.Tests.Mocks
         public List<string> MethodCalls { get; } = new List<string>();
         public List<string> StatusMessages { get; } = new List<string>();
 
-        // IWindowView members
-        public IntPtr Handle => IntPtr.Zero;
 
         // IToDoView implementation
         public string TaskText { get; set; }

@@ -53,7 +53,6 @@ namespace WinformsMVP.Samples.Tests.Services
         /// </summary>
         private sealed class NotAFormView : ITestNavView
         {
-            public IntPtr Handle => IntPtr.Zero;
             public IViewActionBinder ActionBinder => NullViewActionBinder.Instance;
         }
 
