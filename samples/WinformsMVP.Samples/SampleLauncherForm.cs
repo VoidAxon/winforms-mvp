@@ -12,305 +12,212 @@ using WinformsMVP.Samples.EmailDemo;
 using WinformsMVP.Samples.EmailDemo.Services;
 using WinformsMVP.Samples.ComplexInteractionDemo_ServiceBased;
 using WinformsMVP.Samples.ComplexInteractionDemo_EventBased;
+using WinformsMVP.Samples.ToastDemo;
 using WinformsMVP.Services;
 using WinformsMVP.Services.Implementations;
 
 namespace WinformsMVP.Samples
 {
     /// <summary>
-    /// Sample launcher for WinForms MVP demos.
+    /// Sample launcher for WinForms MVP demos. Demos are grouped into categories and laid out in a
+    /// two-column grid so the whole catalog fits on screen without a tall single column.
     /// </summary>
     public class SampleLauncherForm : Form
     {
+        private const int ContentWidth = 720;
+        private const int ColumnGutter = 8;
+
+        private readonly ToolTip _toolTip = new ToolTip { AutoPopDelay = 8000, InitialDelay = 300 };
+
         public SampleLauncherForm()
         {
             InitializeComponent();
         }
 
+        /// <summary>A single launchable demo entry.</summary>
+        private sealed class DemoItem
+        {
+            public readonly string Title;
+            public readonly string Description;
+            public readonly Color Color;
+            public readonly Action Launch;
+
+            public DemoItem(string title, string description, Color color, Action launch)
+            {
+                Title = title;
+                Description = description;
+                Color = color;
+                Launch = launch;
+            }
+        }
+
         private void InitializeComponent()
         {
-            // Form settings
             this.Text = "WinForms MVP - Sample Launcher";
-            this.Size = new Size(500, 1080);
+            this.ClientSize = new Size(ContentWidth + 56, 785);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.Font = new Font("Segoe UI", 9f);
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
+            this.BackColor = Color.White;
 
-            // Title
+            // Accent header bar
+            var header = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 72,
+                BackColor = Color.FromArgb(0, 120, 215)
+            };
             var titleLabel = new Label
             {
-                Text = "WinForms MVP Framework - Samples",
-                Font = new Font("Segoe UI", 14f, FontStyle.Bold),
-                Location = new Point(30, 30),
-                Size = new Size(440, 30),
-                ForeColor = Color.DarkBlue,
-                TextAlign = ContentAlignment.MiddleCenter
+                Text = "WinForms MVP Framework",
+                Font = new Font("Segoe UI", 15f, FontStyle.Bold),
+                ForeColor = Color.White,
+                Location = new Point(24, 12),
+                AutoSize = true
             };
-
             var subtitleLabel = new Label
             {
-                Text = "Select a demo to explore ViewAction features",
-                Location = new Point(30, 65),
-                Size = new Size(440, 20),
-                ForeColor = Color.Gray,
-                TextAlign = ContentAlignment.MiddleCenter
+                Text = "Select a demo to explore the framework",
+                Font = new Font("Segoe UI", 9.5f),
+                ForeColor = Color.FromArgb(220, 235, 250),
+                Location = new Point(26, 44),
+                AutoSize = true
+            };
+            header.Controls.Add(titleLabel);
+            header.Controls.Add(subtitleLabel);
+
+            // Scrollable content area holding the category sections
+            var content = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                FlowDirection = FlowDirection.TopDown,
+                WrapContents = false,
+                AutoScroll = true,
+                Padding = new Padding(24, 16, 24, 16),
+                BackColor = Color.White
             };
 
-            // ToDo Demo Button
-            var todoButton = new Button
+            // Add content first, then header, so the docked header stays on top.
+            this.Controls.Add(content);
+            this.Controls.Add(header);
+
+            AddSection(content, "ViewAction",
+                new DemoItem("ToDo List Demo",
+                    "Action-driven updates • CanExecute • State management",
+                    Color.FromArgb(0, 120, 215), LaunchToDoDemo),
+                new DemoItem("CheckBox / RadioButton Demo",
+                    "CheckedChanged events • Settings UI • MVP pattern",
+                    Color.FromArgb(16, 137, 62), LaunchCheckBoxDemo),
+                new DemoItem("Bulk Binding Demo (Survey)",
+                    "AddRange • AddByTag • Many RadioButtons",
+                    Color.FromArgb(139, 69, 19), LaunchBulkBindingDemo));
+
+            AddSection(content, "Navigation & Windows",
+                new DemoItem("WindowNavigator Demo",
+                    "Modal • Non-Modal • Parameters • Results",
+                    Color.FromArgb(75, 0, 130), LaunchNavigatorDemo),
+                new DemoItem("MessageBox Positioning Demo",
+                    "Native MessageBox • Windows API Hook • Positioning",
+                    Color.FromArgb(255, 140, 0), LaunchMessageBoxDemo),
+                new DemoItem("Toast Notification Demo",
+                    "Layered popup • Invisible to OpenForms (like MessageBox)",
+                    Color.FromArgb(0, 150, 199), LaunchToastDemo));
+
+            AddSection(content, "Architecture",
+                new DemoItem("MVP Pattern Comparison",
+                    "Passive View vs Supervising Controller",
+                    Color.FromArgb(220, 20, 60), LaunchMVPComparisonDemo),
+                new DemoItem("ExecutionRequest Pattern",
+                    "Legacy Integration • Delayed Execution",
+                    Color.FromArgb(128, 0, 128), LaunchExecutionRequestDemo));
+
+            AddSection(content, "Cross-Presenter Communication",
+                new DemoItem("Order Mgmt (Service-Based)",
+                    "Shared Service Layer • Zero Presenter Coupling",
+                    Color.FromArgb(34, 139, 34), LaunchServiceBasedDemo),
+                new DemoItem("Order Mgmt (EventAggregator)",
+                    "Event Aggregator Pub-Sub • Decoupled Messaging",
+                    Color.FromArgb(184, 134, 11), LaunchEventBasedDemo));
+
+            AddSection(content, "Complete Application",
+                new DemoItem("Email Demo (Complete App)",
+                    "All Features • ChangeTracker • Navigator • Validation",
+                    Color.FromArgb(0, 150, 136), LaunchEmailDemo));
+        }
+
+        /// <summary>Builds one category: a heading, a divider line, and a two-column button grid.</summary>
+        private void AddSection(FlowLayoutPanel parent, string name, params DemoItem[] items)
+        {
+            var section = new FlowLayoutPanel
             {
-                Text = "ToDo List Demo",
-                Location = new Point(100, 120),
-                Size = new Size(300, 50),
-                Font = new Font("Segoe UI", 11f),
-                BackColor = Color.FromArgb(0, 120, 215),
+                FlowDirection = FlowDirection.TopDown,
+                WrapContents = false,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                Width = ContentWidth,
+                Margin = new Padding(0, 0, 0, 14)
+            };
+
+            var heading = new Label
+            {
+                Text = name,
+                Font = new Font("Segoe UI", 11f, FontStyle.Bold),
+                ForeColor = Color.FromArgb(64, 64, 64),
+                AutoSize = false,
+                Size = new Size(ContentWidth, 22),
+                Margin = new Padding(0, 0, 0, 2),
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+            var divider = new Panel
+            {
+                Height = 1,
+                Width = ContentWidth,
+                BackColor = Color.Gainsboro,
+                Margin = new Padding(0, 0, 0, 8)
+            };
+
+            var grid = new TableLayoutPanel
+            {
+                ColumnCount = 2,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                Width = ContentWidth,
+                Margin = new Padding(0)
+            };
+            grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
+            grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
+
+            foreach (var item in items)
+            {
+                grid.Controls.Add(CreateDemoButton(item));
+            }
+
+            section.Controls.Add(heading);
+            section.Controls.Add(divider);
+            section.Controls.Add(grid);
+            parent.Controls.Add(section);
+        }
+
+        private Button CreateDemoButton(DemoItem item)
+        {
+            int buttonWidth = (ContentWidth - ColumnGutter) / 2 - 8;
+            var button = new Button
+            {
+                Text = item.Title,
+                Size = new Size(buttonWidth, 50),
+                Margin = new Padding(4),
+                Font = new Font("Segoe UI", 10f),
+                BackColor = item.Color,
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
-                Cursor = Cursors.Hand
-            };
-            todoButton.FlatAppearance.BorderSize = 0;
-            todoButton.Click += (s, e) => LaunchToDoDemo();
-
-            var todoInfoLabel = new Label
-            {
-                Text = "Action-driven updates • CanExecute • State management",
-                Location = new Point(100, 175),
-                Size = new Size(300, 20),
-                ForeColor = Color.DarkGray,
+                Cursor = Cursors.Hand,
                 TextAlign = ContentAlignment.MiddleCenter
             };
-
-            // CheckBox/RadioButton Demo Button
-            var checkboxButton = new Button
-            {
-                Text = "CheckBox/RadioButton Demo",
-                Location = new Point(100, 210),
-                Size = new Size(300, 50),
-                Font = new Font("Segoe UI", 11f),
-                BackColor = Color.FromArgb(16, 137, 62),
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat,
-                Cursor = Cursors.Hand
-            };
-            checkboxButton.FlatAppearance.BorderSize = 0;
-            checkboxButton.Click += (s, e) => LaunchCheckBoxDemo();
-
-            var checkboxInfoLabel = new Label
-            {
-                Text = "CheckedChanged events • Settings UI • MVP pattern",
-                Location = new Point(100, 265),
-                Size = new Size(300, 20),
-                ForeColor = Color.DarkGray,
-                TextAlign = ContentAlignment.MiddleCenter
-            };
-
-            // Bulk Binding Demo Button
-            var bulkBindingButton = new Button
-            {
-                Text = "Bulk Binding Demo (Survey)",
-                Location = new Point(100, 300),
-                Size = new Size(300, 50),
-                Font = new Font("Segoe UI", 11f),
-                BackColor = Color.FromArgb(139, 69, 19),
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat,
-                Cursor = Cursors.Hand
-            };
-            bulkBindingButton.FlatAppearance.BorderSize = 0;
-            bulkBindingButton.Click += (s, e) => LaunchBulkBindingDemo();
-
-            var bulkBindingInfoLabel = new Label
-            {
-                Text = "AddRange • AddByTag • Many RadioButtons",
-                Location = new Point(100, 355),
-                Size = new Size(300, 20),
-                ForeColor = Color.DarkGray,
-                TextAlign = ContentAlignment.MiddleCenter
-            };
-
-            // WindowNavigator Demo Button
-            var navigatorButton = new Button
-            {
-                Text = "WindowNavigator Demo",
-                Location = new Point(100, 390),
-                Size = new Size(300, 50),
-                Font = new Font("Segoe UI", 11f),
-                BackColor = Color.FromArgb(75, 0, 130),
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat,
-                Cursor = Cursors.Hand
-            };
-            navigatorButton.FlatAppearance.BorderSize = 0;
-            navigatorButton.Click += (s, e) => LaunchNavigatorDemo();
-
-            var navigatorInfoLabel = new Label
-            {
-                Text = "Modal • Non-Modal • Parameters • Results",
-                Location = new Point(100, 445),
-                Size = new Size(300, 20),
-                ForeColor = Color.DarkGray,
-                TextAlign = ContentAlignment.MiddleCenter
-            };
-
-            // MVP Comparison Demo Button
-            var mvpComparisonButton = new Button
-            {
-                Text = "MVP Pattern Comparison",
-                Location = new Point(100, 480),
-                Size = new Size(300, 50),
-                Font = new Font("Segoe UI", 11f),
-                BackColor = Color.FromArgb(220, 20, 60),
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat,
-                Cursor = Cursors.Hand
-            };
-            mvpComparisonButton.FlatAppearance.BorderSize = 0;
-            mvpComparisonButton.Click += (s, e) => LaunchMVPComparisonDemo();
-
-            var mvpComparisonInfoLabel = new Label
-            {
-                Text = "Passive View vs Supervising Controller",
-                Location = new Point(100, 535),
-                Size = new Size(300, 20),
-                ForeColor = Color.DarkGray,
-                TextAlign = ContentAlignment.MiddleCenter
-            };
-
-            // ExecutionRequest Demo Button
-            var executionRequestButton = new Button
-            {
-                Text = "ExecutionRequest Pattern",
-                Location = new Point(100, 570),
-                Size = new Size(300, 50),
-                Font = new Font("Segoe UI", 11f),
-                BackColor = Color.FromArgb(128, 0, 128),
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat,
-                Cursor = Cursors.Hand
-            };
-            executionRequestButton.FlatAppearance.BorderSize = 0;
-            executionRequestButton.Click += (s, e) => LaunchExecutionRequestDemo();
-
-            var executionRequestInfoLabel = new Label
-            {
-                Text = "Legacy Integration • Delayed Execution",
-                Location = new Point(100, 625),
-                Size = new Size(300, 20),
-                ForeColor = Color.DarkGray,
-                TextAlign = ContentAlignment.MiddleCenter
-            };
-
-            // MessageBox Positioning Demo Button
-            var messageBoxButton = new Button
-            {
-                Text = "MessageBox Positioning Demo",
-                Location = new Point(100, 660),
-                Size = new Size(300, 50),
-                Font = new Font("Segoe UI", 11f),
-                BackColor = Color.FromArgb(255, 140, 0),
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat,
-                Cursor = Cursors.Hand
-            };
-            messageBoxButton.FlatAppearance.BorderSize = 0;
-            messageBoxButton.Click += (s, e) => LaunchMessageBoxDemo();
-
-            var messageBoxInfoLabel = new Label
-            {
-                Text = "Native MessageBox • Windows API Hook • Positioning",
-                Location = new Point(100, 715),
-                Size = new Size(300, 20),
-                ForeColor = Color.DarkGray,
-                TextAlign = ContentAlignment.MiddleCenter
-            };
-
-            // Email Demo Button
-            var emailDemoButton = new Button
-            {
-                Text = "Email Demo (Complete App)",
-                Location = new Point(100, 750),
-                Size = new Size(300, 50),
-                Font = new Font("Segoe UI", 11f),
-                BackColor = Color.FromArgb(0, 150, 136),
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat,
-                Cursor = Cursors.Hand
-            };
-            emailDemoButton.FlatAppearance.BorderSize = 0;
-            emailDemoButton.Click += (s, e) => LaunchEmailDemo();
-
-            var emailDemoInfoLabel = new Label
-            {
-                Text = "All Features • ChangeTracker • Navigator • Validation",
-                Location = new Point(100, 805),
-                Size = new Size(300, 20),
-                ForeColor = Color.DarkGray,
-                TextAlign = ContentAlignment.MiddleCenter
-            };
-
-            // Service-Based Order Management Demo Button
-            var serviceBasedButton = new Button
-            {
-                Text = "Order Management (Service-Based)",
-                Location = new Point(100, 840),
-                Size = new Size(300, 50),
-                Font = new Font("Segoe UI", 11f),
-                BackColor = Color.FromArgb(34, 139, 34),
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat,
-                Cursor = Cursors.Hand
-            };
-            serviceBasedButton.FlatAppearance.BorderSize = 0;
-            serviceBasedButton.Click += (s, e) => LaunchServiceBasedDemo();
-
-            var serviceBasedInfoLabel = new Label
-            {
-                Text = "Shared Service Layer • Zero Presenter Coupling",
-                Location = new Point(100, 895),
-                Size = new Size(300, 20),
-                ForeColor = Color.DarkGray,
-                TextAlign = ContentAlignment.MiddleCenter
-            };
-
-            // EventAggregator-Based Order Management Demo Button
-            var eventBasedButton = new Button
-            {
-                Text = "Order Management (EventAggregator)",
-                Location = new Point(100, 930),
-                Size = new Size(300, 50),
-                Font = new Font("Segoe UI", 11f),
-                BackColor = Color.FromArgb(184, 134, 11),
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat,
-                Cursor = Cursors.Hand
-            };
-            eventBasedButton.FlatAppearance.BorderSize = 0;
-            eventBasedButton.Click += (s, e) => LaunchEventBasedDemo();
-
-            var eventBasedInfoLabel = new Label
-            {
-                Text = "Event Aggregator Pub-Sub • Decoupled Messaging",
-                Location = new Point(100, 985),
-                Size = new Size(300, 20),
-                ForeColor = Color.DarkGray,
-                TextAlign = ContentAlignment.MiddleCenter
-            };
-
-            // Add controls
-            this.Controls.AddRange(new Control[] {
-                titleLabel, subtitleLabel,
-                todoButton, todoInfoLabel,
-                checkboxButton, checkboxInfoLabel,
-                bulkBindingButton, bulkBindingInfoLabel,
-                navigatorButton, navigatorInfoLabel,
-                mvpComparisonButton, mvpComparisonInfoLabel,
-                executionRequestButton, executionRequestInfoLabel,
-                messageBoxButton, messageBoxInfoLabel,
-                emailDemoButton, emailDemoInfoLabel,
-                serviceBasedButton, serviceBasedInfoLabel,
-                eventBasedButton, eventBasedInfoLabel
-            });
+            button.FlatAppearance.BorderSize = 0;
+            button.Click += (s, e) => item.Launch();
+            _toolTip.SetToolTip(button, item.Description);
+            return button;
         }
 
         private void LaunchToDoDemo()
@@ -430,6 +337,15 @@ namespace WinformsMVP.Samples
 
             presenter.AttachView(view);
             presenter.Initialize();
+            view.Show();
+
+            this.Hide();
+            view.FormClosed += (s, e) => this.Show();
+        }
+
+        private void LaunchToastDemo()
+        {
+            var view = new ToastDemoForm();
             view.Show();
 
             this.Hide();
