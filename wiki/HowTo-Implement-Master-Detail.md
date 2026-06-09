@@ -48,7 +48,7 @@ public interface ICustomerOrderView : IWindowView
 
     bool HasSelectedCustomer { get; }
 
-    ViewActionBinder ActionBinder { get; }
+    // ActionBinder は IWindowView (→ IActionableView) から継承するので再宣言しない。
     event EventHandler SelectedCustomerChanged;
 }
 ```
@@ -132,9 +132,9 @@ public class CustomerOrderPresenter : WindowPresenterBase<ICustomerOrderView>
 ## シナリオ 2: 親子 Presenter に分割する
 
 マスターと詳細を **独立した UserControl** に分けて、それぞれに Presenter を持たせる構成。再利用性が高い。
-両者の連携は [HowTo: Presenter 間の通信方法](HowTo-Communicate-Between-Presenters) の **共有 Service** パターンを使います。
+両者の連携は [HowTo: Presenter 間の通信方法](HowTo-Communicate-Between-Presenters) の **「共有 Model + イベント」** パターン（状態の単一所有者を 1 か所に置く方式）を使います。ここでは選択状態を持つ **Service** として実装します（状態保持者は Model でも Service でもよい）。
 
-### 共有 Service
+### 共有 Service (選択状態の保持者)
 
 ```csharp
 public interface ICustomerSelectionService
@@ -227,13 +227,35 @@ public class OrderListPresenter : ControlPresenterBase<IOrderListView>
 }
 ```
 
+### 組み立て (親 Form が両方を所有)
+
+子 Presenter の生成と `Connect` は **親 Form** が行います — 子コントロールは親 Form のデザイナー上にあるからです。親 Presenter は子 Presenter 参照を持たず、連携は共有 Service が仲介します（親 View に子コントロール/子 View を生やさない）。
+
+```csharp
+public partial class CustomerOrderForm : Form, ICustomerOrderView
+{
+    private readonly CustomerListPresenter _master;
+    private readonly OrderListPresenter _detail;
+
+    public CustomerOrderForm(ICustomerSelectionService selection,
+                             ICustomerRepository custRepo, IOrderRepository orderRepo)
+    {
+        InitializeComponent();
+        _master = new CustomerListPresenter(custRepo, selection);
+        _master.Connect(_customerListControl);   // デザイナー上の子コントロール
+        _detail = new OrderListPresenter(orderRepo, selection);
+        _detail.Connect(_orderListControl);
+    }
+}
+```
+
 ### メリット
 
 ✅ マスターと詳細が独立してテスト可能
 ✅ 別画面で再利用しやすい
 ✅ Service がステートを所有 → 単一情報源
 
-詳しくは [HowTo: Presenter 間の通信方法 § 共有 Service](HowTo-Communicate-Between-Presenters#選択肢-2-共有-service--イベント) を参照。
+詳しくは [HowTo: Presenter 間の通信方法 § 共有 Model + イベント](HowTo-Communicate-Between-Presenters#共有-model--イベント) を参照。
 
 ---
 
@@ -296,7 +318,12 @@ private void OnSelectedCustomerChanged(object sender, EventArgs e)
 
 ## カスケード削除
 
-「親を削除するときに、紐付く子をどう扱うか」の問題。
+「親を削除するときに、紐付く子をどう扱うか」の問題。削除コマンドは他の操作と同様 `RegisterViewActions` で登録しておきます:
+
+```csharp
+Dispatcher.Register(CustomerActions.Delete, OnDeleteCustomer,
+    canExecute: () => View.HasSelectedCustomer);
+```
 
 ### パターン A: 確認してから親子両方を削除
 
@@ -380,7 +407,7 @@ private async void OnSelectedCustomerChanged(object sender, EventArgs e)
         View.Orders = await _orderRepo.GetByCustomerAsync(customer.Id);
         View.TotalAmount = View.Orders.Sum(o => o.Amount);
     }
-    catch (Exception ex)
+    catch (Exception ex)   // 実コードでは具体的な例外型 (DbException 等) を先に捕捉する
     {
         Messages.ShowError($"Failed to load orders: {ex.Message}", "Error");
     }
@@ -439,7 +466,7 @@ public void DeletingCustomer_WithOrders_ConfirmsBeforeDelete()
 
 ## 関連ページ
 
-- [HowTo: Presenter 間の通信方法](HowTo-Communicate-Between-Presenters) — 共有 Service パターン
+- [HowTo: Presenter 間の通信方法](HowTo-Communicate-Between-Presenters) — 共有 Model + イベント パターン
 - [ViewAction システム](Reference-ViewAction-System) — State-driven CanExecute
 - [HowTo: 非同期処理を扱う](HowTo-Handle-Async-Operations) — 詳細読み込みの async 化
 - サンプル:
