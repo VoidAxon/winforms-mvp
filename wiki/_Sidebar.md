@@ -35,6 +35,7 @@
 - [フォーム入力を検証する](HowTo-Validate-Form-Input)
 - [非同期処理を扱う](HowTo-Handle-Async-Operations)
 - [マスター/詳細パターン](HowTo-Implement-Master-Detail)
+- [連鎖選択 (カスケード) を扱う](HowTo-Handle-Cascading-Selection)
 - [Presenter をテストする](HowTo-Test-A-Presenter)
 - [従来の WinForms から移行](HowTo-Migrate-From-Legacy-WinForms)
 - [エラー処理戦略](HowTo-Handle-Errors)

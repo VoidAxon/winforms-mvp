@@ -499,6 +499,7 @@ public class MyForm : Form, IMyView
 - [Presenter 基底クラス](Reference-Presenter-Base-Classes) — 公開 API ガイドライン (ルール 16・17)
 - [WindowNavigator](Reference-WindowNavigator) — Modal / Non-Modal の戻り値・コールバック
 - [MVP パターンとは](Concept-MVP-Pattern) — 鉄則 3 (依存方向)
+- [連鎖選択 (カスケード) を扱う](HowTo-Handle-Cascading-Selection) — 主従/N 段連鎖を `ISelectionStore<T>` + `Cascade` で
 - サンプル:
   - `samples/WinformsMVP.Samples/ComplexInteractionDemo_ServiceBased/` — Model ベース
   - `samples/WinformsMVP.Samples/ComplexInteractionDemo_EventBased/` — EventAggregator ベース

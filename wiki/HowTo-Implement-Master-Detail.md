@@ -261,6 +261,8 @@ public partial class CustomerOrderForm : Form, ICustomerOrderView
 
 ## シナリオ 3: 階層 N 段の構成
 
+> 💡 3 段以上の連鎖選択は、汎用の `ISelectionStore<T>` + `Cascade` を使う [連鎖選択 (カスケード) を扱う](HowTo-Handle-Cascading-Selection) が推奨です。レベルごとの重複と「下位クリア忘れ」を構造的に消せます。以下は仕組みの説明です。
+
 3 段以上 (カテゴリ → サブカテゴリ → 商品) は、選択 Service を **各レベルごと** に用意します。
 
 ```csharp
