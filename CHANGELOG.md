@@ -8,6 +8,16 @@
 
 ## [Unreleased]
 
+## [1.0.0-preview.3] - 2026-06-09
+
+### Added (追加)
+
+- **トースト通知を全面再実装** — `ToastNotification` を Form ベースから、layered Win32 ポップアップをラップする `NativeWindow` に変更。ネイティブの MessageBox 同様 `Application.OpenForms` に現れないため、ホストコードがそのコレクションを列挙していてもトーストの表示/自動クローズに乱されない。
+- **トーストの設定 API** — `ToastOptions`（呼び出し単位）と `ToastDefaults`（アプリ全体）で position / size / font / duration / gap / 最大表示数 / opacity を制御。`IMessageService.ShowToast` に `ToastOptions` を取るオーバーロードを追加。
+- **`ToastPosition`**（四隅）— トーストは隅ごとに重ならずスタックし（新しいものが端側）、最大表示数を超えると古いものを退避、長文は省略表示。
+- **オーナードロー拡張点** — `ToastRenderer` / `DefaultToastRenderer` / `ToastRenderContext`（`ToolStrip.Renderer` スタイル）。呼び出し単位・アプリ全体のどちらでも差し替え可能。
+- **View レイヤーの点アンカー ユーティリティ**（Presenter 向け API からは意図的に分離）— `AnchoredToast`（ツールチップ風のフリップ + 画面内クランプ付きの単発トースト）。
+
 ### Changed (変更)
 
 - **`ControlPresenterBase<TView>` / `<TView, TParam>` を二段構築に再設計** (BREAKING) — コンストラクタは Presenter 自身の依存のみを取り、View は新しい `presenter.Connect(view[, param])` (`ControlPresenterConnectExtensions`) で渡す。`WindowPresenterBase` と対称の `AttachView` + `Initialize` パターン。これによりコンストラクタ注入した依存をコンストラクタ本体で代入する前に `OnInitialize` が走って `NullReferenceException` になる「コンストラクタ順序の罠」を根絶。
@@ -15,6 +25,11 @@
   - `OnControlLoad` / `OnControlHandleCreated` フックを削除。ハンドル依存の処理は具象コントロール側へ。
 - **`ControlLifecycleController`** (内部) を追加 — Control 系の唯一の `view is Control` 境界。`Disposed` を購読して Presenter をテアダウンする。Window 側の `WindowLifecycleController` と対称で、Presenter 基底から `System.Windows.Forms` 依存を排除。
 - **`WindowCloseController` を `WindowLifecycleController` にリネーム** — `ControlLifecycleController` との命名対称性のため。内部クラスのため公開 API 影響なし。
+
+### Removed (削除)
+
+- **`IMessageService` の位置指定オーバーロードを削除** (BREAKING) — `ShowInfoAt` / `ShowWarningAt` / `ShowErrorAt` / `ConfirmYesNoAt` / `ConfirmOkCancelAt` / `ConfirmYesNoCancelAt`。位置指定は View の関心事なので、View コードから `AnchoredMessageBox` / `AnchoredToast` を呼ぶ。
+- **`PositionableMessageBox` を `AnchoredMessageBox` にリネーム** (BREAKING) — あわせてダイアログを画面内に完全クランプ。
 
 ## [1.0.0-preview.2] - 2026-06-07
 
