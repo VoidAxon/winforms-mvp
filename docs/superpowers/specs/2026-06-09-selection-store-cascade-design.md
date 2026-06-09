@@ -217,11 +217,11 @@ public static IDisposable Bind<TParent, TChild>(
 - **纯增量、无破坏**：新增 `Common/SelectionStore.cs`、`Common/Cascade.cs`，不改既有类型。
 - 随 `WinformsMVP` 包发布（核心库，net40;net48）。
 - 文档：新增 wiki 页 `HowTo-Handle-Cascading-Selection.md`（用户草稿 + 本 spec 的 5.1/5.2/5.3 修正，日文撰写），并在 `HowTo-Implement-Master-Detail`（N 段版指引）、`HowTo-Communicate-Between-Presenters`、`_Sidebar` 增加链接。
-- 可选：`samples/.../CascadeDemo/`（3 层示例）。首版可不含，wiki 代码示例已足够；如要，单列后续任务。
+- `samples/WinformsMVP.Samples/CascadeDemo/`（3 层示例）+ SampleLauncher 入口注册 — 端到端验证含 §5.1 抑制守卫。
 - CHANGELOG `[Unreleased]` 增「Added：`ISelectionStore<T>` / `SelectionStore<T>` / `Cascade`」。
 
-## 12. 待确认问题
+## 12. 决策记录 / 待确认
 
-1. 命名：`ISelectionStore<T>` / `Cascade.Bind` 是否满意？（备选：`SelectionState<T>` / `Cascades.Link`。）
-2. 首版是否要附带 `CascadeDemo` 样本？还是仅原语 + wiki + 测试。
-3. `Cascade` 命名空间放 `WinformsMVP.Common` 还是 `WinformsMVP.MVP`？（倾向 `Common`，与状态原语一致。）
+1. ✅ **命名**：采用 `ISelectionStore<T>` / `SelectionStore<T>` / `Cascade.Bind`（与 `ChangeTracker` 的角色名词风、`ActionBinder.Bind` 的动词对齐）。
+2. ✅ **首版附带 `samples/WinformsMVP.Samples/CascadeDemo/`（3 层示例）** — 端到端验证原语 + §5.1 的「重载不回灌」抑制守卫（该坑只有真实控件能验证）。同时在 SampleLauncher 注册入口。
+3. ✅ **命名空间**：`WinformsMVP.Common`（与 `ChangeTracker` 同层）。
