@@ -1,5 +1,4 @@
-﻿using System.Drawing;
-using System.Windows.Forms;
+﻿using System.Windows.Forms;
 using WinformsMVP.Common;
 
 namespace WinformsMVP.Services.Implementations
@@ -51,52 +50,16 @@ namespace WinformsMVP.Services.Implementations
 
         #endregion
 
-        #region Positioned Message Dialogs (using Windows API Hook)
-
-        public bool ConfirmOkCancelAt(string text, Point location, string caption = "")
-        {
-            caption = string.IsNullOrEmpty(caption) ? DialogDefaults.DefaultMessageCaption : caption;
-            return PositionableMessageBox.Show(text, caption, MessageBoxButtons.OKCancel, MessageBoxIcon.Question, location) == DialogResult.OK;
-        }
-
-        public bool ConfirmYesNoAt(string text, Point location, string caption = "")
-        {
-            caption = string.IsNullOrEmpty(caption) ? DialogDefaults.DefaultMessageCaption : caption;
-            return PositionableMessageBox.Show(text, caption, MessageBoxButtons.YesNo, MessageBoxIcon.Question, location) == DialogResult.Yes;
-        }
-
-        public ConfirmResult ConfirmYesNoCancelAt(string text, Point location, string caption = "")
-        {
-            caption = string.IsNullOrEmpty(caption) ? DialogDefaults.DefaultMessageCaption : caption;
-            var result = PositionableMessageBox.Show(text, caption, MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question, location);
-            return MapToConfirmResult(result);
-        }
-
-        public void ShowErrorAt(string text, Point location, string caption = "")
-        {
-            caption = string.IsNullOrEmpty(caption) ? DialogDefaults.DefaultMessageCaption : caption;
-            PositionableMessageBox.Show(text, caption, MessageBoxButtons.OK, MessageBoxIcon.Error, location);
-        }
-
-        public void ShowInfoAt(string text, Point location, string caption = "")
-        {
-            caption = string.IsNullOrEmpty(caption) ? DialogDefaults.DefaultMessageCaption : caption;
-            PositionableMessageBox.Show(text, caption, MessageBoxButtons.OK, MessageBoxIcon.Information, location);
-        }
-
-        public void ShowWarningAt(string text, Point location, string caption = "")
-        {
-            caption = string.IsNullOrEmpty(caption) ? DialogDefaults.DefaultMessageCaption : caption;
-            PositionableMessageBox.Show(text, caption, MessageBoxButtons.OK, MessageBoxIcon.Warning, location);
-        }
-
-        #endregion
-
         #region Toast Notifications
 
         public void ShowToast(string text, ToastType type, int duration = 3000)
         {
-            var toast = new ToastNotification(text, type, duration);
+            ShowToast(text, type, new ToastOptions { Duration = duration });
+        }
+
+        public void ShowToast(string text, ToastType type, ToastOptions options)
+        {
+            var toast = new ToastNotification(text, type, options);
             toast.Show();
         }
 

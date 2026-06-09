@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Drawing;
 using WinformsMVP.Common;
 using WinformsMVP.Services;
 
@@ -60,40 +59,12 @@ namespace WinformsMVP.Samples.Tests.Mocks
             return ConfirmYesNoCancelResult;
         }
 
-        public void ShowInfoAt(string text, Point location, string caption = "")
-        {
-            Calls.Add(new MessageCall { Type = MessageType.Info, Message = text, Title = caption });
-        }
-
-        public void ShowWarningAt(string text, Point location, string caption = "")
-        {
-            Calls.Add(new MessageCall { Type = MessageType.Warning, Message = text, Title = caption });
-        }
-
-        public void ShowErrorAt(string text, Point location, string caption = "")
-        {
-            Calls.Add(new MessageCall { Type = MessageType.Error, Message = text, Title = caption });
-        }
-
-        public bool ConfirmYesNoAt(string text, Point location, string caption = "")
-        {
-            Calls.Add(new MessageCall { Type = MessageType.Confirm, Message = text, Title = caption });
-            return ConfirmYesNoResult;
-        }
-
-        public bool ConfirmOkCancelAt(string text, Point location, string caption = "")
-        {
-            Calls.Add(new MessageCall { Type = MessageType.Confirm, Message = text, Title = caption });
-            return ConfirmOkCancelResult;
-        }
-
-        public ConfirmResult ConfirmYesNoCancelAt(string text, Point location, string caption = "")
-        {
-            Calls.Add(new MessageCall { Type = MessageType.Confirm, Message = text, Title = caption });
-            return ConfirmYesNoCancelResult;
-        }
-
         public void ShowToast(string text, ToastType type, int duration = 3000)
+        {
+            Calls.Add(new MessageCall { Type = MessageType.Toast, Message = text });
+        }
+
+        public void ShowToast(string text, ToastType type, ToastOptions options)
         {
             Calls.Add(new MessageCall { Type = MessageType.Toast, Message = text });
         }

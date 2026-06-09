@@ -6,17 +6,25 @@ using System.Windows.Forms;
 namespace WinformsMVP.Services.Implementations
 {
     /// <summary>
-    /// Positionable MessageBox with support for custom screen locations.
-    /// Uses native Windows MessageBox with CBT hook to control position.
+    /// Shows a native Windows MessageBox at a specific screen location, nudged so the whole dialog
+    /// stays on screen even if the point sits near (or past) an edge. The MessageBox version of
+    /// <see cref="AnchoredToast"/>: a View-layer utility for code that knows a pixel location.
     /// </summary>
     /// <remarks>
-    /// This is a low-level WinForms utility intended for View-layer code (Forms, UserControls)
-    /// and legacy migration scenarios. <b>Do NOT call this directly from Presenters</b> —
-    /// it returns <see cref="DialogResult"/> and depends on <c>System.Windows.Forms</c>,
-    /// which violates the MVP rule that Presenters must not reference WinForms APIs.
-    /// Presenters should use <see cref="IMessageService"/> instead.
+    /// This is a low-level View-layer utility intended for Forms / UserControls (a control's screen
+    /// rectangle, the cursor, a hit-test result) and legacy migration. <b>Do NOT call it from a
+    /// Presenter</b> — it returns <see cref="DialogResult"/>, depends on <c>System.Windows.Forms</c>,
+    /// and deals in screen coordinates, all of which violate the MVP rule that Presenters stay out
+    /// of the UI/positioning layer. Presenters use <see cref="IMessageService"/> for centered
+    /// dialogs instead.
+    /// <para>
+    /// Positioning uses a native MessageBox with a CBT hook, so — like any MessageBox — it never
+    /// appears in <see cref="Application.OpenForms"/>. The requested location is clamped to the
+    /// working area of the screen it lands on, so any point (even off-screen or negative) yields a
+    /// fully-visible dialog.
+    /// </para>
     /// </remarks>
-    public static class PositionableMessageBox
+    public static class AnchoredMessageBox
     {
         #region Windows API Declarations
 
@@ -82,7 +90,8 @@ namespace WinformsMVP.Services.Implementations
         /// <param name="caption">The caption (title) of the message box</param>
         /// <param name="buttons">The buttons to display</param>
         /// <param name="icon">The icon to display</param>
-        /// <param name="location">The screen location where the message box should appear</param>
+        /// <param name="location">The screen location to anchor to. Any value is safe — it is
+        /// clamped so the whole dialog stays visible.</param>
         /// <returns>The DialogResult from the message box</returns>
         public static DialogResult Show(
             string text,
@@ -102,7 +111,8 @@ namespace WinformsMVP.Services.Implementations
         /// <param name="caption">The caption (title) of the message box</param>
         /// <param name="buttons">The buttons to display</param>
         /// <param name="icon">The icon to display</param>
-        /// <param name="location">The screen location where the message box should appear</param>
+        /// <param name="location">The screen location to anchor to. Any value is safe — it is
+        /// clamped so the whole dialog stays visible.</param>
         /// <returns>The DialogResult from the message box</returns>
         public static DialogResult Show(
             IWin32Window owner,
@@ -190,13 +200,14 @@ namespace WinformsMVP.Services.Implementations
                         return CallNextHookEx(_hookHandle, nCode, wParam, lParam);
                     }
 
-                    // This is a MessageBox - set the position
-                    // Note: We keep the size (SWP_NOSIZE) and Z-order (SWP_NOZORDER)
+                    // This is a MessageBox - clamp the requested location so the whole dialog is
+                    // visible, then move it there (keeping its native size and Z-order).
+                    Point target = ClampToScreen(_targetLocation.Value, hWnd);
                     SetWindowPos(
                         hWnd,
                         IntPtr.Zero,
-                        _targetLocation.Value.X,
-                        _targetLocation.Value.Y,
+                        target.X,
+                        target.Y,
                         0,
                         0,
                         SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
@@ -215,6 +226,36 @@ namespace WinformsMVP.Services.Implementations
             // Call the next hook in the chain
             // Note: We don't unhook here - that's done in the finally block for safety
             return CallNextHookEx(_hookHandle, nCode, wParam, lParam);
+        }
+
+        /// <summary>
+        /// Shifts <paramref name="desired"/> so the message box (whose size we read from its handle)
+        /// stays fully inside the working area of the screen it lands on. Robust to off-screen or
+        /// negative points.
+        /// </summary>
+        private static Point ClampToScreen(Point desired, IntPtr hWnd)
+        {
+            RECT rect;
+            if (!GetWindowRect(hWnd, out rect))
+            {
+                return desired;
+            }
+
+            Rectangle area = Screen.FromPoint(desired).WorkingArea;
+
+            // If the dialog is larger than the area, the lower bound (Left/Top) wins so its
+            // top-left stays visible.
+            int maxX = area.Right - rect.Width;
+            int maxY = area.Bottom - rect.Height;
+            if (maxX < area.Left) maxX = area.Left;
+            if (maxY < area.Top) maxY = area.Top;
+
+            int x = desired.X;
+            int y = desired.Y;
+            if (x < area.Left) x = area.Left; else if (x > maxX) x = maxX;
+            if (y < area.Top) y = area.Top; else if (y > maxY) y = maxY;
+
+            return new Point(x, y);
         }
 
         #endregion

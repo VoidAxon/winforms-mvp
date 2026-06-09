@@ -47,6 +47,7 @@ WinForms アプリケーションのための **Model-View-Presenter** フレー
 - [WindowNavigator](Reference-WindowNavigator) — Modal / 非 Modal、Fluent API、`RequestClose` による結果返却
 - [ViewMappingRegister](Reference-ViewMappingRegister) — View 自動登録、Factory パターン
 - [Platform Services](Reference-Platform-Services) — `IMessageService` / `IDialogProvider` / `IFileService`
+- [トースト通知](Reference-Toast-Notifications) — 隅に積み上がるトースト、`ToastOptions` / `ToastDefaults`、`AnchoredToast`
 - [Data Binding 拡張メソッド](Reference-Data-Binding) — View 側で UI コントロールをモデルに紐付ける拡張メソッド群
 - [Logging](Reference-Logging) — 自社抽象、`net40` 対応、M.E.L. 連携
 - [ChangeTracker](Reference-ChangeTracker) — 編集/キャンセル、深いコピー、フック差し込み

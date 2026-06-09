@@ -55,15 +55,26 @@ public interface IMessageService
     bool ConfirmYesNo(string text, string caption = "");
     ConfirmResult ConfirmYesNoCancel(string text, string caption = "");
 
-    // 位置指定版 (View 層の文脈からだけ使用、Presenter からは原則使わない)
-    // 引数順は (text, location, caption) — caption は末尾の省略可能引数
-    void ShowInfoAt(string text, Point location, string caption = "");
-    bool ConfirmYesNoAt(string text, Point location, string caption = "");
-
     // 非ブロッキング通知 (duration はミリ秒、type に既定値はない)
+    // 隅に積み上がるトースト。詳細は「トースト通知」リファレンスを参照。
     void ShowToast(string text, ToastType type, int duration = 3000);
+    // 外観の個別指定 (位置=画面の隅・サイズ・フォント・表示時間)。既定値は ToastDefaults。
+    void ShowToast(string text, ToastType type, ToastOptions options);
 }
 ```
+
+> トーストの積み上げ挙動・`ToastOptions` / `ToastDefaults` / `AnchoredToast` の詳細は
+> [トースト通知](Reference-Toast-Notifications) を参照してください。
+
+> **位置 (Point) 指定の対話は Presenter の責務ではありません。** 画面座標を知っているのは
+> View だけなので、`IMessageService` には `Point` を取るメソッドを置きません。特定座標に
+> 出したい場合は **View 層ユーティリティ**を使います:
+> - `AnchoredMessageBox.ShowInfo/ShowWarning/ShowError/ConfirmYesNo(text, Point, caption)`
+>   — ネイティブ MessageBox を指定座標に表示 (画面外なら自動で引き戻す)。
+> - `AnchoredToast.Show(text, type, Point, options)` — 単一のトーストを指定座標に表示。
+>
+> いずれも `Application.OpenForms` には現れません。Presenter からは呼ばず、Form /
+> UserControl など View のコードからのみ使用してください。
 
 ### 使用例
 

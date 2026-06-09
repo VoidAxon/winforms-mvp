@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
@@ -8,56 +7,126 @@ using WinformsMVP.Common;
 namespace WinformsMVP.Services.Implementations
 {
     /// <summary>
-    /// A non-blocking toast notification that appears temporarily at the bottom-right of the screen.
+    /// A non-blocking toast notification that appears temporarily in a screen corner.
     /// </summary>
     /// <remarks>
     /// Implemented as a <see cref="NativeWindow"/> wrapping a layered Win32 popup instead of a
     /// <see cref="Form"/>. Like a native MessageBox, the toast is therefore invisible to
     /// <see cref="Application.OpenForms"/>: host code that enumerates that collection is never
     /// disturbed by a toast appearing or auto-closing mid-iteration.
+    /// <para>
+    /// This type owns a <em>single</em> toast: its window, painting, and fade-out. Collecting,
+    /// stacking, and capping multiple toasts is <see cref="ToastManager"/>'s job. Per-toast
+    /// appearance (position, size, font, duration) comes from <see cref="ToastOptions"/>, falling
+    /// back to <see cref="ToastDefaults"/>; stacking policy (margin, gap, cap) lives on
+    /// <see cref="ToastDefaults"/> and is read by the manager.
+    /// </para>
     /// </remarks>
     internal sealed class ToastNotification : NativeWindow
     {
-        private const int ToastWidth = 350;
-        private const int ToastHeight = 80;
-        private const int ScreenMargin = 20;
-
-        // Roots live toasts so the GC cannot collect a NativeWindow whose handle is still
-        // alive. A Form was kept alive by Application.OpenForms; a NativeWindow has no such
-        // anchor, so we provide one. Only ever touched on the UI thread.
-        private static readonly List<ToastNotification> LiveToasts = new List<ToastNotification>();
-
         private readonly string _message;
         private readonly ToastType _type;
+        private readonly int _width;
+        private readonly int _height;
+        private readonly Font _font; // owned by the caller / ToastDefaults — never disposed here
+        private readonly ToastPosition _position;
         private readonly int _duration;
+        private readonly ToastRenderer _renderer; // per-toast override; may be null (falls back to defaults)
+
+        // Last-resort painter if both the per-toast and app-wide renderers are null.
+        private static readonly DefaultToastRenderer FallbackRenderer = new DefaultToastRenderer();
 
         private Timer _closeTimer;
         private Timer _fadeTimer;
-        private double _opacity = 0.95;
+        private double _opacity;
 
-        public ToastNotification(string message, ToastType type, int duration)
+        public ToastNotification(string message, ToastType type, ToastOptions options)
         {
+            options = options ?? new ToastOptions();
+
             _message = message ?? string.Empty;
             _type = type;
-            _duration = duration;
+
+            var size = options.Size ?? ToastDefaults.Size;
+            _width = size.Width;
+            _height = size.Height;
+            _font = options.Font ?? ToastDefaults.Font;
+            _position = options.Position ?? ToastDefaults.Position;
+            _duration = options.Duration ?? ToastDefaults.Duration;
+            _opacity = ToastDefaults.Opacity;
+            _renderer = options.Renderer; // resolved against ToastDefaults.Renderer at paint time
+        }
+
+        /// <summary>Screen corner this toast wants to appear in. Read by <see cref="ToastManager"/>.</summary>
+        public ToastPosition Position { get { return _position; } }
+
+        /// <summary>Toast width in pixels. Read by <see cref="ToastManager"/>.</summary>
+        public int Width { get { return _width; } }
+
+        /// <summary>Toast height in pixels. Read by <see cref="ToastManager"/>.</summary>
+        public int Height { get { return _height; } }
+
+        /// <summary>Moves the popup to the given top-left point. Called by <see cref="ToastManager"/>.</summary>
+        public void MoveTo(int x, int y)
+        {
+            if (Handle == IntPtr.Zero)
+            {
+                return;
+            }
+
+            SetWindowPos(Handle, IntPtr.Zero, x, y, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
         }
 
         /// <summary>
-        /// Creates the layered popup, shows it without stealing focus, and starts the auto-close timer.
+        /// Shows the toast as part of the stacked, corner-positioned set. Its position is governed
+        /// by <see cref="ToastManager"/> and may shift as other toasts come and go.
         /// </summary>
         public void Show()
         {
             var area = Screen.PrimaryScreen.WorkingArea;
+
+            // Provisional spot hugging the target edge; the manager fixes the final position once
+            // this toast joins the stack.
+            CreatePopupAt(EdgeX(area), EdgeY(area));
+
+            // Hand off to the manager: it adds this toast to the stack, evicts any overflow, and
+            // positions everyone (this toast's final spot included).
+            ToastManager.Add(this);
+
+            StartCloseTimer();
+        }
+
+        /// <summary>
+        /// Shows the toast anchored at a screen point, tooltip-style: positioned near
+        /// <paramref name="anchor"/> and nudged so the whole toast stays on screen. It is a
+        /// standalone singleton — not stacked, and it replaces any previous anchored toast.
+        /// </summary>
+        public void ShowAnchored(Point anchor)
+        {
+            var area = Screen.PrimaryScreen.WorkingArea;
+            Point topLeft = ToastLayout.Anchor(anchor, new Size(_width, _height), area, ToastDefaults.Margin);
+
+            CreatePopupAt(topLeft.X, topLeft.Y);
+
+            // Register as the single anchored toast (closes any previous one). No stacking/reflow.
+            ToastManager.RegisterAnchored(this);
+
+            StartCloseTimer();
+        }
+
+        /// <summary>Creates the layered popup at the given top-left and shows it without stealing focus.</summary>
+        private void CreatePopupAt(int x, int y)
+        {
             var cp = new CreateParams
             {
                 Caption = string.Empty,
                 // Null class name makes NativeWindow register a default window class whose
                 // WndProc routes back to this instance.
                 ClassName = null,
-                X = area.Right - ToastWidth - ScreenMargin,
-                Y = area.Bottom - ToastHeight - ScreenMargin,
-                Width = ToastWidth,
-                Height = ToastHeight,
+                X = x,
+                Y = y,
+                Width = _width,
+                Height = _height,
                 Parent = IntPtr.Zero,
                 Style = unchecked((int)WS_POPUP),
                 ExStyle = WS_EX_LAYERED | WS_EX_NOACTIVATE | WS_EX_TOPMOST | WS_EX_TOOLWINDOW,
@@ -66,10 +135,11 @@ namespace WinformsMVP.Services.Implementations
             CreateHandle(cp);
             ApplyOpacity();
             ShowWindow(Handle, SW_SHOWNOACTIVATE);
+        }
 
-            LiveToasts.Add(this);
-
-            // Close timer - starts the fade out after the visible duration.
+        /// <summary>Starts the timer that begins the fade-out after the visible duration.</summary>
+        private void StartCloseTimer()
+        {
             _closeTimer = new Timer { Interval = _duration };
             _closeTimer.Tick += (s, e) =>
             {
@@ -77,6 +147,28 @@ namespace WinformsMVP.Services.Implementations
                 StartFadeOut();
             };
             _closeTimer.Start();
+        }
+
+        private bool IsRight
+        {
+            get { return _position == ToastPosition.TopRight || _position == ToastPosition.BottomRight; }
+        }
+
+        private bool IsBottom
+        {
+            get { return _position == ToastPosition.BottomLeft || _position == ToastPosition.BottomRight; }
+        }
+
+        private int EdgeX(Rectangle area)
+        {
+            int margin = ToastDefaults.Margin;
+            return IsRight ? area.Right - _width - margin : area.Left + margin;
+        }
+
+        private int EdgeY(Rectangle area)
+        {
+            int margin = ToastDefaults.Margin;
+            return IsBottom ? area.Bottom - _height - margin : area.Top + margin;
         }
 
         protected override void WndProc(ref Message m)
@@ -116,21 +208,9 @@ namespace WinformsMVP.Services.Implementations
 
         private void Render(Graphics g)
         {
-            g.Clear(GetBackgroundColor(_type));
-
-            using (var iconFont = new Font("Segoe UI", 18f, FontStyle.Bold))
-            using (var messageFont = new Font("Segoe UI", 10f))
-            using (var closeFont = new Font("Segoe UI", 10f, FontStyle.Bold))
-            using (var centered = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
-            using (var leftMiddle = new StringFormat { Alignment = StringAlignment.Near, LineAlignment = StringAlignment.Center })
-            {
-                // Icon
-                g.DrawString(GetIconText(_type), iconFont, Brushes.White, new RectangleF(10, 10, 40, 60), centered);
-                // Message
-                g.DrawString(_message, messageFont, Brushes.White, new RectangleF(60, 10, 280, 60), leftMiddle);
-                // Close glyph
-                g.DrawString("✖", closeFont, Brushes.White, new RectangleF(320, 5, 20, 20), centered);
-            }
+            // Resolve the painter: per-toast override, else app-wide default, else hard fallback.
+            ToastRenderer renderer = _renderer ?? ToastDefaults.Renderer ?? FallbackRenderer;
+            renderer.Render(new ToastRenderContext(g, new Rectangle(0, 0, _width, _height), _message, _type, _font));
         }
 
         private void StartFadeOut()
@@ -166,7 +246,12 @@ namespace WinformsMVP.Services.Implementations
             SetLayeredWindowAttributes(Handle, 0, (byte)alpha, LWA_ALPHA);
         }
 
-        private void CloseNow()
+        /// <summary>
+        /// Tears down this toast: stops its timers, removes it from the stack (the manager slides
+        /// the rest back toward the edge), and destroys the window. Also called by the manager
+        /// when evicting the oldest toast to honor the visible-count cap.
+        /// </summary>
+        public void CloseNow()
         {
             if (_closeTimer != null)
             {
@@ -182,43 +267,11 @@ namespace WinformsMVP.Services.Implementations
                 _fadeTimer = null;
             }
 
-            LiveToasts.Remove(this);
+            ToastManager.Remove(this);
 
             if (Handle != IntPtr.Zero)
             {
                 DestroyHandle();
-            }
-        }
-
-        private static Color GetBackgroundColor(ToastType type)
-        {
-            switch (type)
-            {
-                case ToastType.Success:
-                    return Color.FromArgb(16, 137, 62); // Green
-                case ToastType.Warning:
-                    return Color.FromArgb(255, 140, 0); // Orange
-                case ToastType.Error:
-                    return Color.FromArgb(232, 17, 35); // Red
-                case ToastType.Info:
-                default:
-                    return Color.FromArgb(0, 120, 215); // Blue
-            }
-        }
-
-        private static string GetIconText(ToastType type)
-        {
-            switch (type)
-            {
-                case ToastType.Success:
-                    return "✓"; // check mark
-                case ToastType.Warning:
-                    return "⚠"; // warning sign
-                case ToastType.Error:
-                    return "✖"; // heavy multiplication x
-                case ToastType.Info:
-                default:
-                    return "ℹ"; // information source
             }
         }
 
@@ -232,6 +285,10 @@ namespace WinformsMVP.Services.Implementations
 
         private const int SW_SHOWNOACTIVATE = 4;
         private const uint LWA_ALPHA = 0x00000002;
+
+        private const uint SWP_NOSIZE = 0x0001;
+        private const uint SWP_NOZORDER = 0x0004;
+        private const uint SWP_NOACTIVATE = 0x0010;
 
         private const int WM_PAINT = 0x000F;
         private const int WM_ERASEBKGND = 0x0014;
@@ -263,6 +320,9 @@ namespace WinformsMVP.Services.Implementations
 
         [DllImport("user32.dll", SetLastError = true)]
         private static extern bool SetLayeredWindowAttributes(IntPtr hwnd, uint crKey, byte bAlpha, uint dwFlags);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int x, int y, int cx, int cy, uint uFlags);
 
         [DllImport("user32.dll")]
         private static extern IntPtr BeginPaint(IntPtr hWnd, out PAINTSTRUCT lpPaint);

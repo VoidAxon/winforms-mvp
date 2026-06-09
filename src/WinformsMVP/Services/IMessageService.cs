@@ -1,5 +1,4 @@
-﻿using System.Drawing;
-using WinformsMVP.Common;
+﻿using WinformsMVP.Common;
 
 namespace WinformsMVP.Services
 {
@@ -16,15 +15,12 @@ namespace WinformsMVP.Services
         void ShowWarning(string text, string caption = "");
         void ShowError(string text, string caption = "");
 
-        // Positioned message dialogs (shown at specific screen location)
-        bool ConfirmYesNoAt(string text, Point location, string caption = "");
-        bool ConfirmOkCancelAt(string text, Point location, string caption = "");
-        ConfirmResult ConfirmYesNoCancelAt(string text, Point location, string caption = "");
-        void ShowInfoAt(string text, Point location, string caption = "");
-        void ShowWarningAt(string text, Point location, string caption = "");
-        void ShowErrorAt(string text, Point location, string caption = "");
+        // Positioned dialogs are a View-layer concern (the View knows screen coordinates), not a
+        // Presenter one. For a MessageBox at a specific point, View code uses AnchoredMessageBox;
+        // for a positioned toast it uses AnchoredToast. Neither belongs on this Presenter-facing API.
 
         // Toast notifications (non-blocking temporary messages)
         void ShowToast(string text, ToastType type, int duration = 3000);
+        void ShowToast(string text, ToastType type, ToastOptions options);
     }
 }

@@ -307,11 +307,8 @@ namespace WinformsMVP.Samples
 
         private void LaunchMessageBoxDemo()
         {
+            // View-driven demo: positioning is a View concern, so there is no presenter.
             var view = new MessageBoxDemoForm();
-            var presenter = new MessageBoxDemoPresenter();
-
-            presenter.AttachView(view);
-            presenter.Initialize();
             view.Show();
 
             this.Hide();
