@@ -261,36 +261,9 @@ public partial class CustomerOrderForm : Form, ICustomerOrderView
 
 ## シナリオ 3: 階層 N 段の構成
 
-> 💡 3 段以上の連鎖選択は、汎用の `ISelectionStore<T>` + `Cascade` を使う [連鎖選択 (カスケード) を扱う](HowTo-Handle-Cascading-Selection) が推奨です。レベルごとの重複と「下位クリア忘れ」を構造的に消せます。以下は仕組みの説明です。
+3 段以上 (カテゴリ → サブカテゴリ → 商品、国 → 都道府県 → 市区町村 等) の連鎖選択は、専用ページ **[連鎖選択 (カスケード) を扱う](HowTo-Handle-Cascading-Selection)** を参照してください。
 
-3 段以上 (カテゴリ → サブカテゴリ → 商品) は、選択 Service を **各レベルごと** に用意します。
-
-```csharp
-public interface ICategorySelectionService    { /* ... */ }
-public interface ISubCategorySelectionService { /* ... */ }
-public interface IProductSelectionService     { /* ... */ }
-```
-
-各レベルの Presenter は、**1 段上の選択変更を購読** → 自分のデータを更新 → 自分の選択 Service に通知、というチェーンになります。
-
-```
-CategoryListPresenter
-   │ 選択変更
-   ▼
-ICategorySelectionService.SelectedCategoryChanged
-   │ subscribed by
-   ▼
-SubCategoryListPresenter
-   │ 新リスト読み込み + 自分の選択をクリア
-   ▼
-ISubCategorySelectionService.SelectedSubCategoryChanged
-   │ subscribed by
-   ▼
-ProductListPresenter
-   │ 新リスト読み込み
-   ▼
-View.Products = ...
-```
+各レベルに手書きの選択 Service を N 個用意する素朴な実装は、(1) 同型コードの重複と (2) 上位変更時の「下位選択クリア忘れ」という 2 つの罠を抱えます。汎用の `ISelectionStore<T>` + `Cascade.Bind` を使えば、N 個の Service を 1 つのジェネリックに、各レベルの「上位購読 → 自分をクリア → 再読込」を 1 行に畳み、下位クリアを通知連鎖で自動化できます (多親依存は `Cascade.Combine`)。
 
 ---
 
@@ -469,6 +442,7 @@ public void DeletingCustomer_WithOrders_ConfirmsBeforeDelete()
 ## 関連ページ
 
 - [HowTo: Presenter 間の通信方法](HowTo-Communicate-Between-Presenters) — 共有 Model + イベント パターン
+- [連鎖選択 (カスケード) を扱う](HowTo-Handle-Cascading-Selection) — 3 段以上の N 段連鎖 (`ISelectionStore<T>` + `Cascade`)
 - [ViewAction システム](Reference-ViewAction-System) — State-driven CanExecute
 - [HowTo: 非同期処理を扱う](HowTo-Handle-Async-Operations) — 詳細読み込みの async 化
 - サンプル:
