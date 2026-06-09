@@ -14,7 +14,7 @@
 
 **Framework primitives (shipped in `WinformsMVP`):**
 - Create `src/WinformsMVP/Common/SelectionStore.cs` — `ISelectionStore<T>` + `SelectionStore<T>`.
-- Create `src/WinformsMVP/Common/Cascade.cs` — static `Cascade` helper.
+- Create `src/WinformsMVP/Common/Cascade.cs` — static `Cascade` helper (`Bind` single-parent + `Combine` multi-parent).
 
 **Tests:**
 - Create `tests/WinformsMVP.Samples.Tests/Common/SelectionStoreTests.cs`
@@ -168,22 +168,21 @@ namespace WinformsMVP.Common
     {
         private readonly IEqualityComparer<T> _comparer;
 
-        public SelectionStore() : this(null) { }
-
-        public SelectionStore(IEqualityComparer<T> comparer)
+        // Defaults to EqualityComparer<T>.Default. Give entities Id-based Equals (or pass a
+        // comparer) so a reloaded list — which holds NEW instances — still matches "the same" row.
+        public SelectionStore(IEqualityComparer<T> comparer = null)
         {
-            _comparer = comparer;
+            _comparer = comparer ?? EqualityComparer<T>.Default;
         }
 
         public T Current { get; private set; }
 
         public void Select(T item)
         {
-            // Short-circuit when unchanged so clearing an already-empty downstream level
-            // does not fan out a pointless cascade.
-            bool same = _comparer != null
-                ? _comparer.Equals(Current, item)
-                : ReferenceEquals(Current, item);
+            // Short-circuit when unchanged so clearing an already-empty downstream level does not
+            // fan out a pointless cascade. Null-safe: never calls the comparer with a null operand.
+            bool same = (Current == null && item == null)
+                     || (Current != null && item != null && _comparer.Equals(Current, item));
             if (same) return;
 
             Current = item;
@@ -210,7 +209,7 @@ git commit -m "feat(common): add ISelectionStore<T> / SelectionStore<T>"
 
 ---
 
-## Task 2: `Cascade.Bind`
+## Task 2: `Cascade.Bind` and `Cascade.Combine`
 
 **Files:**
 - Create: `src/WinformsMVP/Common/Cascade.cs`
@@ -221,7 +220,6 @@ git commit -m "feat(common): add ISelectionStore<T> / SelectionStore<T>"
 Create `tests/WinformsMVP.Samples.Tests/Common/CascadeTests.cs`:
 
 ```csharp
-using System.Collections.Generic;
 using WinformsMVP.Common;
 using Xunit;
 
@@ -244,7 +242,8 @@ namespace WinformsMVP.Samples.Tests.Common
 
             Node reloadedWith = null;
             int reloadCount = 0;
-            Cascade.Bind(parent, child, p => { reloadCount++; reloadedWith = p; });
+            // initialSync:false so we count only the change-driven reload
+            Cascade.Bind(parent, child, p => { reloadCount++; reloadedWith = p; }, initialSync: false);
 
             var c = new Node(1);
             parent.Select(c);
@@ -255,12 +254,41 @@ namespace WinformsMVP.Samples.Tests.Common
         }
 
         [Fact]
+        public void Bind_InitialSync_ReloadsOnceAtBindWithCurrentParent()
+        {
+            var parent = new SelectionStore<Node>();
+            var p0 = new Node(5);
+            parent.Select(p0);
+            var child = new SelectionStore<Node>();
+
+            Node reloadedWith = null;
+            int reloadCount = 0;
+            Cascade.Bind(parent, child, p => { reloadCount++; reloadedWith = p; });   // initialSync default true
+
+            Assert.Equal(1, reloadCount);
+            Assert.Same(p0, reloadedWith);
+        }
+
+        [Fact]
+        public void Bind_InitialSyncFalse_DoesNotReloadAtBind()
+        {
+            var parent = new SelectionStore<Node>();
+            parent.Select(new Node(5));
+            var child = new SelectionStore<Node>();
+            int reloadCount = 0;
+
+            Cascade.Bind(parent, child, p => reloadCount++, initialSync: false);
+
+            Assert.Equal(0, reloadCount);
+        }
+
+        [Fact]
         public void Bind_Dispose_StopsReacting()
         {
             var parent = new SelectionStore<Node>();
             var child = new SelectionStore<Node>();
             int reloadCount = 0;
-            var binding = Cascade.Bind(parent, child, p => reloadCount++);
+            var binding = Cascade.Bind(parent, child, p => reloadCount++, initialSync: false);
 
             binding.Dispose();
             parent.Select(new Node(1));
@@ -279,8 +307,8 @@ namespace WinformsMVP.Samples.Tests.Common
 
             int reloadB = 0, reloadC = 0;
             Node bReloadArg = new Node(-1), cReloadArg = new Node(-1);
-            Cascade.Bind(a, b, p => { reloadB++; bReloadArg = p; });
-            Cascade.Bind(b, c, p => { reloadC++; cReloadArg = p; });
+            Cascade.Bind(a, b, p => { reloadB++; bReloadArg = p; }, initialSync: false);
+            Cascade.Bind(b, c, p => { reloadC++; cReloadArg = p; }, initialSync: false);
 
             a.Select(new Node(1));
 
@@ -301,12 +329,55 @@ namespace WinformsMVP.Samples.Tests.Common
             // b and c start empty (null)
 
             int reloadC = 0;
-            Cascade.Bind(a, b, p => { });
-            Cascade.Bind(b, c, p => reloadC++);
+            Cascade.Bind(a, b, p => { }, initialSync: false);
+            Cascade.Bind(b, c, p => reloadC++, initialSync: false);
 
             a.Select(new Node(1));   // clears b (already null -> short-circuit, no fire) then reloads b
 
             Assert.Equal(0, reloadC);   // grandchild reload never triggered (b stayed null)
+        }
+
+        [Fact]
+        public void Combine_EitherParentChange_ClearsTargetAndReloadsWithBoth()
+        {
+            var a = new SelectionStore<Node>();
+            var b = new SelectionStore<Node>();
+            var target = new SelectionStore<Node>();
+            target.Select(new Node(7));
+
+            Node lastA = null, lastB = null;
+            int reloadCount = 0;
+            Cascade.Combine(a, b, target,
+                (av, bv) => { reloadCount++; lastA = av; lastB = bv; }, initialSync: false);
+
+            var a1 = new Node(1);
+            a.Select(a1);
+            Assert.Null(target.Current);          // cleared on a change
+            Assert.Equal(1, reloadCount);
+            Assert.Same(a1, lastA);
+            Assert.Null(lastB);
+
+            var b1 = new Node(2);
+            b.Select(b1);
+            Assert.Equal(2, reloadCount);
+            Assert.Same(a1, lastA);               // a's current still present
+            Assert.Same(b1, lastB);
+        }
+
+        [Fact]
+        public void Combine_Dispose_UnsubscribesBothParents()
+        {
+            var a = new SelectionStore<Node>();
+            var b = new SelectionStore<Node>();
+            var target = new SelectionStore<Node>();
+            int reloadCount = 0;
+            var binding = Cascade.Combine(a, b, target, (av, bv) => reloadCount++, initialSync: false);
+
+            binding.Dispose();
+            a.Select(new Node(1));
+            b.Select(new Node(2));
+
+            Assert.Equal(0, reloadCount);
         }
     }
 }
@@ -327,8 +398,8 @@ using System;
 namespace WinformsMVP.Common
 {
     /// <summary>
-    /// Wires a parent-&gt;child selection cascade in one declaration. Use for master/detail
-    /// and N-level cascading selection (category -&gt; subcategory -&gt; product, etc.).
+    /// Wires parent-&gt;child (and multi-parent) selection cascades in one declaration. Use for
+    /// master/detail and N-level cascading selection (category -&gt; subcategory -&gt; product, etc.).
     /// </summary>
     public static class Cascade
     {
@@ -348,7 +419,8 @@ namespace WinformsMVP.Common
         public static IDisposable Bind<TParent, TChild>(
             ISelectionStore<TParent> from,
             ISelectionStore<TChild> target,
-            Action<TParent> reload)
+            Action<TParent> reload,
+            bool initialSync = true)
             where TParent : class
             where TChild : class
         {
@@ -362,7 +434,45 @@ namespace WinformsMVP.Common
                 reload(from.Current);    // from.Current may be null (parent cleared) -> reload empties
             };
             from.CurrentChanged += handler;
+            // initialSync: reload once now so a child bound after its parent already has a value is
+            // not left empty. Each level self-syncs; order-independent. Clears nothing (no selection yet).
+            if (initialSync) reload(from.Current);
             return new Unsubscriber(delegate { from.CurrentChanged -= handler; });
+        }
+
+        /// <summary>
+        /// Multi-parent cascade: <paramref name="target"/> depends on BOTH <paramref name="a"/> and
+        /// <paramref name="b"/>. Either parent changing clears <paramref name="target"/> and reloads
+        /// with both current values. (<see cref="Bind{TParent,TChild}"/> is the single-parent case.)
+        /// </summary>
+        public static IDisposable Combine<TA, TB, TChild>(
+            ISelectionStore<TA> a,
+            ISelectionStore<TB> b,
+            ISelectionStore<TChild> target,
+            Action<TA, TB> reload,
+            bool initialSync = true)
+            where TA : class
+            where TB : class
+            where TChild : class
+        {
+            if (a == null) throw new ArgumentNullException("a");
+            if (b == null) throw new ArgumentNullException("b");
+            if (target == null) throw new ArgumentNullException("target");
+            if (reload == null) throw new ArgumentNullException("reload");
+
+            EventHandler handler = delegate
+            {
+                target.Select(null);
+                reload(a.Current, b.Current);
+            };
+            a.CurrentChanged += handler;
+            b.CurrentChanged += handler;
+            if (initialSync) reload(a.Current, b.Current);
+            return new Unsubscriber(delegate
+            {
+                a.CurrentChanged -= handler;
+                b.CurrentChanged -= handler;
+            });
         }
 
         private sealed class Unsubscriber : IDisposable
@@ -383,13 +493,13 @@ namespace WinformsMVP.Common
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `dotnet test tests/WinformsMVP.Samples.Tests/WinformsMVP.Samples.Tests.csproj --filter "FullyQualifiedName~CascadeTests"`
-Expected: PASS (4 tests).
+Expected: PASS (8 tests).
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add src/WinformsMVP/Common/Cascade.cs tests/WinformsMVP.Samples.Tests/Common/CascadeTests.cs
-git commit -m "feat(common): add Cascade.Bind for parent->child selection cascades"
+git commit -m "feat(common): add Cascade.Bind / Cascade.Combine with initial sync"
 ```
 
 ---
@@ -617,7 +727,11 @@ namespace WinformsMVP.Samples.CascadeDemo
         protected override void OnViewAttached()
         {
             View.SelectionChanged += OnUserSelected;   // spec §5.2: user selection -> store
-            View.Items = _repo.GetAll();
+        }
+
+        protected override void OnInitialize()
+        {
+            View.Items = _repo.GetAll();   // initial list load belongs in OnInitialize
         }
 
         private void OnUserSelected(object sender, EventArgs e) { _store.Select(View.Selected); }
@@ -646,10 +760,22 @@ namespace WinformsMVP.Samples.CascadeDemo
         protected override void OnViewAttached()
         {
             View.SelectionChanged += OnUserSelected;
+
+            if (_bind != null) _bind.Dispose();   // guard against double-attach
             _bind = Cascade.Bind(_parent, _self, category =>
-                View.Items = category == null
-                    ? new SubCategory[0]                       // net40: no Array.Empty<T>()
-                    : _repo.GetByCategory(category.Id));
+            {
+                try
+                {
+                    View.Items = category == null
+                        ? new SubCategory[0]                   // net40: no Array.Empty<T>()
+                        : _repo.GetByCategory(category.Id);
+                }
+                catch (Exception ex)
+                {
+                    View.Items = new SubCategory[0];           // reload self-recovers; Cascade does not roll back
+                    Messages.ShowError("Failed to load subcategories: " + ex.Message, "Error");
+                }
+            });
         }
 
         private void OnUserSelected(object sender, EventArgs e) { _self.Select(View.Selected); }
@@ -682,10 +808,20 @@ namespace WinformsMVP.Samples.CascadeDemo
         protected override void OnViewAttached()
         {
             View.SelectionChanged += OnUserSelected;
+
+            if (_bind != null) _bind.Dispose();
             _bind = Cascade.Bind(_parent, _self, sub =>
-                View.Items = sub == null
-                    ? new Product[0]
-                    : _repo.GetBySubCategory(sub.Id));
+            {
+                try
+                {
+                    View.Items = sub == null ? new Product[0] : _repo.GetBySubCategory(sub.Id);
+                }
+                catch (Exception ex)
+                {
+                    View.Items = new Product[0];
+                    Messages.ShowError("Failed to load products: " + ex.Message, "Error");
+                }
+            });
         }
 
         private void OnUserSelected(object sender, EventArgs e) { _self.Select(View.Selected); }
@@ -878,13 +1014,14 @@ approved spec. It MUST include, in this order:
 1. **何が難しいのか** — the two pain points (N-fold duplication; forgotten downstream clear).
 2. **素朴な実装が破綻する理由** — anti-patterns: N hand-written same-shaped services; manual clear in each presenter; a coordinator presenter holding child presenters.
 3. **解法: `ISelectionStore<T>` + `Cascade`** — the two collapses (N services → 1 generic; 3 steps → `Cascade.Bind`; auto downstream clear).
-4. **フレームワークプリミティブ** — show the exact `ISelectionStore<T>` / `SelectionStore<T>` and `Cascade.Bind` code from Tasks 1 & 2 (English code comments).
+4. **フレームワークプリミティブ** — show the exact `ISelectionStore<T>` / `SelectionStore<T>` and `Cascade.Bind` / `Cascade.Combine` code from Tasks 1 & 2 (English code comments). Include the `initialSync` parameter and the **Id-equality ⚠️ note** (a reload swaps instances; compare by Id, not by reference).
 5. **例: カテゴリ → サブカテゴリ → 商品 (3 段)** — the three presenters from Task 5 AND the composition root from Task 6. **Spec §5.2 fix:** the presenter examples MUST show `View.SelectionChanged += OnUserSelected;` wiring (not omit it). Include the synchronous cascade trace from spec §4.
 6. **重載が選択を再発火しない契約 (spec §5.1)** — explain that repopulating the list must not raise the user-selection event; show the `_suppress` guard pattern from Task 4's control. State this is a View-side contract, intentionally NOT in `Cascade`.
 7. **なぜ「Presenter が Presenter を持つ」にならないのか** — each presenter holds only stores + repo; link to [HowTo-Communicate-Between-Presenters § 共有 Model + イベント](HowTo-Communicate-Between-Presenters#共有-model--イベント) and to the "don't hold other presenters" anti-pattern. Keep the `_categoryStore` naming note.
-8. **設計上の注意** — `ReferenceEquals` short-circuit; **store は画面ごとにスコープする (spec §5.3, グローバル singleton にしない)**; DI open-generic registration caveat; reload should not throw (spec §6); net40 (`new T[0]`, `IList<T>`); 将来の非同期化は `Func<TParent, Task>` 版 `Cascade.Bind` を別途追加すればよい (spec §8、同期版と並存・既存 API を壊さない)。
-9. **動的深度のとき** — out of scope; `DrillDownPath` escape hatch (spec §9).
-10. **メリット / デメリット**, **アンチパターン**, **関連ページ** (link to Master-Detail, Communicate-Between-Presenters, DependencyInjection, Handle-Async-Operations, and サンプル `samples/WinformsMVP.Samples/CascadeDemo/`).
+8. **多父依赖 (`Cascade.Combine`)** — show `Cascade.Combine(a, b, target, (av, bv) => ...)` for a level that depends on TWO parents; either parent changing clears + reloads with both current values. Note 3+ parents = add an overload or fall back to manual multi-subscription. Give a short example.
+9. **設計上の注意** — 判等は **Id で・引用ではなく**（reload が実例を入れ替える）+ 値判等の短路; `initialSync`（既定 true：消除「绑定时父已有值却停在空」、且只重载不清空→可用于状态恢复); `reload` は内部 try/catch で自我兜底（`Cascade` は回滚しない); 双绑守卫 `_bind?.Dispose()`; 初始列表加载放 `OnInitialize`、View 事件订阅放 `OnViewAttached`; **store は画面ごとにスコープ (spec §5.3, グローバル singleton にしない)**; DI 开放泛型注册注意; net40 (`new T[0]`, `IList<T>`, `EqualityComparer<T>.Default`); 将来异步化は `Func<TParent, Task>` 版 `Cascade.Bind` を追加して并存 (spec §8)。
+10. **動的深度のとき** — out of scope; `DrillDownPath` escape hatch (spec §9).
+11. **メリット / デメリット**, **アンチパターン**, **関連ページ** (link to Master-Detail, Communicate-Between-Presenters, DependencyInjection, Handle-Async-Operations, and サンプル `samples/WinformsMVP.Samples/CascadeDemo/`).
 
 - [ ] **Step 2: Add links from sibling pages**
 
@@ -917,7 +1054,7 @@ In `CHANGELOG.md`, under `## [Unreleased]`, add an `### Added (追加)` section 
 ```markdown
 ### Added (追加)
 
-- **`ISelectionStore<T>` / `SelectionStore<T>` / `Cascade`** (`WinformsMVP.Common`) — 主従/N 段の連鎖選択を簡潔に書くためのプリミティブ。N 個の同型選択 Service を 1 つのジェネリックストアに、各レベルの「上位購読 → 自分をクリア → 再読込」を `Cascade.Bind` 1 行に畳む。下位クリアは通知連鎖で自動化され、書き忘れによる stale 選択が構造的に起きない。`samples/WinformsMVP.Samples/CascadeDemo/` に 3 段の例。
+- **`ISelectionStore<T>` / `SelectionStore<T>` / `Cascade`** (`WinformsMVP.Common`) — 主従/N 段の連鎖選択を簡潔に書くためのプリミティブ。N 個の同型選択 Service を 1 つのジェネリックストアに、各レベルの「上位購読 → 自分をクリア → 再読込」を `Cascade.Bind` 1 行に畳む（多父は `Cascade.Combine`）。下位クリアは通知連鎖で自動化され、書き忘れによる stale 選択が構造的に起きない。`samples/WinformsMVP.Samples/CascadeDemo/` に 3 段の例。
 ```
 
 - [ ] **Step 2: Full build + test (regression gate)**
@@ -926,7 +1063,7 @@ Run: `dotnet build winforms-mvp.sln -c Debug`
 Expected: Build succeeded, 0 errors.
 
 Run: `dotnet test tests/WinformsMVP.Samples.Tests/WinformsMVP.Samples.Tests.csproj`
-Expected: PASS, total = previous count + 8 (4 SelectionStore + 4 Cascade), 0 failures.
+Expected: PASS, total = previous count + 12 (4 SelectionStore + 8 Cascade), 0 failures.
 
 (If the sample app is still running from Task 7's smoke test and locks the output DLL, stop it first: `taskkill //F //IM WinformsMVP.Samples.exe`.)
 

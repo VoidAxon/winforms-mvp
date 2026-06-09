@@ -46,18 +46,21 @@ public sealed class SelectionStore<T> : ISelectionStore<T> where T : class
 {
     private readonly IEqualityComparer<T> _comparer;
 
-    public SelectionStore() : this(null) { }
-    public SelectionStore(IEqualityComparer<T> comparer) { _comparer = comparer; }
+    // Defaults to EqualityComparer<T>.Default. Give entities Id-based Equals (or pass a
+    // comparer) so a reloaded list — which holds NEW instances — still matches "the same" row.
+    public SelectionStore(IEqualityComparer<T> comparer = null)
+    {
+        _comparer = comparer ?? EqualityComparer<T>.Default;
+    }
 
     public T Current { get; private set; }
 
     public void Select(T item)
     {
-        // Short-circuit when unchanged so clearing an already-empty downstream
-        // level does not fan out a pointless cascade.
-        bool same = _comparer != null
-            ? _comparer.Equals(Current, item)
-            : ReferenceEquals(Current, item);
+        // Short-circuit when unchanged so clearing an already-empty downstream level does not
+        // fan out a pointless cascade. Null-safe: never calls the comparer with a null operand.
+        bool same = (Current == null && item == null)
+                 || (Current != null && item != null && _comparer.Equals(Current, item));
         if (same) return;
 
         Current = item;
@@ -69,20 +72,23 @@ public sealed class SelectionStore<T> : ISelectionStore<T> where T : class
 }
 ```
 
-- 默认用 `ReferenceEquals` 短路；需要值同等时注入 `IEqualityComparer<T>`。
+- 默认比较器 `EqualityComparer<T>.Default`；可注入自定义 `IEqualityComparer<T>`。
+- ⚠️ **判等按 Id、不靠引用**：父一变，下层列表会被重新查询、换成全新实例。靠引用判等会让逻辑上「同一条」记录因引用不同而对不上。实体应按 Id 实现 `Equals`/`GetHashCode`，或在构造时传入按 Id 比较的 comparer。（额外好处：值判等下，重载后重选到 Id 相同的新实例会被短路，顺带压住 §5.1 的一部分回灌。）
 
 ### 3.2 `Cascade`
 
 ```csharp
-// Wires a parent->child selection cascade in one declaration.
+// Wires parent->child selection cascades in one declaration.
 public static class Cascade
 {
-    // When `from` changes: clear `target` (whose CurrentChanged cascades further
-    // down), then reload `target`'s list from the new parent value.
+    // When `from` changes: clear `target` (whose CurrentChanged cascades further down), then
+    // reload `target`'s list from the new parent value. initialSync: also reload once at bind
+    // time, so a child bound after its parent already has a value is not left empty.
     public static IDisposable Bind<TParent, TChild>(
         ISelectionStore<TParent> from,
         ISelectionStore<TChild> target,
-        Action<TParent> reload)
+        Action<TParent> reload,
+        bool initialSync = true)
         where TParent : class
         where TChild : class
     {
@@ -92,11 +98,44 @@ public static class Cascade
 
         EventHandler handler = delegate
         {
-            target.Select(null);     // clear self -> fires target.CurrentChanged -> downstream Bind clears next
-            reload(from.Current);     // from.Current may be null (parent itself was cleared) -> reload empties
+            target.Select(null);     // clear self -> fires target.CurrentChanged -> downstream clears next
+            reload(from.Current);     // from.Current may be null (parent cleared) -> reload empties
         };
         from.CurrentChanged += handler;
+        if (initialSync) reload(from.Current);   // each level self-syncs; order-independent
         return new Unsubscriber(delegate { from.CurrentChanged -= handler; });
+    }
+
+    // Multi-parent: `target` depends on BOTH `a` and `b`. Either changing clears `target`
+    // and reloads with both current values. (Cascade.Bind is the single-parent case.)
+    public static IDisposable Combine<TA, TB, TChild>(
+        ISelectionStore<TA> a,
+        ISelectionStore<TB> b,
+        ISelectionStore<TChild> target,
+        Action<TA, TB> reload,
+        bool initialSync = true)
+        where TA : class
+        where TB : class
+        where TChild : class
+    {
+        if (a == null) throw new ArgumentNullException("a");
+        if (b == null) throw new ArgumentNullException("b");
+        if (target == null) throw new ArgumentNullException("target");
+        if (reload == null) throw new ArgumentNullException("reload");
+
+        EventHandler handler = delegate
+        {
+            target.Select(null);
+            reload(a.Current, b.Current);
+        };
+        a.CurrentChanged += handler;
+        b.CurrentChanged += handler;
+        if (initialSync) reload(a.Current, b.Current);
+        return new Unsubscriber(delegate
+        {
+            a.CurrentChanged -= handler;
+            b.CurrentChanged -= handler;
+        });
     }
 
     private sealed class Unsubscriber : IDisposable
@@ -111,6 +150,10 @@ public static class Cascade
     }
 }
 ```
+
+- `initialSync`（默认 `true`）：绑定时立即按当前父值同步一次，消除「绑定时父已有值、子列表却停在空」的陷阱；各层各自初始同步，与绑定顺序无关；且初始同步**只重载、不清空**，所以预填 store 再按序绑定可用于状态恢复。
+- `reload` 应自我兜底（内部 try/catch，失败置空 + 提示）：`Cascade` 不回滚，同步 reload 抛异常会沿调用栈冒回，留下半截连锁。
+- `Combine` 是 `Bind` 的多父版（两个父）。两个以上父可再加重载或退化为手动订阅；首版只做两父 `Combine`。
 
 ## 4. 级联语义（同步 / 深度优先 / 一趟）
 
@@ -203,11 +246,13 @@ public static IDisposable Bind<TParent, TChild>(
 - 注入 `IEqualityComparer<T>` 时按值同等判定。
 
 **`CascadeTests`**
-- 父变化 → `target` 被清空（`target.Current == null`）且 `reload` 以 `from.Current` 被调用一次。
+- 父变化 → `target` 被清空（`target.Current == null`）且 `reload` 以 `from.Current` 被调用。
+- `initialSync = true`：绑定时立即按当前父值 reload 一次；`initialSync = false`：绑定时不 reload。
 - `Dispose()` 后父再变化不再触发。
-- 3 层链：选顶层 → 中、末层各被清空并重载**一次**（计数）。
+- 3 层链：选顶层 → 中、末层各被清空并重载（计数，排除 initialSync 的初次）。
 - 清空已为 null 的下层时短路（下层 `reload` 不被多余调用）。
 - `from.Current` 为 null（父被清）时 `reload(null)` 被调用。
+- `Combine`：a 或 b 任一变化 → `target` 清空 + `reload(a.Current, b.Current)`；`Dispose()` 后 a、b 两父都解除订阅。
 
 **集成（Presenter 级，可选）**
 - 用 mock View + `SelectionStore` 串 3 层，验证选顶层后三层状态一次到位；验证 5.1 抑制守卫下「重载不回灌」。
@@ -225,3 +270,6 @@ public static IDisposable Bind<TParent, TChild>(
 1. ✅ **命名**：采用 `ISelectionStore<T>` / `SelectionStore<T>` / `Cascade.Bind`（与 `ChangeTracker` 的角色名词风、`ActionBinder.Bind` 的动词对齐）。
 2. ✅ **首版附带 `samples/WinformsMVP.Samples/CascadeDemo/`（3 层示例）** — 端到端验证原语 + §5.1 的「重载不回灌」抑制守卫（该坑只有真实控件能验证）。同时在 SampleLauncher 注册入口。
 3. ✅ **命名空间**：`WinformsMVP.Common`（与 `ChangeTracker` 同层）。
+4. ✅ **wiki 落地语言**：日文（与现有页面一致；中文草稿为来源，落地译为日文）。
+5. ✅ **`Cascade.Combine`（两父多父）纳入 v1**：原语 + 单测 + wiki 一节。CascadeDemo 仍保持线性 3 层（Combine 无新的真实控件风险，由单测 + wiki 覆盖即可）。
+6. ✅ **`Cascade.Bind` 加 `initialSync`**（默认 true）；`SelectionStore` 判等改 `EqualityComparer<T>.Default` + 按 Id 指引；presenter 示例含 reload 兜底、双绑守卫、`OnInitialize`/`OnViewAttached` 分工。
