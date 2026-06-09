@@ -38,8 +38,14 @@ namespace WinformsMVP.Samples.ComplexInteractionDemo_ServiceBased.OrderManagemen
 
         protected override void OnViewAttached()
         {
-            // Subscribe to View events
-            View.SaveRequested += OnSaveRequested;
+            // Save / Clear are driven through ViewActions (see RegisterViewActions),
+            // so the toolbar buttons are enabled and dispatch to the handlers below.
+        }
+
+        protected override void RegisterViewActions()
+        {
+            Dispatcher.Register(OrderManagementActions.ClearOrder, OnClearOrder);
+            Dispatcher.Register(OrderManagementActions.SaveOrder, OnSaveOrder);
         }
 
         protected override void OnInitialize()
@@ -56,7 +62,13 @@ namespace WinformsMVP.Samples.ComplexInteractionDemo_ServiceBased.OrderManagemen
             View.CurrentTotal = 0;
         }
 
-        private void OnSaveRequested(object sender, EventArgs e)
+        private void OnClearOrder()
+        {
+            // Service is the single source of truth; it raises OrderCleared -> status update.
+            _orderService.ClearOrder();
+        }
+
+        private void OnSaveOrder()
         {
             // Get order items from service (single source of truth)
             var orderItems = _orderService.OrderItems;
@@ -117,9 +129,6 @@ namespace WinformsMVP.Samples.ComplexInteractionDemo_ServiceBased.OrderManagemen
 
         protected override void Cleanup()
         {
-            // Unsubscribe from View events
-            View.SaveRequested -= OnSaveRequested;
-
             // Unsubscribe from Service events
             _orderService.ProductAdded -= OnServiceProductAdded;
             _orderService.ItemRemoved -= OnServiceItemRemoved;

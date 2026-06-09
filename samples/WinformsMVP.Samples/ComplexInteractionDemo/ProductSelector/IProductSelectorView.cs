@@ -9,7 +9,7 @@ namespace WinformsMVP.Samples.ComplexInteractionDemo.ProductSelector
     /// <summary>
     /// View interface for product selection control
     /// </summary>
-    public interface IProductSelectorView : IViewBase
+    public interface IProductSelectorView : IActionableView
     {
         /// <summary>
         /// Gets or sets the list of available products

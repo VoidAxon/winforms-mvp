@@ -9,7 +9,7 @@ namespace WinformsMVP.Samples.ComplexInteractionDemo.OrderSummary
     /// <summary>
     /// View interface for order summary control
     /// </summary>
-    public interface IOrderSummaryView : IViewBase
+    public interface IOrderSummaryView : IActionableView
     {
         /// <summary>
         /// Gets or sets the list of order items

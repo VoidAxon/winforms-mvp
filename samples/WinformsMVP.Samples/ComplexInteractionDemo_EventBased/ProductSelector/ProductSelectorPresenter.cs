@@ -22,6 +22,19 @@ namespace WinformsMVP.Samples.ComplexInteractionDemo_EventBased.ProductSelector
             _eventAggregator = eventAggregator ?? throw new ArgumentNullException(nameof(eventAggregator));
         }
 
+        protected override void RegisterViewActions()
+        {
+            // The "Add to Order" button is bound to this action in the View
+            // (ProductSelectorView.InitializeActionBindings). Raise the semantic
+            // ProductAdded event from the current selection; OnProductAdded validates.
+            Dispatcher.Register(ProductSelectorActions.AddToOrder, OnAddToOrderRequested);
+        }
+
+        private void OnAddToOrderRequested()
+        {
+            View.RaiseProductAdded(View.SelectedProduct, View.Quantity);
+        }
+
         protected override void OnViewAttached()
         {
             // Subscribe to view events

@@ -25,6 +25,25 @@ namespace WinformsMVP.Samples.ComplexInteractionDemo_ServiceBased.OrderSummary
             _orderService = orderService ?? throw new ArgumentNullException(nameof(orderService));
         }
 
+        protected override void RegisterViewActions()
+        {
+            // Remove / Clear buttons are bound to these actions in the View.
+            Dispatcher.Register(OrderSummaryActions.RemoveItem, OnRemoveItemRequested);
+            Dispatcher.Register(OrderSummaryActions.ClearAll, OnClearAllRequested);
+        }
+
+        private void OnRemoveItemRequested()
+        {
+            if (View.SelectedItem != null)
+                View.RaiseItemRemoved(View.SelectedItem);
+        }
+
+        private void OnClearAllRequested()
+        {
+            // Service is the single source of truth; it raises OrderCleared -> RefreshView.
+            _orderService.ClearOrder();
+        }
+
         protected override void OnViewAttached()
         {
             // Subscribe to View events

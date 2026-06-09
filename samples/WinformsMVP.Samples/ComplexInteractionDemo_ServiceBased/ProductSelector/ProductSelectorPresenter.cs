@@ -34,6 +34,25 @@ namespace WinformsMVP.Samples.ComplexInteractionDemo_ServiceBased.ProductSelecto
             View.Products = products ?? new List<Product>();
         }
 
+        protected override void RegisterViewActions()
+        {
+            // The "Add to Order" button is bound to this action in the View
+            // (ProductSelectorView.InitializeActionBindings). Raise the semantic
+            // ProductAdded event from the current selection.
+            Dispatcher.Register(ProductSelectorActions.AddToOrder, OnAddToOrderRequested);
+        }
+
+        private void OnAddToOrderRequested()
+        {
+            if (View.SelectedProduct == null)
+            {
+                View.ShowError("Please select a product.");
+                return;
+            }
+
+            View.RaiseProductAdded(View.SelectedProduct, View.Quantity);
+        }
+
         protected override void OnViewAttached()
         {
             // Subscribe to View's ProductAdded event

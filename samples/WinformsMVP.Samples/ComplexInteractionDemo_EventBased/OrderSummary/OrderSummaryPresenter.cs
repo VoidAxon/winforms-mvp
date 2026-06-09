@@ -27,6 +27,25 @@ namespace WinformsMVP.Samples.ComplexInteractionDemo_EventBased.OrderSummary
             _orderItems = new List<OrderItem>();
         }
 
+        protected override void RegisterViewActions()
+        {
+            // Remove / Clear buttons are bound to these actions in the View.
+            Dispatcher.Register(OrderSummaryActions.RemoveItem, OnRemoveItemRequested);
+            Dispatcher.Register(OrderSummaryActions.ClearAll, OnClearAllRequested);
+        }
+
+        private void OnRemoveItemRequested()
+        {
+            if (View.SelectedItem != null)
+                View.RaiseItemRemoved(View.SelectedItem);
+        }
+
+        private void OnClearAllRequested()
+        {
+            // Publish the clear request; this presenter's OnClearOrder handles it.
+            _eventAggregator.Publish(new ClearOrderMessage());
+        }
+
         protected override void OnViewAttached()
         {
             // Subscribe to view events
