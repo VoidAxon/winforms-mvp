@@ -12,6 +12,7 @@ using WinformsMVP.Samples.EmailDemo;
 using WinformsMVP.Samples.EmailDemo.Services;
 using WinformsMVP.Samples.ComplexInteractionDemo_ServiceBased;
 using WinformsMVP.Samples.ComplexInteractionDemo_EventBased;
+using WinformsMVP.Samples.CascadeDemo;
 using WinformsMVP.Samples.ToastDemo;
 using WinformsMVP.Services;
 using WinformsMVP.Services.Implementations;
@@ -138,7 +139,10 @@ namespace WinformsMVP.Samples
                     Color.FromArgb(34, 139, 34), LaunchServiceBasedDemo),
                 new DemoItem("Order Mgmt (EventAggregator)",
                     "Event Aggregator Pub-Sub • Decoupled Messaging",
-                    Color.FromArgb(184, 134, 11), LaunchEventBasedDemo));
+                    Color.FromArgb(184, 134, 11), LaunchEventBasedDemo),
+                new DemoItem("Cascade (N-level selection)",
+                    "N-level cascading selection • SelectionStore • Child presenter wiring",
+                    Color.FromArgb(0, 100, 160), LaunchCascadeDemo));
 
             AddSection(content, "Complete Application",
                 new DemoItem("Email Demo (Complete App)",
@@ -360,6 +364,13 @@ namespace WinformsMVP.Samples
         {
             this.Hide();
             ComplexInteractionDemoEventBasedProgram.Run();
+            this.Show();
+        }
+
+        private void LaunchCascadeDemo()
+        {
+            this.Hide();
+            CascadeDemoProgram.Run();
             this.Show();
         }
     }
