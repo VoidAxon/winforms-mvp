@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using WinformsMVP.Samples.ComplexInteractionDemo.Models;
 using WinformsMVP.Samples.ComplexInteractionDemo.OrderManagement;
 using WinformsMVP.Samples.ComplexInteractionDemo.Services;
+using WinformsMVP.MVP.Presenters;
 using ServiceBasedOrderManagementPresenter = WinformsMVP.Samples.ComplexInteractionDemo_ServiceBased.OrderManagement.OrderManagementPresenter;
 using ServiceBasedOrderSummaryPresenter = WinformsMVP.Samples.ComplexInteractionDemo_ServiceBased.OrderSummary.OrderSummaryPresenter;
 using ServiceBasedProductSelectorPresenter = WinformsMVP.Samples.ComplexInteractionDemo_ServiceBased.ProductSelector.ProductSelectorPresenter;
@@ -68,15 +69,15 @@ namespace WinformsMVP.Samples.ComplexInteractionDemo_ServiceBased
 
             // Create ProductSelector presenter
             var productSelectorPresenter = new ServiceBasedProductSelectorPresenter(
-                form.ProductSelectorView,
                 orderService);  // ← Inject shared service
+            productSelectorPresenter.Connect(form.ProductSelectorView);  // attach view + initialize
 
             productSelectorPresenter.LoadProducts(products);
 
             // Create OrderSummary presenter
             var orderSummaryPresenter = new ServiceBasedOrderSummaryPresenter(
-                form.OrderSummaryView,
                 orderService);  // ← Inject shared service
+            orderSummaryPresenter.Connect(form.OrderSummaryView);  // attach view + initialize
 
             // Create OrderManagement presenter
             var mainPresenter = new ServiceBasedOrderManagementPresenter(

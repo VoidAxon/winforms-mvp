@@ -32,7 +32,7 @@ OnSave() in Presenter
     ├─ commits dirty flag (AcceptChanges) — for model correctness, not to skip the gate
     └─ RequestClose(result, InteractionStatus.Ok)
           ↓
-    WindowCloseController (ICloseSink.Close)
+    WindowLifecycleController (ICloseSink.Close)
           ├─ sets _suppressGate = true  ← skips the Pull gate once
           └─ form.Close()
                 ↓
@@ -49,7 +49,7 @@ User clicks X (or Alt+F4, system shutdown …)
     ↓
 FormClosing fires
     ↓
-WindowCloseController.OnFormClosing
+WindowLifecycleController.OnFormClosing
     ├─ _suppressGate is false → calls ICloseParticipant.CanCloseGate(reason, proceed)
     │       ↓
     │   Presenter.CanClose(reason, proceed)   [your override]
@@ -210,9 +210,9 @@ presenter.Connect(form, parameters);
 
 ---
 
-## 内部ブリッジ — `WindowCloseController`
+## 内部ブリッジ — `WindowLifecycleController`
 
-ウィンドウごとに 1 つの `WindowCloseController` インスタンスが作成されます。このインスタンスは:
+ウィンドウごとに 1 つの `WindowLifecycleController` インスタンスが作成されます。このインスタンスは:
 
 - `ICloseSink` (Push シンク) を実装し、保留中の結果とステータスを記録し、抑制フラグをセットして `form.Close()` を呼びます。
 - `FormClosing` (Pull ゲート) をブリッジし、`ICloseParticipant.CanCloseGate` を呼んで `e.Cancel` の決定を適用します。

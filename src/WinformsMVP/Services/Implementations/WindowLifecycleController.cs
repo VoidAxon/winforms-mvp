@@ -13,7 +13,7 @@ namespace WinformsMVP.Services.Implementations
     /// <c>FormClosed</c> handler. The only place in the framework that knows <see cref="Form"/>.
     /// One instance per window, so all suppress/defer state is plain fields, no shared tables.
     /// </summary>
-    internal sealed class WindowCloseController : ICloseSink
+    internal sealed class WindowLifecycleController : ICloseSink
     {
         private readonly Form _form;
         private readonly ICloseParticipant _presenter;
@@ -28,7 +28,7 @@ namespace WinformsMVP.Services.Implementations
 
         /// <param name="disposeForm">True when this controller owns the Form lifetime (Managed
         /// modal, Adopted). False for non-modal Managed, where WinForms disposes on close.</param>
-        internal WindowCloseController(IWindowView view, ICloseParticipant presenter,
+        internal WindowLifecycleController(IWindowView view, ICloseParticipant presenter,
             Action<object, InteractionStatus> onClosed, bool disposeForm)
         {
             if (!(view is Form form))
@@ -38,7 +38,7 @@ namespace WinformsMVP.Services.Implementations
             _presenter = presenter;
             _onClosed = onClosed;
             _disposeForm = disposeForm;
-            _logger = PlatformServices.Default.LoggerFactory.CreateLogger(typeof(WindowCloseController));
+            _logger = PlatformServices.Default.LoggerFactory.CreateLogger(typeof(WindowLifecycleController));
         }
 
         /// <summary>Injects the Push sink. Call BEFORE <c>Initialize</c> so a Presenter can

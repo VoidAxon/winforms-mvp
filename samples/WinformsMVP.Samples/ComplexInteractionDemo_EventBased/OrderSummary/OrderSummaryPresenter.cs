@@ -21,10 +21,7 @@ namespace WinformsMVP.Samples.ComplexInteractionDemo_EventBased.OrderSummary
         private IDisposable _clearOrderSubscription;
         private IDisposable _orderSnapshotSubscription;
 
-        public OrderSummaryPresenter(
-            IOrderSummaryView view,
-            IEventAggregator eventAggregator)
-            : base(view)
+        public OrderSummaryPresenter(IEventAggregator eventAggregator)
         {
             _eventAggregator = eventAggregator ?? throw new ArgumentNullException(nameof(eventAggregator));
             _orderItems = new List<OrderItem>();

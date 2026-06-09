@@ -1,56 +1,56 @@
 using System;
-using System.Windows.Forms;
-using WinformsMVP.MVP.Presenters;
 using WinformsMVP.MVP.Views;
 
 namespace WinformsMVP.MVP.Presenters
 {
     /// <summary>
-    /// Base class for presenters that manage UserControl views.
+    /// Base class for presenters that manage Control / UserControl views.
     /// Use this class when the presenter does not require initialization parameters.
-    /// The view is injected through the constructor and the presenter is automatically
-    /// initialized and disposed with the control's lifecycle.
     /// </summary>
+    /// <remarks>
+    /// Construction is two-phase, identical in shape to <see cref="WindowPresenterBase{TView}"/>:
+    /// the constructor takes only the presenter's own dependencies, then the view is supplied via
+    /// <see cref="AttachView"/> and initialization runs via <see cref="Initialize"/>. The
+    /// <c>Connect</c> extension (see <see cref="ControlPresenterConnectExtensions"/>) drives that
+    /// sequence and wires lifecycle teardown. This keeps the presenter free of any
+    /// <c>System.Windows.Forms</c> dependency, and — because <c>Initialize</c> runs after the
+    /// constructor chain has completed — it removes the constructor-ordering trap where
+    /// <c>OnInitialize</c> could observe not-yet-assigned derived fields.
+    /// </remarks>
     /// <typeparam name="TView">The view interface type, must implement IViewBase</typeparam>
-    public abstract class ControlPresenterBase<TView> : PresenterBase<TView>
+    public abstract class ControlPresenterBase<TView> :
+        PresenterBase<TView>,
+        IViewAttacher<TView>,
+        IInitializable
         where TView : IViewBase
     {
-        /// <summary>
-        /// Creates a new presenter for a UserControl view.
-        /// </summary>
-        /// <param name="view">The view instance (typically a UserControl)</param>
-        protected ControlPresenterBase(TView view)
+        protected ControlPresenterBase()
         {
-            SetView(view);
-            Initialize();
-
-            // Subscribe to control lifecycle events
-            if (view is Control control)
-            {
-                control.HandleCreated += OnControlHandleCreated;
-                control.Disposed += OnControlDisposed;
-            }
-            else if (view is UserControl userControl)
-            {
-                userControl.Load += OnControlLoad;
-                userControl.Disposed += OnControlDisposed;
-            }
         }
 
-        private void Initialize()
+        /// <summary>
+        /// Attaches the view to this presenter. Called by the <c>Connect</c> extension.
+        /// </summary>
+        public void AttachView(TView view)
+        {
+            SetView(view);
+        }
+
+        /// <summary>
+        /// Initializes the presenter. Called after the view is attached.
+        /// At this point the View property and all derived fields are guaranteed to be set.
+        /// </summary>
+        public void Initialize()
         {
             if (_initialized)
-                return;
+                throw new InvalidOperationException("Presenter has already been initialized");
 
             _initialized = true;
             RegisterViewActions();
 
-            // Automatically bind ViewActionBinder to dispatcher after actions are registered.
             // Views that don't participate in the ViewAction system simply don't implement IActionableView.
             if (View is IActionableView actionable)
-            {
                 actionable.ActionBinder?.Bind(_dispatcher);
-            }
 
             OnInitialize();
         }
@@ -62,49 +62,10 @@ namespace WinformsMVP.MVP.Presenters
 
         /// <summary>
         /// Override to perform initialization logic after the view is attached.
-        /// At this point, the View property is guaranteed to be set.
-        /// Note: The control may not have a parent container yet.
+        /// At this point the View property is guaranteed to be set.
+        /// Note: the control may not have a parent container or window handle yet — handle-dependent
+        /// work belongs on the concrete control, not here.
         /// </summary>
         protected virtual void OnInitialize() { }
-
-        /// <summary>
-        /// Called when the UserControl is loaded (has parent and handle created).
-        /// Override this to perform operations that require the control to be fully initialized.
-        /// Only called if the view is a UserControl.
-        /// </summary>
-        protected virtual void OnControlLoad(object sender, EventArgs e)
-        {
-            // Default implementation: empty
-        }
-
-        /// <summary>
-        /// Called when the Control's window handle is created.
-        /// Override this to perform operations that require a window handle.
-        /// Called for all Control types.
-        /// </summary>
-        protected virtual void OnControlHandleCreated(object sender, EventArgs e)
-        {
-            // Default implementation: empty
-        }
-
-        /// <summary>
-        /// Called when the UserControl is being disposed.
-        /// Automatically disposes this presenter as well.
-        /// </summary>
-        protected virtual void OnControlDisposed(object sender, EventArgs e)
-        {
-            if (sender is UserControl userControl)
-            {
-                userControl.Load -= OnControlLoad;
-                userControl.Disposed -= OnControlDisposed;
-            }
-            else if (sender is Control control)
-            {
-                control.HandleCreated -= OnControlHandleCreated;
-                control.Disposed -= OnControlDisposed;
-            }
-
-            Dispose();
-        }
     }
 }

@@ -238,9 +238,9 @@ private void OnClearOrder()
 // UserControl Presenter uses ControlPresenterBase
 public class ProductSelectorPresenter : ControlPresenterBase<IProductSelectorView>
 {
-    public ProductSelectorPresenter(IProductSelectorView view) : base(view)
+    public ProductSelectorPresenter()
     {
-        // View is injected via constructor
+        // View is supplied later via Connect(view)
     }
 
     protected override void RegisterViewActions()
@@ -310,8 +310,10 @@ static void Main()
     var products = CreateSampleProducts();
     var form = new OrderManagementForm();
 
-    var productSelectorPresenter = new ProductSelectorPresenter(form.ProductSelectorView);
-    var orderSummaryPresenter = new OrderSummaryPresenter(form.OrderSummaryView);
+    var productSelectorPresenter = new ProductSelectorPresenter();
+    productSelectorPresenter.Connect(form.ProductSelectorView);
+    var orderSummaryPresenter = new OrderSummaryPresenter();
+    orderSummaryPresenter.Connect(form.OrderSummaryView);
 
     var mainPresenter = new OrderManagementPresenter(
         productSelectorPresenter,

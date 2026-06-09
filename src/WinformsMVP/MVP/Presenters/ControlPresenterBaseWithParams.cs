@@ -1,67 +1,62 @@
 using System;
-using System.Windows.Forms;
-using WinformsMVP.MVP.Presenters;
 using WinformsMVP.MVP.Views;
 
 namespace WinformsMVP.MVP.Presenters
 {
     /// <summary>
-    /// Base class for presenters that manage UserControl views with initialization parameters.
+    /// Base class for presenters that manage Control / UserControl views with initialization parameters.
     /// Use this class when the presenter requires parameters to initialize (e.g., entity ID, filter criteria).
-    /// The view and parameters are injected through the constructor and the presenter is automatically
-    /// initialized and disposed with the control's lifecycle.
     /// </summary>
+    /// <remarks>
+    /// Two-phase construction, identical in shape to <see cref="WindowPresenterBase{TView, TParam}"/>:
+    /// the constructor takes only the presenter's own dependencies; the view and parameters are supplied
+    /// via <see cref="AttachView"/> + <see cref="Initialize(TParam)"/>, driven by the parameterized
+    /// <c>Connect</c> overload. No <c>System.Windows.Forms</c> dependency, and no constructor-ordering trap.
+    /// </remarks>
     /// <typeparam name="TView">The view interface type, must implement IViewBase</typeparam>
     /// <typeparam name="TParam">The type of initialization parameters</typeparam>
-    public abstract class ControlPresenterBase<TView, TParam> : PresenterBase<TView>
+    public abstract class ControlPresenterBase<TView, TParam> :
+        PresenterBase<TView>,
+        IViewAttacher<TView>,
+        IInitializable<TParam>
         where TView : IViewBase
     {
         /// <summary>
         /// Gets the initialization parameters passed to this presenter.
-        /// Available after construction.
+        /// Available after <see cref="Initialize(TParam)"/> is called.
         /// </summary>
         protected TParam Parameters { get; private set; }
 
-        /// <summary>
-        /// Creates a new presenter for a UserControl view with initialization parameters.
-        /// </summary>
-        /// <param name="view">The view instance (typically a UserControl)</param>
-        /// <param name="parameters">Initialization parameters</param>
-        protected ControlPresenterBase(TView view, TParam parameters)
+        protected ControlPresenterBase()
         {
-            SetView(view);
-            Parameters = parameters;
-            Initialize();
-
-            // Subscribe to control lifecycle events
-            if (view is UserControl userControl)
-            {
-                userControl.Load += OnControlLoad;
-                userControl.Disposed += OnControlDisposed;
-            }
-            else if (view is Control control)
-            {
-                control.HandleCreated += OnControlHandleCreated;
-                control.Disposed += OnControlDisposed;
-            }
         }
 
-        private void Initialize()
+        /// <summary>
+        /// Attaches the view to this presenter. Called by the <c>Connect</c> extension.
+        /// </summary>
+        public void AttachView(TView view)
+        {
+            SetView(view);
+        }
+
+        /// <summary>
+        /// Initializes the presenter with parameters. Called after the view is attached.
+        /// At this point the View property, Parameters, and all derived fields are guaranteed to be set.
+        /// </summary>
+        /// <param name="parameters">Initialization parameters</param>
+        public void Initialize(TParam parameters)
         {
             if (_initialized)
-                return;
+                throw new InvalidOperationException("Presenter has already been initialized");
 
             _initialized = true;
+            Parameters = parameters;
             RegisterViewActions();
 
-            // Automatically bind ViewActionBinder to dispatcher after actions are registered.
-            // Views that don't participate in the ViewAction system simply don't implement IActionableView.
             if (View is IActionableView actionable)
-            {
                 actionable.ActionBinder?.Bind(_dispatcher);
-            }
 
-            OnInitialize(Parameters);
+            OnInitialize(parameters);
         }
 
         /// <summary>
@@ -71,50 +66,10 @@ namespace WinformsMVP.MVP.Presenters
 
         /// <summary>
         /// Override to perform initialization logic with parameters.
-        /// At this point, both the View property and Parameters are guaranteed to be set.
-        /// Note: The control may not have a parent container yet.
+        /// At this point both the View property and Parameters are guaranteed to be set.
+        /// Note: the control may not have a parent container or window handle yet.
         /// </summary>
         /// <param name="parameters">The initialization parameters</param>
         protected abstract void OnInitialize(TParam parameters);
-
-        /// <summary>
-        /// Called when the UserControl is loaded (has parent and handle created).
-        /// Override this to perform operations that require the control to be fully initialized.
-        /// Only called if the view is a UserControl.
-        /// </summary>
-        protected virtual void OnControlLoad(object sender, EventArgs e)
-        {
-            // Default implementation: empty
-        }
-
-        /// <summary>
-        /// Called when the Control's window handle is created.
-        /// Override this to perform operations that require a window handle.
-        /// Called for all Control types.
-        /// </summary>
-        protected virtual void OnControlHandleCreated(object sender, EventArgs e)
-        {
-            // Default implementation: empty
-        }
-
-        /// <summary>
-        /// Called when the UserControl is being disposed.
-        /// Automatically disposes this presenter as well.
-        /// </summary>
-        protected virtual void OnControlDisposed(object sender, EventArgs e)
-        {
-            if (sender is UserControl userControl)
-            {
-                userControl.Load -= OnControlLoad;
-                userControl.Disposed -= OnControlDisposed;
-            }
-            else if (sender is Control control)
-            {
-                control.HandleCreated -= OnControlHandleCreated;
-                control.Disposed -= OnControlDisposed;
-            }
-
-            Dispose();
-        }
     }
 }

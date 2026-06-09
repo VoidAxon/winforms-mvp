@@ -133,9 +133,7 @@ public class ProductSelectorPresenter : ControlPresenterBase<IProductSelectorVie
     private readonly IOrderManagementService _orderService;
 
     public ProductSelectorPresenter(
-        IProductSelectorView view,
         IOrderManagementService orderService)  // ← Inject service
-        : base(view)
     {
         _orderService = orderService;
     }
@@ -196,9 +194,7 @@ public class OrderSummaryPresenter : ControlPresenterBase<IOrderSummaryView>
     private readonly IOrderManagementService _orderService;
 
     public OrderSummaryPresenter(
-        IOrderSummaryView view,
         IOrderManagementService orderService)  // ← Inject service
-        : base(view)
     {
         _orderService = orderService;
     }
@@ -338,12 +334,12 @@ public static void Run()
     var form = new OrderManagementForm();
 
     // Create child presenters first
-    var productSelectorPresenter = new ProductSelectorPresenter(
-        form.ProductSelectorView);
+    var productSelectorPresenter = new ProductSelectorPresenter();
+    productSelectorPresenter.Connect(form.ProductSelectorView);
     productSelectorPresenter.LoadProducts(products);
 
-    var orderSummaryPresenter = new OrderSummaryPresenter(
-        form.OrderSummaryView);
+    var orderSummaryPresenter = new OrderSummaryPresenter();
+    orderSummaryPresenter.Connect(form.OrderSummaryView);
 
     // Create parent presenter with references to children
     var mainPresenter = new OrderManagementPresenter(
@@ -373,13 +369,11 @@ public static void Run()
     var form = new OrderManagementForm();
 
     // All presenters depend on the SAME service instance
-    var productSelectorPresenter = new ProductSelectorPresenter(
-        form.ProductSelectorView,
-        orderService);  // ← Inject shared service
+    var productSelectorPresenter = new ProductSelectorPresenter(orderService);  // ← Inject shared service
+    productSelectorPresenter.Connect(form.ProductSelectorView);
 
-    var orderSummaryPresenter = new OrderSummaryPresenter(
-        form.OrderSummaryView,
-        orderService);  // ← Inject shared service
+    var orderSummaryPresenter = new OrderSummaryPresenter(orderService);  // ← Inject shared service
+    orderSummaryPresenter.Connect(form.OrderSummaryView);
 
     var mainPresenter = new OrderManagementPresenter(
         orderService,   // ← Inject shared service (no child presenters!)

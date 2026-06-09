@@ -89,7 +89,7 @@ PresenterBase<TView>                       [base — do not inherit directly]
 ```
 
 - **Forms** are created late-bound by `WindowNavigator` (view injected via `IViewAttacher<TView>`).
-- **UserControls** receive their view (and optional params) via the presenter constructor and dispose with the control.
+- **UserControls** are hosted via `presenter.Connect(view[, param])` (two-phase, mirroring `WindowPresenterBase`): the constructor takes only the presenter's own dependencies, then `Connect` attaches the view, initializes, and wires teardown so the presenter disposes with the control. The presenter base carries **no** `System.Windows.Forms` dependency — the lone `view is Control` boundary lives in the internal `ControlLifecycleController`. Because `Connect` runs after construction, `OnInitialize` safely observes constructor-injected fields (no constructor-ordering trap).
 - A presenter that returns a result calls the base `RequestClose(result, status)` method directly — no interface to implement, no extension method. The result type is inferred from the argument.
 - Parameterized presenters get runtime data through `IInitializable<TParam>.Initialize(param)` — **never** mix DI-resolved deps and runtime args in the constructor; use a Parameters class.
 
@@ -260,7 +260,7 @@ Use for cross-presenter/cross-module events. Do **not** use for parent-child coo
 - **Target framework:** all projects target .NET Framework 4.8 via SDK-style projects (`WinformsMVP` core also targets `net40`). SDK-style gives automatic file inclusion and `PackageReference`.
 - **Tests:** xUnit 2.9.3.
 - **Adding a Form/Dialog:** define `IXxxView : IWindowView` → presenter extends `WindowPresenterBase<TView>[, TParam]` → implement the Form → register the mapping → show via `WindowNavigator`.
-- **Adding a UserControl:** define `IXxxView : IViewBase` → presenter extends `ControlPresenterBase<TView>[, TParam]` → implement the UserControl → create the presenter in the parent, passing the view (and params).
+- **Adding a UserControl:** define `IXxxView : IViewBase` → presenter extends `ControlPresenterBase<TView>[, TParam]` → implement the UserControl → in the parent, `new` the presenter (its own deps only) then `presenter.Connect(view[, param])`.
 - The `wiki/` folder mirrors every subsystem above with Concept / HowTo / Reference / Tutorial pages — consult it before duplicating explanation here.
 
 ## Releasing

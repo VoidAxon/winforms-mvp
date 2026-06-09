@@ -204,7 +204,7 @@ protected override bool CanClose(CloseReason reason)
 
 ### Save 後に「変更を破棄しますか?」と二重に聞かれる
 
-`WindowCloseController` が Push 起点の閉じを識別して Pull ゲートをスキップするため、この二重確認は **構造的に発生しません**。`AcceptChanges` の呼び出し順序にも依存しません。`AcceptChanges` はモデル状態を確定するために呼びます。
+`WindowLifecycleController` が Push 起点の閉じを識別して Pull ゲートをスキップするため、この二重確認は **構造的に発生しません**。`AcceptChanges` の呼び出し順序にも依存しません。`AcceptChanges` はモデル状態を確定するために呼びます。
 
 ```csharp
 private void OnSave()

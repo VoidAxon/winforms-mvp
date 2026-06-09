@@ -80,7 +80,8 @@ public class MainPresenter : WindowPresenterBase<IMainView>
     protected override void OnViewAttached()
     {
         // 親が子をコンポジションで所有
-        _searchPresenter = new SearchPanelPresenter(View.SearchPanel);
+        _searchPresenter = new SearchPanelPresenter();
+        _searchPresenter.Connect(View.SearchPanel);
     }
 
     private void OnDataSourceChanged()
@@ -169,8 +170,7 @@ public class ProductSelectorPresenter : ControlPresenterBase<IProductSelectorVie
 {
     private readonly IOrderModel _orderModel;
 
-    public ProductSelectorPresenter(IProductSelectorView view, IOrderModel orderModel)
-        : base(view)
+    public ProductSelectorPresenter(IOrderModel orderModel)
     {
         _orderModel = orderModel;
     }
@@ -186,8 +186,7 @@ public class OrderSummaryPresenter : ControlPresenterBase<IOrderSummaryView>
 {
     private readonly IOrderModel _orderModel;
 
-    public OrderSummaryPresenter(IOrderSummaryView view, IOrderModel orderModel)
-        : base(view)
+    public OrderSummaryPresenter(IOrderModel orderModel)
     {
         _orderModel = orderModel;
     }

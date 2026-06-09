@@ -21,10 +21,7 @@ namespace WinformsMVP.Samples.ComplexInteractionDemo_ServiceBased.ProductSelecto
     {
         private readonly IOrderManagementService _orderService;
 
-        public ProductSelectorPresenter(
-            IProductSelectorView view,
-            IOrderManagementService orderService)
-            : base(view)
+        public ProductSelectorPresenter(IOrderManagementService orderService)
         {
             _orderService = orderService ?? throw new ArgumentNullException(nameof(orderService));
         }

@@ -17,10 +17,7 @@ namespace WinformsMVP.Samples.ComplexInteractionDemo_EventBased.ProductSelector
         private readonly IEventAggregator _eventAggregator;
         private List<Product> _availableProducts;
 
-        public ProductSelectorPresenter(
-            IProductSelectorView view,
-            IEventAggregator eventAggregator)
-            : base(view)
+        public ProductSelectorPresenter(IEventAggregator eventAggregator)
         {
             _eventAggregator = eventAggregator ?? throw new ArgumentNullException(nameof(eventAggregator));
         }

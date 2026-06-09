@@ -5,7 +5,7 @@ namespace WinformsMVP.Services.Implementations
 {
     /// <summary>
     /// Single source of the WinForms-to-framework close-reason mapping. Internal because the
-    /// only callers are the <see cref="WindowCloseController"/> and <c>WindowNavigator</c>;
+    /// only callers are the <see cref="WindowLifecycleController"/> and <c>WindowNavigator</c>;
     /// presenters see only the framework <see cref="MvpCloseReason"/>.
     /// </summary>
     internal static class CloseReasonMap

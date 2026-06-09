@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Windows.Forms;
 using WinformsMVP.Common.EventAggregator;
+using WinformsMVP.MVP.Presenters;
 using WinformsMVP.Samples.ComplexInteractionDemo.Models;
 using WinformsMVP.Samples.ComplexInteractionDemo.OrderManagement;
 using WinformsMVP.Samples.ComplexInteractionDemo_EventBased.OrderManagement;
@@ -41,14 +42,14 @@ namespace WinformsMVP.Samples.ComplexInteractionDemo_EventBased
 
             // ProductSelector: Publishes ProductAddedMessage
             var productSelectorPresenter = new ProductSelector.ProductSelectorPresenter(
-                form.ProductSelectorView,
                 eventAggregator);
+            productSelectorPresenter.Connect(form.ProductSelectorView);  // attach view + initialize
 
             // OrderSummary: Subscribes to ProductAddedMessage, ClearOrderMessage
             //               Publishes TotalChangedMessage, OrderItemRemovedMessage, OrderClearedMessage
             var orderSummaryPresenter = new OrderSummary.OrderSummaryPresenter(
-                form.OrderSummaryView,
                 eventAggregator);
+            orderSummaryPresenter.Connect(form.OrderSummaryView);  // attach view + initialize
 
             // OrderManagement: Subscribes to all messages for status updates
             //                  Publishes ClearOrderMessage, GetOrderSnapshotRequest

@@ -170,9 +170,8 @@ public class CustomerListPresenter : ControlPresenterBase<ICustomerListView>
     private readonly ICustomerSelectionService _selection;
 
     public CustomerListPresenter(
-        ICustomerListView view,
         ICustomerRepository repo,
-        ICustomerSelectionService selection) : base(view)
+        ICustomerSelectionService selection)
     {
         _repo = repo;
         _selection = selection;
@@ -200,9 +199,8 @@ public class OrderListPresenter : ControlPresenterBase<IOrderListView>
     private readonly ICustomerSelectionService _selection;
 
     public OrderListPresenter(
-        IOrderListView view,
         IOrderRepository repo,
-        ICustomerSelectionService selection) : base(view)
+        ICustomerSelectionService selection)
     {
         _repo = repo;
         _selection = selection;

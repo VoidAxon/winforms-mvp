@@ -35,8 +35,10 @@ ComplexInteractionDemo_ServiceBased/
 ```csharp
 var orderService = new OrderManagementService();  // Single instance
 
-var productSelectorPresenter = new ProductSelectorPresenter(view, orderService);
-var orderSummaryPresenter = new OrderSummaryPresenter(view, orderService);
+var productSelectorPresenter = new ProductSelectorPresenter(orderService);
+productSelectorPresenter.Connect(view);
+var orderSummaryPresenter = new OrderSummaryPresenter(orderService);
+orderSummaryPresenter.Connect(view);
 var mainPresenter = new OrderManagementPresenter(orderService, products);
 ```
 
@@ -189,7 +191,10 @@ Then in the application, navigate to the Service-Based demo.
 public void ProductSelector_AddToOrder_CallsServiceAddProduct()
 {
     var mockService = new MockOrderManagementService();
-    var presenter = new ProductSelectorPresenter(mockView, mockService);
+    var mockView = new MockProductSelectorView();
+    var presenter = new ProductSelectorPresenter(mockService);
+    presenter.AttachView(mockView);
+    presenter.Initialize();
 
     // Test calls service method
     Assert.Equal(1, mockService.AddProductCallCount);

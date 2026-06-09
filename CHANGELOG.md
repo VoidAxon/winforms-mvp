@@ -8,6 +8,14 @@
 
 ## [Unreleased]
 
+### Changed (変更)
+
+- **`ControlPresenterBase<TView>` / `<TView, TParam>` を二段構築に再設計** (BREAKING) — コンストラクタは Presenter 自身の依存のみを取り、View は新しい `presenter.Connect(view[, param])` (`ControlPresenterConnectExtensions`) で渡す。`WindowPresenterBase` と対称の `AttachView` + `Initialize` パターン。これによりコンストラクタ注入した依存をコンストラクタ本体で代入する前に `OnInitialize` が走って `NullReferenceException` になる「コンストラクタ順序の罠」を根絶。
+  - コンストラクタ署名が変更。`new XxxPresenter(view, deps)` → `new XxxPresenter(deps)` + `presenter.Connect(view)` への移行が必要。
+  - `OnControlLoad` / `OnControlHandleCreated` フックを削除。ハンドル依存の処理は具象コントロール側へ。
+- **`ControlLifecycleController`** (内部) を追加 — Control 系の唯一の `view is Control` 境界。`Disposed` を購読して Presenter をテアダウンする。Window 側の `WindowLifecycleController` と対称で、Presenter 基底から `System.Windows.Forms` 依存を排除。
+- **`WindowCloseController` を `WindowLifecycleController` にリネーム** — `ControlLifecycleController` との命名対称性のため。内部クラスのため公開 API 影響なし。
+
 ## [1.0.0-preview.2] - 2026-06-07
 
 ### Added (追加)

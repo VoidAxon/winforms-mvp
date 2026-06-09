@@ -112,9 +112,7 @@ public class ProductSelectorPresenter : ControlPresenterBase<IProductSelectorVie
     private readonly IOrderManagementService _orderService;
 
     public ProductSelectorPresenter(
-        IProductSelectorView view,
         IOrderManagementService orderService)
-        : base(view)
     {
         _orderService = orderService;
     }
@@ -148,9 +146,7 @@ public class OrderSummaryPresenter : ControlPresenterBase<IOrderSummaryView>
     private readonly IOrderManagementService _orderService;
 
     public OrderSummaryPresenter(
-        IOrderSummaryView view,
         IOrderManagementService orderService)
-        : base(view)
     {
         _orderService = orderService;
     }
@@ -253,13 +249,11 @@ public static void Run()
     var orderService = new OrderManagementService();
 
     // 2. Inject the SAME instance into all presenters
-    var productSelectorPresenter = new ProductSelectorPresenter(
-        form.ProductSelectorView,
-        orderService);  // ← Same instance
+    var productSelectorPresenter = new ProductSelectorPresenter(orderService);  // ← Same instance
+    productSelectorPresenter.Connect(form.ProductSelectorView);
 
-    var orderSummaryPresenter = new OrderSummaryPresenter(
-        form.OrderSummaryView,
-        orderService);  // ← Same instance
+    var orderSummaryPresenter = new OrderSummaryPresenter(orderService);  // ← Same instance
+    orderSummaryPresenter.Connect(form.OrderSummaryView);
 
     var mainPresenter = new OrderManagementPresenter(
         orderService,   // ← Same instance
@@ -321,7 +315,7 @@ public void ProductSelector_AddToOrder_CallsServiceAddProduct()
         Quantity = 2
     };
 
-    var presenter = new ProductSelectorPresenter(mockView, mockService);
+    var presenter = new ProductSelectorPresenter(mockService);
     presenter.AttachView(mockView);
     presenter.Initialize();
 
@@ -341,7 +335,7 @@ public void OrderSummary_ServiceProductAdded_UpdatesView()
     var service = new OrderManagementService();
     var mockView = new MockOrderSummaryView();
 
-    var presenter = new OrderSummaryPresenter(mockView, service);
+    var presenter = new OrderSummaryPresenter(service);
     presenter.AttachView(mockView);
     presenter.Initialize();
 

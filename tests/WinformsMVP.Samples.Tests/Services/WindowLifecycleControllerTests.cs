@@ -12,7 +12,7 @@ using CloseReason = WinformsMVP.Common.CloseReason;
 
 namespace WinformsMVP.Samples.Tests.Services
 {
-    public class WindowCloseControllerTests
+    public class WindowLifecycleControllerTests
     {
         // A Form that also satisfies IWindowView so the controller's `view is Form` check passes.
         // The controller talks to ICloseParticipant, not the view, so the view stays slim.
@@ -38,13 +38,13 @@ namespace WinformsMVP.Samples.Tests.Services
             public void Dispose() => Disposed = true;
         }
 
-        private static (FakeWindow form, FakeParticipant presenter, List<(object, InteractionStatus)> results, WindowCloseController controller)
+        private static (FakeWindow form, FakeParticipant presenter, List<(object, InteractionStatus)> results, WindowLifecycleController controller)
             Build(bool disposeForm = true)
         {
             var form = new FakeWindow();
             var presenter = new FakeParticipant();
             var results = new List<(object, InteractionStatus)>();
-            var controller = new WindowCloseController(
+            var controller = new WindowLifecycleController(
                 form, presenter, (r, s) => results.Add((r, s)), disposeForm);
             controller.BindSink();
             controller.WireFormEvents();

@@ -127,19 +127,13 @@ Form の中に埋め込む UserControl を制御する Presenter です。
 ```csharp
 public class SettingsPanelPresenter : ControlPresenterBase<ISettingsPanelView>
 {
-    public SettingsPanelPresenter(ISettingsPanelView view) : base(view)
-    {
-        // base コンストラクタが自動的に AttachView + Initialize を呼ぶ。
-    }
+    // コンストラクタは Presenter 自身の依存だけを受け取る (この例では無し)。
+    // View は Connect で渡す — Window 系と同じ二段構築。
 
     protected override void OnInitialize()
     {
+        // Connect は構築後に走るため、View も注入済みの依存もここで安全に使える。
         LoadSettings();
-    }
-
-    protected override void OnControlLoad(object sender, EventArgs e)
-    {
-        // UserControl が Load されたとき (親 Form がアタッチされ Handle 生成済み) に呼ばれる。
     }
 
     protected override void RegisterViewActions()
@@ -159,8 +153,9 @@ public partial class MainForm : Form
     {
         InitializeComponent();
 
-        // UserControl は既にデザイナーで配置済み
-        _settingsPresenter = new SettingsPanelPresenter(_settingsPanel);
+        // UserControl は既にデザイナーで配置済み。
+        _settingsPresenter = new SettingsPanelPresenter();
+        _settingsPresenter.Connect(_settingsPanel);   // アタッチ + 初期化 + 破棄配線
         // _settingsPanel.Dispose() と一緒に Presenter も自動 Dispose
     }
 }
@@ -168,10 +163,11 @@ public partial class MainForm : Form
 
 **Form 系との違い**:
 
-- View は既にデザイナーまたはコードで生成済み → コンストラクタで受け取る
+- View は既にデザイナーまたはコードで生成済み → `Connect(view)` で渡す (コンストラクタは Presenter 自身の依存のみ)
 - `WindowNavigator` も `IViewMappingRegister` も使わない
-- UserControl のライフサイクル (`Load` / `Disposed` 等) を Presenter が自動購読
-- UserControl が Dispose されると Presenter も自動 Dispose
+- `Connect` は構築後に走るため、`OnViewAttached` / `OnInitialize` で注入済みの依存を安全に使える (コンストラクタ順序の罠が無い)
+- UserControl が Dispose されると Presenter も自動 Dispose (`Connect` がライフサイクルを橋渡し)
+- Presenter 基底は `System.Windows.Forms` に依存しない — 唯一の `view is Control` 境界は内部の `ControlLifecycleController` に隔離 (Window 側の `WindowLifecycleController` と対称)
 
 ---
 
@@ -188,10 +184,7 @@ public class SearchParameters
 
 public class SearchPanelPresenter : ControlPresenterBase<ISearchPanelView, SearchParameters>
 {
-    public SearchPanelPresenter(ISearchPanelView view, SearchParameters parameters)
-        : base(view, parameters)
-    {
-    }
+    // コンストラクタは Presenter 自身の依存のみ。View とパラメータは Connect で渡す。
 
     protected override void OnInitialize(SearchParameters parameters)
     {
@@ -202,7 +195,8 @@ public class SearchPanelPresenter : ControlPresenterBase<ISearchPanelView, Searc
 
 // 使用
 var parameters = new SearchParameters { DefaultKeyword = "test" };
-var presenter = new SearchPanelPresenter(_searchPanel, parameters);
+var presenter = new SearchPanelPresenter();
+presenter.Connect(_searchPanel, parameters);   // アタッチ + パラメータ初期化
 ```
 
 ---
@@ -223,10 +217,9 @@ var presenter = new SearchPanelPresenter(_searchPanel, parameters);
 ### UserControl 系
 
 1. UserControl は既にデザイナーまたはコードで生成済み
-2. Presenter インスタンスを生成 (`new SettingsPresenter(view, parameters?)`)
-3. base コンストラクタ内で **View アタッチ** + **初期化** が走る (`OnViewAttached` → `OnInitialize` → `RegisterViewActions`)
-4. UserControl の `Load` イベントで `OnControlLoad()` 呼び出し
-5. UserControl が `Dispose` されると Presenter も自動 `Dispose`
+2. Presenter インスタンスを生成 (`new SettingsPresenter(deps?)` — Presenter 自身の依存のみ)
+3. `presenter.Connect(view[, parameters])` を呼ぶ → 構築後に **View アタッチ** (`OnViewAttached`) → **アクション登録** (`RegisterViewActions`、続けてフレームワークが `ActionBinder` を自動 Bind) → **初期化** (`OnInitialize`) が走る
+4. UserControl が `Dispose` されると Presenter も自動 `Dispose` (`Connect` が `ControlLifecycleController` 経由で橋渡し)
 
 ---
 
@@ -236,8 +229,7 @@ var presenter = new SearchPanelPresenter(_searchPanel, parameters);
 |---------|-----------------|---------|
 | `OnViewAttached()` | View が注入された直後 | View イベントの購読 |
 | `OnInitialize()` / `OnInitialize(TParam)` | View アタッチ後・表示前 | View プロパティの初期化、データロード |
-| `RegisterViewActions()` | `OnInitialize` の後 | `Dispatcher.Register` でアクション登録 (この直後にフレームワークが ActionBinder を自動 Bind) |
-| `OnControlLoad(object, EventArgs)` (Control 系のみ) | UserControl が Load されたとき | 親 Form 依存の初期化 |
+| `RegisterViewActions()` | `OnInitialize` の前 (Initialize 内) | `Dispatcher.Register` でアクション登録 (この直後にフレームワークが ActionBinder を自動 Bind) |
 | `Cleanup()` | Presenter が破棄されるとき | イベント購読解除、リソース解放 |
 
 すべて `protected override`。`Cleanup` 内で View イベントを `-=` で解除する習慣にすると、メモリリークを防げます。

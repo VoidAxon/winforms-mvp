@@ -20,10 +20,7 @@ namespace WinformsMVP.Samples.ComplexInteractionDemo_ServiceBased.OrderSummary
     {
         private readonly IOrderManagementService _orderService;
 
-        public OrderSummaryPresenter(
-            IOrderSummaryView view,
-            IOrderManagementService orderService)
-            : base(view)
+        public OrderSummaryPresenter(IOrderManagementService orderService)
         {
             _orderService = orderService ?? throw new ArgumentNullException(nameof(orderService));
         }

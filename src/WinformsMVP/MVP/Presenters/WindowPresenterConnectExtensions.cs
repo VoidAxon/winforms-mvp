@@ -60,7 +60,7 @@ namespace WinformsMVP.MVP.Presenters
             Action initialize, Action<object, InteractionStatus> onClosed, bool disposeForm)
         {
             // Construct first: validates `view is Form` before any side effect (no half-attach).
-            var controller = new WindowCloseController(
+            var controller = new WindowLifecycleController(
                 view, (ICloseParticipant)presenter, onClosed, disposeForm);
 
             var attachable = (IViewAttachable)presenter;

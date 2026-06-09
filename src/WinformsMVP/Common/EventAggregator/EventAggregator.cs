@@ -42,8 +42,7 @@ namespace WinformsMVP.Common.EventAggregator
     ///     private readonly IEventAggregator _eventAggregator;
     ///     private IDisposable _subscription;
     ///
-    ///     public OrderSummaryPresenter(IOrderSummaryView view, IEventAggregator eventAggregator)
-    ///         : base(view)
+    ///     public OrderSummaryPresenter(IEventAggregator eventAggregator)
     ///     {
     ///         _eventAggregator = eventAggregator;
     ///     }

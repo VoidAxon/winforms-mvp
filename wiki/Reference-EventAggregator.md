@@ -86,8 +86,7 @@ public class OrderSummaryPresenter : ControlPresenterBase<IOrderSummaryView>
     private readonly IEventAggregator _eventAggregator;
     private IDisposable _productAddedSubscription;
 
-    public OrderSummaryPresenter(IOrderSummaryView view, IEventAggregator eventAggregator)
-        : base(view)
+    public OrderSummaryPresenter(IEventAggregator eventAggregator)
     {
         _eventAggregator = eventAggregator;
     }
@@ -118,8 +117,7 @@ public class ProductSelectorPresenter : ControlPresenterBase<IProductSelectorVie
 {
     private readonly IEventAggregator _eventAggregator;
 
-    public ProductSelectorPresenter(IProductSelectorView view, IEventAggregator eventAggregator)
-        : base(view)
+    public ProductSelectorPresenter(IEventAggregator eventAggregator)
     {
         _eventAggregator = eventAggregator;
     }
@@ -352,10 +350,8 @@ public void ProductSelector_PublishesMessage_OrderSummaryReceives()
     var productSelectorView = new MockProductSelectorView();
     var orderSummaryView = new MockOrderSummaryView();
 
-    var productSelectorPresenter = new ProductSelectorPresenter(
-        productSelectorView, eventAggregator);
-    var orderSummaryPresenter = new OrderSummaryPresenter(
-        orderSummaryView, eventAggregator);
+    var productSelectorPresenter = new ProductSelectorPresenter(eventAggregator);
+    var orderSummaryPresenter = new OrderSummaryPresenter(eventAggregator);
 
     productSelectorPresenter.AttachView(productSelectorView);
     productSelectorPresenter.Initialize();

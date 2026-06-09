@@ -233,12 +233,12 @@ namespace WinformsMVP.Services.Implementations
         #region Close wiring
 
         /// <summary>
-        /// Creates the per-window <see cref="WindowCloseController"/> and injects its close sink
+        /// Creates the per-window <see cref="WindowLifecycleController"/> and injects its close sink
         /// into the presenter (Push). Form events are wired separately, AFTER Initialize, via
-        /// <see cref="WindowCloseController.WireFormEvents"/>. The controller converges the close
+        /// <see cref="WindowLifecycleController.WireFormEvents"/>. The controller converges the close
         /// result through <paramref name="onClosed"/>.
         /// </summary>
-        private WindowCloseController WireController<TResult>(
+        private WindowLifecycleController WireController<TResult>(
             IPresenter presenter, Form form, Action<InteractionResult<TResult>> onClosed, bool disposeForm)
         {
             var participant = presenter as ICloseParticipant;
@@ -246,7 +246,7 @@ namespace WinformsMVP.Services.Implementations
                 throw new InvalidOperationException(
                     presenter.GetType().Name + " cannot be shown by WindowNavigator because it does not " +
                     "derive from WindowPresenterBase / WindowPresenterBaseCore (no close participant).");
-            var controller = new WindowCloseController(
+            var controller = new WindowLifecycleController(
                 (IWindowView)form,
                 participant,
                 (res, status) => onClosed(BuildResult<TResult>(res, status)),
@@ -342,7 +342,7 @@ namespace WinformsMVP.Services.Implementations
                 throw new InvalidOperationException($"View {newForm.GetType().Name} must implement IWindowView interface to support WindowNavigator's non-modal functionality.");
             }
 
-            // The FormClosing/FormClosed bridge + Push sink are owned by WindowCloseController,
+            // The FormClosing/FormClosed bridge + Push sink are owned by WindowLifecycleController,
             // wired by the caller after this returns (the sink must be injected before Initialize),
             // so nothing close-related is set up here beyond attaching the view.
 

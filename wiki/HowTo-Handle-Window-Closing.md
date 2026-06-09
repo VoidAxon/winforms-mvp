@@ -107,14 +107,14 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView, EditUserPara
 
 ### 二重プロンプトが起きない理由
 
-`WindowCloseController` は `RequestClose` が呼ばれると内部の抑制フラグをセットするため、続いて実行される `form.Close()` が発火する `FormClosing` イベントでは `CanClose` が完全にスキップされます。これは構造的な保証であり、`AcceptChanges` を `RequestClose` より前に呼ぶかどうかには依存しません。
+`WindowLifecycleController` は `RequestClose` が呼ばれると内部の抑制フラグをセットするため、続いて実行される `form.Close()` が発火する `FormClosing` イベントでは `CanClose` が完全にスキップされます。これは構造的な保証であり、`AcceptChanges` を `RequestClose` より前に呼ぶかどうかには依存しません。
 
 ```
 OnSave()
     ├─ AcceptChanges()         ← model state only
     └─ RequestClose(...)
           ↓
-    WindowCloseController.Close():  _suppressGate = true, form.Close()
+    WindowLifecycleController.Close():  _suppressGate = true, form.Close()
           ↓
     FormClosing — _suppressGate is true → CanClose NOT called
           ↓

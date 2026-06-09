@@ -211,7 +211,10 @@ Mock the event aggregator to verify message publishing/subscribing:
 public void OnAddToOrder_PublishesProductAddedMessage()
 {
     var mockEventAggregator = new MockEventAggregator();
-    var presenter = new ProductSelectorPresenter(view, mockEventAggregator);
+    var mockView = new MockProductSelectorView();
+    var presenter = new ProductSelectorPresenter(mockEventAggregator);
+    presenter.AttachView(mockView);
+    presenter.Initialize();
 
     presenter.OnAddToOrder();
 

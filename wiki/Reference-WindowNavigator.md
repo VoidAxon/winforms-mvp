@@ -31,7 +31,7 @@ WindowNavigator
    └── IPresenter                (起動対象の Presenter インスタンス)
 ```
 
-> ウィンドウクローズは `WindowCloseController` が管理します (1 Form に 1 インスタンス)。Pull ゲート (`FormClosing`) はプレゼンターの `CanClose` override に転送され、Push ゲート (基底 `RequestClose(...)`) はクローズシンクを通じて同じコントローラに到達します。Push 起点の閉じは Pull ゲートをスキップします (`_suppressGate` フラグ)。Forms に閉じるコードは不要です。
+> ウィンドウクローズは `WindowLifecycleController` が管理します (1 Form に 1 インスタンス)。Pull ゲート (`FormClosing`) はプレゼンターの `CanClose` override に転送され、Push ゲート (基底 `RequestClose(...)`) はクローズシンクを通じて同じコントローラに到達します。Push 起点の閉じは Pull ゲートをスキップします (`_suppressGate` フラグ)。Forms に閉じるコードは不要です。
 
 `IViewMappingRegister` の構成方法は [ViewMappingRegister](Reference-ViewMappingRegister) を、結果の伝達設計は [ウィンドウクローズモデル](Concept-Window-Closing-Model) を参照してください。
 

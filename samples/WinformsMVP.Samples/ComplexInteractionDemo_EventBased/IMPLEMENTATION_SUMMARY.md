@@ -406,7 +406,9 @@ public void OnProductAdded_PublishesProductAddedMessage()
     // Arrange
     var mockEventAggregator = new MockEventAggregator();
     var mockView = new MockProductSelectorView();
-    var presenter = new ProductSelectorPresenter(mockView, mockEventAggregator);
+    var presenter = new ProductSelectorPresenter(mockEventAggregator);
+    presenter.AttachView(mockView);
+    presenter.Initialize();
 
     // Act
     mockView.RaiseProductAdded(product, 2);
@@ -427,7 +429,8 @@ public void OnProductAdded_AddsToOrderAndPublishesTotalChanged()
     // Arrange
     var mockEventAggregator = new MockEventAggregator();
     var mockView = new MockOrderSummaryView();
-    var presenter = new OrderSummaryPresenter(mockView, mockEventAggregator);
+    var presenter = new OrderSummaryPresenter(mockEventAggregator);
+    presenter.AttachView(mockView);
     presenter.Initialize();
 
     // Act
