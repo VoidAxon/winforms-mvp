@@ -8,6 +8,10 @@
 
 ## [Unreleased]
 
+### Added (追加)
+
+- **`ISelectionStore<T>` / `SelectionStore<T>` / `Cascade`** (`WinformsMVP.Common`) — 主従/N 段の連鎖選択を簡潔に書くためのプリミティブ。N 個の同型選択 Service を 1 つのジェネリックストアに、各レベルの「上位購読 → 自分をクリア → 再読込」を `Cascade.Bind` 1 行に畳む（多親は `Cascade.Combine`）。下位クリアは通知連鎖で自動化され、書き忘れによる stale 選択が構造的に起きない。`Cascade.Bind`/`Combine` は `initialSync`（既定 true）で束縛時に一度同期。`samples/WinformsMVP.Samples/CascadeDemo/` に 3 段の例。
+
 ## [1.0.0-preview.3] - 2026-06-09
 
 ### Added (追加)
