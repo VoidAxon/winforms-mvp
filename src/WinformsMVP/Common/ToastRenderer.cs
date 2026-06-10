@@ -40,13 +40,15 @@ namespace WinformsMVP.Common
     /// </summary>
     public sealed class ToastRenderContext
     {
-        internal ToastRenderContext(Graphics graphics, Rectangle bounds, string message, ToastType type, Font font)
+        internal ToastRenderContext(Graphics graphics, Rectangle bounds, string message, ToastType type, Font font, int cornerRadius, bool showCloseButton)
         {
             Graphics = graphics;
             Bounds = bounds;
             Message = message;
             Type = type;
             Font = font;
+            CornerRadius = cornerRadius;
+            ShowCloseButton = showCloseButton;
         }
 
         /// <summary>The GDI+ surface to draw on.</summary>
@@ -63,5 +65,12 @@ namespace WinformsMVP.Common
 
         /// <summary>The resolved message font.</summary>
         public Font Font { get; }
+
+        /// <summary>The corner radius (px) of the toast window; <c>0</c> means square. Draw a
+        /// matching rounded border to soften the non-anti-aliased window region edge.</summary>
+        public int CornerRadius { get; }
+
+        /// <summary>Whether the renderer should draw a close glyph.</summary>
+        public bool ShowCloseButton { get; }
     }
 }

@@ -32,6 +32,7 @@ namespace WinformsMVP.Services.Implementations
         private readonly ToastPosition _position;
         private readonly int _duration;
         private readonly ToastRenderer _renderer; // per-toast override; may be null (falls back to defaults)
+        private readonly bool _showCloseButton;
 
         // Last-resort painter if both the per-toast and app-wide renderers are null.
         private static readonly DefaultToastRenderer FallbackRenderer = new DefaultToastRenderer();
@@ -55,6 +56,7 @@ namespace WinformsMVP.Services.Implementations
             _duration = options.Duration ?? ToastDefaults.Duration;
             _opacity = ToastDefaults.Opacity;
             _renderer = options.Renderer; // resolved against ToastDefaults.Renderer at paint time
+            _showCloseButton = options.ShowCloseButton ?? ToastDefaults.ShowCloseButton;
         }
 
         /// <summary>Screen corner this toast wants to appear in. Read by <see cref="ToastManager"/>.</summary>
@@ -210,7 +212,7 @@ namespace WinformsMVP.Services.Implementations
         {
             // Resolve the painter: per-toast override, else app-wide default, else hard fallback.
             ToastRenderer renderer = _renderer ?? ToastDefaults.Renderer ?? FallbackRenderer;
-            renderer.Render(new ToastRenderContext(g, new Rectangle(0, 0, _width, _height), _message, _type, _font));
+            renderer.Render(new ToastRenderContext(g, new Rectangle(0, 0, _width, _height), _message, _type, _font, renderer.CornerRadius, _showCloseButton));
         }
 
         private void StartFadeOut()

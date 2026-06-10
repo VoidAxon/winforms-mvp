@@ -38,10 +38,14 @@ namespace WinformsMVP.Services.Implementations
             {
                 // Icon (left gutter)
                 g.DrawString(GetIcon(context.Type), iconFont, Brushes.White, new RectangleF(10, 10, 40, height - 20), centered);
-                // Message (fills the middle, leaving room for the close glyph on the right)
-                g.DrawString(context.Message, font, Brushes.White, new RectangleF(60, 10, width - 70, height - 20), leftMiddle);
-                // Close glyph (top-right corner)
-                g.DrawString("✖", closeFont, Brushes.White, new RectangleF(width - 30, 5, 20, 20), centered);
+                // Message (fills the middle; reclaims the close-glyph gutter when it is hidden)
+                int messageRight = context.ShowCloseButton ? width - 30 : width - 20;
+                g.DrawString(context.Message, font, Brushes.White, new RectangleF(60, 10, messageRight - 60, height - 20), leftMiddle);
+                // Close glyph (top-right corner) — only when requested
+                if (context.ShowCloseButton)
+                {
+                    g.DrawString("✖", closeFont, Brushes.White, new RectangleF(width - 30, 5, 20, 20), centered);
+                }
             }
         }
 
