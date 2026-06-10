@@ -31,11 +31,8 @@ namespace WinformsMVP.Services.Implementations
         private readonly Font _font; // owned by the caller / ToastDefaults — never disposed here
         private readonly ToastPosition _position;
         private readonly int _duration;
-        private readonly ToastRenderer _renderer; // per-toast override; may be null (falls back to defaults)
+        private readonly ToastRenderer _renderer; // resolved once at construction; never null
         private readonly bool _showCloseButton;
-
-        // Last-resort painter if both the per-toast and app-wide renderers are null.
-        private static readonly DefaultToastRenderer FallbackRenderer = new DefaultToastRenderer();
 
         private Timer _closeTimer;
         private Timer _fadeTimer;
@@ -55,7 +52,8 @@ namespace WinformsMVP.Services.Implementations
             _position = options.Position ?? ToastDefaults.Position;
             _duration = options.Duration ?? ToastDefaults.Duration;
             _opacity = ToastDefaults.Opacity;
-            _renderer = options.Renderer; // resolved against ToastDefaults.Renderer at paint time
+            _renderer = ToastRendererResolver.Resolve(
+                options.Renderer, options.Style, ToastDefaults.Renderer, ToastDefaults.Style);
             _showCloseButton = options.ShowCloseButton ?? ToastDefaults.ShowCloseButton;
         }
 
@@ -135,6 +133,7 @@ namespace WinformsMVP.Services.Implementations
             };
 
             CreateHandle(cp);
+            ApplyCornerRadius();
             ApplyOpacity();
             ShowWindow(Handle, SW_SHOWNOACTIVATE);
         }
@@ -210,9 +209,7 @@ namespace WinformsMVP.Services.Implementations
 
         private void Render(Graphics g)
         {
-            // Resolve the painter: per-toast override, else app-wide default, else hard fallback.
-            ToastRenderer renderer = _renderer ?? ToastDefaults.Renderer ?? FallbackRenderer;
-            renderer.Render(new ToastRenderContext(g, new Rectangle(0, 0, _width, _height), _message, _type, _font, renderer.CornerRadius, _showCloseButton));
+            _renderer.Render(new ToastRenderContext(g, new Rectangle(0, 0, _width, _height), _message, _type, _font, _renderer.CornerRadius, _showCloseButton));
         }
 
         private void StartFadeOut()
@@ -233,6 +230,24 @@ namespace WinformsMVP.Services.Implementations
                 }
             };
             _fadeTimer.Start();
+        }
+
+        /// <summary>
+        /// Rounds the popup to the resolved renderer's <see cref="ToastRenderer.CornerRadius"/> by
+        /// applying a window region. A radius of <c>0</c> leaves the window square. The OS takes
+        /// ownership of the region on <c>SetWindowRgn(..., true)</c>, so it must not be deleted here.
+        /// </summary>
+        private void ApplyCornerRadius()
+        {
+            int radius = _renderer.CornerRadius;
+            if (radius <= 0 || Handle == IntPtr.Zero)
+            {
+                return;
+            }
+
+            // CreateRoundRectRgn treats the right/bottom as exclusive, so use width/height + 1.
+            IntPtr region = CreateRoundRectRgn(0, 0, _width + 1, _height + 1, radius * 2, radius * 2);
+            SetWindowRgn(Handle, region, true);
         }
 
         private void ApplyOpacity()
@@ -331,6 +346,12 @@ namespace WinformsMVP.Services.Implementations
 
         [DllImport("user32.dll")]
         private static extern bool EndPaint(IntPtr hWnd, ref PAINTSTRUCT lpPaint);
+
+        [DllImport("gdi32.dll")]
+        private static extern IntPtr CreateRoundRectRgn(int nLeftRect, int nTopRect, int nRightRect, int nBottomRect, int nWidthEllipse, int nHeightEllipse);
+
+        [DllImport("user32.dll")]
+        private static extern int SetWindowRgn(IntPtr hWnd, IntPtr hRgn, bool bRedraw);
 
         #endregion
     }
