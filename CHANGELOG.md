@@ -11,6 +11,7 @@
 ### Added (追加)
 
 - **`ISelectionStore<T>` / `SelectionStore<T>` / `Cascade`** (`WinformsMVP.Common`) — 主従/N 段の連鎖選択を簡潔に書くためのプリミティブ。N 個の同型選択 Service を 1 つのジェネリックストアに、各レベルの「上位購読 → 自分をクリア → 再読込」を `Cascade.Bind` 1 行に畳む（多親は `Cascade.Combine`）。下位クリアは通知連鎖で自動化され、書き忘れによる stale 選択が構造的に起きない。`Cascade.Bind`/`Combine` は `initialSync`（既定 true）で束縛時に一度同期。`samples/WinformsMVP.Samples/CascadeDemo/` に 3 段の例。
+- **`ISelectable` / `SelectableItem<T>` / `SelectableKeyComparer<T>`** (`WinformsMVP.Common`) — 選択の同一性まわりの補助。`SelectionStore<T>` の `where T : class` 制約（「未選択 = null」を表現するため）で直接は載らない値型（`int`/`enum`/`Guid`/`DateTime`/`bool`）を、Value を identity とする `SelectableItem<T>` で包む（リスト/コンボ項目としても利用可。`SelectableItem.Of`/`From`/`FromEnum` で生成）。エンティティ側は `ISelectable` を実装して Key（Id 等）を 1 か所宣言すれば、`SelectionStore<T>` は comparer 未指定でも `SelectableKeyComparer<T>` を**自動採用**し Key で判等する（再読込で別インスタンスになった「同じ行」も一致）。`ISelectable` 非実装型（`string` 等）は従来どおり `EqualityComparer<T>.Default` にフォールバック。判等の局所化のため、エンティティ自身の `Equals` は変更不要。
 
 ## [1.0.0-preview.3] - 2026-06-09
 

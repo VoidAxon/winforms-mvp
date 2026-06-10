@@ -30,11 +30,16 @@ namespace WinformsMVP.Common
     {
         private readonly IEqualityComparer<T> _comparer;
 
-        // Defaults to EqualityComparer<T>.Default. Give entities Id-based Equals (or pass a
-        // comparer) so a reloaded list -- which holds NEW instances -- still matches "the same" row.
+        // When no comparer is given: if T implements ISelectable, compare by Key (so a reloaded
+        // list -- which holds NEW instances -- still matches "the same" row); otherwise fall back
+        // to EqualityComparer<T>.Default (reference, or the type's own Equals -- e.g. string).
+        // An explicit comparer always wins.
         public SelectionStore(IEqualityComparer<T> comparer = null)
         {
-            _comparer = comparer ?? EqualityComparer<T>.Default;
+            _comparer = comparer
+                ?? (typeof(ISelectable).IsAssignableFrom(typeof(T))
+                        ? (IEqualityComparer<T>)SelectableKeyComparer<T>.Instance
+                        : EqualityComparer<T>.Default);
         }
 
         public T Current { get; private set; }

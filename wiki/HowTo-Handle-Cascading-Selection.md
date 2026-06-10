@@ -18,6 +18,7 @@
 - [素朴な実装が破綻する理由](#素朴な実装が破綻する理由)
 - [解法: `ISelectionStore<T>` + `Cascade`](#解法-iselectionstoret--cascade)
 - [フレームワークプリミティブ](#フレームワークプリミティブ)
+- [選択の同一性と値型](#選択の同一性と値型)
 - [例: カテゴリ → サブカテゴリ → 商品 (3 段)](#例-カテゴリ--サブカテゴリ--商品-3-段)
 - [なぜ「Presenter が Presenter を持つ」にならないのか](#なぜpresenter-が-presenter-を持つにならないのか)
 - [リスト再読込が選択を再発火しない契約](#リスト再読込が選択を再発火しない契約)
@@ -79,7 +80,7 @@ public interface IProductSelectionService     { Product Selected { get; } event 
 
 ## フレームワークプリミティブ
 
-汎用の選択ストア (`WinformsMVP.Common`)。判定はデフォルトで `EqualityComparer<T>.Default`、`IEqualityComparer<T>` も注入できます。
+汎用の選択ストア (`WinformsMVP.Common`)。判定の既定は「`T` が `ISelectable` を実装していれば Key 同値 (`SelectableKeyComparer<T>` を自動採用)、そうでなければ `EqualityComparer<T>.Default`」で、`IEqualityComparer<T>` を明示注入すればそれが最優先です ([選択の同一性と値型](#選択の同一性と値型) 参照)。
 
 ```csharp
 public interface ISelectionStore<T> where T : class
@@ -95,7 +96,11 @@ public sealed class SelectionStore<T> : ISelectionStore<T> where T : class
 
     public SelectionStore(IEqualityComparer<T> comparer = null)
     {
-        _comparer = comparer ?? EqualityComparer<T>.Default;
+        // No comparer: ISelectable -> compare by Key; otherwise EqualityComparer<T>.Default.
+        _comparer = comparer
+            ?? (typeof(ISelectable).IsAssignableFrom(typeof(T))
+                    ? (IEqualityComparer<T>)SelectableKeyComparer<T>.Instance
+                    : EqualityComparer<T>.Default);
     }
 
     public T Current { get; private set; }
@@ -116,7 +121,7 @@ public sealed class SelectionStore<T> : ISelectionStore<T> where T : class
 }
 ```
 
-> ⚠️ **判定は Id で、参照に頼らない。** 親が変わると下位リストは再クエリされ、**全く新しいインスタンス** に入れ替わります。参照同値で選択を比較/復元すると、論理的に「同じ」レコードが参照違いで一致しません。エンティティに Id ベースの `Equals`/`GetHashCode` を実装する (または Id 比較の `IEqualityComparer<T>` を注入する) こと。デフォルトの `EqualityComparer<T>.Default` は、`Equals` 未実装の型では参照同値に退化するので、**この対応は必須** です。
+> ⚠️ **判定は Id で、参照に頼らない。** 親が変わると下位リストは再クエリされ、**全く新しいインスタンス** に入れ替わります。参照同値で選択を比較/復元すると、論理的に「同じ」レコードが参照違いで一致しません。**エンティティに `ISelectable` を実装** すれば、`SelectionStore<T>` は comparer 未指定でも Key で判定するので、この罠は既定で塞がります (次節)。`ISelectable` を実装せず `Equals` も未実装の型では `EqualityComparer<T>.Default` が参照同値に退化するため、その場合は Id 比較の `IEqualityComparer<T>` を注入してください。
 
 連鎖を 1 行にするヘルパー。**同期版**で、`initialSync` (既定 `true`) は束縛時に一度だけ現在値で同期します。
 
@@ -151,6 +156,56 @@ public static class Cascade
 ```
 
 `Cascade` は純粋なヘルパーで外部依存ゼロ、テストも容易です。
+
+---
+
+## 選択の同一性と値型
+
+`ISelectionStore<T>` には `where T : class` 制約があります。これは「**未選択 = `null`**」を `Current` で表現するための制約で、値型 (`int` / `enum` / `Guid` / `DateTime` / `bool`) は `null` を持てないため直接は載りません (`string` は参照型なのでそのまま使えます)。そこで `WinformsMVP.Common` は同一性まわりの小さな補助を 3 つ用意します。
+
+### エンティティ — `ISelectable` を実装する
+
+エンティティが Key (Id 等) を 1 か所宣言すれば、`SelectionStore<T>` は comparer を渡さなくても `SelectableKeyComparer<T>` を **自動採用** し、Key で判定します。再読込で別インスタンスになった「同じ行」も一致します。
+
+```csharp
+public sealed class Category : ISelectable
+{
+    public int Id { get; set; }
+    public string Name { get; set; }
+    public object Key { get { return Id; } }   // identity = Id
+}
+
+// comparer 未指定でも Key (=Id) 判定。手で comparer を渡す必要なし。
+var categoryStore = new SelectionStore<Category>();
+```
+
+> 💡 `ISelectable` 方式は判定を **選択ストアの中だけに局所化** します。エンティティの `Equals`/`GetHashCode` を Id ベースに override するとアプリ全体 (Dictionary・HashSet・LINQ `Distinct` …) の同値性が変わってしまいますが、`ISelectable` + `SelectableKeyComparer<T>` ならエンティティ本来の同値性はそのままです。
+
+### 値型 — `SelectableItem<T>` で包む
+
+値型や enum を選択単位にするときは `SelectableItem<T>` で包みます。Value を identity とし、`Text`/`ToString()` を持つのでリスト/コンボのデータソース項目としてもそのまま使えます。`SelectableItem<T>` 自身が `ISelectable` なので、ストアは Value で判定します。
+
+```csharp
+var yearStore = new SelectionStore<SelectableItem<int>>();
+yearStore.Select(SelectableItem.Of(2025));
+yearStore.Select(SelectableItem.Of(2025, "2025 年度"));   // 表示文字列付き
+
+// 生成ヘルパー (型推論が効く)
+SelectableItem.Of(2025);                          // 単一
+SelectableItem.From(new[] { 1, 2, 3 }, n => "#" + n);  // 列を一括ラップ
+SelectableItem.FromEnum<OrderStatus>();                // enum 全値
+```
+
+`Cascade.Bind` の `reload` も包装型を受けます (`year => ... year.Value ...`)。
+
+### まとめ
+
+| 選びたいもの | ストアの型 | 既定の判定 |
+|---|---|---|
+| 領域エンティティ (`Category` …) | `ISelectionStore<Category>` (`ISelectable` 実装) | Key (Id) |
+| `string` | `ISelectionStore<string>` | `EqualityComparer.Default` (値) |
+| 値型 `int`/`enum`/`Guid`/`DateTime`/`bool` | `ISelectionStore<SelectableItem<int>>` | Value |
+| 上記以外で独自判定したい | いずれも、`IEqualityComparer<T>` を注入 | 注入した comparer (最優先) |
 
 ---
 
