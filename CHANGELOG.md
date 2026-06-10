@@ -8,6 +8,8 @@
 
 ## [Unreleased]
 
+## [1.0.0-preview.4] - 2026-06-10
+
 ### Added (追加)
 
 - **トーストの組み込みスタイル** — `ToastStyle.Soft`（角丸・淡色、**新しい既定**）/ `ToastStyle.Card`（角丸・白カード）/ `ToastStyle.Solid`（従来の方角・実色。旧 `Default` を改名）。`ToastOptions.Style` / `ToastDefaults.Style` で選択でき、カスタム `Renderer` は引き続きスタイルより優先。`public` な `SoftToastRenderer` / `CardToastRenderer`（配色・アイコン用の `protected virtual` フック付き）と `ToastRenderer.CornerRadius` を追加。角丸スタイルは `UpdateLayeredWindow` の per-pixel alpha で滑らかに合成し、方角の `Solid` は不透明描画で ClearType を維持するハイブリッド描画。
