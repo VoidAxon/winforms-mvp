@@ -20,6 +20,17 @@ namespace WinformsMVP.Common
     /// </remarks>
     public abstract class ToastRenderer
     {
+        /// <summary>
+        /// Corner radius in pixels the toast window should be rounded to. <c>0</c> (the default)
+        /// means square. The framework reads this from the resolved renderer and applies a rounded
+        /// window region, so the shape travels with the renderer — custom renderers can round
+        /// themselves by overriding this.
+        /// </summary>
+        public virtual int CornerRadius
+        {
+            get { return 0; }
+        }
+
         /// <summary>Paints the toast onto the surface described by <paramref name="context"/>.</summary>
         public abstract void Render(ToastRenderContext context);
     }
