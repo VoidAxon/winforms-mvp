@@ -26,6 +26,8 @@ namespace WinformsMVP.Samples.ToastDemo
         private NumericUpDown _widthNum;
         private NumericUpDown _heightNum;
         private NumericUpDown _durationNum;
+        private ComboBox _styleCombo;
+        private CheckBox _showCloseCheck;
         private Label _openFormsLabel;
         private Timer _pollTimer;
 
@@ -37,7 +39,7 @@ namespace WinformsMVP.Samples.ToastDemo
         private void InitializeComponent()
         {
             this.Text = "Toast Notification Demo";
-            this.Size = new Size(520, 714);
+            this.Size = new Size(520, 782);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.Font = new Font("Segoe UI", 9f);
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -86,6 +88,27 @@ namespace WinformsMVP.Samples.ToastDemo
             _durationNum = MakeNumeric(fieldX, y, 500, 20000, 4000);
             _durationNum.Increment = 500;
             var durationLabel = MakeLabel("Duration (ms):", labelX, y + 3);
+
+            y += rowH;
+            _styleCombo = new ComboBox
+            {
+                Location = new Point(fieldX, y),
+                Size = new Size(160, 24),
+                DropDownStyle = ComboBoxStyle.DropDownList
+            };
+            _styleCombo.Items.AddRange(new object[] { ToastStyle.Default, ToastStyle.Soft, ToastStyle.Card });
+            _styleCombo.SelectedItem = ToastStyle.Soft;
+            var styleLabel = MakeLabel("Style:", labelX, y + 3);
+
+            y += rowH;
+            _showCloseCheck = new CheckBox
+            {
+                Text = "Show close button",
+                Location = new Point(fieldX, y),
+                Size = new Size(180, 24),
+                Checked = true
+            };
+            var styleHintLabel = MakeLabel("Close glyph:", labelX, y + 3);
 
             // --- Action buttons ---
             y += rowH + 12;
@@ -162,6 +185,8 @@ namespace WinformsMVP.Samples.ToastDemo
                 widthLabel, _widthNum,
                 heightLabel, _heightNum,
                 durationLabel, _durationNum,
+                styleLabel, _styleCombo,
+                styleHintLabel, _showCloseCheck,
                 infoButton, successButton, warningButton, errorButton,
                 longTextButton, burstButton,
                 anchorCursorButton, anchorClampButton,
@@ -186,7 +211,9 @@ namespace WinformsMVP.Samples.ToastDemo
                 Position = (ToastPosition)_positionCombo.SelectedItem,
                 Size = new Size((int)_widthNum.Value, (int)_heightNum.Value),
                 Font = new Font("Segoe UI", (float)_fontSizeNum.Value),
-                Duration = (int)_durationNum.Value
+                Duration = (int)_durationNum.Value,
+                Style = (ToastStyle)_styleCombo.SelectedItem,
+                ShowCloseButton = _showCloseCheck.Checked
             };
         }
 
@@ -211,7 +238,7 @@ namespace WinformsMVP.Samples.ToastDemo
         private void ShowWithCustomRenderer()
         {
             var options = CurrentOptions();
-            options.Renderer = new CardToastRenderer();
+            options.Renderer = new DarkCardToastRenderer();
             _messages.ShowToast("カスタム描画 / Owner-drawn toast", ToastType.Success, options);
         }
 
@@ -219,7 +246,7 @@ namespace WinformsMVP.Samples.ToastDemo
         /// Example custom renderer: a dark rounded card with a colored accent bar on the left and
         /// the message text — a completely different look from <c>DefaultToastRenderer</c>.
         /// </summary>
-        private sealed class CardToastRenderer : ToastRenderer
+        private sealed class DarkCardToastRenderer : ToastRenderer
         {
             public override void Render(ToastRenderContext context)
             {
