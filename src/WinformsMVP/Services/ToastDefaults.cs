@@ -40,10 +40,18 @@ namespace WinformsMVP.Services
         /// <summary>Opacity while visible, 0..1. Default: 0.95.</summary>
         public static double Opacity { get; set; } = 0.95;
 
+        /// <summary>App-wide toast style. Default: <see cref="ToastStyle.Default"/>.</summary>
+        public static ToastStyle Style { get; set; } = ToastStyle.Default;
+
+        /// <summary>Whether toasts show a close glyph by default. Default: <c>true</c>.</summary>
+        public static bool ShowCloseButton { get; set; } = true;
+
         /// <summary>
-        /// App-wide painter for toasts. Default: <see cref="DefaultToastRenderer"/>. Replace it to
-        /// restyle every toast, or override per toast via <see cref="ToastOptions.Renderer"/>.
+        /// App-wide custom painter for toasts. Default: <c>null</c>, meaning "no custom override —
+        /// resolve the painter from <see cref="Style"/>." Set it to take over every toast's
+        /// appearance, or override per toast via <see cref="ToastOptions.Renderer"/>. A non-null
+        /// value here wins over <see cref="Style"/> but loses to a per-toast renderer/style.
         /// </summary>
-        public static ToastRenderer Renderer { get; set; } = new DefaultToastRenderer();
+        public static ToastRenderer Renderer { get; set; }
     }
 }
