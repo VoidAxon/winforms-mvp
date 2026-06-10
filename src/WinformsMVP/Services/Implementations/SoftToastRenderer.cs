@@ -104,6 +104,7 @@ namespace WinformsMVP.Services.Implementations
         /// <summary>The icon glyph for a toast kind. Override to re-icon.</summary>
         protected virtual string GetIcon(ToastType type)
         {
+            // Plain ASCII glyphs read more cleanly than symbol glyphs inside a small filled circle.
             switch (type)
             {
                 case ToastType.Success: return "✓";

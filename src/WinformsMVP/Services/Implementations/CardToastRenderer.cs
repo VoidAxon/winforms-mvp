@@ -39,13 +39,6 @@ namespace WinformsMVP.Services.Implementations
                 g.DrawPath(pen, border);
             }
 
-            // Left accent bar (rounded, inset vertically).
-            using (var accentBarBrush = new SolidBrush(accent))
-            using (var bar = ToastDrawing.RoundedRectangle(new Rectangle(6, 10, 6, height - 20), 3))
-            {
-                g.FillPath(accentBarBrush, bar);
-            }
-
             int diameter = height - 28;
             if (diameter > 36) diameter = 36;
             if (diameter < 16) diameter = 16;
@@ -61,6 +54,12 @@ namespace WinformsMVP.Services.Implementations
             using (var centered = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
             using (var message = new StringFormat { Alignment = StringAlignment.Near, LineAlignment = StringAlignment.Center, Trimming = StringTrimming.EllipsisCharacter })
             {
+                // Left accent bar (rounded, inset vertically).
+                using (var bar = ToastDrawing.RoundedRectangle(new Rectangle(6, 10, 6, height - 20), 3))
+                {
+                    g.FillPath(accentBrush, bar);
+                }
+
                 g.FillEllipse(accentBrush, circle);
                 g.DrawString(GetIcon(context.Type), iconFont, Brushes.White, circle, centered);
 
@@ -116,6 +115,7 @@ namespace WinformsMVP.Services.Implementations
         /// <summary>The icon glyph for a toast kind. Override to re-icon.</summary>
         protected virtual string GetIcon(ToastType type)
         {
+            // Plain ASCII glyphs read more cleanly than symbol glyphs inside a small filled circle.
             switch (type)
             {
                 case ToastType.Success: return "✓";

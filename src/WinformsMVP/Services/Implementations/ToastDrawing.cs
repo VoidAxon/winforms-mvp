@@ -7,9 +7,9 @@ namespace WinformsMVP.Services.Implementations
     internal static class ToastDrawing
     {
         /// <summary>
-        /// Builds a rounded-rectangle path for <paramref name="bounds"/> with the given corner
-        /// <paramref name="radius"/>. A radius of <c>0</c> (or larger than half the smaller side)
-        /// is clamped to a sensible value.
+        /// Builds a rounded-rectangle path for <paramref name="bounds"/>. The corner
+        /// <paramref name="radius"/> is clamped to <c>[1, min(width, height) / 2]</c>, so values
+        /// below 1 become 1 and values larger than half the smaller side are capped.
         /// </summary>
         public static GraphicsPath RoundedRectangle(Rectangle bounds, int radius)
         {
