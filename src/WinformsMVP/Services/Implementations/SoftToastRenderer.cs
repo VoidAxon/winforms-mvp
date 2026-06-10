@@ -1,3 +1,4 @@
+using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Text;
@@ -7,11 +8,20 @@ namespace WinformsMVP.Services.Implementations
 {
     /// <summary>
     /// A soft, light-tinted toast: a pale background colored by type, a filled-circle icon in the
-    /// left gutter, dark centered message text, and a colored close glyph. Rounded corners.
+    /// left gutter, dark left-aligned message text, and a colored close glyph. Rounded corners.
     /// </summary>
     /// <remarks>Override the <c>GetXxx</c> hooks to recolor or re-icon without rewriting the layout.</remarks>
     public class SoftToastRenderer : ToastRenderer
     {
+        // Layout metrics shared by Render and MeasureHeight so the measured height fits the painted
+        // content exactly. The icon diameter is font-based (not height-based) so it stays well-sized
+        // even when the toast is compact (single line).
+        private const int IconLeft = 16;
+        private const int TextGap = 12;     // gap between the icon and the message
+        private const int CloseGutter = 32; // right inset when the close glyph is shown
+        private const int RightPad = 16;    // right inset when it is hidden
+        private const int VerticalPad = 10; // top and bottom inset of the message
+
         /// <summary>Rounded corners for the soft style.</summary>
         public override int CornerRadius
         {
@@ -48,13 +58,11 @@ namespace WinformsMVP.Services.Implementations
                 g.DrawPath(pen, border);
             }
 
-            int diameter = height - 28;
-            if (diameter > 36) diameter = 36;
-            if (diameter < 16) diameter = 16;
-            var circle = new Rectangle(16, (height - diameter) / 2, diameter, diameter);
+            int diameter = IconDiameter(font);
+            var circle = new Rectangle(IconLeft, (height - diameter) / 2, diameter, diameter);
 
-            int textLeft = circle.Right + 12;
-            int textRight = context.ShowCloseButton ? width - 32 : width - 16;
+            int textLeft = TextLeft(font);
+            int textRight = TextRight(width, context.ShowCloseButton);
 
             using (var iconFont = new Font(font.FontFamily, font.Size * 1.3f, FontStyle.Bold))
             using (var accentBrush = new SolidBrush(accent))
@@ -65,7 +73,7 @@ namespace WinformsMVP.Services.Implementations
                 g.FillEllipse(accentBrush, circle);
                 g.DrawString(GetIcon(context.Type), iconFont, Brushes.White, circle, centered);
 
-                g.DrawString(context.Message, font, textBrush, new RectangleF(textLeft, 14, textRight - textLeft, height - 28), message);
+                g.DrawString(context.Message, font, textBrush, new RectangleF(textLeft, VerticalPad, textRight - textLeft, height - 2 * VerticalPad), message);
 
                 if (context.ShowCloseButton)
                 {
@@ -75,6 +83,39 @@ namespace WinformsMVP.Services.Implementations
                     }
                 }
             }
+        }
+
+        /// <summary>Mirrors <see cref="Render"/>'s layout: message wrapped in the same text column,
+        /// floored at the icon diameter, plus the top and bottom padding.</summary>
+        public override int MeasureHeight(ToastMeasureContext context)
+        {
+            Font font = context.Font;
+            int textWidth = TextRight(context.Width, context.ShowCloseButton) - TextLeft(font);
+            if (textWidth < 1) textWidth = 1;
+
+            float textHeight = context.Graphics.MeasureString(context.Message ?? string.Empty, font, textWidth).Height;
+            int content = (int)Math.Ceiling(Math.Max(textHeight, IconDiameter(font)));
+            return content + VerticalPad * 2;
+        }
+
+        /// <summary>Filled-circle icon diameter, scaled from the message font so it stays well-sized
+        /// even on a compact (single-line) toast.</summary>
+        private static int IconDiameter(Font font)
+        {
+            int d = (int)Math.Round(font.Size * 2.2f);
+            if (d < 18) d = 18;
+            if (d > 40) d = 40;
+            return d;
+        }
+
+        private static int TextLeft(Font font)
+        {
+            return IconLeft + IconDiameter(font) + TextGap;
+        }
+
+        private static int TextRight(int width, bool showCloseButton)
+        {
+            return showCloseButton ? width - CloseGutter : width - RightPad;
         }
 
         /// <summary>The pale background color for a toast kind. Override to recolor.</summary>

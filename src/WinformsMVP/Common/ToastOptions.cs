@@ -15,8 +15,23 @@ namespace WinformsMVP.Common
         /// <summary>Screen corner the toast appears in. <c>null</c> = use the default.</summary>
         public ToastPosition? Position { get; set; }
 
-        /// <summary>Toast size in pixels. <c>null</c> = use the default.</summary>
+        /// <summary>Toast size in pixels. <c>null</c> = use the default. When <see cref="AutoHeight"/>
+        /// is on, only the width is used and the height is computed from the content.</summary>
         public Size? Size { get; set; }
+
+        /// <summary>
+        /// When <c>true</c>, the toast height is sized to its content (width stays fixed): a single
+        /// line is compact and multi-line text grows, clamped to <see cref="MinHeight"/>..
+        /// <see cref="MaxHeight"/>. <c>null</c> = use <c>ToastDefaults.AutoHeight</c>.
+        /// </summary>
+        public bool? AutoHeight { get; set; }
+
+        /// <summary>Floor for the auto-sized height in pixels. <c>null</c> = use <c>ToastDefaults.MinHeight</c>.</summary>
+        public int? MinHeight { get; set; }
+
+        /// <summary>Cap for the auto-sized height in pixels (text beyond it is ellipsized).
+        /// <c>null</c> = use <c>ToastDefaults.MaxHeight</c>.</summary>
+        public int? MaxHeight { get; set; }
 
         /// <summary>Message font. <c>null</c> = use the default.</summary>
         public Font Font { get; set; }

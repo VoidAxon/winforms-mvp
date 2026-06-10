@@ -46,9 +46,15 @@ namespace WinformsMVP.Samples.Tests.Services
         }
 
         [Fact]
-        public void ForStyle_Default_ReturnsDefaultRenderer()
+        public void ForStyle_Solid_ReturnsDefaultRenderer()
         {
-            Assert.IsType<DefaultToastRenderer>(ToastRendererResolver.ForStyle(ToastStyle.Default));
+            Assert.IsType<DefaultToastRenderer>(ToastRendererResolver.ForStyle(ToastStyle.Solid));
+        }
+
+        [Fact]
+        public void ForStyle_Soft_ReturnsSoftRenderer()
+        {
+            Assert.IsType<SoftToastRenderer>(ToastRendererResolver.ForStyle(ToastStyle.Soft));
         }
     }
 }

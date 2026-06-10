@@ -63,7 +63,6 @@ namespace WinformsMVP.Services.Implementations
 
             var size = options.Size ?? ToastDefaults.Size;
             _width = size.Width;
-            _height = size.Height;
             _font = options.Font ?? ToastDefaults.Font;
             _position = options.Position ?? ToastDefaults.Position;
             _duration = options.Duration ?? ToastDefaults.Duration;
@@ -72,6 +71,30 @@ namespace WinformsMVP.Services.Implementations
                 options.Renderer, options.Style, ToastDefaults.Renderer, ToastDefaults.Style);
             _showCloseButton = options.ShowCloseButton ?? ToastDefaults.ShowCloseButton;
             _layered = _renderer.CornerRadius > 0; // rounded corners need per-pixel alpha
+
+            // Height: fixed from Size, or sized to content (width stays fixed) when AutoHeight is on.
+            bool autoHeight = options.AutoHeight ?? ToastDefaults.AutoHeight;
+            _height = autoHeight ? MeasureAutoHeight(options) : size.Height;
+        }
+
+        /// <summary>Asks the renderer how tall the content wants to be, clamped to the min/max bounds.</summary>
+        private int MeasureAutoHeight(ToastOptions options)
+        {
+            int min = options.MinHeight ?? ToastDefaults.MinHeight;
+            int max = options.MaxHeight ?? ToastDefaults.MaxHeight;
+            if (max < min) max = min;
+
+            int height;
+            using (var bitmap = new Bitmap(1, 1))
+            using (var g = Graphics.FromImage(bitmap))
+            {
+                var ctx = new ToastMeasureContext(g, _message, _type, _font, _width, _showCloseButton);
+                height = _renderer.MeasureHeight(ctx);
+            }
+
+            if (height < min) height = min;
+            if (height > max) height = max;
+            return height;
         }
 
         /// <summary>Screen corner this toast wants to appear in. Read by <see cref="ToastManager"/>.</summary>

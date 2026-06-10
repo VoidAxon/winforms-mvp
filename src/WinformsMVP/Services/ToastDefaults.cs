@@ -18,8 +18,19 @@ namespace WinformsMVP.Services
         /// <summary>Screen corner toasts appear in. Default: bottom-right.</summary>
         public static ToastPosition Position { get; set; } = ToastPosition.BottomRight;
 
-        /// <summary>Toast size in pixels. Default: 350 x 80.</summary>
+        /// <summary>Toast size in pixels. Default: 350 x 80. When <see cref="AutoHeight"/> is on,
+        /// only the width is used and the height is computed from the content.</summary>
         public static Size Size { get; set; } = new Size(350, 80);
+
+        /// <summary>Whether toasts size their height to content by default. Default: <c>false</c>
+        /// (fixed <see cref="Size"/> height).</summary>
+        public static bool AutoHeight { get; set; } = false;
+
+        /// <summary>Floor for the auto-sized height in pixels. Default: 40.</summary>
+        public static int MinHeight { get; set; } = 40;
+
+        /// <summary>Cap for the auto-sized height in pixels. Default: 220.</summary>
+        public static int MaxHeight { get; set; } = 220;
 
         /// <summary>Message font. Default: Segoe UI 10pt. Reused across toasts; never disposed by them.</summary>
         public static Font Font { get; set; } = new Font("Segoe UI", 10f);
@@ -39,8 +50,8 @@ namespace WinformsMVP.Services
         /// <summary>Opacity while visible, 0..1. Default: 0.95.</summary>
         public static double Opacity { get; set; } = 0.95;
 
-        /// <summary>App-wide toast style. Default: <see cref="ToastStyle.Default"/>.</summary>
-        public static ToastStyle Style { get; set; } = ToastStyle.Default;
+        /// <summary>App-wide toast style. Default: <see cref="ToastStyle.Soft"/>.</summary>
+        public static ToastStyle Style { get; set; } = ToastStyle.Soft;
 
         /// <summary>Whether toasts show a close glyph by default. Default: <c>true</c>.</summary>
         public static bool ShowCloseButton { get; set; } = true;

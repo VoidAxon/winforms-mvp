@@ -7,13 +7,13 @@ namespace WinformsMVP.Common
     /// </summary>
     public enum ToastStyle
     {
-        /// <summary>Solid color background with white text and a left icon (square corners).</summary>
-        Default,
-
-        /// <summary>Light tinted background, filled-circle icon, dark text (rounded corners).</summary>
+        /// <summary>Light tinted background, filled-circle icon, dark text (rounded corners). The default style.</summary>
         Soft,
 
         /// <summary>White card with a colored left accent bar and filled-circle icon (rounded corners).</summary>
-        Card
+        Card,
+
+        /// <summary>Solid color background with white text and a left icon (square corners). The original look.</summary>
+        Solid
     }
 }

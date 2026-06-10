@@ -1,3 +1,4 @@
+using System;
 using System.Drawing;
 using WinformsMVP.Common;
 
@@ -53,6 +54,23 @@ namespace WinformsMVP.Services.Implementations
                     }
                 }
             }
+        }
+
+        /// <summary>Mirrors <see cref="Render"/>'s layout: message wrapped in the same text column
+        /// (from x=60), floored at the 1.8x icon glyph height, plus the 10px top and bottom padding.</summary>
+        public override int MeasureHeight(ToastMeasureContext context)
+        {
+            const int pad = 10;
+            Font font = context.Font;
+            int textLeft = 60;
+            int textRight = context.ShowCloseButton ? context.Width - 30 : context.Width - 20;
+            int textWidth = textRight - textLeft;
+            if (textWidth < 1) textWidth = 1;
+
+            float textHeight = context.Graphics.MeasureString(context.Message ?? string.Empty, font, textWidth).Height;
+            float iconHeight = font.GetHeight(context.Graphics) * 1.8f; // icon glyph scales 1.8x in Render
+            int content = (int)Math.Ceiling(Math.Max(textHeight, iconHeight));
+            return content + pad * 2;
         }
 
         /// <summary>The background color for a toast kind. Override to recolor.</summary>

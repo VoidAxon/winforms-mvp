@@ -28,6 +28,7 @@ namespace WinformsMVP.Samples.ToastDemo
         private NumericUpDown _durationNum;
         private ComboBox _styleCombo;
         private CheckBox _showCloseCheck;
+        private CheckBox _autoHeightCheck;
         private Label _openFormsLabel;
         private Timer _pollTimer;
 
@@ -39,7 +40,7 @@ namespace WinformsMVP.Samples.ToastDemo
         private void InitializeComponent()
         {
             this.Text = "Toast Notification Demo";
-            this.Size = new Size(520, 782);
+            this.Size = new Size(520, 816);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.Font = new Font("Segoe UI", 9f);
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -96,7 +97,7 @@ namespace WinformsMVP.Samples.ToastDemo
                 Size = new Size(160, 24),
                 DropDownStyle = ComboBoxStyle.DropDownList
             };
-            _styleCombo.Items.AddRange(new object[] { ToastStyle.Default, ToastStyle.Soft, ToastStyle.Card });
+            _styleCombo.Items.AddRange(new object[] { ToastStyle.Soft, ToastStyle.Card, ToastStyle.Solid });
             _styleCombo.SelectedItem = ToastStyle.Soft;
             var styleLabel = MakeLabel("Style:", labelX, y + 3);
 
@@ -109,6 +110,16 @@ namespace WinformsMVP.Samples.ToastDemo
                 Checked = true
             };
             var styleHintLabel = MakeLabel("Close glyph:", labelX, y + 3);
+
+            y += rowH;
+            _autoHeightCheck = new CheckBox
+            {
+                Text = "Size height to content",
+                Location = new Point(fieldX, y),
+                Size = new Size(200, 24),
+                Checked = false
+            };
+            var autoHeightLabel = MakeLabel("Auto height:", labelX, y + 3);
 
             // --- Action buttons ---
             y += rowH + 12;
@@ -187,6 +198,7 @@ namespace WinformsMVP.Samples.ToastDemo
                 durationLabel, _durationNum,
                 styleLabel, _styleCombo,
                 styleHintLabel, _showCloseCheck,
+                autoHeightLabel, _autoHeightCheck,
                 infoButton, successButton, warningButton, errorButton,
                 longTextButton, burstButton,
                 anchorCursorButton, anchorClampButton,
@@ -213,7 +225,8 @@ namespace WinformsMVP.Samples.ToastDemo
                 Font = new Font("Segoe UI", (float)_fontSizeNum.Value),
                 Duration = (int)_durationNum.Value,
                 Style = (ToastStyle)_styleCombo.SelectedItem,
-                ShowCloseButton = _showCloseCheck.Checked
+                ShowCloseButton = _showCloseCheck.Checked,
+                AutoHeight = _autoHeightCheck.Checked
             };
         }
 

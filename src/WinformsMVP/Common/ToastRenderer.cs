@@ -33,6 +33,22 @@ namespace WinformsMVP.Common
 
         /// <summary>Paints the toast onto the surface described by <paramref name="context"/>.</summary>
         public abstract void Render(ToastRenderContext context);
+
+        /// <summary>
+        /// Returns the height in pixels this renderer wants for the given content and fixed width,
+        /// used only when a toast opts into auto-height. The framework clamps the result to the
+        /// toast's min/max. Override to mirror your <see cref="Render"/> layout exactly (same text
+        /// area and vertical padding) so the rendered content fits the measured height with no
+        /// clipping. The default measures the message wrapped across the width with a small inset.
+        /// </summary>
+        public virtual int MeasureHeight(ToastMeasureContext context)
+        {
+            int textWidth = context.Width - 40;
+            if (textWidth < 1) textWidth = 1;
+
+            SizeF size = context.Graphics.MeasureString(context.Message ?? string.Empty, context.Font, textWidth);
+            return (int)System.Math.Ceiling(size.Height) + 20;
+        }
     }
 
     /// <summary>
@@ -72,6 +88,41 @@ namespace WinformsMVP.Common
 
         /// <summary>Whether the renderer should draw a close glyph. Display only — clicking
         /// anywhere on the toast dismisses it regardless of whether the glyph is drawn.</summary>
+        public bool ShowCloseButton { get; }
+    }
+
+    /// <summary>
+    /// The inputs handed to <see cref="ToastRenderer.MeasureHeight"/> to compute a toast's
+    /// content height. The width is fixed; the renderer returns the height it needs.
+    /// </summary>
+    public sealed class ToastMeasureContext
+    {
+        internal ToastMeasureContext(Graphics graphics, string message, ToastType type, Font font, int width, bool showCloseButton)
+        {
+            Graphics = graphics;
+            Message = message;
+            Type = type;
+            Font = font;
+            Width = width;
+            ShowCloseButton = showCloseButton;
+        }
+
+        /// <summary>A GDI+ surface for text measurement (<see cref="Graphics.MeasureString(string, Font, int)"/>).</summary>
+        public Graphics Graphics { get; }
+
+        /// <summary>The message text.</summary>
+        public string Message { get; }
+
+        /// <summary>The toast kind (Info / Success / Warning / Error).</summary>
+        public ToastType Type { get; }
+
+        /// <summary>The resolved message font.</summary>
+        public Font Font { get; }
+
+        /// <summary>The fixed toast width in pixels.</summary>
+        public int Width { get; }
+
+        /// <summary>Whether a close glyph will be drawn (affects the available text width).</summary>
         public bool ShowCloseButton { get; }
     }
 }

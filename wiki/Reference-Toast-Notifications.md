@@ -54,6 +54,8 @@ Messages.ShowToast("アップロード完了", ToastType.Info, new ToastOptions
 | `Duration` | `int?` | フェード開始までのミリ秒 |
 | `Style` | `ToastStyle?` | 組み込みスタイル（7 章参照）。`Renderer` 設定時は無視 |
 | `ShowCloseButton` | `bool?` | 閉じる × を表示するか（表示のみ） |
+| `AutoHeight` | `bool?` | 高さを内容に合わせる（幅は `Size.Width` で固定。7 章参照） |
+| `MinHeight` / `MaxHeight` | `int?` | オート高さの下限／上限 (px) |
 
 > `Font` は**呼び出し側の所有**で、トースト側では破棄しません。`ToastDefaults.Font` や
 > ここで渡したフォントは複数のトーストで安全に使い回せます。
@@ -93,8 +95,11 @@ public enum ToastPosition { TopLeft, TopRight, BottomLeft, BottomRight }
 | `Size` | `350 x 80` | トーストのサイズ (px) |
 | `Font` | `Segoe UI 10pt` | 本文フォント |
 | `Duration` | `3000` | フェード開始までのミリ秒 |
-| `Style` | `Default` | 組み込みスタイル（`Default` / `Soft` / `Card`） |
+| `Style` | `Soft` | 組み込みスタイル（`Soft` / `Card` / `Solid`） |
 | `ShowCloseButton` | `true` | 閉じる × を既定で表示するか |
+| `AutoHeight` | `false` | 高さを内容に合わせる（幅は固定） |
+| `MinHeight` | `40` | オート高さの下限 (px) |
+| `MaxHeight` | `220` | オート高さの上限 (px) |
 | `Margin` | `20` | 画面端からの余白 (px) |
 | `Gap` | `10` | トースト間の縦の間隔 (px) |
 | `MaxVisibleToasts` | `5` | 同時表示数の上限 |
@@ -210,25 +215,38 @@ public sealed class DarkCardToastRenderer : ToastRenderer
 
 ## 7. 組み込みスタイルと閉じるボタン
 
-トーストには 3 つの組み込み外観があり、`ToastStyle` で選びます。`ToastRenderer` を自前で書かずに見た目を切り替えられます。
+トーストには 3 つの組み込み外観があり、`ToastStyle` で選びます。`ToastRenderer` を自前で書かずに見た目を切り替えられます。**既定は `Soft`** です。
 
 | スタイル | 形状 | 外観 |
 |---------|------|------|
-| `Default` | 方角 | 単色背景・白文字・左アイコン（従来の外観） |
-| `Soft` | 角丸 | 淡い色背景・色付き丸アイコン・濃い文字 |
+| `Soft` | 角丸 | 淡い色背景・色付き丸アイコン・濃い文字（**既定**） |
 | `Card` | 角丸 | 白背景・左の色アクセントバー・色付き丸アイコン・濃い文字 |
+| `Solid` | 方角 | 単色背景・白文字・左アイコン（従来の外観） |
 
 ```csharp
 // 1 回だけ
-Messages.ShowToast("保存しました", ToastType.Success, new ToastOptions { Style = ToastStyle.Soft });
+Messages.ShowToast("保存しました", ToastType.Success, new ToastOptions { Style = ToastStyle.Card });
 // アプリ全体の既定
-ToastDefaults.Style = ToastStyle.Card;
+ToastDefaults.Style = ToastStyle.Solid;
 ```
 
-角丸の形状は `ToastRenderer.CornerRadius` でレンダラー自身が持ちます（`Default` は 0 = 方角）。`Renderer` を明示設定すると `Style` より優先されます。解決順（具体的なものが優先）:
+角丸の形状は `ToastRenderer.CornerRadius` でレンダラー自身が持ちます（`Solid` は 0 = 方角）。`Renderer` を明示設定すると `Style` より優先されます。解決順（具体的なものが優先）:
 `ToastOptions.Renderer` → `ToastOptions.Style` → `ToastDefaults.Renderer` → `ToastDefaults.Style`。
 
-組み込みの `SoftToastRenderer` / `CardToastRenderer` は `public` で、`DefaultToastRenderer` と同様に `protected virtual` の配色/アイコン用フックを持ちます。継承すればレイアウトを書き換えずに色やアイコンだけ変えられます。
+組み込みの `SoftToastRenderer` / `CardToastRenderer` は `public` で、`DefaultToastRenderer`（`Solid` スタイルを描画）と同様に `protected virtual` の配色/アイコン用フックを持ちます。継承すればレイアウトを書き換えずに色やアイコンだけ変えられます。
+
+### 高さのオートサイズ
+
+`AutoHeight` を有効にすると、幅は固定のまま高さが内容に合わせて伸縮します（単行はコンパクト、複数行は伸びる）。高さは `MinHeight`..`MaxHeight` でクランプされ、`MaxHeight` を超える分は末尾を省略記号にします。
+
+```csharp
+Messages.ShowToast(longText, ToastType.Info, new ToastOptions { AutoHeight = true });
+// アプリ全体
+ToastDefaults.AutoHeight = true;
+ToastDefaults.MaxHeight = 260;
+```
+
+スタッキングは各トーストの実高さで積み重なるため、可変高さでも重なりません。カスタムレンダラーは `MeasureHeight` を override して自分のレイアウトに合った高さを返せます（既定は本文の折り返し高さを計測）。
 
 ### 閉じる (×) ボタンの表示
 

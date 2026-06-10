@@ -9,19 +9,19 @@ namespace WinformsMVP.Services.Implementations
     /// </summary>
     internal static class ToastRendererResolver
     {
-        private static readonly DefaultToastRenderer Default = new DefaultToastRenderer();
         private static readonly SoftToastRenderer Soft = new SoftToastRenderer();
         private static readonly CardToastRenderer Card = new CardToastRenderer();
+        private static readonly DefaultToastRenderer Solid = new DefaultToastRenderer(); // renders ToastStyle.Solid
 
         /// <summary>Maps a <see cref="ToastStyle"/> to its built-in renderer singleton.</summary>
         internal static ToastRenderer ForStyle(ToastStyle style)
         {
             switch (style)
             {
-                case ToastStyle.Soft: return Soft;
                 case ToastStyle.Card: return Card;
-                case ToastStyle.Default:
-                default: return Default;
+                case ToastStyle.Solid: return Solid;
+                case ToastStyle.Soft:
+                default: return Soft;
             }
         }
 
