@@ -70,7 +70,8 @@ namespace WinformsMVP.Common
         /// matching rounded border to soften the non-anti-aliased window region edge.</summary>
         public int CornerRadius { get; }
 
-        /// <summary>Whether the renderer should draw a close glyph.</summary>
+        /// <summary>Whether the renderer should draw a close glyph. Display only — clicking
+        /// anywhere on the toast dismisses it regardless of whether the glyph is drawn.</summary>
         public bool ShowCloseButton { get; }
     }
 }

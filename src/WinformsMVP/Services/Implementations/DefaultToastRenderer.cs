@@ -27,7 +27,6 @@ namespace WinformsMVP.Services.Implementations
             // Icon scales with the message font (10pt text -> 18pt icon). context.Font is shared
             // and must NOT be disposed here, so it is used directly rather than in a using block.
             using (var iconFont = new Font(font.FontFamily, font.Size * 1.8f, FontStyle.Bold))
-            using (var closeFont = new Font(font.FontFamily, font.Size, FontStyle.Bold))
             using (var centered = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
             using (var leftMiddle = new StringFormat
             {
@@ -44,7 +43,10 @@ namespace WinformsMVP.Services.Implementations
                 // Close glyph (top-right corner) — only when requested
                 if (context.ShowCloseButton)
                 {
-                    g.DrawString("✖", closeFont, Brushes.White, new RectangleF(width - 30, 5, 20, 20), centered);
+                    using (var closeFont = new Font(font.FontFamily, font.Size, FontStyle.Bold))
+                    {
+                        g.DrawString("✖", closeFont, Brushes.White, new RectangleF(width - 30, 5, 20, 20), centered);
+                    }
                 }
             }
         }
