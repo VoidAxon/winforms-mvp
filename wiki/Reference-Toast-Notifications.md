@@ -52,6 +52,8 @@ Messages.ShowToast("アップロード完了", ToastType.Info, new ToastOptions
 | `Size` | `Size?` | トーストのサイズ (px) |
 | `Font` | `Font` | 本文フォント (参照型なので null = 既定) |
 | `Duration` | `int?` | フェード開始までのミリ秒 |
+| `Style` | `ToastStyle?` | 組み込みスタイル（7 章参照）。`Renderer` 設定時は無視 |
+| `ShowCloseButton` | `bool?` | 閉じる × を表示するか（表示のみ） |
 
 > `Font` は**呼び出し側の所有**で、トースト側では破棄しません。`ToastDefaults.Font` や
 > ここで渡したフォントは複数のトーストで安全に使い回せます。
@@ -91,6 +93,8 @@ public enum ToastPosition { TopLeft, TopRight, BottomLeft, BottomRight }
 | `Size` | `350 x 80` | トーストのサイズ (px) |
 | `Font` | `Segoe UI 10pt` | 本文フォント |
 | `Duration` | `3000` | フェード開始までのミリ秒 |
+| `Style` | `Default` | 組み込みスタイル（`Soft` / `Card`） |
+| `ShowCloseButton` | `true` | 閉じる × を既定で表示するか |
 | `Margin` | `20` | 画面端からの余白 (px) |
 | `Gap` | `10` | トースト間の縦の間隔 (px) |
 | `MaxVisibleToasts` | `5` | 同時表示数の上限 |
@@ -162,6 +166,8 @@ public sealed class ToastRenderContext
     public string Message { get; }
     public ToastType Type { get; }
     public Font Font { get; }
+    public int CornerRadius { get; }       // 角丸半径 (px、0 = 方角)
+    public bool ShowCloseButton { get; }   // 閉じる × を描くか
 }
 ```
 
@@ -181,7 +187,7 @@ Messages.ShowToast("...", ToastType.Info, new ToastOptions { Renderer = new MyRe
 
 ```csharp
 // 例: 暗いカード + 左アクセントバー
-public sealed class CardToastRenderer : ToastRenderer
+public sealed class DarkCardToastRenderer : ToastRenderer
 {
     public override void Render(ToastRenderContext c)
     {
@@ -202,6 +208,39 @@ public sealed class CardToastRenderer : ToastRenderer
 
 ---
 
+## 7. 組み込みスタイルと閉じるボタン
+
+トーストには 3 つの組み込み外観があり、`ToastStyle` で選びます。`ToastRenderer` を自前で書かずに見た目を切り替えられます。
+
+| スタイル | 形状 | 外観 |
+|---------|------|------|
+| `Default` | 方角 | 単色背景・白文字・左アイコン（従来の外観） |
+| `Soft` | 角丸 | 淡い色背景・色付き丸アイコン・濃い文字 |
+| `Card` | 角丸 | 白背景・左の色アクセントバー・色付き丸アイコン・濃い文字 |
+
+```csharp
+// 1 回だけ
+Messages.ShowToast("保存しました", ToastType.Success, new ToastOptions { Style = ToastStyle.Soft });
+// アプリ全体の既定
+ToastDefaults.Style = ToastStyle.Card;
+```
+
+角丸の形状は `ToastRenderer.CornerRadius` でレンダラー自身が持ちます（`Default` は 0 = 方角）。`Renderer` を明示設定すると `Style` より優先されます。解決順（具体的なものが優先）:
+`ToastOptions.Renderer` → `ToastOptions.Style` → `ToastDefaults.Renderer` → `ToastDefaults.Style`。
+
+組み込みの `SoftToastRenderer` / `CardToastRenderer` は `public` で、`DefaultToastRenderer` と同様に `protected virtual` の配色/アイコン用フックを持ちます。継承すればレイアウトを書き換えずに色やアイコンだけ変えられます。
+
+### 閉じる (×) ボタンの表示
+
+閉じる × は**表示のみ**で、描画の有無に関わらずトーストはどこをクリックしても閉じます。表示の ON/OFF:
+
+```csharp
+// 1 回だけ
+Messages.ShowToast("× なし", ToastType.Info, new ToastOptions { ShowCloseButton = false });
+// アプリ全体
+ToastDefaults.ShowCloseButton = false;
+```
+
 ## まとめ: どれを使うか
 
 | やりたいこと | 使うもの | 呼ぶ場所 |
@@ -209,6 +248,7 @@ public sealed class CardToastRenderer : ToastRenderer
 | 隅に出る非ブロッキング通知 | `Messages.ShowToast(...)` | Presenter |
 | 既定の外観をアプリ全体で変える | `ToastDefaults` | 起動時 |
 | 1 回だけ外観を変える | `ToastOptions` | 呼び出し時 |
+| 組み込みスタイルを選ぶ | `ToastOptions.Style` / `ToastDefaults.Style` | 呼び出し時 or 起動時 |
 | 座標を指定した単一トースト | `AnchoredToast.Show(...)` | View |
 | 座標を指定した MessageBox | `AnchoredMessageBox` | View |
 | 見た目を自前で描く | `ToastRenderer` / `DefaultToastRenderer` | 起動時 or 呼び出し時 |
