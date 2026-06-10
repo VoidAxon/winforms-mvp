@@ -238,6 +238,8 @@ namespace WinformsMVP.Samples.ToastDemo
         private void ShowWithCustomRenderer()
         {
             var options = CurrentOptions();
+            // An explicit Renderer wins over Style (see ToastRendererResolver), so the style
+            // combo has no effect on this button.
             options.Renderer = new DarkCardToastRenderer();
             _messages.ShowToast("カスタム描画 / Owner-drawn toast", ToastType.Success, options);
         }

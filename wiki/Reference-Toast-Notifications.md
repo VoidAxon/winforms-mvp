@@ -93,7 +93,7 @@ public enum ToastPosition { TopLeft, TopRight, BottomLeft, BottomRight }
 | `Size` | `350 x 80` | トーストのサイズ (px) |
 | `Font` | `Segoe UI 10pt` | 本文フォント |
 | `Duration` | `3000` | フェード開始までのミリ秒 |
-| `Style` | `Default` | 組み込みスタイル（`Soft` / `Card`） |
+| `Style` | `Default` | 組み込みスタイル（`Default` / `Soft` / `Card`） |
 | `ShowCloseButton` | `true` | 閉じる × を既定で表示するか |
 | `Margin` | `20` | 画面端からの余白 (px) |
 | `Gap` | `10` | トースト間の縦の間隔 (px) |
@@ -240,6 +240,8 @@ Messages.ShowToast("× なし", ToastType.Info, new ToastOptions { ShowCloseButt
 // アプリ全体
 ToastDefaults.ShowCloseButton = false;
 ```
+
+---
 
 ## まとめ: どれを使うか
 
