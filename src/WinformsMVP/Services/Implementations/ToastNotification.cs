@@ -251,7 +251,12 @@ namespace WinformsMVP.Services.Implementations
             {
                 return; // GDI region creation failed; leave the window square.
             }
-            SetWindowRgn(Handle, region, true);
+
+            // SetWindowRgn takes ownership of the region only on success; free it ourselves if it fails.
+            if (SetWindowRgn(Handle, region, true) == 0)
+            {
+                DeleteObject(region);
+            }
         }
 
         private void ApplyOpacity()
@@ -353,6 +358,9 @@ namespace WinformsMVP.Services.Implementations
 
         [DllImport("gdi32.dll")]
         private static extern IntPtr CreateRoundRectRgn(int nLeftRect, int nTopRect, int nRightRect, int nBottomRect, int nWidthEllipse, int nHeightEllipse);
+
+        [DllImport("gdi32.dll")]
+        private static extern bool DeleteObject(IntPtr hObject);
 
         [DllImport("user32.dll")]
         private static extern int SetWindowRgn(IntPtr hWnd, IntPtr hRgn, bool bRedraw);

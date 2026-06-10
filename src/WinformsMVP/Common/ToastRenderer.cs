@@ -24,7 +24,9 @@ namespace WinformsMVP.Common
         /// Corner radius in pixels the toast window should be rounded to. <c>0</c> (the default)
         /// means square. The framework reads this from the resolved renderer and applies a rounded
         /// window region, so the shape travels with the renderer — custom renderers can round
-        /// themselves by overriding this.
+        /// themselves by overriding this. Return a stable value: the framework reads it separately
+        /// for the window region and for painting, so a value that varies between reads would
+        /// desync the clipped window shape from the painted border.
         /// </summary>
         public virtual int CornerRadius
         {
