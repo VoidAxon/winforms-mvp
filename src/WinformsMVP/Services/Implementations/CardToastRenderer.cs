@@ -22,7 +22,9 @@ namespace WinformsMVP.Services.Implementations
         {
             Graphics g = context.Graphics;
             g.SmoothingMode = SmoothingMode.AntiAlias;
-            g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
+            // Rounded (CornerRadius > 0) → the framework composites this with per-pixel alpha, where
+            // ClearType cannot work. GDI+ AntiAlias (grayscale) is the correct, alpha-safe choice.
+            g.TextRenderingHint = TextRenderingHint.AntiAlias;
 
             int width = context.Bounds.Width;
             int height = context.Bounds.Height;
@@ -30,7 +32,13 @@ namespace WinformsMVP.Services.Implementations
 
             Color accent = GetAccentColor(context.Type);
 
-            g.Clear(GetBackgroundColor());
+            // Fill a rounded background; the area outside the path stays transparent so the
+            // per-pixel-alpha layered window shows smooth, anti-aliased corners.
+            using (var bgBrush = new SolidBrush(GetBackgroundColor()))
+            using (var bgPath = ToastDrawing.RoundedRectangle(new Rectangle(0, 0, width - 1, height - 1), context.CornerRadius))
+            {
+                g.FillPath(bgBrush, bgPath);
+            }
 
             // Subtle rounded border in place of a shadow.
             using (var pen = new Pen(GetBorderColor(), 1f))
@@ -52,7 +60,7 @@ namespace WinformsMVP.Services.Implementations
             using (var textBrush = new SolidBrush(GetTextColor()))
             using (var closeBrush = new SolidBrush(GetCloseColor()))
             using (var centered = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
-            using (var message = new StringFormat { Alignment = StringAlignment.Near, LineAlignment = StringAlignment.Center, Trimming = StringTrimming.EllipsisCharacter })
+            using (var message = new StringFormat { Alignment = StringAlignment.Near, LineAlignment = StringAlignment.Center, Trimming = StringTrimming.EllipsisCharacter, FormatFlags = StringFormatFlags.LineLimit })
             {
                 // Left accent bar (rounded, inset vertically).
                 using (var bar = ToastDrawing.RoundedRectangle(new Rectangle(6, 10, 6, height - 20), 3))
@@ -63,7 +71,7 @@ namespace WinformsMVP.Services.Implementations
                 g.FillEllipse(accentBrush, circle);
                 g.DrawString(GetIcon(context.Type), iconFont, Brushes.White, circle, centered);
 
-                g.DrawString(context.Message, font, textBrush, new RectangleF(textLeft, 8, textRight - textLeft, height - 16), message);
+                g.DrawString(context.Message, font, textBrush, new RectangleF(textLeft, 14, textRight - textLeft, height - 28), message);
 
                 if (context.ShowCloseButton)
                 {

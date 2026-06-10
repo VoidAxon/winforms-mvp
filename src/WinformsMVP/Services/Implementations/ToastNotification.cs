@@ -1,5 +1,6 @@
 using System;
 using System.Drawing;
+using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using WinformsMVP.Common;
@@ -14,6 +15,19 @@ namespace WinformsMVP.Services.Implementations
     /// <see cref="Form"/>. Like a native MessageBox, the toast is therefore invisible to
     /// <see cref="Application.OpenForms"/>: host code that enumerates that collection is never
     /// disturbed by a toast appearing or auto-closing mid-iteration.
+    /// <para>
+    /// Rendering uses one of two paths, chosen by the resolved renderer's
+    /// <see cref="ToastRenderer.CornerRadius"/>:
+    /// <list type="bullet">
+    /// <item><description><b>Square</b> (radius 0): the content is painted onto the opaque window DC
+    /// (<c>WM_PAINT</c>) and the whole window is faded with a constant alpha via
+    /// <c>SetLayeredWindowAttributes</c>. ClearType text stays crisp on the opaque surface.</description></item>
+    /// <item><description><b>Rounded</b> (radius &gt; 0): the content is drawn into an off-screen 32-bit
+    /// ARGB bitmap and pushed with <c>UpdateLayeredWindow</c> (per-pixel alpha), which gives smooth,
+    /// anti-aliased corners a window region cannot. ClearType cannot composite under per-pixel alpha,
+    /// so those renderers use grayscale anti-aliased text.</description></item>
+    /// </list>
+    /// </para>
     /// <para>
     /// This type owns a <em>single</em> toast: its window, painting, and fade-out. Collecting,
     /// stacking, and capping multiple toasts is <see cref="ToastManager"/>'s job. Per-toast
@@ -33,7 +47,9 @@ namespace WinformsMVP.Services.Implementations
         private readonly int _duration;
         private readonly ToastRenderer _renderer; // resolved once at construction; never null
         private readonly bool _showCloseButton;
+        private readonly bool _layered; // true when rounded → per-pixel-alpha (UpdateLayeredWindow) path
 
+        private Bitmap _bitmap; // off-screen content for the layered path; null on the opaque path
         private Timer _closeTimer;
         private Timer _fadeTimer;
         private double _opacity;
@@ -55,6 +71,7 @@ namespace WinformsMVP.Services.Implementations
             _renderer = ToastRendererResolver.Resolve(
                 options.Renderer, options.Style, ToastDefaults.Renderer, ToastDefaults.Style);
             _showCloseButton = options.ShowCloseButton ?? ToastDefaults.ShowCloseButton;
+            _layered = _renderer.CornerRadius > 0; // rounded corners need per-pixel alpha
         }
 
         /// <summary>Screen corner this toast wants to appear in. Read by <see cref="ToastManager"/>.</summary>
@@ -133,8 +150,19 @@ namespace WinformsMVP.Services.Implementations
             };
 
             CreateHandle(cp);
-            ApplyCornerRadius();
-            ApplyOpacity();
+
+            if (_layered)
+            {
+                // Rounded: per-pixel alpha. Push the bitmap before showing to avoid a square flash.
+                RenderContent();
+                PushLayered();
+            }
+            else
+            {
+                // Square: opaque content (painted on WM_PAINT) with a constant window alpha.
+                ApplyOpacity();
+            }
+
             ShowWindow(Handle, SW_SHOWNOACTIVATE);
         }
 
@@ -177,10 +205,14 @@ namespace WinformsMVP.Services.Implementations
             switch (m.Msg)
             {
                 case WM_PAINT:
-                    Paint();
-                    return; // BeginPaint/EndPaint already validated the update region
+                    if (!_layered)
+                    {
+                        Paint(); // opaque path paints the window DC directly (crisp ClearType)
+                        return;
+                    }
+                    break; // layered path: content comes from UpdateLayeredWindow; let DefWindowProc validate
                 case WM_ERASEBKGND:
-                    m.Result = (IntPtr)1; // we paint the whole surface ourselves; skip flicker
+                    m.Result = (IntPtr)1; // we own the whole surface; skip the background erase / flicker
                     return;
                 case WM_LBUTTONUP:
                     CloseNow(); // click anywhere (incl. the close glyph) dismisses it
@@ -190,6 +222,9 @@ namespace WinformsMVP.Services.Implementations
             base.WndProc(ref m);
         }
 
+        // --- Opaque (square) path ---------------------------------------------------------------
+
+        /// <summary>Paints the renderer's content straight onto the opaque window DC.</summary>
         private void Paint()
         {
             PAINTSTRUCT ps;
@@ -198,7 +233,7 @@ namespace WinformsMVP.Services.Implementations
             {
                 using (var g = Graphics.FromHdc(hdc))
                 {
-                    Render(g);
+                    _renderer.Render(new ToastRenderContext(g, new Rectangle(0, 0, _width, _height), _message, _type, _font, _renderer.CornerRadius, _showCloseButton));
                 }
             }
             finally
@@ -207,58 +242,7 @@ namespace WinformsMVP.Services.Implementations
             }
         }
 
-        private void Render(Graphics g)
-        {
-            _renderer.Render(new ToastRenderContext(g, new Rectangle(0, 0, _width, _height), _message, _type, _font, _renderer.CornerRadius, _showCloseButton));
-        }
-
-        private void StartFadeOut()
-        {
-            // Fade timer - gradually reduces opacity for a smooth fade.
-            _fadeTimer = new Timer { Interval = 50 };
-            _fadeTimer.Tick += (s, e) =>
-            {
-                _opacity -= 0.1;
-                if (_opacity <= 0)
-                {
-                    _fadeTimer.Stop();
-                    CloseNow();
-                }
-                else
-                {
-                    ApplyOpacity();
-                }
-            };
-            _fadeTimer.Start();
-        }
-
-        /// <summary>
-        /// Rounds the popup to the resolved renderer's <see cref="ToastRenderer.CornerRadius"/> by
-        /// applying a window region. A radius of <c>0</c> leaves the window square. The OS takes
-        /// ownership of the region on <c>SetWindowRgn(..., true)</c>, so it must not be deleted here.
-        /// </summary>
-        private void ApplyCornerRadius()
-        {
-            int radius = _renderer.CornerRadius;
-            if (radius <= 0 || Handle == IntPtr.Zero)
-            {
-                return;
-            }
-
-            // CreateRoundRectRgn treats the right/bottom as exclusive, so use width/height + 1.
-            IntPtr region = CreateRoundRectRgn(0, 0, _width + 1, _height + 1, radius * 2, radius * 2);
-            if (region == IntPtr.Zero)
-            {
-                return; // GDI region creation failed; leave the window square.
-            }
-
-            // SetWindowRgn takes ownership of the region only on success; free it ourselves if it fails.
-            if (SetWindowRgn(Handle, region, true) == 0)
-            {
-                DeleteObject(region);
-            }
-        }
-
+        /// <summary>Applies the current fade opacity to the whole window (opaque path only).</summary>
         private void ApplyOpacity()
         {
             if (Handle == IntPtr.Zero)
@@ -272,10 +256,98 @@ namespace WinformsMVP.Services.Implementations
             SetLayeredWindowAttributes(Handle, 0, (byte)alpha, LWA_ALPHA);
         }
 
+        // --- Layered (rounded) path -------------------------------------------------------------
+
+        /// <summary>
+        /// Renders the toast content once into an off-screen 32-bit ARGB bitmap. Rounded renderers
+        /// leave the area outside their shape transparent, so the composited corners are smooth.
+        /// </summary>
+        private void RenderContent()
+        {
+            _bitmap = new Bitmap(_width, _height, PixelFormat.Format32bppArgb);
+            using (var g = Graphics.FromImage(_bitmap))
+            {
+                _renderer.Render(new ToastRenderContext(g, new Rectangle(0, 0, _width, _height), _message, _type, _font, _renderer.CornerRadius, _showCloseButton));
+            }
+        }
+
+        /// <summary>
+        /// Composites <see cref="_bitmap"/> onto the layered window with per-pixel alpha, scaled by
+        /// the current fade <see cref="_opacity"/>. Called at show time and on every fade tick (the
+        /// bitmap is unchanged across fade ticks — only the constant alpha varies).
+        /// </summary>
+        private void PushLayered()
+        {
+            if (Handle == IntPtr.Zero || _bitmap == null)
+            {
+                return;
+            }
+
+            IntPtr screenDc = GetDC(IntPtr.Zero);
+            IntPtr memDc = CreateCompatibleDC(screenDc);
+            IntPtr hBitmap = IntPtr.Zero;
+            IntPtr oldBitmap = IntPtr.Zero;
+            try
+            {
+                // GetHbitmap(transparent) yields a premultiplied ARGB DIB, as UpdateLayeredWindow expects.
+                hBitmap = _bitmap.GetHbitmap(Color.FromArgb(0));
+                oldBitmap = SelectObject(memDc, hBitmap);
+
+                var size = new SIZE { cx = _width, cy = _height };
+                var source = new POINT { x = 0, y = 0 };
+                int alpha = (int)(_opacity * 255);
+                if (alpha < 0) alpha = 0;
+                if (alpha > 255) alpha = 255;
+                var blend = new BLENDFUNCTION
+                {
+                    BlendOp = AC_SRC_OVER,
+                    BlendFlags = 0,
+                    SourceConstantAlpha = (byte)alpha,
+                    AlphaFormat = AC_SRC_ALPHA,
+                };
+
+                // pptDst = IntPtr.Zero keeps the window's current position (set by CreateHandle / MoveTo).
+                UpdateLayeredWindow(Handle, screenDc, IntPtr.Zero, ref size, memDc, ref source, 0, ref blend, ULW_ALPHA);
+            }
+            finally
+            {
+                if (oldBitmap != IntPtr.Zero) SelectObject(memDc, oldBitmap);
+                if (hBitmap != IntPtr.Zero) DeleteObject(hBitmap);
+                DeleteDC(memDc);
+                ReleaseDC(IntPtr.Zero, screenDc);
+            }
+        }
+
+        // --- Fade & teardown --------------------------------------------------------------------
+
+        private void StartFadeOut()
+        {
+            // Fade timer - gradually reduces opacity for a smooth fade.
+            _fadeTimer = new Timer { Interval = 50 };
+            _fadeTimer.Tick += (s, e) =>
+            {
+                _opacity -= 0.1;
+                if (_opacity <= 0)
+                {
+                    _fadeTimer.Stop();
+                    CloseNow();
+                }
+                else if (_layered)
+                {
+                    PushLayered();
+                }
+                else
+                {
+                    ApplyOpacity();
+                }
+            };
+            _fadeTimer.Start();
+        }
+
         /// <summary>
         /// Tears down this toast: stops its timers, removes it from the stack (the manager slides
-        /// the rest back toward the edge), and destroys the window. Also called by the manager
-        /// when evicting the oldest toast to honor the visible-count cap.
+        /// the rest back toward the edge), disposes the content bitmap, and destroys the window.
+        /// Also called by the manager when evicting the oldest toast to honor the visible-count cap.
         /// </summary>
         public void CloseNow()
         {
@@ -294,6 +366,12 @@ namespace WinformsMVP.Services.Implementations
             }
 
             ToastManager.Remove(this);
+
+            if (_bitmap != null)
+            {
+                _bitmap.Dispose();
+                _bitmap = null;
+            }
 
             if (Handle != IntPtr.Zero)
             {
@@ -320,6 +398,10 @@ namespace WinformsMVP.Services.Implementations
         private const int WM_ERASEBKGND = 0x0014;
         private const int WM_LBUTTONUP = 0x0202;
 
+        private const byte AC_SRC_OVER = 0x00;
+        private const byte AC_SRC_ALPHA = 0x01;
+        private const int ULW_ALPHA = 0x00000002;
+
         [StructLayout(LayoutKind.Sequential)]
         private struct RECT
         {
@@ -341,14 +423,37 @@ namespace WinformsMVP.Services.Implementations
             public byte[] rgbReserved;
         }
 
+        [StructLayout(LayoutKind.Sequential)]
+        private struct POINT
+        {
+            public int x;
+            public int y;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct SIZE
+        {
+            public int cx;
+            public int cy;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct BLENDFUNCTION
+        {
+            public byte BlendOp;
+            public byte BlendFlags;
+            public byte SourceConstantAlpha;
+            public byte AlphaFormat;
+        }
+
         [DllImport("user32.dll")]
         private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 
         [DllImport("user32.dll", SetLastError = true)]
-        private static extern bool SetLayeredWindowAttributes(IntPtr hwnd, uint crKey, byte bAlpha, uint dwFlags);
+        private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int x, int y, int cx, int cy, uint uFlags);
 
         [DllImport("user32.dll", SetLastError = true)]
-        private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int x, int y, int cx, int cy, uint uFlags);
+        private static extern bool SetLayeredWindowAttributes(IntPtr hwnd, uint crKey, byte bAlpha, uint dwFlags);
 
         [DllImport("user32.dll")]
         private static extern IntPtr BeginPaint(IntPtr hWnd, out PAINTSTRUCT lpPaint);
@@ -356,14 +461,26 @@ namespace WinformsMVP.Services.Implementations
         [DllImport("user32.dll")]
         private static extern bool EndPaint(IntPtr hWnd, ref PAINTSTRUCT lpPaint);
 
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool UpdateLayeredWindow(IntPtr hwnd, IntPtr hdcDst, IntPtr pptDst, ref SIZE psize, IntPtr hdcSrc, ref POINT pptSrc, int crKey, ref BLENDFUNCTION pblend, int dwFlags);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetDC(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        private static extern int ReleaseDC(IntPtr hWnd, IntPtr hDC);
+
         [DllImport("gdi32.dll")]
-        private static extern IntPtr CreateRoundRectRgn(int nLeftRect, int nTopRect, int nRightRect, int nBottomRect, int nWidthEllipse, int nHeightEllipse);
+        private static extern IntPtr CreateCompatibleDC(IntPtr hDC);
+
+        [DllImport("gdi32.dll")]
+        private static extern bool DeleteDC(IntPtr hdc);
+
+        [DllImport("gdi32.dll")]
+        private static extern IntPtr SelectObject(IntPtr hdc, IntPtr hgdiobj);
 
         [DllImport("gdi32.dll")]
         private static extern bool DeleteObject(IntPtr hObject);
-
-        [DllImport("user32.dll")]
-        private static extern int SetWindowRgn(IntPtr hWnd, IntPtr hRgn, bool bRedraw);
 
         #endregion
     }

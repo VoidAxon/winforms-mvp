@@ -22,6 +22,8 @@ namespace WinformsMVP.Services.Implementations
             int height = context.Bounds.Height;
             Font font = context.Font;
 
+            // Square (CornerRadius 0) → the framework paints this renderer onto an opaque window DC,
+            // so the default (system) text hint gives crisp ClearType. No TextRenderingHint override.
             g.Clear(GetBackgroundColor(context.Type));
 
             // Icon scales with the message font (10pt text -> 18pt icon). context.Font is shared
@@ -32,7 +34,9 @@ namespace WinformsMVP.Services.Implementations
             {
                 Alignment = StringAlignment.Near,
                 LineAlignment = StringAlignment.Center,
-                Trimming = StringTrimming.EllipsisCharacter // long text gets an ellipsis instead of a hard cut
+                Trimming = StringTrimming.EllipsisCharacter, // long text gets an ellipsis instead of a hard cut
+                // Lay out only whole lines so a centered multi-line block is never clipped at top/bottom.
+                FormatFlags = StringFormatFlags.LineLimit
             })
             {
                 // Icon (left gutter)

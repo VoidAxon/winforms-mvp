@@ -22,7 +22,9 @@ namespace WinformsMVP.Services.Implementations
         {
             Graphics g = context.Graphics;
             g.SmoothingMode = SmoothingMode.AntiAlias;
-            g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
+            // Rounded (CornerRadius > 0) → the framework composites this with per-pixel alpha, where
+            // ClearType cannot work. GDI+ AntiAlias (grayscale) is the correct, alpha-safe choice.
+            g.TextRenderingHint = TextRenderingHint.AntiAlias;
 
             int width = context.Bounds.Width;
             int height = context.Bounds.Height;
@@ -31,9 +33,15 @@ namespace WinformsMVP.Services.Implementations
             Color tint = GetTintColor(context.Type);
             Color accent = GetAccentColor(context.Type);
 
-            g.Clear(tint);
+            // Fill a rounded background; the area outside the path stays transparent so the
+            // per-pixel-alpha layered window shows smooth, anti-aliased corners.
+            using (var bgBrush = new SolidBrush(tint))
+            using (var bgPath = ToastDrawing.RoundedRectangle(new Rectangle(0, 0, width - 1, height - 1), context.CornerRadius))
+            {
+                g.FillPath(bgBrush, bgPath);
+            }
 
-            // Anti-aliased rounded border softens the non-AA window region edge.
+            // Anti-aliased rounded border on the same path crisps up the edge.
             using (var pen = new Pen(accent, 1.5f))
             using (var border = ToastDrawing.RoundedRectangle(new Rectangle(0, 0, width - 1, height - 1), context.CornerRadius))
             {
@@ -52,12 +60,12 @@ namespace WinformsMVP.Services.Implementations
             using (var accentBrush = new SolidBrush(accent))
             using (var textBrush = new SolidBrush(GetTextColor()))
             using (var centered = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
-            using (var message = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center, Trimming = StringTrimming.EllipsisCharacter })
+            using (var message = new StringFormat { Alignment = StringAlignment.Near, LineAlignment = StringAlignment.Center, Trimming = StringTrimming.EllipsisCharacter, FormatFlags = StringFormatFlags.LineLimit })
             {
                 g.FillEllipse(accentBrush, circle);
                 g.DrawString(GetIcon(context.Type), iconFont, Brushes.White, circle, centered);
 
-                g.DrawString(context.Message, font, textBrush, new RectangleF(textLeft, 8, textRight - textLeft, height - 16), message);
+                g.DrawString(context.Message, font, textBrush, new RectangleF(textLeft, 14, textRight - textLeft, height - 28), message);
 
                 if (context.ShowCloseButton)
                 {

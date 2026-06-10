@@ -21,12 +21,10 @@ namespace WinformsMVP.Common
     public abstract class ToastRenderer
     {
         /// <summary>
-        /// Corner radius in pixels the toast window should be rounded to. <c>0</c> (the default)
-        /// means square. The framework reads this from the resolved renderer and applies a rounded
-        /// window region, so the shape travels with the renderer — custom renderers can round
-        /// themselves by overriding this. Return a stable value: the framework reads it separately
-        /// for the window region and for painting, so a value that varies between reads would
-        /// desync the clipped window shape from the painted border.
+        /// Corner radius in pixels for the toast's rounded background. <c>0</c> (the default) means
+        /// square. The renderer paints its background to this radius; the framework composites the
+        /// toast with per-pixel alpha so the corners come out smooth (anti-aliased). The shape thus
+        /// travels with the renderer — custom renderers round themselves by overriding this.
         /// </summary>
         public virtual int CornerRadius
         {
@@ -68,8 +66,8 @@ namespace WinformsMVP.Common
         /// <summary>The resolved message font.</summary>
         public Font Font { get; }
 
-        /// <summary>The corner radius (px) of the toast window; <c>0</c> means square. Draw a
-        /// matching rounded border to soften the non-anti-aliased window region edge.</summary>
+        /// <summary>The corner radius (px) of the toast's rounded background; <c>0</c> means
+        /// square. Paint the background (and any border) to this radius.</summary>
         public int CornerRadius { get; }
 
         /// <summary>Whether the renderer should draw a close glyph. Display only — clicking
