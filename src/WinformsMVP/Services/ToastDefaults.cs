@@ -1,6 +1,5 @@
 using System.Drawing;
 using WinformsMVP.Common;
-using WinformsMVP.Services.Implementations;
 
 namespace WinformsMVP.Services
 {
@@ -50,7 +49,7 @@ namespace WinformsMVP.Services
         /// App-wide custom painter for toasts. Default: <c>null</c>, meaning "no custom override —
         /// resolve the painter from <see cref="Style"/>." Set it to take over every toast's
         /// appearance, or override per toast via <see cref="ToastOptions.Renderer"/>. A non-null
-        /// value here wins over <see cref="Style"/> but loses to a per-toast renderer/style.
+        /// value here wins over <see cref="Style"/> but loses to a per-toast <see cref="ToastOptions.Renderer"/> or <see cref="ToastOptions.Style"/>.
         /// </summary>
         public static ToastRenderer Renderer { get; set; }
     }
