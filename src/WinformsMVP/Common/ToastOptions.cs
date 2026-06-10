@@ -29,5 +29,17 @@ namespace WinformsMVP.Common
         /// take over the toast's appearance (the framework still owns position, size, and lifecycle).
         /// </summary>
         public ToastRenderer Renderer { get; set; }
+
+        /// <summary>
+        /// Built-in style for this toast. <c>null</c> = use <c>ToastDefaults.Style</c>. Ignored when
+        /// <see cref="Renderer"/> is set (a custom renderer always wins).
+        /// </summary>
+        public ToastStyle? Style { get; set; }
+
+        /// <summary>
+        /// Whether this toast draws a close glyph. <c>null</c> = use <c>ToastDefaults.ShowCloseButton</c>.
+        /// Display only — clicking anywhere on the toast still dismisses it regardless.
+        /// </summary>
+        public bool? ShowCloseButton { get; set; }
     }
 }
