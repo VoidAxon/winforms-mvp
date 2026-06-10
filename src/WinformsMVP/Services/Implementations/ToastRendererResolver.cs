@@ -14,7 +14,7 @@ namespace WinformsMVP.Services.Implementations
         private static readonly CardToastRenderer Card = new CardToastRenderer();
 
         /// <summary>Maps a <see cref="ToastStyle"/> to its built-in renderer singleton.</summary>
-        public static ToastRenderer ForStyle(ToastStyle style)
+        internal static ToastRenderer ForStyle(ToastStyle style)
         {
             switch (style)
             {
@@ -29,7 +29,7 @@ namespace WinformsMVP.Services.Implementations
         /// Resolves the renderer for a toast. A custom renderer (per call, then app-wide) always
         /// wins over a style; a per-call value always wins over the app-wide default.
         /// </summary>
-        public static ToastRenderer Resolve(ToastRenderer perCallRenderer, ToastStyle? perCallStyle, ToastRenderer defaultRenderer, ToastStyle defaultStyle)
+        internal static ToastRenderer Resolve(ToastRenderer perCallRenderer, ToastStyle? perCallStyle, ToastRenderer defaultRenderer, ToastStyle defaultStyle)
         {
             if (perCallRenderer != null) return perCallRenderer;
             if (perCallStyle.HasValue) return ForStyle(perCallStyle.Value);

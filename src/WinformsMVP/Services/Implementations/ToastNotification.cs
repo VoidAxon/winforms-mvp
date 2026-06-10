@@ -247,6 +247,10 @@ namespace WinformsMVP.Services.Implementations
 
             // CreateRoundRectRgn treats the right/bottom as exclusive, so use width/height + 1.
             IntPtr region = CreateRoundRectRgn(0, 0, _width + 1, _height + 1, radius * 2, radius * 2);
+            if (region == IntPtr.Zero)
+            {
+                return; // GDI region creation failed; leave the window square.
+            }
             SetWindowRgn(Handle, region, true);
         }
 
