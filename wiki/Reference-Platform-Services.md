@@ -186,8 +186,14 @@ private void OnDelete()
 }
 ```
 
-利用可能な `IViewBase` 拡張メソッド(すべてカーソル位置アンカー — Presenter に座標を渡させないため、`Point` 形は意図的に公開していません):
-`ShowToast / ShowInfo / ShowWarning / ShowError / ConfirmYesNo / ConfirmOkCancel / ConfirmYesNoCancel`。
+利用可能な `IViewBase` 拡張メソッド:
+`ShowToast / ShowInfo / ShowWarning / ShowError / ConfirmYesNo / ConfirmOkCancel / ConfirmYesNoCancel`
+— それぞれサービスと同じ 2 形態(カーソル版 / `Point` 版)があります。
+
+> **使い分けの規約:** Presenter から呼ぶのは**カーソル版だけ**です(Presenter は座標を扱わない)。
+> `Point` 版は、自分でアンカー座標を決めたい **View 層コード**向けです — Form が自分自身に対して
+> `this.ShowToast("Saved", ToastType.Success, _saveButton.PointToScreen(...))` のように呼びます。
+> 型としては合法でも、Presenter から `Point` を渡すのはレイヤ規約違反です。
 
 ### 登録
 

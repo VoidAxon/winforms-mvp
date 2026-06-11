@@ -66,5 +66,23 @@ namespace WinformsMVP.Samples.Tests.Views
             Assert.Equal(ConfirmResult.Cancel, _view.ConfirmYesNoCancel("pick", "cap"));
             Assert.Equal("ConfirmYesNoCancel", _anchored.Messages[0].Method);
         }
+
+        [Fact]
+        public void ShowToast_WithPoint_ForwardsCustomAnchor()
+        {
+            var anchor = new System.Drawing.Point(120, 340);
+            _view.ShowToast("here", ToastType.Info, anchor);
+            Assert.Equal(anchor, _anchored.Toasts[0].Anchor);
+        }
+
+        [Fact]
+        public void ConfirmYesNo_WithPoint_ForwardsCustomAnchor()
+        {
+            var anchor = new System.Drawing.Point(5, 7);
+            _anchored.NextResult = ConfirmResult.Yes;
+            Assert.True(_view.ConfirmYesNo("sure?", anchor, "cap"));
+            Assert.Equal(anchor, _anchored.Messages[0].Anchor);
+            Assert.Equal("ConfirmYesNo", _anchored.Messages[0].Method);
+        }
     }
 }
