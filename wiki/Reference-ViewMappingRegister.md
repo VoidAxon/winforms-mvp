@@ -274,14 +274,16 @@ internal static class Program
         var settings = LoadSettings();
         register.Register<ISettingsView>(() => new SettingsForm(settings));
 
-        // 2. PlatformServices を構築
-        PlatformServices.Default = new DefaultPlatformServices(
-            viewMappingRegister: register,
-            loggerFactory: new DebugLoggerFactory());
+        // 2. ServiceLocator に View レジストリを登録
+        ServiceLocator.Configure(reg =>
+        {
+            reg.RegisterInstance<IViewMappingRegister>(register);
+            reg.RegisterInstance<WinformsMVP.Logging.ILoggerFactory>(new DebugLoggerFactory());
+        });
 
         // 3. メインウィンドウを表示
         var mainPresenter = new MainPresenter();
-        PlatformServices.Default.WindowNavigator.ShowWindow(mainPresenter);
+        ServiceLocator.Current.Resolve<IWindowNavigator>().ShowWindow(mainPresenter);
 
         Application.Run();
     }

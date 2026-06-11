@@ -304,19 +304,16 @@ public enum DispatchValidationMode
 
 Strict が対象とするのは **設定ミスだけ** です。ハンドラ/`CanExecute` の例外は常に捕捉・ログされ (集中エラーハンドリングを維持)、無効化されたアクション (`CanExecute == false`) はエラー扱いしません。
 
-**推奨される使い方**: Debug ビルドでのみ Strict を有効化します。これは新しい PlatformServices API を必要とせず、既存の `ConfigureDispatcher` フックで配線できます (これは全 Dispatch より前に適用されます):
+**推奨される使い方**: Debug ビルドでのみ Strict を有効化します。`IDispatcherConfigurer` をサービスプロバイダに登録することで配線できます (全 Dispatch より前に適用されます):
 
 ```csharp
-PlatformServices.Default = new DefaultPlatformServices(
-    viewMappingRegister: register,
-    loggerFactory: null,
-    serviceProvider: null,
-    configureDispatcher: d =>
+ServiceLocator.Configure(reg => reg.RegisterInstance<IDispatcherConfigurer>(
+    new ActionDispatcherConfigurer(d =>
     {
 #if DEBUG
         d.ValidationMode = DispatchValidationMode.Strict;
 #endif
-    });
+    })));
 ```
 
 これにより「`Register` し忘れ / キーのタイプミス / ペイロード型違い」が、初回ディスパッチ時に **その場で例外として表面化** します。本番ビルドは既定の Lenient のままなので、ユーザー影響はありません。
@@ -569,13 +566,17 @@ Dispatch(Save)
 #### Global (アプリ全体) — 最外殻
 
 ```csharp
-PlatformServices.Default = new DefaultPlatformServices(
-    viewMappingRegister: register,
-    loggerFactory: loggerFactory,
-    serviceProvider: null,
-    configureDispatcher: d => d
+// ServiceLocator (DI なし) の場合
+ServiceLocator.Configure(reg => reg.RegisterInstance<IDispatcherConfigurer>(
+    new ActionDispatcherConfigurer(d => d
         .Use(new AuditMiddleware(auditSink, () => CurrentUser.Name))
-        .Use(new ErrorDialogMiddleware(messages, dispatchLogger)));
+        .Use(new ErrorDialogMiddleware(messages, dispatchLogger)))));
+
+// M.E.DI の場合
+services.AddSingleton<IDispatcherConfigurer>(
+    new ActionDispatcherConfigurer(d => d
+        .Use(new AuditMiddleware(auditSink, () => CurrentUser.Name))
+        .Use(new ErrorDialogMiddleware(messages, dispatchLogger))));
 ```
 
 #### Local (Presenter ごと) — グローバルの内側

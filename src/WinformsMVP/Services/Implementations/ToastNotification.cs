@@ -143,7 +143,10 @@ namespace WinformsMVP.Services.Implementations
         /// </summary>
         public void ShowAnchored(Point anchor)
         {
-            var area = Screen.PrimaryScreen.WorkingArea;
+            // Clamp to the screen the anchor sits on (nearest screen if it is off-screen), so a
+            // toast anchored on a non-primary monitor stays there instead of being pulled back to
+            // the primary one. Mirrors AnchoredMessageBox.ClampToScreen.
+            var area = Screen.FromPoint(anchor).WorkingArea;
             Point topLeft = ToastLayout.Anchor(anchor, new Size(_width, _height), area, ToastDefaults.Margin);
 
             CreatePopupAt(topLeft.X, topLeft.Y);

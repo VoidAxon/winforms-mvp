@@ -470,20 +470,20 @@ Presenter は WinForms に依存しないので、UI なしでテストできま
 ```csharp
 public class ToDoPresenterTests
 {
-    private readonly MockPlatformServices _platform;
+    private readonly MockServices _mockServices;
     private readonly MockToDoView _view;
     private readonly ToDoPresenter _presenter;
 
     public ToDoPresenterTests()
     {
-        _platform = new MockPlatformServices();
+        _mockServices = new MockServices();
         _view = new MockToDoView();
-        _presenter = new ToDoPresenter().WithPlatformServices(_platform);
+        _presenter = new ToDoPresenter().WithServiceProvider(_mockServices.Provider);
 
         _presenter.AttachView(_view);
         _presenter.Initialize();
 
-        _platform.Reset();
+        _mockServices.Reset();
     }
 
     [Fact]

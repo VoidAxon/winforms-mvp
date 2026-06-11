@@ -35,24 +35,28 @@ namespace MultiProjectDemo.Shell
                 new UserModuleRegistrar(),
                 new OrderModuleRegistrar());
 
-            // 3. Framework's own services (IPresenterFactory, IViewMappingRegister, ...).
+            // 3. Framework's own services (IPresenterFactory, IViewMappingRegister,
+            //    IMessageService, IWindowNavigator, ...).
             services.AddWinformsMVP(viewRegistry);
 
-            // 4. Shell-owned Presenters.
+            // 4. Override the framework logger with a real M.E.Logging-backed factory.
+            // Plain AddSingleton (not TryAdd) overrides AddWinformsMVP's TryAddSingleton(NullLoggerFactory) regardless of registration order.
+            var loggerFactory = LoggerFactory.Create(b => b.AddDebug());
+            services.AddSingleton<WinformsMVP.Logging.ILoggerFactory>(
+                loggerFactory.AsFrameworkLoggerFactory());
+
+            // 5. Shell-owned Presenters.
             services.AddTransient<MainPresenter>();
 
-            // 5. Build the provider and wire PlatformServices.
+            // 6. Build the provider and hand it to ServiceLocator so presenter
+            //    convenience accessors (Messages, Dialogs, Navigator, ...) resolve
+            //    through M.E.DI.
             var provider = services.BuildServiceProvider();
-            var loggerFactory = LoggerFactory.Create(b => b.AddDebug());
+            provider.UseWinformsMVP();
 
-            PlatformServices.Default = new DefaultPlatformServices(
-                viewMappingRegister: viewRegistry,
-                loggerFactory: loggerFactory.AsFrameworkLoggerFactory(),
-                serviceProvider: provider);
-
-            // 6. Resolve the root Presenter from DI, show it, and pump messages.
+            // 7. Resolve the root Presenter from DI, show it, and pump messages.
             var mainPresenter = provider.GetRequiredService<MainPresenter>();
-            PlatformServices.Default.WindowNavigator.ShowWindow(mainPresenter);
+            provider.GetRequiredService<IWindowNavigator>().ShowWindow(mainPresenter);
 
             Application.Run();
         }

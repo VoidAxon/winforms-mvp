@@ -29,12 +29,12 @@
 
 ### Pattern 1: Service Locator (単純な Presenter 向け)
 
-`PlatformServices.Default` を使い、コンストラクタ不要で書く方式です。
+`ServiceLocator.Current` (`IServiceProvider`) を使い、コンストラクタ不要で書く方式です。Presenter の便利プロパティ (`Messages`, `Dialogs`, etc.) が自動的に `ServiceLocator.Current` 経由で解決されます。
 
 ```csharp
 public class SimpleDemoPresenter : WindowPresenterBase<ISimpleDemoView>
 {
-    // コンストラクタなし — PlatformServices.Default が使われる
+    // コンストラクタなし — ServiceLocator.Current が使われる
 
     protected override void OnInitialize()
     {
@@ -48,7 +48,7 @@ public class SimpleDemoPresenter : WindowPresenterBase<ISimpleDemoView>
 |------|----|
 | ✅ ボイラープレートゼロ | 学習コスト最小 |
 | ✅ 既存コードからの段階移行が楽 | コンストラクタを増やさなくて済む |
-| ⚠️ テスト時に `WithPlatformServices(...)` ヘルパーが必要 | できなくはない |
+| ⚠️ テスト時に `SetServiceProvider` で差し替えが必要 | できなくはない |
 | ⚠️ グローバル状態への依存 | テスタブルだが暗黙的 |
 
 **使いどころ**: プロトタイプ、デモ、レガシーコード移行の初期段階、フォーム単位の小規模スクリプト。
@@ -138,7 +138,7 @@ public class OrderProcessorPresenter : WindowPresenterBase<IOrderProcessorView>
 |------|----|
 | ✅ コンストラクタが業務サービスだけで簡潔 | 読みやすい |
 | ✅ Platform サービスへのアクセスが容易 | 短く書ける |
-| ✅ 高いテスタビリティ | モック注入 + `WithPlatformServices` |
+| ✅ 高いテスタビリティ | モック注入 + `SetServiceProvider` |
 | ✅ 可読性が最高 | 推奨 |
 
 **使いどころ**: ほとんどの本番シナリオ。
@@ -267,6 +267,7 @@ private void OnOpenFile()
 
 ```csharp
 using Microsoft.Extensions.DependencyInjection;
+using WinformsMVP.DependencyInjection;
 
 internal static class Program
 {
@@ -276,23 +277,16 @@ internal static class Program
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
 
-        // 1. ServiceCollection を構築
-        var services = new ServiceCollection();
-
-        // View 解決層: View レジストリを作って Form を登録する (Service 解決とは別の関心事)。
-        // これを省くと PlatformServices の View マッピングが空になり、開窓時に Form を
-        // 解決できず実行時に失敗する —「DI を使うなら IViewMappingRegister は不要」は誤り。
+        // 1. View 解決層 (Service 解決とは別の関心事)。
+        // 省略すると WindowNavigator が Form を解決できず実行時に失敗する。
         var viewRegistry = new ViewMappingRegister();
         viewRegistry.RegisterFromAssembly(typeof(Program).Assembly);
-        services.AddSingleton<IViewMappingRegister>(viewRegistry);
 
-        // フレームワークサービス: DefaultPlatformServices には必ず View レジストリを渡す。
-        // (serviceProvider を渡すと、未登録 View をコンテナにフォールバック解決できる)
-        services.AddSingleton<IPlatformServices>(sp =>
-            new DefaultPlatformServices(viewRegistry, loggerFactory: null, serviceProvider: sp));
-        services.AddSingleton<IMessageService, MessageService>();
-        services.AddSingleton<IDialogProvider, DialogProvider>();
-        services.AddSingleton<IFileService, FileService>();
+        // 2. ServiceCollection を構築
+        var services = new ServiceCollection();
+
+        // フレームワークサービスを登録 (TryAdd — ホスト登録が優先される)。
+        services.AddWinformsMVP(viewRegistry);
 
         // 業務サービス
         services.AddScoped<IUserRepository, UserRepository>();
@@ -304,10 +298,10 @@ internal static class Program
 
         var provider = services.BuildServiceProvider();
 
-        // 2. PlatformServices をコンテナで上書き
-        PlatformServices.Default = provider.GetRequiredService<IPlatformServices>();
+        // 3. ServiceLocator にプロバイダを登録 — presenter 便利プロパティはここから解決される
+        provider.UseWinformsMVP();
 
-        // 3. メインウィンドウ
+        // 4. メインウィンドウ
         Application.Run(new MainForm(provider));
     }
 }
@@ -330,7 +324,7 @@ public class MainForm : Form
     {
         // コンテナから Presenter を取得
         var presenter = _services.GetRequiredService<UserEditorPresenter>();
-        PlatformServices.Default.WindowNavigator.ShowWindowAsModal(presenter);
+        _services.GetRequiredService<IWindowNavigator>().ShowWindowAsModal(presenter);
     }
 }
 ```
@@ -340,7 +334,7 @@ public class MainForm : Form
 - ✅ サービス登録を中央集約
 - ✅ ライフタイム管理 (Singleton / Scoped / Transient)
 - ✅ 自動的な依存解決
-- ✅ 既存コードはそのまま動く (`PlatformServices.Default` 経由でアクセス)
+- ✅ 既存コードはそのまま動く (便利プロパティが `ServiceLocator.Current` 経由でアクセス)
 
 **M.E.DI 統合はオプションです**。フレームワークは Service Locator か手動 Constructor Injection でも完全に動作します。
 
@@ -495,51 +489,55 @@ internal static class Program
             new OrderModuleRegistrar(),
             new ReportModuleRegistrar());
 
-        // 3. フレームワーク自身のサービスを登録 (IPresenterFactory 等)
+        // 3. フレームワーク自身のサービスを登録 (IPresenterFactory, IMessageService 等)。
+        //    TryAdd セマンティクスなので、前述のモジュール登録が優先される。
         services.AddWinformsMVP(viewRegistry);
 
-        // 4. プロバイダを構築して PlatformServices に結ぶ
+        // 4. プロバイダを構築して ServiceLocator に結ぶ
         var provider = services.BuildServiceProvider();
-        var loggerFactory = LoggerFactory.Create(b => b.AddDebug());
 
-        PlatformServices.Default = new DefaultPlatformServices(
-            viewMappingRegister: viewRegistry,
-            // AsFrameworkLoggerFactory() は同梱メソッドではなくサンプルの ~30 行アダプタ (下の注記参照)。
-            // ログ不要なら loggerFactory: null でよい。
-            loggerFactory: loggerFactory.AsFrameworkLoggerFactory(),
-            serviceProvider: provider);
+        // Plain AddSingleton は AddWinformsMVP の TryAddSingleton を上書きする (登録順不問)。
+        var loggerFactory = LoggerFactory.Create(b => b.AddDebug());
+        services.AddSingleton<WinformsMVP.Logging.ILoggerFactory>(
+            loggerFactory.AsFrameworkLoggerFactory());
+
+        provider.UseWinformsMVP();   // ServiceLocator.Current = provider
 
         // 5. ルート Presenter をコンテナから取得して起動
         var mainPresenter = provider.GetRequiredService<MainShellPresenter>();
-        PlatformServices.Default.WindowNavigator.ShowWindow(mainPresenter);
+        provider.GetRequiredService<IWindowNavigator>().ShowWindow(mainPresenter);
 
         Application.Run();
     }
 }
 ```
 
-> ⚠️ **`AsFrameworkLoggerFactory()` はフレームワーク同梱のメソッドではありません。** コアパッケージは `Microsoft.Extensions.Logging` に依存しない設計なので、`WinformsMVP.DependencyInjection` もログ用アダプタを含みません (依存は `Microsoft.Extensions.DependencyInjection.Abstractions` のみ)。M.E.L. の `ILoggerFactory` を框架の `WinformsMVP.Logging.ILoggerFactory` に橋渡しするには、~30 行のアダプタを自分で書きます (**net48 専用**)。実装例は `samples/MultiProjectDemo.Shell/Logging/MicrosoftLoggingExtensions.cs` と [Logging リファレンス](Reference-Logging) を参照。ログが不要なら `loggerFactory: null` で構いません。
+> ⚠️ **`AsFrameworkLoggerFactory()` はフレームワーク同梱のメソッドではありません。** コアパッケージは `Microsoft.Extensions.Logging` に依存しない設計なので、`WinformsMVP.DependencyInjection` もログ用アダプタを含みません (依存は `Microsoft.Extensions.DependencyInjection.Abstractions` のみ)。M.E.L. の `ILoggerFactory` を框架の `WinformsMVP.Logging.ILoggerFactory` に橋渡しするには、~30 行のアダプタを自分で書きます (**net48 専用**)。実装例は `samples/MultiProjectDemo.Shell/Logging/MicrosoftLoggingExtensions.cs` と [Logging リファレンス](Reference-Logging) を参照。ログが不要なら `NullLoggerFactory` が自動で使われます。
 
-### グローバル Dispatcher ミドルウェアの設定 (4 引数版コンストラクタ)
+### グローバル Dispatcher ミドルウェアの設定 (`IDispatcherConfigurer`)
 
-`DefaultPlatformServices` には **4 引数版** のコンストラクタもあり、第 4 引数 `configureDispatcher` (`Action<ViewActionDispatcher>`) ですべての Presenter に共通する `ViewActionDispatcher` のミドルウェアを設定できます。
+サービスプロバイダに **`IDispatcherConfigurer`** を登録すると、すべての Presenter の `ViewActionDispatcher` に対して共通のミドルウェアを設定できます。`ActionDispatcherConfigurer` を使うとクラスなしで記述できます。
 
 ```csharp
-PlatformServices.Default = new DefaultPlatformServices(
-    viewMappingRegister: viewRegistry,
-    loggerFactory: loggerFactory.AsFrameworkLoggerFactory(),   // サンプル同梱のアダプタ (上の注記参照)。不要なら null
-    serviceProvider: provider,
-    configureDispatcher: d => d
+// ServiceLocator.Configure を使う場合 (M.E.DI なし)
+ServiceLocator.Configure(reg => reg.RegisterInstance<IDispatcherConfigurer>(
+    new ActionDispatcherConfigurer(d => d
         .Use(new AuditMiddleware(auditSink, () => CurrentUser.Name))
         .Use(new AuthorizationMiddleware(currentUser))
-        .Use(new ErrorDialogMiddleware(messages, dispatchLogger)));
+        .Use(new ErrorDialogMiddleware(messages, dispatchLogger)))));
+
+// M.E.DI の場合 — AddWinformsMVP の前後どちらでも可
+services.AddSingleton<IDispatcherConfigurer>(
+    new ActionDispatcherConfigurer(d => d.Use(...)));
 ```
 
-監査ログ・認可チェック・テレメトリ・エラーダイアログ等、**横断的処理を 1 か所に集約** できます。ここで設定したミドルウェアは、`PresenterBase.SetView` の中で各 Presenter の Dispatcher に対して **最外層** として適用されるため、Presenter ローカルの `Use(...)` 呼び出しよりも先に走ります。
+監査ログ・認可チェック・テレメトリ・エラーダイアログ等、**横断的処理を 1 か所に集約** できます。ここで設定したミドルウェアは各 Presenter の Dispatcher に対して **最外層** として適用されるため、Presenter ローカルの `Use(...)` 呼び出しよりも先に走ります。
 
 詳細・実装方法は [ViewAction システム > ミドルウェアパイプライン](Reference-ViewAction-System#ミドルウェアパイプライン) を参照してください。
 
 ### レガシープロジェクトの起動 (DI なし)
+
+`ServiceLocator.Configure` を使い、フルコンテナなしでサービスを差し替えます。
 
 ```csharp
 internal static class Program
@@ -551,14 +549,17 @@ internal static class Program
         Application.SetCompatibleTextRenderingDefault(false);
 
         var viewRegistry = new ViewMappingRegister();
-        viewRegistry.RegisterModules(
-            new UserModuleRegistrar(),        // IViewModuleRegistrar (DI なし) を実装
-            new OrderModuleRegistrar());
+        viewRegistry.RegisterFromAssembly(Assembly.GetExecutingAssembly());
 
-        PlatformServices.Default = new DefaultPlatformServices(viewRegistry);
+        // Built-in DefaultServiceProvider に View レジストリを上書きして登録する。
+        ServiceLocator.Configure(reg =>
+        {
+            reg.RegisterInstance<IViewMappingRegister>(viewRegistry);
+            // 必要なら他のサービスも reg.RegisterInstance<T>(...) で上書き可能。
+        });
 
         var mainPresenter = new MainShellPresenter();
-        PlatformServices.Default.WindowNavigator.ShowWindow(mainPresenter);
+        ServiceLocator.Current.Resolve<IWindowNavigator>().ShowWindow(mainPresenter);
 
         Application.Run();
     }
@@ -589,7 +590,7 @@ internal static class Program
 
 ## 関連ページ
 
-- [Platform Services](Reference-Platform-Services) — Service Locator パターンの基盤
+- [Platform Services](Reference-Platform-Services) — Presenter 便利プロパティが解決するサービス群
 - [WindowNavigator](Reference-WindowNavigator) — `IPresenterFactory` と Navigator パラメータの分離
 - [ViewMappingRegister](Reference-ViewMappingRegister) — View 解決層の詳細
 - [HowTo: 従来の WinForms から移行する](HowTo-Migrate-From-Legacy-WinForms) — 段階的なリファクタリング

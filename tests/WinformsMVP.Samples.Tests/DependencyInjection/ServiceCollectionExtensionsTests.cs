@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.Extensions.DependencyInjection;
 using WinformsMVP.DependencyInjection;
+using WinformsMVP.Samples.Tests.Mocks;
 using WinformsMVP.Services;
 using WinformsMVP.Services.Implementations;
 using Xunit;
@@ -236,5 +237,113 @@ namespace WinformsMVP.Samples.Tests.DependencyInjection
         }
 
         #endregion
+    }
+
+    /// <summary>
+    /// Tests for the framework built-in service registrations added by
+    /// <see cref="ServiceCollectionExtensions.AddWinformsMVP"/> and the
+    /// <see cref="ServiceCollectionExtensions.UseWinformsMVP"/> locator hand-off.
+    /// Serialised via [Collection("ServiceLocator")] because they mutate the
+    /// process-global <see cref="ServiceLocator.Current"/>.
+    /// </summary>
+    [Collection("ServiceLocator")]
+    public class AddWinformsMvpBuiltInsTests : IDisposable
+    {
+        public AddWinformsMvpBuiltInsTests() => ServiceLocator.Reset();
+        public void Dispose() => ServiceLocator.Reset();
+
+        private static IServiceProvider BuildProvider()
+        {
+            var services = new ServiceCollection();
+            services.AddWinformsMVP(new ViewMappingRegister());
+            return services.BuildServiceProvider();
+        }
+
+        [Fact]
+        public void AddWinformsMVP_Provider_ResolvesIMessageService()
+        {
+            var provider = BuildProvider();
+            Assert.NotNull(provider.GetService<IMessageService>());
+        }
+
+        [Fact]
+        public void AddWinformsMVP_Provider_ResolvesIWindowNavigator()
+        {
+            var provider = BuildProvider();
+            Assert.NotNull(provider.GetService<IWindowNavigator>());
+        }
+
+        [Fact]
+        public void AddWinformsMVP_Provider_ResolvesIDialogProvider()
+        {
+            var provider = BuildProvider();
+            Assert.NotNull(provider.GetService<IDialogProvider>());
+        }
+
+        [Fact]
+        public void AddWinformsMVP_Provider_ResolvesIFileService()
+        {
+            var provider = BuildProvider();
+            Assert.NotNull(provider.GetService<IFileService>());
+        }
+
+        [Fact]
+        public void AddWinformsMVP_Provider_ResolvesILoggerFactory()
+        {
+            var provider = BuildProvider();
+            Assert.NotNull(provider.GetService<WinformsMVP.Logging.ILoggerFactory>());
+        }
+
+        [Fact]
+        public void UseWinformsMVP_SetsServiceLocatorCurrent()
+        {
+            var provider = BuildProvider();
+
+            provider.UseWinformsMVP();
+
+            Assert.Same(provider, ServiceLocator.Current);
+        }
+
+        [Fact]
+        public void UseWinformsMVP_ReturnsProvider_ForChaining()
+        {
+            var provider = BuildProvider();
+
+            var returned = provider.UseWinformsMVP();
+
+            Assert.Same(provider, returned);
+        }
+
+        [Fact]
+        public void UseWinformsMVP_WithNullProvider_Throws()
+        {
+            IServiceProvider provider = null;
+            Assert.Throws<ArgumentNullException>(() => provider.UseWinformsMVP());
+        }
+
+        [Fact]
+        public void AddWinformsMVP_DoesNotOverrideHostIMessageService_RegisteredBefore()
+        {
+            // TryAdd semantics: a host that registers IMessageService before calling
+            // AddWinformsMVP must keep its own implementation (host-override precedence).
+            var services = new ServiceCollection();
+            var customMessageService = new MockMessageService();
+            services.AddSingleton<IMessageService>(customMessageService);
+            var registry = new ViewMappingRegister();
+
+            services.AddWinformsMVP(registry);
+
+            var provider = services.BuildServiceProvider();
+            var resolved = provider.GetService<IMessageService>();
+
+            Assert.Same(customMessageService, resolved);
+        }
+
+        [Fact]
+        public void AddWinformsMVP_Provider_ResolvesIAnchoredMessageService()
+        {
+            var provider = BuildProvider();
+            Assert.NotNull(provider.GetService<IAnchoredMessageService>());
+        }
     }
 }

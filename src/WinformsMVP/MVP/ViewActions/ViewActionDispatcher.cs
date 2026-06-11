@@ -75,7 +75,7 @@ namespace WinformsMVP.MVP.ViewActions
         /// <remarks>
         /// This does not affect handler/<c>CanExecute</c> exception handling (always caught and
         /// logged) nor disabled actions (<c>CanExecute</c> false is never an error). Configure it
-        /// once via <c>PlatformServices.ConfigureDispatcher</c> so it applies before any dispatch.
+        /// once via <see cref="WinformsMVP.Services.IDispatcherConfigurer"/> so it applies before any dispatch.
         /// </remarks>
         public DispatchValidationMode ValidationMode
         {
@@ -328,8 +328,8 @@ namespace WinformsMVP.MVP.ViewActions
             };
 
             // Build the chain inside-out so that the first-registered middleware ends up
-            // outermost. This means global middleware (applied via PlatformServices.ConfigureDispatcher,
-            // which runs before user code) wraps local middleware (added inside RegisterViewActions).
+            // outermost. This means global middleware (applied via IDispatcherConfigurer registered
+            // in the service provider, which runs before user code) wraps local middleware (added inside RegisterViewActions).
             var middlewares = _middlewares;
             for (int i = middlewares.Count - 1; i >= 0; i--)
             {

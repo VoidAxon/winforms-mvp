@@ -4,6 +4,7 @@ using WinformsMVP.Common;
 using WinformsMVP.Logging;
 using WinformsMVP.MVP.Presenters;
 using WinformsMVP.MVP.Views;
+using WinformsMVP.Services;
 
 namespace WinformsMVP.Services.Implementations
 {
@@ -38,7 +39,9 @@ namespace WinformsMVP.Services.Implementations
             _presenter = presenter;
             _onClosed = onClosed;
             _disposeForm = disposeForm;
-            _logger = PlatformServices.Default.LoggerFactory.CreateLogger(typeof(WindowLifecycleController));
+            _logger = WinformsMVP.Services.ServiceLocator.Current
+                .ResolveRequired<WinformsMVP.Logging.ILoggerFactory>()
+                .CreateLogger(typeof(WindowLifecycleController));
         }
 
         /// <summary>Injects the Push sink. Call BEFORE <c>Initialize</c> so a Presenter can

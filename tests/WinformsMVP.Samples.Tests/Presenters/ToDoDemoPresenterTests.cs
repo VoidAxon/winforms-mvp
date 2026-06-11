@@ -10,14 +10,14 @@ namespace WinformsMVP.Samples.Tests.Presenters
     /// Unit test example: Testing ToDoDemoPresenter
     ///
     /// Demonstrates:
-    /// 1. Injecting mock services using MockPlatformServices
+    /// 1. Injecting mock services using MockServices via the service provider
     /// 2. Mocking the view using MockToDoView
     /// 3. Verifying presenter business logic
     /// 4. Verifying service calls (MessageService, etc.)
     /// </summary>
     public class ToDoDemoPresenterTests
     {
-        private MockPlatformServices _mockServices;
+        private MockServices _mockServices;
         private MockToDoView _mockView;
         private ToDoDemoPresenter _presenter;
 
@@ -30,11 +30,11 @@ namespace WinformsMVP.Samples.Tests.Presenters
         private void SetupTest()
         {
             // 1. Create mock services
-            _mockServices = new MockPlatformServices();
+            _mockServices = new MockServices();
 
-            // 2. Create presenter and inject mock services with WithPlatformServices
+            // 2. Create presenter and inject mock services with WithServiceProvider
             _presenter = new ToDoDemoPresenter()
-                .WithPlatformServices(_mockServices);
+                .WithServiceProvider(_mockServices.Provider);
 
             // 3. Create mock view
             _mockView = new MockToDoView();

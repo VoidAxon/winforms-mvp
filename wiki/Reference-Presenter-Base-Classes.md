@@ -341,9 +341,7 @@ Assert.Equal(InteractionStatus.Ok, sink.Closed[0].status);
 | `Files` | `IFileService` | ファイル I/O |
 | `Logger` | `ILogger` | 構造化ロギング |
 | `Navigator` | `IWindowNavigator` | 子ウィンドウの表示 |
-| `Platform` | `IPlatformServices` | カスタムサービス取得用のコンテナ |
-
-これらは `PlatformServices.Default` から自動取得されます。
+これらは `ServiceLocator.Current` (`IServiceProvider`) から遅延解決されます。
 DI コンテナと統合する場合の構成方法は [Dependency Injection](Reference-DependencyInjection) を参照してください。
 
 ---

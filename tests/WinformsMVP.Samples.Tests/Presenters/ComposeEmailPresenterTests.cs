@@ -16,7 +16,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
     /// Unit tests for ComposeEmailPresenter.
     ///
     /// Demonstrates:
-    /// 1. Using MockPlatformServices to inject mock services
+    /// 1. Using MockServices to inject mock services via the service provider
     /// 2. Using MockComposeEmailView to mock the view
     /// 3. Using MockEmailRepository to provide test data
     /// 4. Testing ChangeTracker integration for dirty state management
@@ -27,7 +27,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
     /// </summary>
     public class ComposeEmailPresenterTests
     {
-        private MockPlatformServices _mockServices;
+        private MockServices _mockServices;
         private MockComposeEmailView _mockView;
         private MockEmailRepository _mockRepository;
         private ComposeEmailPresenter _presenter;
@@ -53,14 +53,14 @@ namespace WinformsMVP.Samples.Tests.Presenters
         private void SetupTest()
         {
             // 1. Create mock services
-            _mockServices = new MockPlatformServices();
+            _mockServices = new MockServices();
 
             // 2. Create mock repository
             _mockRepository = new MockEmailRepository();
 
             // 3. Create presenter and inject mock services BEFORE AttachView
             _presenter = new ComposeEmailPresenter(_mockRepository)
-                .WithPlatformServices(_mockServices);
+                .WithServiceProvider(_mockServices.Provider);
 
             // 4. Create mock view
             _mockView = new MockComposeEmailView();
@@ -89,7 +89,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
         {
             // Arrange - create new presenter
             var newPresenter = new ComposeEmailPresenter(_mockRepository)
-                .WithPlatformServices(_mockServices);
+                .WithServiceProvider(_mockServices.Provider);
             var newView = new MockComposeEmailView();
 
             // Act
@@ -121,7 +121,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             };
 
             var newPresenter = new ComposeEmailPresenter(_mockRepository)
-                .WithPlatformServices(_mockServices);
+                .WithServiceProvider(_mockServices.Provider);
             var newView = new MockComposeEmailView();
 
             // Act
@@ -155,7 +155,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             };
 
             var newPresenter = new ComposeEmailPresenter(_mockRepository)
-                .WithPlatformServices(_mockServices);
+                .WithServiceProvider(_mockServices.Provider);
             var newView = new MockComposeEmailView();
 
             // Act
@@ -189,7 +189,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             };
 
             var newPresenter = new ComposeEmailPresenter(_mockRepository)
-                .WithPlatformServices(_mockServices);
+                .WithServiceProvider(_mockServices.Provider);
             var newView = new MockComposeEmailView();
 
             // Act
@@ -900,7 +900,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             };
 
             var replyPresenter = new ComposeEmailPresenter(_mockRepository)
-                .WithPlatformServices(_mockServices);
+                .WithServiceProvider(_mockServices.Provider);
             var replyView = new MockComposeEmailView();
 
             // Act

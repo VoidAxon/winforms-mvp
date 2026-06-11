@@ -6,14 +6,14 @@ using WinformsMVP.MVP.Views;
 using WinformsMVP.MVP.ViewActions;
 using WinformsMVP.Samples.Tests.Mocks;
 using WinformsMVP.Samples.Tests.TestHelpers;
-using WinformsMVP.Services.Implementations;
+using WinformsMVP.Services;
 using Xunit;
 using static WinformsMVP.Samples.LoggingDemoExample;
 
 namespace WinformsMVP.Samples.Tests
 {
     /// <summary>
-    /// Tests for WinformsMVP.Logging integration via DefaultPlatformServices.
+    /// Tests for WinformsMVP.Logging integration via the service provider.
     /// </summary>
     public class LoggingIntegrationTests
     {
@@ -30,9 +30,9 @@ namespace WinformsMVP.Samples.Tests
         [Fact]
         public void Logger_ShouldBeAvailableInPresenter()
         {
-            var mockServices = new MockPlatformServices();
-            var presenter = new LoggingDemoPresenter();
-            presenter.SetPlatformServices(mockServices);
+            var mockServices = new MockServices();
+            var presenter = new LoggingDemoPresenter()
+                .WithServiceProvider(mockServices.Provider);
 
             var view = new MockLoggingDemoView();
 
@@ -46,10 +46,12 @@ namespace WinformsMVP.Samples.Tests
         public void Logger_ShouldUseCorrectCategoryName()
         {
             var loggerFactory = new CapturingLoggerFactory();
-            var platformServices = new DefaultPlatformServices(null, loggerFactory);
+            var provider = new DefaultServiceProvider();
+            provider.RegisterInstance<ILoggerFactory>(loggerFactory);
+            provider.RegisterInstance<IMessageService>(new MockMessageService());
 
-            var presenter = new LoggingDemoPresenter();
-            presenter.SetPlatformServices(platformServices);
+            var presenter = new LoggingDemoPresenter()
+                .WithServiceProvider(provider);
 
             var view = new MockLoggingDemoView { UserName = "TestUser" };
 
@@ -69,10 +71,12 @@ namespace WinformsMVP.Samples.Tests
         public void Logger_ShouldLogStructuredMessages()
         {
             var loggerFactory = new CapturingLoggerFactory();
-            var platformServices = new DefaultPlatformServices(null, loggerFactory);
+            var provider = new DefaultServiceProvider();
+            provider.RegisterInstance<ILoggerFactory>(loggerFactory);
+            provider.RegisterInstance<IMessageService>(new MockMessageService());
 
-            var presenter = new LoggingDemoPresenter();
-            presenter.SetPlatformServices(platformServices);
+            var presenter = new LoggingDemoPresenter()
+                .WithServiceProvider(provider);
 
             var view = new MockLoggingDemoView();
 
@@ -94,10 +98,12 @@ namespace WinformsMVP.Samples.Tests
         public void Logger_ShouldLogExceptions()
         {
             var loggerFactory = new CapturingLoggerFactory();
-            var platformServices = new DefaultPlatformServices(null, loggerFactory);
+            var provider = new DefaultServiceProvider();
+            provider.RegisterInstance<ILoggerFactory>(loggerFactory);
+            provider.RegisterInstance<IMessageService>(new MockMessageService());
 
-            var presenter = new LoggingDemoPresenter();
-            presenter.SetPlatformServices(platformServices);
+            var presenter = new LoggingDemoPresenter()
+                .WithServiceProvider(provider);
 
             var view = new MockLoggingDemoView();
 
@@ -121,10 +127,12 @@ namespace WinformsMVP.Samples.Tests
         public void Logger_DifferentLogLevels_ShouldBeLogged()
         {
             var loggerFactory = new CapturingLoggerFactory();
-            var platformServices = new DefaultPlatformServices(null, loggerFactory);
+            var provider = new DefaultServiceProvider();
+            provider.RegisterInstance<ILoggerFactory>(loggerFactory);
+            provider.RegisterInstance<IMessageService>(new MockMessageService());
 
-            var presenter = new LoggingDemoPresenter();
-            presenter.SetPlatformServices(platformServices);
+            var presenter = new LoggingDemoPresenter()
+                .WithServiceProvider(provider);
 
             var view = new MockLoggingDemoView { UserName = "TestUser" };
 
@@ -148,50 +156,53 @@ namespace WinformsMVP.Samples.Tests
         }
 
         [Fact]
-        public void MockPlatformServices_ShouldUseNullLoggerFactory()
+        public void MockServices_ShouldUseNullLoggerFactory()
         {
-            var mockServices = new MockPlatformServices();
+            var mockServices = new MockServices();
 
             Assert.NotNull(mockServices.LoggerFactory);
             Assert.IsType<NullLoggerFactory>(mockServices.LoggerFactory);
         }
 
         [Fact]
-        public void MockPlatformServices_LoggerFactory_CanBeReplaced()
+        public void MockServices_LoggerFactory_CanBeReplaced()
         {
-            var mockServices = new MockPlatformServices();
             var customLoggerFactory = new CapturingLoggerFactory();
+            // Build a provider with the custom factory explicitly.
+            var provider = new DefaultServiceProvider();
+            provider.RegisterInstance<ILoggerFactory>(customLoggerFactory);
 
-            mockServices.LoggerFactory = customLoggerFactory;
-
-            Assert.Same(customLoggerFactory, mockServices.LoggerFactory);
+            Assert.Same(customLoggerFactory, provider.GetService(typeof(ILoggerFactory)) as ILoggerFactory);
         }
 
         [Fact]
-        public void DefaultPlatformServices_WithoutLoggerFactory_ShouldUseNullLoggerFactory()
+        public void DefaultServiceProvider_WithNullLoggerFactory_ResolvesNullLoggerFactory()
         {
-            var platformServices = new DefaultPlatformServices();
-
-            Assert.NotNull(platformServices.LoggerFactory);
-            Assert.Same(NullLoggerFactory.Instance, platformServices.LoggerFactory);
+            // When only NullLoggerFactory is registered (the default in MockServices),
+            // the provider resolves NullLoggerFactory.
+            var mockServices = new MockServices();
+            var resolved = mockServices.Provider.GetService(typeof(ILoggerFactory)) as ILoggerFactory;
+            Assert.NotNull(resolved);
+            Assert.IsType<NullLoggerFactory>(resolved);
         }
 
         [Fact]
-        public void DefaultPlatformServices_WithCustomLoggerFactory_ShouldUseCustom()
+        public void DefaultServiceProvider_WithCustomLoggerFactory_ResolvesCustom()
         {
             var customLoggerFactory = new CapturingLoggerFactory();
+            var provider = new DefaultServiceProvider();
+            provider.RegisterInstance<ILoggerFactory>(customLoggerFactory);
 
-            var platformServices = new DefaultPlatformServices(null, customLoggerFactory);
-
-            Assert.Same(customLoggerFactory, platformServices.LoggerFactory);
+            var resolved = provider.GetService(typeof(ILoggerFactory)) as ILoggerFactory;
+            Assert.Same(customLoggerFactory, resolved);
         }
 
         [Fact]
         public void Presenter_ProcessedCount_ShouldIncrement()
         {
-            var mockServices = new MockPlatformServices();
-            var presenter = new LoggingDemoPresenter();
-            presenter.SetPlatformServices(mockServices);
+            var mockServices = new MockServices();
+            var presenter = new LoggingDemoPresenter()
+                .WithServiceProvider(mockServices.Provider);
 
             var view = new MockLoggingDemoView { UserName = "Charlie" };
 
@@ -208,9 +219,9 @@ namespace WinformsMVP.Samples.Tests
         [Fact]
         public void Presenter_ClearLog_ShouldResetCount()
         {
-            var mockServices = new MockPlatformServices();
-            var presenter = new LoggingDemoPresenter();
-            presenter.SetPlatformServices(mockServices);
+            var mockServices = new MockServices();
+            var presenter = new LoggingDemoPresenter()
+                .WithServiceProvider(mockServices.Provider);
 
             var view = new MockLoggingDemoView { UserName = "David" };
 

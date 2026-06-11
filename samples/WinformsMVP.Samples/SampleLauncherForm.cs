@@ -14,6 +14,7 @@ using WinformsMVP.Samples.ComplexInteractionDemo_ServiceBased;
 using WinformsMVP.Samples.ComplexInteractionDemo_EventBased;
 using WinformsMVP.Samples.CascadeDemo;
 using WinformsMVP.Samples.ToastDemo;
+using WinformsMVP.Samples.AnchoredMessageDemo;
 using WinformsMVP.Services;
 using WinformsMVP.Services.Implementations;
 
@@ -123,7 +124,10 @@ namespace WinformsMVP.Samples
                     Color.FromArgb(255, 140, 0), LaunchMessageBoxDemo),
                 new DemoItem("Toast Notification Demo",
                     "Layered popup • Invisible to OpenForms (like MessageBox)",
-                    Color.FromArgb(0, 150, 199), LaunchToastDemo));
+                    Color.FromArgb(0, 150, 199), LaunchToastDemo),
+                new DemoItem("Anchored Message Demo",
+                    "Cursor-anchored toast & MessageBox • View.ShowToast extension • IAnchoredMessageService",
+                    Color.FromArgb(0, 128, 128), LaunchAnchoredMessageDemo));
 
             AddSection(content, "Architecture",
                 new DemoItem("MVP Pattern Comparison",
@@ -265,16 +269,16 @@ namespace WinformsMVP.Samples
 
         private void LaunchNavigatorDemo()
         {
-            // Create and configure ViewMappingRegister
-            var viewMappingRegister = new ViewMappingRegister();
-
             // Automatic assembly scanning - registers all Views in the assembly
+            var viewMappingRegister = new ViewMappingRegister();
             int registered = viewMappingRegister.RegisterFromAssembly(System.Reflection.Assembly.GetExecutingAssembly());
             System.Diagnostics.Debug.WriteLine($"ViewMappingRegister: Auto-registered {registered} Views from assembly");
 
-            // Configure PlatformServices with ViewMappingRegister
-            // This makes Navigator available via the convenience property in presenters
-            PlatformServices.Default = new DefaultPlatformServices(viewMappingRegister);
+            // Configure ServiceLocator with the scanned register so Navigator resolves correctly.
+            ServiceLocator.Configure(reg =>
+            {
+                reg.RegisterInstance<IViewMappingRegister>(viewMappingRegister);
+            });
 
             var view = new NavigatorDemoForm();
             var presenter = new NavigatorDemoPresenter();  // No constructor parameters needed!
@@ -321,15 +325,16 @@ namespace WinformsMVP.Samples
 
         private void LaunchEmailDemo()
         {
-            // Create and configure ViewMappingRegister
-            var viewMappingRegister = new ViewMappingRegister();
-
             // Automatic assembly scanning - registers all Views in the assembly
+            var viewMappingRegister = new ViewMappingRegister();
             int registered = viewMappingRegister.RegisterFromAssembly(System.Reflection.Assembly.GetExecutingAssembly());
             System.Diagnostics.Debug.WriteLine($"ViewMappingRegister: Auto-registered {registered} Views from assembly");
 
-            // Configure PlatformServices with ViewMappingRegister
-            PlatformServices.Default = new DefaultPlatformServices(viewMappingRegister);
+            // Configure ServiceLocator with the scanned register so Navigator resolves correctly.
+            ServiceLocator.Configure(reg =>
+            {
+                reg.RegisterInstance<IViewMappingRegister>(viewMappingRegister);
+            });
 
             // Create repository and main view
             var repository = new InMemoryEmailRepository();
@@ -372,6 +377,19 @@ namespace WinformsMVP.Samples
             this.Hide();
             CascadeDemoProgram.Run();
             this.Show();
+        }
+
+        private void LaunchAnchoredMessageDemo()
+        {
+            var view = new AnchoredMessageDemoForm();
+            var presenter = new AnchoredMessageDemoPresenter();
+
+            presenter.AttachView(view);
+            presenter.Initialize();
+            view.Show();
+
+            this.Hide();
+            view.FormClosed += (s, e) => this.Show();
         }
     }
 }

@@ -4,7 +4,7 @@ namespace WinformsMVP.Logging
 {
     /// <summary>
     /// Creates <see cref="ILogger"/> instances scoped by category. Hosts typically
-    /// register one factory at startup and pass it to <c>DefaultPlatformServices</c>.
+    /// register one factory at startup and register it in the service provider.
     /// </summary>
     public interface ILoggerFactory
     {

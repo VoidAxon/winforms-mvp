@@ -61,9 +61,9 @@ UserControl 系の View を扱う Presenter 基底クラス。`ControlPresenterB
 
 ## D — F
 
-### DefaultPlatformServices
+### DefaultServiceProvider
 
-`IPlatformServices` の標準実装。`PlatformServices.Default` に通常はこのインスタンスをセットする。
+`IServiceRegistry` + `IServiceProvider` の組み込み実装。`ServiceLocator.Configure(...)` で自動的に使われる。外部 DI コンテナを使わないアプリのサービス登録先。
 
 ### DialogProvider
 
@@ -176,7 +176,7 @@ View インターフェイスと Form クラスの紐付けを管理するレジ
 
 ### Mock
 
-テスト用のモックオブジェクト。`MockPlatformServices` がモックサービスを束ね、各 Presenter テストで Mock View と一緒に使う。
+テスト用のモックオブジェクト。`MockMessageService`、`MockDialogProvider` 等の個別 Mock サービスを `DefaultServiceProvider` に登録し、各 Presenter テストで Mock View と一緒に使う。
 
 詳細: [HowTo: Presenter をテストする](HowTo-Test-A-Presenter)
 
@@ -204,9 +204,9 @@ Model-View-Presenter。本フレームワークが採用する設計パターン
 
 詳細: [WindowNavigator § パラメータ vs DI](Reference-WindowNavigator#パラメータ-vs-di-役割分担)
 
-### PlatformServices
+### ServiceLocator
 
-`PlatformServices.Default` (静的プロパティ)。アプリ全体で使われる `IPlatformServices` 実体を保持する。`Program.Main` で 1 回だけ設定する。
+`ServiceLocator.Current` (静的プロパティ)。アプリ全体で使われる `IServiceProvider` 実体を保持する。`Program.Main` で 1 回だけ `ServiceLocator.Configure(...)` か `ServiceLocator.Current =` で設定する。M.E.DI の場合は `provider.UseWinformsMVP()` で設定される。
 
 ### Presenter
 
@@ -230,7 +230,7 @@ MVP の中央コンポーネント。ユースケースロジックを持ち、V
 
 ### Service Locator
 
-DI パターンの 1 つ。`PlatformServices.Default` 経由でサービスにアクセスする方式。コンストラクタが不要で、最も簡単な構成。
+DI パターンの 1 つ。`ServiceLocator.Current` (`IServiceProvider`) 経由でサービスにアクセスする方式。Presenter は便利プロパティ (`Messages`、`Dialogs` 等) 経由で透過的に使う。コンストラクタが不要で、最も簡単な構成。
 
 詳細: [Dependency Injection § Service Locator](Reference-DependencyInjection#pattern-1-service-locator-単純な-presenter-向け)
 

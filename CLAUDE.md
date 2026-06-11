@@ -115,13 +115,13 @@ protected override void RegisterViewActions()
 ```
 Call `Dispatcher.RaiseCanExecuteChanged()` when state changes outside an action (selection, async completion).
 
-By default a dispatch to an unregistered key or with a mismatched payload is logged and ignored (graceful degradation). Set `Dispatcher.ValidationMode = DispatchValidationMode.Strict` — wire it via `PlatformServices.ConfigureDispatcher` in Debug builds — to make those wiring mistakes (forgotten `Register`, typo'd key, wrong payload type) throw instead, so they surface on first dispatch. Strict mode does not affect handler/`CanExecute` exceptions (always caught/logged) or disabled actions.
+By default a dispatch to an unregistered key or with a mismatched payload is logged and ignored (graceful degradation). Set `Dispatcher.ValidationMode = DispatchValidationMode.Strict` — wire it by registering an `IDispatcherConfigurer` (e.g. `ActionDispatcherConfigurer`) in Debug builds — to make those wiring mistakes (forgotten `Register`, typo'd key, wrong payload type) throw instead, so they surface on first dispatch. Strict mode does not affect handler/`CanExecute` exceptions (always caught/logged) or disabled actions.
 
 **Two handling patterns** (details in [wiki/Reference-ViewAction-System.md](wiki/Reference-ViewAction-System.md)):
 - **Implicit (recommended):** `ActionBinder` returns the binder; framework auto-binds and auto-updates `CanExecute`. Less code.
 - **Explicit:** `ActionBinder` returns `null` (prevents auto-binding/double-dispatch); View raises an `ActionRequest` event, Presenter subscribes with `View.ActionRequest += OnViewActionTriggered;` and manually calls `RaiseCanExecuteChanged()`.
 
-**Middleware (advanced):** `Dispatcher.Use(...)` adds an opt-in onion pipeline (audit, perf, error dialogs). Global tier via `PlatformServices.Default` runs outermost; per-presenter tier in `RegisterViewActions` runs inside. Zero overhead until `Use(...)` is called. See the ViewAction wiki page and [samples/WinformsMVP.Samples/ViewActionMiddlewareExample.cs](samples/WinformsMVP.Samples/ViewActionMiddlewareExample.cs).
+**Middleware (advanced):** `Dispatcher.Use(...)` adds an opt-in onion pipeline (audit, perf, error dialogs). Global tier (registered `IDispatcherConfigurer` in the service provider) runs outermost; per-presenter tier in `RegisterViewActions` runs inside. Zero overhead until `Use(...)` is called. See the ViewAction wiki page and [samples/WinformsMVP.Samples/ViewActionMiddlewareExample.cs](samples/WinformsMVP.Samples/ViewActionMiddlewareExample.cs).
 
 Samples: `ViewActionExample.cs` (implicit), `ViewActionExplicitEventExample.cs` (explicit), `ViewActionWithParametersExample.cs`, `ViewActionStateChangedExample.cs`, `CheckBoxDemo/`, `BulkBindingDemo/`.
 
@@ -186,24 +186,30 @@ Auto-scan requires: inherits `Form`, implements an interface extending `IWindowV
 
 ### Services & platform access
 
-All presenters have built-in access to platform services via convenience properties — no constructor injection needed for these:
+All presenters have built-in access to framework services via convenience properties — no constructor injection needed for these. They resolve through `ServiceLocator.Current` (`IServiceProvider`) on first access:
 
 - `Messages` — `IMessageService` (`ShowInfo/ShowWarning/ShowError/ConfirmYesNo`, toast)
 - `Dialogs` — `IDialogProvider` (open/save file, folder browser, ...)
 - `Files` — `IFileService`
 - `Navigator` — `IWindowNavigator`
 - `Logger` — `ILogger`
-- `Platform` — full `IPlatformServices` container
+- `View.ShowToast(...)` / `View.ConfirmYesNo(...)` — cursor-anchored feedback via `IViewBase` extension methods (`IAnchoredMessageService`), synchronous-call contract: call inside the action handler so cursor equals the click point.
+
+Business-specific services (`IUserRepository`, etc.) should be injected via the constructor, not resolved through the service locator.
 
 See [wiki/Reference-Platform-Services.md](wiki/Reference-Platform-Services.md).
 
 ### Dependency injection — three patterns
 
-1. **Service Locator** — use `PlatformServices.Default` via the convenience properties; no ctor. Best for simple presenters / legacy migration.
-2. **Constructor Injection** — inject business services (`IUserRepository`, ...) explicitly. Best for testable production code.
-3. **Hybrid** — business services in the ctor, platform services via properties. Best for most apps.
+1. **Service Locator** — framework services resolve through `ServiceLocator.Current` (`IServiceProvider`); use the presenter convenience properties (`Messages`, `Dialogs`, etc.) with no constructor injection. Best for simple presenters / legacy migration. Configure at startup via `ServiceLocator.Configure(reg => ...)` or by assigning `ServiceLocator.Current` directly.
+2. **Constructor Injection** — inject business services (`IUserRepository`, ...) explicitly. Best for testable production code. Keep DI-resolved deps and runtime args separate (use `IInitializable<TParam>` for the latter).
+3. **Hybrid** — business services in the ctor, framework services via the convenience properties. Best for most apps.
 
-Optional `WinformsMVP.DependencyInjection` package bridges `Microsoft.Extensions.DependencyInjection`: `IPresenterFactory.Create<T>()` resolves child-presenter ctor deps, `IModuleRegistrar` lets each UI module own its registrations, `services.AddWinformsMVP(viewRegistry)` wires the framework. View resolution (`IViewMappingRegister`) and service resolution (`IServiceProvider`) stay separate concerns — you need both. See [wiki/Reference-DependencyInjection.md](wiki/Reference-DependencyInjection.md).
+**DI-free modular registration:** `IServiceModule.RegisterServices(IServiceRegistry)` lets UI modules register into the built-in `DefaultServiceProvider` without a full DI container. `IServiceRegistry` offers `RegisterInstance<T>` and `RegisterFactory<T>`.
+
+**Global dispatcher middleware:** register an `IDispatcherConfigurer` (e.g. `new ActionDispatcherConfigurer(d => d.Use(...))`) in the service provider; the framework picks it up on each presenter's first dispatch. No extra configure call needed.
+
+**M.E.DI integration (net48 only):** `services.AddWinformsMVP(viewRegistry)` wires all framework defaults using `TryAdd` so host registrations take precedence. `provider.UseWinformsMVP()` sets `ServiceLocator.Current` to the built container. `IPresenterFactory.Create<T>()` resolves child-presenter ctor deps; `IModuleRegistrar` (`WinformsMVP.DependencyInjection`) lets each UI module own its registrations. View resolution (`IViewMappingRegister`) and service resolution (`IServiceProvider`) stay separate concerns — you need both. See [wiki/Reference-DependencyInjection.md](wiki/Reference-DependencyInjection.md).
 
 ### Logging
 

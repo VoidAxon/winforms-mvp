@@ -1,40 +1,22 @@
-using WinformsMVP.MVP.Presenters;
-using WinformsMVP.MVP.Views;
-using WinformsMVP.Services;
+using System;
 
 namespace WinformsMVP.Samples.Tests.TestHelpers
 {
     /// <summary>
-    /// Extension methods for testing presenters with mock platform services.
-    /// Provides a Fluent API for injecting mock services before presenter initialization.
+    /// Extension methods for testing presenters with a mock service provider.
+    /// Provides a fluent API for injecting a provider before presenter initialization.
     /// </summary>
-    public static class PresenterPlatformExtensions
+    public static class PresenterServiceProviderExtensions
     {
-        /// <summary>
-        /// Injects mock platform services for testing.
-        /// Must be called before AttachView() or Initialize().
-        /// </summary>
-        /// <typeparam name="T">The presenter type</typeparam>
-        /// <param name="presenter">The presenter instance</param>
-        /// <param name="platform">The mock platform services</param>
-        /// <returns>The presenter for method chaining</returns>
-        /// <example>
-        /// <code>
-        /// var mockServices = new MockPlatformServices();
-        /// var presenter = new MyPresenter()
-        ///     .WithPlatformServices(mockServices);  // Before initialization!
-        ///
-        /// presenter.AttachView(mockView);
-        /// presenter.Initialize();
-        /// </code>
-        /// </example>
-        public static T WithPlatformServices<T>(this T presenter, IPlatformServices platform)
-            where T : class
+        /// <summary>Injects a service provider for testing. Call before AttachView()/Initialize().</summary>
+        /// <typeparam name="T">The presenter type.</typeparam>
+        /// <param name="presenter">The presenter instance.</param>
+        /// <param name="provider">The service provider to inject.</param>
+        /// <returns>The presenter for method chaining.</returns>
+        public static T WithServiceProvider<T>(this T presenter, IServiceProvider provider) where T : class
         {
-            // InternalsVisibleTo attribute allows access to internal methods
-            // Use dynamic to call SetPlatformServices
             dynamic dynamicPresenter = presenter;
-            dynamicPresenter.SetPlatformServices(platform);
+            dynamicPresenter.SetServiceProvider(provider);  // internal, reachable via InternalsVisibleTo + dynamic
             return presenter;
         }
     }

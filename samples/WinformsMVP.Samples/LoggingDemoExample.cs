@@ -319,17 +319,13 @@ namespace WinformsMVP.Samples
         }
 
         /// <summary>
-        /// Configure platform services with the built-in Debug logger.
+        /// Configures the ServiceLocator with the built-in Debug logger so all presenters use it.
         /// </summary>
         public static void ConfigureWithCustomLogger()
         {
             var customLoggerFactory = CreateDebugLoggerFactory();
-            var platformServices = new WinformsMVP.Services.Implementations.DefaultPlatformServices(
-                viewMappingRegister: null,
-                loggerFactory: customLoggerFactory);
-
-            // Set as default for all presenters
-            WinformsMVP.Services.PlatformServices.Default = platformServices;
+            WinformsMVP.Services.ServiceLocator.Configure(reg =>
+                reg.RegisterInstance<WinformsMVP.Logging.ILoggerFactory>(customLoggerFactory));
         }
     }
 }

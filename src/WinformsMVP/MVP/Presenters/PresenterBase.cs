@@ -3,6 +3,7 @@ using WinformsMVP.Logging;
 using WinformsMVP.Common.Events;
 using WinformsMVP.MVP.Views;
 using WinformsMVP.MVP.ViewActions;
+using WinformsMVP.Services;
 
 namespace WinformsMVP.MVP.Presenters
 {
@@ -15,8 +16,7 @@ namespace WinformsMVP.MVP.Presenters
         protected TView View { get; private set; }
         protected readonly ViewActionDispatcher _dispatcher;
 
-        // Platform services infrastructure
-        private WinformsMVP.Services.IPlatformServices _platform;
+        private IServiceProvider _serviceProvider;
         protected bool _initialized = false;
 
         protected PresenterBase()
@@ -25,63 +25,50 @@ namespace WinformsMVP.MVP.Presenters
         }
 
         /// <summary>
-        /// Sets the platform services for testing purposes.
+        /// Overrides the service provider for this presenter (tests / scoped composition).
         /// MUST be called before AttachView() or Initialize().
         /// </summary>
-        /// <param name="platform">The platform services to use</param>
-        /// <exception cref="ArgumentNullException">Thrown when platform is null</exception>
+        /// <exception cref="ArgumentNullException">Thrown when serviceProvider is null</exception>
         /// <exception cref="InvalidOperationException">Thrown when called after initialization</exception>
-        internal void SetPlatformServices(WinformsMVP.Services.IPlatformServices platform)
+        internal void SetServiceProvider(IServiceProvider serviceProvider)
         {
-            if (platform == null)
-                throw new ArgumentNullException(nameof(platform));
+            if (serviceProvider == null)
+                throw new ArgumentNullException(nameof(serviceProvider));
 
             if (_initialized)
                 throw new InvalidOperationException(
-                    "Cannot set platform services after presenter has been initialized. " +
-                    "Call SetPlatformServices() before AttachView() or Initialize().");
+                    "Cannot set the service provider after the presenter has been initialized. " +
+                    "Call SetServiceProvider() before AttachView() or Initialize().");
 
-            _platform = platform;
+            _serviceProvider = serviceProvider;
         }
 
-        /// <summary>
-        /// Gets the platform services container.
-        /// Defaults to PlatformServices.Default if not explicitly set.
-        /// </summary>
-        protected WinformsMVP.Services.IPlatformServices Platform =>
-            _platform ?? (_platform = WinformsMVP.Services.PlatformServices.Default);
+        /// <summary>The service provider this presenter resolves framework services from.
+        /// Defaults to <see cref="WinformsMVP.Services.ServiceLocator.Current"/>.</summary>
+        protected IServiceProvider Services =>
+            _serviceProvider ?? (_serviceProvider = WinformsMVP.Services.ServiceLocator.Current);
 
-        /// <summary>
-        /// Convenience property for accessing IMessageService.
-        /// Use this instead of Platform.MessageService for cleaner code.
-        /// </summary>
-        protected WinformsMVP.Services.IMessageService Messages => Platform.MessageService;
+        /// <summary>Convenience property for accessing IMessageService.</summary>
+        protected WinformsMVP.Services.IMessageService Messages =>
+            Services.ResolveRequired<WinformsMVP.Services.IMessageService>();
 
-        /// <summary>
-        /// Convenience property for accessing IDialogProvider.
-        /// Use this instead of Platform.DialogProvider for cleaner code.
-        /// </summary>
-        protected WinformsMVP.Services.IDialogProvider Dialogs => Platform.DialogProvider;
+        /// <summary>Convenience property for accessing IDialogProvider.</summary>
+        protected WinformsMVP.Services.IDialogProvider Dialogs =>
+            Services.ResolveRequired<WinformsMVP.Services.IDialogProvider>();
 
-        /// <summary>
-        /// Convenience property for accessing IFileService.
-        /// Use this instead of Platform.FileService for cleaner code.
-        /// </summary>
-        protected WinformsMVP.Services.IFileService Files => Platform.FileService;
+        /// <summary>Convenience property for accessing IFileService.</summary>
+        protected WinformsMVP.Services.IFileService Files =>
+            Services.ResolveRequired<WinformsMVP.Services.IFileService>();
 
-        /// <summary>
-        /// Convenience property for accessing IWindowNavigator.
-        /// Use this instead of Platform.WindowNavigator for cleaner code.
-        /// </summary>
-        protected WinformsMVP.Services.IWindowNavigator Navigator => Platform.WindowNavigator;
+        /// <summary>Convenience property for accessing IWindowNavigator.</summary>
+        protected WinformsMVP.Services.IWindowNavigator Navigator =>
+            Services.ResolveRequired<WinformsMVP.Services.IWindowNavigator>();
 
         private ILogger _logger;
 
         /// <summary>
-        /// Logger for this presenter.
-        /// Uses ILogger&lt;PresenterType&gt; pattern for structured logging.
-        /// Default implementation uses Debug provider.
-        /// Configure custom providers via Platform.LoggerFactory.
+        /// Logger for this presenter. Resolved from the service provider's
+        /// <see cref="WinformsMVP.Logging.ILoggerFactory"/>.
         /// </summary>
         /// <example>
         /// <code>
@@ -95,7 +82,7 @@ namespace WinformsMVP.MVP.Presenters
             {
                 if (_logger == null)
                 {
-                    var loggerFactory = Platform.LoggerFactory;
+                    var loggerFactory = Services.ResolveRequired<WinformsMVP.Logging.ILoggerFactory>();
                     _logger = loggerFactory.CreateLogger(this.GetType());
                 }
                 return _logger;
@@ -121,7 +108,7 @@ namespace WinformsMVP.MVP.Presenters
             View = view;
 
             // Configure the dispatcher BEFORE OnViewAttached / RegisterViewActions so that:
-            //  - Global middleware (from Platform.ConfigureDispatcher) is registered first,
+            //  - Global middleware (from IDispatcherConfigurer) is registered first,
             //    ending up outermost in the pipeline.
             //  - Any local middleware that user code adds inside RegisterViewActions appends
             //    to the end of the list, ending up innermost.
@@ -156,7 +143,7 @@ namespace WinformsMVP.MVP.Presenters
 
         /// <summary>
         /// One-shot configuration of the underlying dispatcher: wires the logger and applies
-        /// platform-level <see cref="Services.IPlatformServices.ConfigureDispatcher"/>. Called
+        /// the optional global <see cref="WinformsMVP.Services.IDispatcherConfigurer"/>. Called
         /// from <see cref="SetView"/> so global middleware is in place before user code in
         /// <c>RegisterViewActions</c> registers local middleware or action handlers.
         /// </summary>
@@ -165,7 +152,7 @@ namespace WinformsMVP.MVP.Presenters
         ///  <list type="number">
         ///   <item>Wire the logger first so any global middleware that itself logs during
         ///         configuration sees a non-null logger.</item>
-        ///   <item>Apply global middleware (<c>Platform.ConfigureDispatcher</c>) so it ends
+        ///   <item>Apply global middleware (<c>IDispatcherConfigurer.Configure</c>) so it ends
         ///         up outermost in the pipeline.</item>
         ///   <item>Mark initialized <b>before</b> calling user callbacks, so reentrant
         ///         access from inside a configure callback doesn't loop.</item>
@@ -179,7 +166,7 @@ namespace WinformsMVP.MVP.Presenters
             if (_dispatcherInitialized) return;
             _dispatcherInitialized = true;  // set BEFORE invoking callback (re-entrancy guard)
             _dispatcher.Logger = Logger;
-            Platform.ConfigureDispatcher?.Invoke(_dispatcher);
+            Services.Resolve<WinformsMVP.Services.IDispatcherConfigurer>()?.Configure(_dispatcher);
         }
 
         /// <summary>
