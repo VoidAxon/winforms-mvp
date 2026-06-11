@@ -37,6 +37,7 @@
 - [マスター/詳細パターン](HowTo-Implement-Master-Detail)
 - [連鎖選択 (カスケード) を扱う](HowTo-Handle-Cascading-Selection)
 - [Presenter をテストする](HowTo-Test-A-Presenter)
+- [Presenter の購読ライフサイクルを管理する](HowTo-Manage-Presenter-Subscriptions)
 - [従来の WinForms から移行](HowTo-Migrate-From-Legacy-WinForms)
 - [エラー処理戦略](HowTo-Handle-Errors)
 - [リリースする](HowTo-Release)
