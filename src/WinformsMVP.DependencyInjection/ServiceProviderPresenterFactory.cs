@@ -26,6 +26,6 @@ namespace WinformsMVP.DependencyInjection
         /// <see cref="ServiceProviderServiceExtensions.GetRequiredService{T}"/> contract.
         /// </summary>
         public TPresenter Create<TPresenter>() where TPresenter : IPresenter
-            => _serviceProvider.GetRequiredService<TPresenter>();
+            => ServiceProviderServiceExtensions.GetRequiredService<TPresenter>(_serviceProvider);
     }
 }

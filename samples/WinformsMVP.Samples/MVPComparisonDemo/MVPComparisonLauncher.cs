@@ -198,7 +198,7 @@ namespace WinformsMVP.Samples.MVPComparisonDemo
         {
             try
             {
-                var messageService = _serviceProvider.GetRequiredService<IMessageService>();
+                var messageService = ServiceProviderServiceExtensions.GetRequiredService<IMessageService>(_serviceProvider);
                 var presenter = new SupervisingController.UserEditorPresenter(messageService);
                 var view = new SupervisingController.UserEditorForm();
 

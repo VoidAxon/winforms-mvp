@@ -61,7 +61,7 @@ namespace WinformsMVP.Samples.Tests.DependencyInjection
             services.AddWinformsMVP(registry);
 
             var provider = services.BuildServiceProvider();
-            var factory = provider.GetService<IPresenterFactory>();
+            var factory = ServiceProviderServiceExtensions.GetService<IPresenterFactory>(provider);
 
             Assert.NotNull(factory);
             Assert.IsType<ServiceProviderPresenterFactory>(factory);
@@ -78,7 +78,7 @@ namespace WinformsMVP.Samples.Tests.DependencyInjection
             services.AddWinformsMVP(registry);
 
             var provider = services.BuildServiceProvider();
-            var resolved = provider.GetService<IViewMappingRegister>();
+            var resolved = ServiceProviderServiceExtensions.GetService<IViewMappingRegister>(provider);
 
             Assert.Same(registry, resolved);
         }
@@ -95,7 +95,7 @@ namespace WinformsMVP.Samples.Tests.DependencyInjection
             services.AddWinformsMVP(registry);
 
             var provider = services.BuildServiceProvider();
-            var factory = provider.GetService<IPresenterFactory>();
+            var factory = ServiceProviderServiceExtensions.GetService<IPresenterFactory>(provider);
 
             Assert.IsType<CustomPresenterFactory>(factory);
         }
@@ -180,8 +180,8 @@ namespace WinformsMVP.Samples.Tests.DependencyInjection
             services.RegisterModules(registry, first, second);
             var provider = services.BuildServiceProvider();
 
-            Assert.NotNull(provider.GetService<IFakeService>());
-            Assert.NotNull(provider.GetService<IAnotherFakeService>());
+            Assert.NotNull(ServiceProviderServiceExtensions.GetService<IFakeService>(provider));
+            Assert.NotNull(ServiceProviderServiceExtensions.GetService<IAnotherFakeService>(provider));
         }
 
         [Fact]
