@@ -13,7 +13,7 @@ namespace WinformsMVP.Samples.Tests.Mocks
         public MockDialogProvider DialogProvider { get; } = new MockDialogProvider();
         public MockFileService FileService { get; } = new MockFileService();
         public MockWindowNavigator WindowNavigator { get; } = new MockWindowNavigator();
-        public ILoggerFactory LoggerFactory { get; set; } = NullLoggerFactory.Instance;
+        public ILoggerFactory LoggerFactory { get; } = NullLoggerFactory.Instance;
 
         /// <summary>The provider to inject via <c>presenter.WithServiceProvider(mock.Provider)</c>.</summary>
         public DefaultServiceProvider Provider { get; }

@@ -173,7 +173,7 @@ namespace WinformsMVP.Samples
     //      ServiceLocator.Configure(reg =>
     //      {
     //          reg.RegisterInstance<ILoggerFactory>(loggerFactory);
-    //          reg.RegisterInstance<IDispatcherConfigurer>(new DelegateDispatcherConfigurer(d => d
+    //          reg.RegisterInstance<IDispatcherConfigurer>(new ActionDispatcherConfigurer(d => d
     //              .Use(new AuditMiddleware(auditSink, () => CurrentUser.Name))
     //              .Use(new ErrorDialogMiddleware(
     //                       ServiceLocator.Current.Resolve<IMessageService>(),

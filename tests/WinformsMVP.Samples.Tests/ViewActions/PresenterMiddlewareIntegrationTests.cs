@@ -27,7 +27,7 @@ namespace WinformsMVP.Samples.Tests.ViewActions
             var trace = new List<string>();
             var platform = new MockServices();
             platform.Provider.RegisterInstance<IDispatcherConfigurer>(
-                new DelegateDispatcherConfigurer(d => d.Use(new TraceMW("global", trace))));
+                new ActionDispatcherConfigurer(d => d.Use(new TraceMW("global", trace))));
 
             var presenter = new TestPresenter(trace)
                 .WithServiceProvider(platform.Provider);
@@ -86,7 +86,7 @@ namespace WinformsMVP.Samples.Tests.ViewActions
             int globalConfigInvocations = 0;
             var platform = new MockServices();
             platform.Provider.RegisterInstance<IDispatcherConfigurer>(
-                new DelegateDispatcherConfigurer(d => { globalConfigInvocations++; d.Use((ctx, next) => next(ctx)); }));
+                new ActionDispatcherConfigurer(d => { globalConfigInvocations++; d.Use((ctx, next) => next(ctx)); }));
 
             var trace = new List<string>();
             var presenter = new TestPresenter(trace)
