@@ -14,6 +14,7 @@ using WinformsMVP.Samples.ComplexInteractionDemo_ServiceBased;
 using WinformsMVP.Samples.ComplexInteractionDemo_EventBased;
 using WinformsMVP.Samples.CascadeDemo;
 using WinformsMVP.Samples.ToastDemo;
+using WinformsMVP.Samples.AnchoredMessageDemo;
 using WinformsMVP.Services;
 using WinformsMVP.Services.Implementations;
 
@@ -123,7 +124,10 @@ namespace WinformsMVP.Samples
                     Color.FromArgb(255, 140, 0), LaunchMessageBoxDemo),
                 new DemoItem("Toast Notification Demo",
                     "Layered popup • Invisible to OpenForms (like MessageBox)",
-                    Color.FromArgb(0, 150, 199), LaunchToastDemo));
+                    Color.FromArgb(0, 150, 199), LaunchToastDemo),
+                new DemoItem("Anchored Message Demo",
+                    "Cursor-anchored toast & MessageBox • View.ShowToast extension • IAnchoredMessageService",
+                    Color.FromArgb(0, 128, 128), LaunchAnchoredMessageDemo));
 
             AddSection(content, "Architecture",
                 new DemoItem("MVP Pattern Comparison",
@@ -373,6 +377,19 @@ namespace WinformsMVP.Samples
             this.Hide();
             CascadeDemoProgram.Run();
             this.Show();
+        }
+
+        private void LaunchAnchoredMessageDemo()
+        {
+            var view = new AnchoredMessageDemoForm();
+            var presenter = new AnchoredMessageDemoPresenter();
+
+            presenter.AttachView(view);
+            presenter.Initialize();
+            view.Show();
+
+            this.Hide();
+            view.FormClosed += (s, e) => this.Show();
         }
     }
 }
