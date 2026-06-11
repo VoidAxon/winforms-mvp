@@ -21,19 +21,24 @@
 
 ## 起動 / 構成
 
-### NullReferenceException: `PlatformServices.Default` が `null`
+### NullReferenceException: サービスが解決できない
 
-**原因**: `Program.Main` で `PlatformServices.Default` を設定していない。
+**原因**: `ServiceLocator.Current` にサービスが登録されていない (View レジストリが空など)。
 
-**対処**:
+**対処**: `Program.Main` で `ServiceLocator.Configure(...)` を呼んで View レジストリ等を登録する。
 
 ```csharp
-PlatformServices.Default = new DefaultPlatformServices(
-    viewMappingRegister: register,
-    loggerFactory: new DebugLoggerFactory());
+var register = new ViewMappingRegister();
+register.RegisterFromAssembly(Assembly.GetExecutingAssembly());
+
+ServiceLocator.Configure(reg =>
+{
+    reg.RegisterInstance<IViewMappingRegister>(register);
+    reg.RegisterInstance<WinformsMVP.Logging.ILoggerFactory>(new DebugLoggerFactory());
+});
 ```
 
-最低限の構成でも `new DefaultPlatformServices()` を呼んでください。詳しくは [Getting Started](Getting-Started) を参照。
+詳しくは [Getting Started](Getting-Started) を参照。
 
 ### `Application.Run()` が予期しないフォームで起動する
 
@@ -42,7 +47,7 @@ PlatformServices.Default = new DefaultPlatformServices(
 **対処**: ルートの Presenter を Navigator で起動し、`Application.Run()` は引数なしで呼ぶ。
 
 ```csharp
-PlatformServices.Default.WindowNavigator.ShowWindow(new MainPresenter());
+ServiceLocator.Current.Resolve<IWindowNavigator>().ShowWindow(new MainPresenter());
 Application.Run();
 ```
 
@@ -366,9 +371,11 @@ public class EditUserParameters
 **対処**: `Program.Main` で `DebugLoggerFactory` か M.E.L. アダプタを設定する。
 
 ```csharp
-PlatformServices.Default = new DefaultPlatformServices(
-    viewMappingRegister: register,
-    loggerFactory: new DebugLoggerFactory());   // VS Debug ウィンドウに出力
+ServiceLocator.Configure(reg =>
+{
+    reg.RegisterInstance<IViewMappingRegister>(register);
+    reg.RegisterInstance<WinformsMVP.Logging.ILoggerFactory>(new DebugLoggerFactory());   // VS Debug ウィンドウに出力
+});
 ```
 
 詳しくは [Logging § 3 つの構成パス](Reference-Logging#3-つの構成パス) 参照。
@@ -381,15 +388,18 @@ PlatformServices.Default = new DefaultPlatformServices(
 
 ## テスト
 
-### `WithPlatformServices(...)` 後も `Messages` プロパティがデフォルトを返す
+### `SetServiceProvider(...)` 後も `Messages` プロパティがデフォルトを返す
 
-**原因**: `WithPlatformServices` を `Initialize()` の **後** に呼んでいる。
+**原因**: `SetServiceProvider` を `Initialize()` の **後** に呼んでいる。
 
-**対処**: `WithPlatformServices` は **`Initialize()` より前**に呼ぶ。制約はそれだけで、`AttachView` との前後は問わない (下の例では `AttachView` より前に呼んでいる)。
+**対処**: `SetServiceProvider` は **`Initialize()` より前**に呼ぶ。制約はそれだけで、`AttachView` との前後は問わない (下の例では `AttachView` より前に呼んでいる)。
 
 ```csharp
-var presenter = new MyPresenter()
-    .WithPlatformServices(mockPlatform);   // 先
+var sp = new DefaultServiceProvider();
+sp.RegisterInstance<IMessageService>(mockMessages);
+// ...
+var presenter = new MyPresenter();
+((dynamic)presenter).SetServiceProvider(sp);   // 先 (InternalsVisibleTo または dynamic 経由)
 
 presenter.AttachView(mockView);
 presenter.Initialize();   // 後

@@ -22,7 +22,7 @@
 
 ## 基本パターン
 
-ViewAction ハンドラは `private async void` で OK (詳細は [後述](#async-void-の取り扱い))。Presenter は WinForms に依存しないので、`SynchronizationContext` を使った `Invoke` 等は不要です。`await` の後の継続は自動で UI スレッドに戻ります (`PlatformServices` が UI スレッドで構築されている限り)。
+ViewAction ハンドラは `private async void` で OK (詳細は [後述](#async-void-の取り扱い))。Presenter は WinForms に依存しないので、`SynchronizationContext` を使った `Invoke` 等は不要です。`await` の後の継続は自動で UI スレッドに戻ります (`ServiceLocator` が UI スレッドで構築されている限り)。
 
 ```csharp
 private async void OnRefresh()

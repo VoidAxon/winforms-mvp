@@ -112,7 +112,7 @@ Dispatcher.Dispatch(MyActions.Open, "/path/to/file");
 
 ### Q. `IMessageService` を使うのに DI コンテナは必要ですか?
 
-A. 不要です。Presenter からは `Messages` プロパティで直接アクセスできます (`PlatformServices.Default` 経由)。
+A. 不要です。Presenter からは `Messages` プロパティで直接アクセスできます (`ServiceLocator.Current` 経由で解決されます)。
 
 業務サービス (`IUserRepository` 等) を Presenter に注入したい場合だけ、コンストラクタ注入 (+ 任意で DI コンテナ) を使います。詳しくは [Dependency Injection](Reference-DependencyInjection) を参照。
 

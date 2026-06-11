@@ -220,12 +220,12 @@ internal static class Program
     private static void HandleUnhandledException(Exception ex)
     {
         // 例外をログに記録
-        PlatformServices.Default.LoggerFactory
+        ServiceLocator.Current.Resolve<WinformsMVP.Logging.ILoggerFactory>()
             .CreateLogger("UnhandledException")
             .LogCritical(ex, "Unhandled exception");
 
         // ユーザー向けメッセージ
-        PlatformServices.Default.MessageService.ShowError(
+        ServiceLocator.Current.Resolve<IMessageService>().ShowError(
             $"An unexpected error occurred:\n\n{ex.Message}\n\nThe application may be in an unstable state.",
             "Unhandled Error");
 

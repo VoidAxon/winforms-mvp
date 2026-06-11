@@ -57,9 +57,11 @@ internal static class Program
         var register = new ViewMappingRegister();
         register.RegisterFromAssembly(Assembly.GetExecutingAssembly());
 
-        PlatformServices.Default = new DefaultPlatformServices(
-            viewMappingRegister: register,
-            loggerFactory: new DebugLoggerFactory());
+        ServiceLocator.Configure(reg =>
+        {
+            reg.RegisterInstance<IViewMappingRegister>(register);
+            reg.RegisterInstance<WinformsMVP.Logging.ILoggerFactory>(new DebugLoggerFactory());
+        });
         // ← ここまで追加
 
         Application.Run(new MainForm());      // ← 既存のメインフォームをそのまま実行
@@ -141,7 +143,7 @@ public partial class AboutForm : Form, IAboutView
 }
 
 // 呼び出し
-PlatformServices.Default.WindowNavigator
+ServiceLocator.Current.Resolve<IWindowNavigator>()
     .ShowWindowAsModal(new AboutPresenter());
 ```
 

@@ -165,10 +165,8 @@ Logger.LogInformation($"User {userName} opened document {docId}");
 ### パス 1: 未構成 (デフォルト、サイレント)
 
 ```csharp
-// PlatformServices.Default は NullLoggerFactory を自動使用
-PlatformServices.Default = new DefaultPlatformServices();
-
-// Logger.LogInformation(...) はコンパイル・実行されるが、出力なし
+// ServiceLocator.Current はデフォルトで NullLoggerFactory を使用
+// — 設定不要。Logger.LogInformation(...) はコンパイル・実行されるが、出力なし
 ```
 
 ### パス 2: `DebugLoggerFactory` (`net40` 対応)
@@ -186,9 +184,8 @@ internal static class Program
         Application.SetCompatibleTextRenderingDefault(false);
 
         // 外部依存ゼロ、出力は VS Debug ウィンドウ
-        PlatformServices.Default = new DefaultPlatformServices(
-            viewMappingRegister: null,
-            loggerFactory: new DebugLoggerFactory());
+        ServiceLocator.Configure(reg =>
+            reg.RegisterInstance<WinformsMVP.Logging.ILoggerFactory>(new DebugLoggerFactory()));
 
         Application.Run(new MainForm());
     }
@@ -225,9 +222,8 @@ internal static class Program
         });
 
         // 自分のアダプタの拡張メソッドでフレームワーク契約に変換
-        PlatformServices.Default = new DefaultPlatformServices(
-            viewMappingRegister: null,
-            loggerFactory: msFactory.AsFrameworkLoggerFactory());
+        ServiceLocator.Configure(reg =>
+            reg.RegisterInstance<WinformsMVP.Logging.ILoggerFactory>(msFactory.AsFrameworkLoggerFactory()));
 
         Application.Run(new MainForm());
     }
@@ -256,8 +252,11 @@ var msFactory = LoggerFactory.Create(builder =>
         configureApplicationInsightsLoggerOptions: options => { });
 });
 
-PlatformServices.Default = new DefaultPlatformServices(
-    register, msFactory.AsFrameworkLoggerFactory());
+ServiceLocator.Configure(reg =>
+{
+    reg.RegisterInstance<IViewMappingRegister>(register);
+    reg.RegisterInstance<WinformsMVP.Logging.ILoggerFactory>(msFactory.AsFrameworkLoggerFactory());
+});
 
 // Presenter
 Logger.LogInformation("Submitting order {OrderId} with correlation {CorrelationId}",
@@ -271,7 +270,11 @@ Logger.LogInformation("Submitting order {OrderId} with correlation {CorrelationI
 // NuGet: Seq.Extensions.Logging
 // Docker: docker run -d -p 5341:80 datalust/seq
 var msFactory = LoggerFactory.Create(builder => builder.AddSeq("http://localhost:5341"));
-PlatformServices.Default = new DefaultPlatformServices(register, msFactory.AsFrameworkLoggerFactory());
+ServiceLocator.Configure(reg =>
+{
+    reg.RegisterInstance<IViewMappingRegister>(register);
+    reg.RegisterInstance<WinformsMVP.Logging.ILoggerFactory>(msFactory.AsFrameworkLoggerFactory());
+});
 // ブラウザで http://localhost:5341 を開いて確認
 ```
 
@@ -281,7 +284,11 @@ PlatformServices.Default = new DefaultPlatformServices(register, msFactory.AsFra
 // NuGet: Serilog.Extensions.Logging.File
 var msFactory = LoggerFactory.Create(builder =>
     builder.AddFile("logs/app-{Date}.log", minimumLevel: LogLevel.Information));
-PlatformServices.Default = new DefaultPlatformServices(register, msFactory.AsFrameworkLoggerFactory());
+ServiceLocator.Configure(reg =>
+{
+    reg.RegisterInstance<IViewMappingRegister>(register);
+    reg.RegisterInstance<WinformsMVP.Logging.ILoggerFactory>(msFactory.AsFrameworkLoggerFactory());
+});
 ```
 
 ---
@@ -294,9 +301,9 @@ PlatformServices.Default = new DefaultPlatformServices(register, msFactory.AsFra
 [Fact]
 public void Test_MyPresenter()
 {
-    // MockPlatformServices は LoggerFactory を NullLoggerFactory.Instance に初期化
-    var mockPlatform = new MockPlatformServices();
-    var presenter = new MyPresenter().WithPlatformServices(mockPlatform);
+    // テスト用プロバイダ — デフォルトの ServiceLocator は NullLoggerFactory を使用
+    // SetServiceProvider で差し替える (InternalsVisibleTo が必要)
+    var presenter = new MyPresenter();   // ServiceLocator.Current (NullLoggerFactory) を使用
 
     presenter.AttachView(mockView);
     presenter.Initialize();
@@ -329,12 +336,13 @@ private class MockLoggerFactory : ILoggerFactory
 public void OnSave_ShouldLogSuccess()
 {
     var loggerFactory = new MockLoggerFactory();
-    var platform = new DefaultPlatformServices(null, loggerFactory);
+    var sp = new DefaultServiceProvider();
+    sp.RegisterInstance<WinformsMVP.Logging.ILoggerFactory>(loggerFactory);
 
-    // WithPlatformServices はテストプロジェクト用ヘルパー (パッケージ非同梱)。
-    // internal な SetPlatformServices を dynamic 経由で呼ぶ。詳細は Platform Services の
-    // 「モックでのテスト」を参照。
-    var presenter = new MyPresenter().WithPlatformServices(platform);
+    var presenter = new MyPresenter();
+    // SetServiceProvider は internal — InternalsVisibleTo か dynamic 経由で呼ぶ。
+    // 詳細は Platform Services の「モックでのテスト」を参照。
+    ((dynamic)presenter).SetServiceProvider(sp);
     presenter.AttachView(mockView);
     presenter.Initialize();
 

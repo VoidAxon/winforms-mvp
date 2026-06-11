@@ -255,7 +255,7 @@ public static class Program
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
 
-        PlatformServices.Default = new DefaultPlatformServices(/* ... */);
+        ServiceLocator.Configure(reg => { /* register view registry and other overrides here */ });
 
         var form      = new MainShellForm();
         var presenter = new MainShellPresenter();

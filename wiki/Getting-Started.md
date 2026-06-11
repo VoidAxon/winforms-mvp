@@ -412,7 +412,7 @@ private void OnGreetRequested(object sender, EventArgs e)
 | `Files` | `IFileService` | ファイル I/O |
 | `Logger` | `ILogger` | 構造化ロギング |
 
-これらは `PlatformServices.Default` から自動的に注入されます。コンストラクタ引数は不要です。
+これらは `ServiceLocator.Current` から遅延解決されます。コンストラクタ引数は不要です。
 
 詳しくは [Platform Services](Reference-Platform-Services) を参照してください。
 
@@ -453,4 +453,4 @@ register.RegisterFromAssembly(Assembly.GetExecutingAssembly());
 
 **`MessageBox.Show()` を Presenter から呼んでテストできない**
 
-Presenter は WinForms 型に直接依存してはいけません。`Messages.ShowInfo()` 等のサービス経由に書き換えてください。テスト時は `MockPlatformServices` を注入することでダイアログの呼び出しを検証できます。
+Presenter は WinForms 型に直接依存してはいけません。`Messages.ShowInfo()` 等のサービス経由に書き換えてください。テスト時は `MockMessageService` 等をサービスプロバイダに登録して差し替えることでダイアログの呼び出しを検証できます。
