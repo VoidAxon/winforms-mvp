@@ -5,9 +5,9 @@ using Fx = WinformsMVP.Logging;
 namespace MultiProjectDemo.Shell.Logging
 {
     /// <summary>
-    /// Adapts an <see cref="Ms.ILoggerFactory"/> so it can be passed to
-    /// <c>DefaultPlatformServices</c> wherever a <see cref="Fx.ILoggerFactory"/>
-    /// is expected. Companion to <see cref="MicrosoftLoggerAdapter"/>.
+    /// Adapts an <see cref="Ms.ILoggerFactory"/> so it can be registered in the
+    /// <c>ServiceLocator</c> wherever a <see cref="Fx.ILoggerFactory"/> is expected.
+    /// Companion to <see cref="MicrosoftLoggerAdapter"/>.
     /// </summary>
     public sealed class MicrosoftLoggerFactoryAdapter : Fx.ILoggerFactory
     {

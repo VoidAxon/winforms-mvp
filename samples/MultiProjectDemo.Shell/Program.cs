@@ -41,18 +41,20 @@ namespace MultiProjectDemo.Shell
             // 4. Shell-owned Presenters.
             services.AddTransient<MainPresenter>();
 
-            // 5. Build the provider and wire PlatformServices.
+            // 5. Build the provider and wire ServiceLocator so presenters resolve through M.E.DI.
             var provider = services.BuildServiceProvider();
             var loggerFactory = LoggerFactory.Create(b => b.AddDebug());
+            WinformsMVP.Logging.ILoggerFactory frameworkLoggerFactory = loggerFactory.AsFrameworkLoggerFactory();
 
-            PlatformServices.Default = new DefaultPlatformServices(
-                viewMappingRegister: viewRegistry,
-                loggerFactory: loggerFactory.AsFrameworkLoggerFactory(),
-                serviceProvider: provider);
+            ServiceLocator.Configure(reg =>
+            {
+                reg.RegisterInstance<IViewMappingRegister>(viewRegistry);
+                reg.RegisterInstance<WinformsMVP.Logging.ILoggerFactory>(frameworkLoggerFactory);
+            });
 
             // 6. Resolve the root Presenter from DI, show it, and pump messages.
             var mainPresenter = provider.GetRequiredService<MainPresenter>();
-            PlatformServices.Default.WindowNavigator.ShowWindow(mainPresenter);
+            ServiceLocator.Current.ResolveRequired<IWindowNavigator>().ShowWindow(mainPresenter);
 
             Application.Run();
         }

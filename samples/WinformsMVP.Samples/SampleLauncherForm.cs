@@ -265,16 +265,16 @@ namespace WinformsMVP.Samples
 
         private void LaunchNavigatorDemo()
         {
-            // Create and configure ViewMappingRegister
-            var viewMappingRegister = new ViewMappingRegister();
-
             // Automatic assembly scanning - registers all Views in the assembly
+            var viewMappingRegister = new ViewMappingRegister();
             int registered = viewMappingRegister.RegisterFromAssembly(System.Reflection.Assembly.GetExecutingAssembly());
             System.Diagnostics.Debug.WriteLine($"ViewMappingRegister: Auto-registered {registered} Views from assembly");
 
-            // Configure PlatformServices with ViewMappingRegister
-            // This makes Navigator available via the convenience property in presenters
-            PlatformServices.Default = new DefaultPlatformServices(viewMappingRegister);
+            // Configure ServiceLocator with the scanned register so Navigator resolves correctly.
+            ServiceLocator.Configure(reg =>
+            {
+                reg.RegisterInstance<IViewMappingRegister>(viewMappingRegister);
+            });
 
             var view = new NavigatorDemoForm();
             var presenter = new NavigatorDemoPresenter();  // No constructor parameters needed!
@@ -321,15 +321,16 @@ namespace WinformsMVP.Samples
 
         private void LaunchEmailDemo()
         {
-            // Create and configure ViewMappingRegister
-            var viewMappingRegister = new ViewMappingRegister();
-
             // Automatic assembly scanning - registers all Views in the assembly
+            var viewMappingRegister = new ViewMappingRegister();
             int registered = viewMappingRegister.RegisterFromAssembly(System.Reflection.Assembly.GetExecutingAssembly());
             System.Diagnostics.Debug.WriteLine($"ViewMappingRegister: Auto-registered {registered} Views from assembly");
 
-            // Configure PlatformServices with ViewMappingRegister
-            PlatformServices.Default = new DefaultPlatformServices(viewMappingRegister);
+            // Configure ServiceLocator with the scanned register so Navigator resolves correctly.
+            ServiceLocator.Configure(reg =>
+            {
+                reg.RegisterInstance<IViewMappingRegister>(viewMappingRegister);
+            });
 
             // Create repository and main view
             var repository = new InMemoryEmailRepository();

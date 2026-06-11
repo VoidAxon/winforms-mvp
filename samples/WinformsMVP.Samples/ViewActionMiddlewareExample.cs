@@ -169,18 +169,19 @@ namespace WinformsMVP.Samples
     //  In Program.Main or a composition root, wire the middleware globally so it
     //  applies to every presenter:
     //
-    //      PlatformServices.Default = new DefaultPlatformServices(
-    //          viewMappingRegister: register,
-    //          loggerFactory: new DebugLoggerFactory(),
-    //          serviceProvider: null,
-    //          configureDispatcher: d => d
+    //      var loggerFactory = new DebugLoggerFactory();
+    //      ServiceLocator.Configure(reg =>
+    //      {
+    //          reg.RegisterInstance<ILoggerFactory>(loggerFactory);
+    //          reg.RegisterInstance<IDispatcherConfigurer>(new DelegateDispatcherConfigurer(d => d
     //              .Use(new AuditMiddleware(auditSink, () => CurrentUser.Name))
     //              .Use(new ErrorDialogMiddleware(
-    //                       PlatformServices.Default.MessageService,
+    //                       ServiceLocator.Current.Resolve<IMessageService>(),
     //                       loggerFactory.CreateLogger("dispatch")))
     //              .Use(new PerformanceMiddleware(
     //                       loggerFactory.CreateLogger("dispatch"),
-    //                       slowThresholdMs: 200)));
+    //                       slowThresholdMs: 200))));
+    //      });
     //
     //  Or per-presenter inside RegisterViewActions:
     //

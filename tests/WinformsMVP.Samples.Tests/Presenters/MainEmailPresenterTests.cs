@@ -20,7 +20,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
     /// </summary>
     public class MainEmailPresenterTests
     {
-        private MockPlatformServices _mockServices;
+        private MockServices _mockServices;
         private MockMainEmailView _mockView;
         private MockEmailRepository _mockRepository;
         private MainEmailPresenter _presenter;
@@ -34,7 +34,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
         private void SetupTest()
         {
             // 1. Create mock services
-            _mockServices = new MockPlatformServices();
+            _mockServices = new MockServices();
 
             // 2. Create mock repository with test data
             _mockRepository = new MockEmailRepository();
@@ -42,7 +42,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
 
             // 3. Create presenter and inject mock services BEFORE AttachView
             _presenter = new MainEmailPresenter(_mockRepository)
-                .WithPlatformServices(_mockServices);
+                .WithServiceProvider(_mockServices.Provider);
 
             // 4. Create mock view
             _mockView = new MockMainEmailView();

@@ -53,7 +53,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             public void Close(object result, InteractionStatus status) => Closed.Add((result, status));
         }
 
-        private readonly MockPlatformServices _platform = new MockPlatformServices();
+        private readonly MockServices _platform = new MockServices();
         private readonly MockView _view = new MockView();
         private readonly WindowClosingDemoPresenter _presenter;
         private readonly RecordingSink _sink = new RecordingSink();
@@ -61,7 +61,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
         public WindowClosingDemoPresenterTests()
         {
             _presenter = new WindowClosingDemoPresenter()
-                .WithPlatformServices(_platform);
+                .WithServiceProvider(_platform.Provider);
 
             _presenter.AttachView(_view);
             _presenter.Initialize();

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using WinformsMVP.MVP.Views;
 using WinformsMVP.MVP.Presenters;
 using WinformsMVP.MVP.ViewActions;
+using WinformsMVP.Services;
 using WinformsMVP.Samples.Tests.Mocks;
 using WinformsMVP.Samples.Tests.TestHelpers;
 using Xunit;
@@ -12,7 +13,7 @@ namespace WinformsMVP.Samples.Tests.ViewActions
     /// <summary>
     /// Integration tests for <see cref="WinformsMVP.MVP.Presenters.PresenterBase{TView}"/>
     /// + <see cref="ViewActionDispatcher"/> middleware. Specifically verifies the contract
-    /// that global middleware (from <c>IPlatformServices.ConfigureDispatcher</c>) is
+    /// that global middleware (from <c>IDispatcherConfigurer</c>) is
     /// applied <b>before</b> any local middleware registered inside
     /// <c>RegisterViewActions</c>, so global ends up outermost in the onion.
     /// </summary>
@@ -24,13 +25,12 @@ namespace WinformsMVP.Samples.Tests.ViewActions
         public void GlobalMiddleware_AppliedBeforeLocalMiddleware_ExecutionOrderCorrect()
         {
             var trace = new List<string>();
-            var platform = new MockPlatformServices
-            {
-                ConfigureDispatcher = d => d.Use(new TraceMW("global", trace))
-            };
+            var platform = new MockServices();
+            platform.Provider.RegisterInstance<IDispatcherConfigurer>(
+                new DelegateDispatcherConfigurer(d => d.Use(new TraceMW("global", trace))));
 
             var presenter = new TestPresenter(trace)
-                .WithPlatformServices(platform);
+                .WithServiceProvider(platform.Provider);
 
             presenter.AttachView(new TestView());
             presenter.Initialize();
@@ -47,10 +47,10 @@ namespace WinformsMVP.Samples.Tests.ViewActions
         public void NoGlobalMiddleware_OnlyLocalRuns()
         {
             var trace = new List<string>();
-            var platform = new MockPlatformServices();  // ConfigureDispatcher is null
+            var platform = new MockServices();  // no IDispatcherConfigurer registered
 
             var presenter = new TestPresenter(trace)
-                .WithPlatformServices(platform);
+                .WithServiceProvider(platform.Provider);
 
             presenter.AttachView(new TestView());
             presenter.Initialize();
@@ -66,11 +66,11 @@ namespace WinformsMVP.Samples.Tests.ViewActions
         public void NoMiddleware_FastPathStillWorks()
         {
             var trace = new List<string>();
-            var platform = new MockPlatformServices();
+            var platform = new MockServices();
 
             // Presenter with no local middleware (only handler)
             var presenter = new FastPathPresenter(trace)
-                .WithPlatformServices(platform);
+                .WithServiceProvider(platform.Provider);
 
             presenter.AttachView(new TestView());
             presenter.Initialize();
@@ -84,14 +84,13 @@ namespace WinformsMVP.Samples.Tests.ViewActions
         public void GlobalConfig_IsAppliedExactlyOnce_EvenIfDispatchAccessedMultipleTimes()
         {
             int globalConfigInvocations = 0;
-            var platform = new MockPlatformServices
-            {
-                ConfigureDispatcher = d => { globalConfigInvocations++; d.Use((ctx, next) => next(ctx)); }
-            };
+            var platform = new MockServices();
+            platform.Provider.RegisterInstance<IDispatcherConfigurer>(
+                new DelegateDispatcherConfigurer(d => { globalConfigInvocations++; d.Use((ctx, next) => next(ctx)); }));
 
             var trace = new List<string>();
             var presenter = new TestPresenter(trace)
-                .WithPlatformServices(platform);
+                .WithServiceProvider(platform.Provider);
 
             presenter.AttachView(new TestView());
             presenter.Initialize();
