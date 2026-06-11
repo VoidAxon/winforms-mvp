@@ -1,4 +1,5 @@
 using System;
+using WinformsMVP.Common;
 using WinformsMVP.Logging;
 using WinformsMVP.Common.Events;
 using WinformsMVP.MVP.Views;
@@ -197,12 +198,30 @@ namespace WinformsMVP.MVP.Presenters
 
         // IDisposable implementation
         private bool _isDisposed = false;
+        private CompositeDisposable _disposables;
+
+        /// <summary>
+        /// Subscriptions tied to this presenter's lifetime. Register anything that must be released
+        /// when the presenter is disposed — an <c>IEventAggregator.Subscribe</c> token, a
+        /// <c>Cascade.Bind</c> unsubscriber, a <c>Disposable.Create(() =&gt; view.Event -= handler)</c>
+        /// wrapper — via <c>.DisposeWith(Disposables)</c> at the creation line. The framework disposes
+        /// the bag automatically right after <see cref="Cleanup"/>, so no Cleanup override is needed
+        /// for these. Created lazily: presenters with no subscriptions allocate nothing.
+        /// </summary>
+        protected CompositeDisposable Disposables
+        {
+            get { return _disposables ?? (_disposables = new CompositeDisposable()); }
+        }
 
         public void Dispose()
         {
             if (!_isDisposed)
             {
+                // User teardown first (presenter state still intact), then the framework sweeps the
+                // subscription bag. The sweep lives here — not in Cleanup — so an override that
+                // forgets to call base cannot leak the bag.
                 Cleanup();
+                if (_disposables != null) _disposables.Dispose();
                 _isDisposed = true;
             }
             GC.SuppressFinalize(this);
@@ -210,6 +229,8 @@ namespace WinformsMVP.MVP.Presenters
 
         /// <summary>
         /// Override to clean up resources when the presenter is disposed.
+        /// Subscriptions registered via <c>.DisposeWith(Disposables)</c> are released automatically
+        /// after this method returns; no override is needed for those.
         /// </summary>
         protected virtual void Cleanup() { }
     }
