@@ -35,26 +35,27 @@ namespace MultiProjectDemo.Shell
                 new UserModuleRegistrar(),
                 new OrderModuleRegistrar());
 
-            // 3. Framework's own services (IPresenterFactory, IViewMappingRegister, ...).
+            // 3. Framework's own services (IPresenterFactory, IViewMappingRegister,
+            //    IMessageService, IWindowNavigator, ...).
             services.AddWinformsMVP(viewRegistry);
 
-            // 4. Shell-owned Presenters.
+            // 4. Override the framework logger with a real M.E.Logging-backed factory.
+            var loggerFactory = LoggerFactory.Create(b => b.AddDebug());
+            services.AddSingleton<WinformsMVP.Logging.ILoggerFactory>(
+                loggerFactory.AsFrameworkLoggerFactory());
+
+            // 5. Shell-owned Presenters.
             services.AddTransient<MainPresenter>();
 
-            // 5. Build the provider and wire ServiceLocator so presenters resolve through M.E.DI.
+            // 6. Build the provider and hand it to ServiceLocator so presenter
+            //    convenience accessors (Messages, Dialogs, Navigator, ...) resolve
+            //    through M.E.DI.
             var provider = services.BuildServiceProvider();
-            var loggerFactory = LoggerFactory.Create(b => b.AddDebug());
-            WinformsMVP.Logging.ILoggerFactory frameworkLoggerFactory = loggerFactory.AsFrameworkLoggerFactory();
+            provider.UseWinformsMVP();
 
-            ServiceLocator.Configure(reg =>
-            {
-                reg.RegisterInstance<IViewMappingRegister>(viewRegistry);
-                reg.RegisterInstance<WinformsMVP.Logging.ILoggerFactory>(frameworkLoggerFactory);
-            });
-
-            // 6. Resolve the root Presenter from DI, show it, and pump messages.
+            // 7. Resolve the root Presenter from DI, show it, and pump messages.
             var mainPresenter = provider.GetRequiredService<MainPresenter>();
-            ServiceLocator.Current.ResolveRequired<IWindowNavigator>().ShowWindow(mainPresenter);
+            provider.GetRequiredService<IWindowNavigator>().ShowWindow(mainPresenter);
 
             Application.Run();
         }

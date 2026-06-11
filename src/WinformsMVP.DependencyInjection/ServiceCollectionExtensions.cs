@@ -1,7 +1,9 @@
 using System;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using WinformsMVP.Logging;
 using WinformsMVP.Services;
+using WinformsMVP.Services.Implementations;
 
 namespace WinformsMVP.DependencyInjection
 {
@@ -13,8 +15,11 @@ namespace WinformsMVP.DependencyInjection
     {
         /// <summary>
         /// Registers the framework's own services so that Presenters can ask for
-        /// <see cref="IPresenterFactory"/> and <see cref="IViewMappingRegister"/> via
-        /// constructor injection.
+        /// <see cref="IPresenterFactory"/>, <see cref="IViewMappingRegister"/>, and
+        /// the built-in platform services (<see cref="IMessageService"/>,
+        /// <see cref="IDialogProvider"/>, <see cref="IFileService"/>,
+        /// <see cref="ILoggerFactory"/>, <see cref="IWindowNavigator"/>) via the
+        /// M.E.DI container.
         /// </summary>
         /// <param name="services">The container under construction.</param>
         /// <param name="viewMappingRegister">
@@ -24,8 +29,10 @@ namespace WinformsMVP.DependencyInjection
         /// <returns><paramref name="services"/> for fluent chaining.</returns>
         /// <remarks>
         /// Uses <c>TryAdd</c> semantics — host applications that want to swap in a
-        /// custom <see cref="IPresenterFactory"/> can register their own implementation
-        /// before calling this method.
+        /// custom implementation can register their own before calling this method.
+        /// Call <see cref="UseWinformsMVP"/> after <c>BuildServiceProvider()</c> to
+        /// point <see cref="ServiceLocator.Current"/> at the built provider so that
+        /// presenter convenience accessors resolve through M.E.DI.
         /// </remarks>
         public static IServiceCollection AddWinformsMVP(
             this IServiceCollection services,
@@ -37,7 +44,30 @@ namespace WinformsMVP.DependencyInjection
             services.TryAddSingleton(viewMappingRegister);
             services.TryAddSingleton<IPresenterFactory, ServiceProviderPresenterFactory>();
 
+            // Framework built-ins — host may register its own before calling AddWinformsMVP.
+            services.TryAddSingleton<IMessageService, MessageService>();
+            services.TryAddSingleton<IDialogProvider, DialogProvider>();
+            services.TryAddSingleton<IFileService, FileService>();
+            services.TryAddSingleton<ILoggerFactory>(NullLoggerFactory.Instance);
+            services.TryAddSingleton<IWindowNavigator>(sp =>
+                new WindowNavigator(
+                    sp.GetRequiredService<IViewMappingRegister>().WithServiceProvider(sp)));
+
             return services;
+        }
+
+        /// <summary>
+        /// Points the framework's <see cref="ServiceLocator"/> at this provider so that
+        /// presenter convenience accessors (<c>Messages</c>, <c>Dialogs</c>,
+        /// <c>Navigator</c>, ...) resolve through M.E.DI.
+        /// Call once at startup after <c>BuildServiceProvider()</c>.
+        /// </summary>
+        /// <param name="provider">The built M.E.DI service provider.</param>
+        /// <returns><paramref name="provider"/> for fluent chaining.</returns>
+        public static IServiceProvider UseWinformsMVP(this IServiceProvider provider)
+        {
+            ServiceLocator.Current = provider ?? throw new ArgumentNullException(nameof(provider));
+            return provider;
         }
 
         /// <summary>
