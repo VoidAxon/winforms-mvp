@@ -47,7 +47,7 @@ public interface IServiceRegistry
 }
 
 // The built-in implementation is both: register into it, resolve from it.
-public sealed class ServiceRegistry : IServiceRegistry, IServiceProvider { /* dictionary-backed */ }
+public sealed class DefaultServiceProvider : IServiceRegistry, IServiceProvider { /* dictionary-backed */ }
 ```
 
 A small generic convenience over the BCL non-generic resolve:
@@ -79,7 +79,7 @@ public static class ServiceLocator
     /// <summary>Configure the default built-in registry (no external DI).</summary>
     public static void Configure(Action<IServiceRegistry> register)
     {
-        var reg = new ServiceRegistry();
+        var reg = new DefaultServiceProvider();
         RegisterBuiltIns(reg);
         register?.Invoke(reg);
         _current = reg;
@@ -87,7 +87,7 @@ public static class ServiceLocator
 
     private static IServiceProvider BuildDefault()
     {
-        var reg = new ServiceRegistry();
+        var reg = new DefaultServiceProvider();
         RegisterBuiltIns(reg);
         return reg;
     }
@@ -99,7 +99,7 @@ public static class ServiceLocator
         reg.RegisterInstance<IFileService>(new FileService());
         reg.RegisterInstance<ILoggerFactory>(NullLoggerFactory.Instance);
         // new framework services register here — no interface to touch
-        reg.RegisterInstance<IAnchoredFeedback>(new AnchoredFeedback());
+        reg.RegisterInstance<IAnchoredMessages>(new AnchoredMessages());
     }
 }
 ```
@@ -174,7 +174,7 @@ framework's services into the M.E.DI `IServiceCollection`) and `IPresenterFactor
 
 - `IPlatformServices` (interface)
 - `PlatformServices` (static) / `DefaultPlatformServices` (concrete)
-- `MockPlatformServices` (tests) — replaced by `new ServiceRegistry()` + `RegisterInstance` of mocks
+- `MockPlatformServices` (tests) — replaced by `new DefaultServiceProvider()` + `RegisterInstance` of mocks
 - `PresenterBase.Platform` property, `SetPlatformServices(IPlatformServices)`
 
 ## Open items to settle during implementation
@@ -186,16 +186,16 @@ framework's services into the M.E.DI `IServiceCollection`) and `IPresenterFactor
 2. **`LoggerFactory`** — a service; resolve `ILoggerFactory` via the provider (no special case).
 3. **Lifetimes** — the built-in registry supports instance + factory only (no scopes). Scopes /
    per-resolve graphs are the real DI container's job (M.E.DI), not the net40 fallback's.
-4. **Thread-safety** — `ServiceLocator.Current` and `ServiceRegistry` reads happen on the UI
+4. **Thread-safety** — `ServiceLocator.Current` and `DefaultServiceProvider` reads happen on the UI
    thread in practice; registration happens at startup. Guard registration-after-resolve.
 
 ## Impact / migration
 
-- **Core**: new `ServiceRegistry`, `IServiceRegistry`, `IServiceModule`, `ServiceLocator`,
+- **Core**: new `DefaultServiceProvider`, `IServiceRegistry`, `IServiceModule`, `ServiceLocator`,
   `ServiceProviderExtensions`; `PresenterBase` reworked to `IServiceProvider`.
 - **Samples**: any `PlatformServices` / `SetPlatformServices` usage migrates to `ServiceLocator`
   / `SetServiceProvider`.
-- **Tests**: `MockPlatformServices` removed; tests build a `ServiceRegistry` with mocks and call
+- **Tests**: `MockPlatformServices` removed; tests build a `DefaultServiceProvider` with mocks and call
   `SetServiceProvider`. `MockMessageService` etc. stay (they implement the service interfaces).
 - **`WinformsMVP.DependencyInjection`**: `AddWinformsMVP` registers into M.E.DI as before;
   `ServiceLocator.Current` set to the M.E.DI provider; `IModuleRegistrar` reconciled with the
@@ -207,7 +207,7 @@ framework's services into the M.E.DI `IServiceCollection`) and `IPresenterFactor
 
 After the foundation, the anchored-feedback feature is simply:
 
-- `IAnchoredFeedback` (toast + later anchored message box), registered as a built-in.
+- `IAnchoredMessages` (toast + later anchored message box), registered as a built-in.
 - Cursor-anchored (`Cursor.Position` read in the real impl at call time); decoupled from
   ViewAction/ActionBinder.
 - The `ViewActionBinder` trigger-capture, `IActionTriggerSource`, and
