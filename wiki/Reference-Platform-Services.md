@@ -190,10 +190,13 @@ private void OnDelete()
 `ShowToast / ShowInfo / ShowWarning / ShowError / ConfirmYesNo / ConfirmOkCancel / ConfirmYesNoCancel`
 — それぞれサービスと同じ 2 形態(カーソル版 / `Point` 版)があります。
 
-> **使い分けの規約:** Presenter から呼ぶのは**カーソル版だけ**です(Presenter は座標を扱わない)。
-> `Point` 版は、自分でアンカー座標を決めたい **View 層コード**向けです — Form が自分自身に対して
-> `this.ShowToast("Saved", ToastType.Success, _saveButton.PointToScreen(...))` のように呼びます。
-> 型としては合法でも、Presenter から `Point` を渡すのはレイヤ規約違反です。
+> **使い分けの規約:** Presenter は座標を**計算してはいけません**(これがレイヤ規約の本体)。
+> 通常はカーソル版で足ります — 「クリックした場所に出す」に座標の受け渡しは一切不要です。
+> `Point` 版の使い手は 2 種類:
+> 1. **View 層コード** — Form が自分自身に `this.ShowToast("Saved", ToastType.Success,
+>    _saveButton.PointToScreen(...))` のように呼ぶ(座標は View の本分)。
+> 2. **Presenter による透過転送** — View がイベント載荷などで渡してきたアンカーを、
+>    不透明データとして**そのまま**渡し返すのは可。Presenter 内で座標を捏造・導出するのは不可。
 
 ### 登録
 
