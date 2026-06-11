@@ -207,7 +207,7 @@ See [wiki/Reference-Platform-Services.md](wiki/Reference-Platform-Services.md).
 2. **Constructor Injection** — inject business services (`IUserRepository`, ...) explicitly. Best for testable production code. Keep DI-resolved deps and runtime args separate (use `IInitializable<TParam>` for the latter).
 3. **Hybrid** — business services in the ctor, framework services via the convenience properties. Best for most apps.
 
-**DI-free modular registration:** `IServiceModule.RegisterServices(IServiceRegistry)` lets UI modules register into the built-in `DefaultServiceProvider` without a full DI container. `IServiceRegistry` offers `RegisterInstance<T>` and `RegisterFactory<T>`.
+**DI-free modular registration:** no framework interface needed — a module is just a static `Register(IServiceRegistry)` method the app calls inside `ServiceLocator.Configure(reg => { BillingModule.Register(reg); ... })`. `IServiceRegistry` offers `RegisterInstance<T>` and `RegisterFactory<T>`. (A polymorphic module interface exists only on the M.E.DI path: `IModuleRegistrar`, consumed by `RegisterModules`.)
 
 **Global dispatcher middleware:** register an `IDispatcherConfigurer` (e.g. `new ActionDispatcherConfigurer(d => d.Use(...))`) in the service provider; the framework picks it up on each presenter's first dispatch. No extra configure call needed.
 
