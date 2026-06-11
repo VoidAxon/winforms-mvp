@@ -12,7 +12,8 @@ namespace WinformsMVP.Common
     /// </summary>
     public static class Disposable
     {
-        /// <summary>Creates a disposable that invokes <paramref name="onDispose"/> exactly once.</summary>
+        /// <summary>Creates a disposable that invokes <paramref name="onDispose"/> at most once
+        /// (zero times if never disposed).</summary>
         public static IDisposable Create(Action onDispose)
         {
             if (onDispose == null) throw new ArgumentNullException(nameof(onDispose));

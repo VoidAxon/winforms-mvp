@@ -210,7 +210,15 @@ namespace WinformsMVP.MVP.Presenters
         /// </summary>
         protected CompositeDisposable Disposables
         {
-            get { return _disposables ?? (_disposables = new CompositeDisposable()); }
+            get
+            {
+                if (_disposables == null)
+                {
+                    _disposables = new CompositeDisposable();
+                    if (_isDisposed) _disposables.Dispose();   // post-dispose: keep the Add-disposes-immediately contract
+                }
+                return _disposables;
+            }
         }
 
         public void Dispose()
