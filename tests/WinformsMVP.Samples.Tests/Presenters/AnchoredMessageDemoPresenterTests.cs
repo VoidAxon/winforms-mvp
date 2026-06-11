@@ -57,7 +57,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
         {
             _anchored.NextResult = ConfirmResult.Yes;
             _presenter.Dispatch(AnchoredMessageDemoActions.Delete);
-            Assert.Equal(MessageButtons.YesNo, _anchored.Messages[0].Buttons);
+            Assert.Equal("ConfirmYesNo", _anchored.Messages[0].Method);
             Assert.Single(_anchored.Toasts);
             Assert.Equal(ToastType.Warning, _anchored.Toasts[0].Type);
         }

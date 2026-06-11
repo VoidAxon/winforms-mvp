@@ -6,7 +6,10 @@ namespace WinformsMVP.MVP.Views
     /// <summary>
     /// Cursor-anchored feedback as view behavior: <c>View.ShowToast(...)</c>,
     /// <c>View.ConfirmYesNo(...)</c>. From the presenter's point of view this is "tell the view
-    /// to give feedback where the user just clicked" — no coordinates, no controls.
+    /// to give feedback where the user just clicked" — no coordinates, no controls. These
+    /// extensions deliberately expose only the cursor-anchored forms; the
+    /// <see cref="IAnchoredMessageService"/> <c>Point</c> overloads are for View-layer code,
+    /// never for presenters.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -31,17 +34,9 @@ namespace WinformsMVP.MVP.Views
         private static IAnchoredMessageService Service()
             => ServiceLocator.Current.ResolveRequired<IAnchoredMessageService>();
 
-        /// <summary>Shows a toast anchored at the cursor (full-parameter form).</summary>
-        public static void ShowToast(this IViewBase view, string text, ToastType type, ToastOptions options)
+        /// <summary>Shows a toast anchored at the cursor.</summary>
+        public static void ShowToast(this IViewBase view, string text, ToastType type, ToastOptions options = null)
             => Service().ShowToast(text, type, options);
-
-        /// <summary>Shows a toast anchored at the cursor with default options.</summary>
-        public static void ShowToast(this IViewBase view, string text, ToastType type)
-            => Service().ShowToast(text, type, null);
-
-        /// <summary>Shows an anchored message box (full-parameter form).</summary>
-        public static ConfirmResult ShowMessage(this IViewBase view, string text, string caption, MessageButtons buttons, MessageIcon icon)
-            => Service().ShowMessage(text, caption, buttons, icon);
 
         /// <summary>Shows an anchored information message.</summary>
         public static void ShowInfo(this IViewBase view, string text, string caption = "")

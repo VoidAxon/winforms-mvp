@@ -21,13 +21,14 @@ namespace WinformsMVP.Samples.Tests.Views
         public void Dispose() => ServiceLocator.Reset();
 
         [Fact]
-        public void ShowToast_ResolvesServiceFromLocator_AndForwards()
+        public void ShowToast_ResolvesServiceFromLocator_AndForwardsCursorAnchored()
         {
             _view.ShowToast("saved", ToastType.Success);
             Assert.Single(_anchored.Toasts);
             Assert.Equal("saved", _anchored.Toasts[0].Text);
             Assert.Equal(ToastType.Success, _anchored.Toasts[0].Type);
             Assert.Null(_anchored.Toasts[0].Options);
+            Assert.Null(_anchored.Toasts[0].Anchor);   // view extensions are cursor-anchored only
         }
 
         [Fact]
@@ -39,11 +40,13 @@ namespace WinformsMVP.Samples.Tests.Views
         }
 
         [Fact]
-        public void ShowInfo_ForwardsThroughConvenienceMapping()
+        public void ShowInfo_ForwardsTextAndCaption()
         {
             _view.ShowInfo("note", "cap");
-            Assert.Equal(MessageButtons.Ok, _anchored.Messages[0].Buttons);
-            Assert.Equal(MessageIcon.Information, _anchored.Messages[0].Icon);
+            Assert.Equal("ShowInfo", _anchored.Messages[0].Method);
+            Assert.Equal("note", _anchored.Messages[0].Text);
+            Assert.Equal("cap", _anchored.Messages[0].Caption);
+            Assert.Null(_anchored.Messages[0].Anchor);
         }
 
         [Fact]
@@ -53,6 +56,7 @@ namespace WinformsMVP.Samples.Tests.Views
             Assert.True(_view.ConfirmYesNo("sure?"));
             _anchored.NextResult = ConfirmResult.No;
             Assert.False(_view.ConfirmYesNo("sure?"));
+            Assert.Equal("ConfirmYesNo", _anchored.Messages[0].Method);
         }
 
         [Fact]
@@ -60,8 +64,7 @@ namespace WinformsMVP.Samples.Tests.Views
         {
             _anchored.NextResult = ConfirmResult.Cancel;
             Assert.Equal(ConfirmResult.Cancel, _view.ConfirmYesNoCancel("pick", "cap"));
-            Assert.Equal(MessageButtons.YesNoCancel, _anchored.Messages[0].Buttons);
-            Assert.Equal(MessageIcon.Question, _anchored.Messages[0].Icon);
+            Assert.Equal("ConfirmYesNoCancel", _anchored.Messages[0].Method);
         }
     }
 }

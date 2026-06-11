@@ -121,25 +121,48 @@ private void OnDelete()
 
 ## `IAnchoredMessageService` — カーソル位置固定フィードバック
 
-Presenter がクリック位置の近くにトーストまたはメッセージボックスを表示するためのサービスです。
-実装は呼び出し時点の `Cursor.Position` を読み取り、`AnchoredToast` / `AnchoredMessageBox` 静的ユーティリティに委譲します。
+クリック位置の近くにトーストまたはメッセージボックスを表示するためのサービスです。
+メソッド名は `IMessageService` と対称で、違いは「どこに出るか」だけです。
+実装は `AnchoredToast` / `AnchoredMessageBox` 静的ユーティリティに委譲します。
 
-> **同期呼び出しの契約:** アンカーはコール時のカーソル位置です。`await` の後は
+> **同期呼び出しの契約:** `Point` を取らない形のアンカーはコール時のカーソル位置です。
+> UI スレッド上のイベント/アクションハンドラ内で同期に呼んでください。`await` の後は
 > カーソルが移動している可能性があるため、非同期処理後のフィードバックには
 > `Messages.ShowToast` (コーナートースト) を使ってください。
 
-### インターフェイス (最小 2 メソッド)
+### インターフェイス
+
+各メソッドは 2 形態あります — `Point` なし(カーソル位置にアンカー)と `Point` あり
+(呼び出し側が自分でアンカー座標を決める。コントロールの矩形やヒットテスト結果を知っている
+**View 層コード向け**であり、Presenter は使いません):
 
 ```csharp
 public interface IAnchoredMessageService
 {
-    void ShowToast(string text, ToastType type, ToastOptions options);
-    ConfirmResult ShowMessage(string text, string caption, MessageButtons buttons, MessageIcon icon);
+    // Toast (non-blocking)
+    void ShowToast(string text, ToastType type, ToastOptions options = null);
+    void ShowToast(string text, ToastType type, Point anchor, ToastOptions options = null);
+
+    // Message dialogs (blocking)
+    void ShowInfo(string text, string caption = "");
+    void ShowInfo(string text, Point anchor, string caption = "");
+    void ShowWarning(string text, string caption = "");
+    void ShowWarning(string text, Point anchor, string caption = "");
+    void ShowError(string text, string caption = "");
+    void ShowError(string text, Point anchor, string caption = "");
+
+    // Confirmations (blocking; true = affirmative)
+    bool ConfirmYesNo(string text, string caption = "");
+    bool ConfirmYesNo(string text, Point anchor, string caption = "");
+    bool ConfirmOkCancel(string text, string caption = "");
+    bool ConfirmOkCancel(string text, Point anchor, string caption = "");
+    ConfirmResult ConfirmYesNoCancel(string text, string caption = "");
+    ConfirmResult ConfirmYesNoCancel(string text, Point anchor, string caption = "");
 }
 ```
 
-便利なオーバーロードは `AnchoredMessageServiceExtensions` の拡張メソッドが提供します:
-`ShowInfo / ShowWarning / ShowError / ConfirmYesNo / ConfirmOkCancel / ConfirmYesNoCancel`。
+ボタン/アイコンの組み合わせはパラメータではなく**メソッド名が表現**します
+(`IMessageService` と同じ流儀)。`Point` は `System.Drawing` の型であり WinForms 依存ではありません。
 
 ### Presenter からの呼び出し方 — `IViewBase` 拡張メソッド
 
@@ -163,8 +186,8 @@ private void OnDelete()
 }
 ```
 
-利用可能な `IViewBase` 拡張メソッド:
-`ShowToast / ShowMessage / ShowInfo / ShowWarning / ShowError / ConfirmYesNo / ConfirmOkCancel / ConfirmYesNoCancel`。
+利用可能な `IViewBase` 拡張メソッド(すべてカーソル位置アンカー — Presenter に座標を渡させないため、`Point` 形は意図的に公開していません):
+`ShowToast / ShowInfo / ShowWarning / ShowError / ConfirmYesNo / ConfirmOkCancel / ConfirmYesNoCancel`。
 
 ### 登録
 
