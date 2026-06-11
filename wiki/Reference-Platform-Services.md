@@ -164,7 +164,7 @@ private void OnDelete()
 ```
 
 利用可能な `IViewBase` 拡張メソッド:
-`ShowToast / ShowMessage / ShowInfo / ShowWarning / ShowError / ConfirmYesNo / ConfirmOkCancel`。
+`ShowToast / ShowMessage / ShowInfo / ShowWarning / ShowError / ConfirmYesNo / ConfirmOkCancel / ConfirmYesNoCancel`。
 
 ### 登録
 

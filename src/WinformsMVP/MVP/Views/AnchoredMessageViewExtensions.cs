@@ -1,5 +1,4 @@
 using WinformsMVP.Common;
-using WinformsMVP.Common.Interactions;
 using WinformsMVP.Services;
 
 namespace WinformsMVP.MVP.Views
@@ -63,5 +62,9 @@ namespace WinformsMVP.MVP.Views
         /// <summary>Anchored OK/Cancel confirmation. True when the user chose OK.</summary>
         public static bool ConfirmOkCancel(this IViewBase view, string text, string caption = "")
             => Service().ConfirmOkCancel(text, caption);
+
+        /// <summary>Anchored Yes/No/Cancel confirmation. Returns the raw result.</summary>
+        public static ConfirmResult ConfirmYesNoCancel(this IViewBase view, string text, string caption = "")
+            => Service().ConfirmYesNoCancel(text, caption);
     }
 }

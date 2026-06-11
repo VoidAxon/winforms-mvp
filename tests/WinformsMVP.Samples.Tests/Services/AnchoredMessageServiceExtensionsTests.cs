@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using WinformsMVP.Common;
-using WinformsMVP.Common.Interactions;
 using WinformsMVP.Services;
 using Xunit;
 

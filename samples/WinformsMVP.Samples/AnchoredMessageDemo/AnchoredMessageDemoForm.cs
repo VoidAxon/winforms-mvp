@@ -11,7 +11,7 @@ namespace WinformsMVP.Samples.AnchoredMessageDemo
     /// Demonstrates:
     /// - View.ShowToast() called from the presenter via IViewBase extensions
     /// - View.ConfirmYesNo() producing a message box anchored at the cursor
-    /// - DataGridView CellClick bound to a ViewAction (GridTouch)
+    /// - DataGridView Click bound to a ViewAction (GridTouch) via the binder's generic Control.Click fallback
     /// - No WinForms types or coordinates in the presenter
     /// </summary>
     public class AnchoredMessageDemoForm : Form, IAnchoredMessageDemoView

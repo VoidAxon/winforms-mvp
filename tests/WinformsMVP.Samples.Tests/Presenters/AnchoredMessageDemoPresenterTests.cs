@@ -1,6 +1,5 @@
 using System;
 using WinformsMVP.Common;
-using WinformsMVP.Common.Interactions;
 using WinformsMVP.MVP.ViewActions;
 using WinformsMVP.MVP.Views;
 using WinformsMVP.Samples.AnchoredMessageDemo;

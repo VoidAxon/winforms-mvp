@@ -1,6 +1,5 @@
 using System;
 using WinformsMVP.Common;
-using WinformsMVP.Common.Interactions;
 using WinformsMVP.MVP.Views;
 using WinformsMVP.Samples.Tests.Mocks;
 using WinformsMVP.Services;
@@ -54,6 +53,15 @@ namespace WinformsMVP.Samples.Tests.Views
             Assert.True(_view.ConfirmYesNo("sure?"));
             _anchored.NextResult = ConfirmResult.No;
             Assert.False(_view.ConfirmYesNo("sure?"));
+        }
+
+        [Fact]
+        public void ConfirmYesNoCancel_ForwardsAndReturnsRawResult()
+        {
+            _anchored.NextResult = ConfirmResult.Cancel;
+            Assert.Equal(ConfirmResult.Cancel, _view.ConfirmYesNoCancel("pick", "cap"));
+            Assert.Equal(MessageButtons.YesNoCancel, _anchored.Messages[0].Buttons);
+            Assert.Equal(MessageIcon.Question, _anchored.Messages[0].Icon);
         }
     }
 }

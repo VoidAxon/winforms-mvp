@@ -1,13 +1,12 @@
 using WinformsMVP.Common;
-using WinformsMVP.Common.Interactions;
 
 namespace WinformsMVP.Services
 {
     /// <summary>
     /// Shows feedback anchored at the cursor position: a non-blocking toast or a blocking
     /// message box, both appearing where the user just clicked. The anchor is the cursor
-    /// position <b>at call time</b> — call synchronously inside the event/action handler so it
-    /// equals the click point. After an <c>await</c> the cursor may have moved; use
+    /// position <b>at call time</b> — call synchronously inside the event/action handler on the
+    /// UI thread so it equals the click point. After an <c>await</c> the cursor may have moved; use
     /// <see cref="IMessageService.ShowToast(string, ToastType, int)"/> (corner toast) for
     /// deferred feedback.
     /// </summary>

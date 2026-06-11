@@ -1,6 +1,5 @@
 using System.Windows.Forms;
 using WinformsMVP.Common;
-using WinformsMVP.Common.Interactions;
 
 namespace WinformsMVP.Services.Implementations
 {

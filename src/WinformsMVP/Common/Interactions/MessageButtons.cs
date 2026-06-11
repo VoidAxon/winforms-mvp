@@ -1,4 +1,4 @@
-namespace WinformsMVP.Common.Interactions
+namespace WinformsMVP.Common
 {
     /// <summary>
     /// Framework-level button set for message dialogs, so Presenter-facing APIs never expose

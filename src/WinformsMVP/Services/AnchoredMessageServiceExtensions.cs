@@ -1,5 +1,4 @@
 using WinformsMVP.Common;
-using WinformsMVP.Common.Interactions;
 
 namespace WinformsMVP.Services
 {
