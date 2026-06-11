@@ -65,6 +65,7 @@ WinForms アプリケーションのための **Model-View-Presenter** フレー
 - [非同期処理を扱う](HowTo-Handle-Async-Operations) — async/await、`IProgress<T>`、キャンセル
 - [マスター/詳細パターンを実装する](HowTo-Implement-Master-Detail) — 親子データの連動
 - [Presenter をテストする](HowTo-Test-A-Presenter) — モック、テストパターン
+- [Presenter の購読ライフサイクルを管理する](HowTo-Manage-Presenter-Subscriptions) — `Disposables` バッグ、`DisposeWith`、自動解放
 - [従来の WinForms から移行する](HowTo-Migrate-From-Legacy-WinForms) — 段階的なリファクタリング
 - [エラー処理戦略](HowTo-Handle-Errors) — `IMessageService` / `InteractionResult<T>` / グローバルハンドラ
 - [リリースする](HowTo-Release) — タグ駆動で GitHub Packages へ発行 + GitHub Release 作成

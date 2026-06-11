@@ -60,6 +60,8 @@ TextBox NameTextBox { get; }             bool HasSelection { get; }
 - `private`: action handlers (`OnSave`), helpers.
 - A Presenter should expose **zero public events**. For cross-presenter notifications use a Service event or `IEventAggregator`. For push-direction close results, call the base `RequestClose(result, status)` / `RequestClose(status)` — no interface to implement, no extension method.
 
+Subscriptions registered via `.DisposeWith(Disposables)` (event tokens, `Cascade.Bind` unsubscribers, `Disposable.Create(() => view.Event -= handler)` wrappers) are released automatically after `Cleanup()`; presenters normally need no `Cleanup` override for unsubscription.
+
 **Testing rule:** never widen visibility for tests. Drive the Presenter through its real entry points so the same `CanExecute` / close logic runs:
 ```csharp
 // Action dispatch (works as-is — Dispatcher is public):

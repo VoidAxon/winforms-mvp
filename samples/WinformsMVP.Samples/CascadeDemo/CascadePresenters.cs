@@ -18,7 +18,9 @@ namespace WinformsMVP.Samples.CascadeDemo
 
         protected override void OnViewAttached()
         {
-            View.SelectionChanged += OnUserSelected;   // user selection -> store
+            EventHandler handler = OnUserSelected;
+            View.SelectionChanged += handler;
+            Disposable.Create(() => View.SelectionChanged -= handler).DisposeWith(Disposables);
         }
 
         protected override void OnInitialize()
@@ -27,8 +29,6 @@ namespace WinformsMVP.Samples.CascadeDemo
         }
 
         private void OnUserSelected(object sender, EventArgs e) { _store.Select(View.Selected); }
-
-        protected override void Cleanup() { View.SelectionChanged -= OnUserSelected; }
     }
 
     // Middle level: subscribes to the parent (Category) store, reloads its own list.
@@ -37,7 +37,6 @@ namespace WinformsMVP.Samples.CascadeDemo
         private readonly ISelectionStore<Category> _parent;
         private readonly ISelectionStore<SubCategory> _self;
         private readonly ISubCategoryRepository _repo;
-        private IDisposable _bind;
 
         public SubCategoryListPresenter(
             ISelectionStore<Category> parent,
@@ -51,10 +50,11 @@ namespace WinformsMVP.Samples.CascadeDemo
 
         protected override void OnViewAttached()
         {
-            View.SelectionChanged += OnUserSelected;
+            EventHandler handler = OnUserSelected;
+            View.SelectionChanged += handler;
+            Disposable.Create(() => View.SelectionChanged -= handler).DisposeWith(Disposables);
 
-            if (_bind != null) _bind.Dispose();   // guard against double-attach
-            _bind = Cascade.Bind(_parent, _self, category =>
+            Cascade.Bind(_parent, _self, category =>
             {
                 try
                 {
@@ -67,16 +67,10 @@ namespace WinformsMVP.Samples.CascadeDemo
                     View.Items = new SubCategory[0];           // reload self-recovers; Cascade does not roll back
                     Messages.ShowError("Failed to load subcategories: " + ex.Message, "Error");
                 }
-            });
+            }).DisposeWith(Disposables);
         }
 
         private void OnUserSelected(object sender, EventArgs e) { _self.Select(View.Selected); }
-
-        protected override void Cleanup()
-        {
-            View.SelectionChanged -= OnUserSelected;
-            if (_bind != null) _bind.Dispose();
-        }
     }
 
     // Leaf level: subscribes to the SubCategory store. Same shape as the middle level.
@@ -85,7 +79,6 @@ namespace WinformsMVP.Samples.CascadeDemo
         private readonly ISelectionStore<SubCategory> _parent;
         private readonly ISelectionStore<Product> _self;
         private readonly IProductRepository _repo;
-        private IDisposable _bind;
 
         public ProductListPresenter(
             ISelectionStore<SubCategory> parent,
@@ -99,10 +92,11 @@ namespace WinformsMVP.Samples.CascadeDemo
 
         protected override void OnViewAttached()
         {
-            View.SelectionChanged += OnUserSelected;
+            EventHandler handler = OnUserSelected;
+            View.SelectionChanged += handler;
+            Disposable.Create(() => View.SelectionChanged -= handler).DisposeWith(Disposables);
 
-            if (_bind != null) _bind.Dispose();
-            _bind = Cascade.Bind(_parent, _self, sub =>
+            Cascade.Bind(_parent, _self, sub =>
             {
                 try
                 {
@@ -113,15 +107,9 @@ namespace WinformsMVP.Samples.CascadeDemo
                     View.Items = new Product[0];
                     Messages.ShowError("Failed to load products: " + ex.Message, "Error");
                 }
-            });
+            }).DisposeWith(Disposables);
         }
 
         private void OnUserSelected(object sender, EventArgs e) { _self.Select(View.Selected); }
-
-        protected override void Cleanup()
-        {
-            View.SelectionChanged -= OnUserSelected;
-            if (_bind != null) _bind.Dispose();
-        }
     }
 }
