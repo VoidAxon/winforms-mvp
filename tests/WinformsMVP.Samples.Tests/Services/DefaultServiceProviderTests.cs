@@ -45,5 +45,36 @@ namespace WinformsMVP.Samples.Tests.Services
             sp.RegisterInstance<IFoo>(second);
             Assert.Same(second, sp.GetService<IFoo>());
         }
+
+        [Fact]
+        public void RegisterFactory_ResolvesLazily_AndCachesSingleton()
+        {
+            var sp = new DefaultServiceProvider();
+            int calls = 0;
+            sp.RegisterFactory<IFoo>(_ => { calls++; return new Foo(); });
+
+            Assert.Equal(0, calls);                 // not built until resolved
+            var a = sp.GetService<IFoo>();
+            var b = sp.GetService<IFoo>();
+            Assert.Same(a, b);                      // cached
+            Assert.Equal(1, calls);                 // factory ran once
+        }
+
+        [Fact]
+        public void RegisterFactory_ReceivesProvider_ForDependencyResolution()
+        {
+            var sp = new DefaultServiceProvider();
+            sp.RegisterInstance<IFoo>(new Foo());
+            sp.RegisterFactory<string>(provider => provider.GetService<IFoo>() != null ? "ok" : "missing");
+
+            Assert.Equal("ok", sp.GetService<string>());
+        }
+
+        [Fact]
+        public void RegisterFactory_NullFactory_Throws()
+        {
+            var sp = new DefaultServiceProvider();
+            Assert.Throws<ArgumentNullException>(() => sp.RegisterFactory<IFoo>(null));
+        }
     }
 }
