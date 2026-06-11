@@ -19,7 +19,7 @@ namespace WinformsMVP.Samples.Tests.Services
         {
             var sp = new DefaultServiceProvider();
             new BarModule().RegisterServices(sp);
-            Assert.NotNull(sp.GetService<IBar>());
+            Assert.NotNull(sp.Resolve<IBar>());
         }
     }
 }

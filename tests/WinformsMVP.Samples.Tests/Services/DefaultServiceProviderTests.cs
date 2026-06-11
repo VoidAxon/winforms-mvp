@@ -17,7 +17,7 @@ namespace WinformsMVP.Samples.Tests.Services
             var foo = new Foo();
             sp.RegisterInstance<IFoo>(foo);
 
-            Assert.Same(foo, sp.GetService<IFoo>());
+            Assert.Same(foo, sp.Resolve<IFoo>());
         }
 
         [Fact]
@@ -44,7 +44,7 @@ namespace WinformsMVP.Samples.Tests.Services
             var second = new Foo();
             sp.RegisterInstance<IFoo>(first);
             sp.RegisterInstance<IFoo>(second);
-            Assert.Same(second, sp.GetService<IFoo>());
+            Assert.Same(second, sp.Resolve<IFoo>());
         }
 
         [Fact]
@@ -55,8 +55,8 @@ namespace WinformsMVP.Samples.Tests.Services
             sp.RegisterFactory<IFoo>(_ => { calls++; return new Foo(); });
 
             Assert.Equal(0, calls);                 // not built until resolved
-            var a = sp.GetService<IFoo>();
-            var b = sp.GetService<IFoo>();
+            var a = sp.Resolve<IFoo>();
+            var b = sp.Resolve<IFoo>();
             Assert.Same(a, b);                      // cached
             Assert.Equal(1, calls);                 // factory ran once
         }
@@ -66,9 +66,9 @@ namespace WinformsMVP.Samples.Tests.Services
         {
             var sp = new DefaultServiceProvider();
             sp.RegisterInstance<IFoo>(new Foo());
-            sp.RegisterFactory<string>(provider => provider.GetService<IFoo>() != null ? "ok" : "missing");
+            sp.RegisterFactory<string>(provider => provider.Resolve<IFoo>() != null ? "ok" : "missing");
 
-            Assert.Equal("ok", sp.GetService<string>());
+            Assert.Equal("ok", sp.Resolve<string>());
         }
 
         [Fact]
@@ -83,12 +83,12 @@ namespace WinformsMVP.Samples.Tests.Services
         {
             var sp = new DefaultServiceProvider();
             sp.RegisterFactory<IFoo>(_ => new Foo());
-            var cached = sp.GetService<IFoo>();   // builds and caches the factory result
+            var cached = sp.Resolve<IFoo>();   // builds and caches the factory result
 
             var replacement = new Foo();
             sp.RegisterInstance<IFoo>(replacement);
 
-            var resolved = sp.GetService<IFoo>();
+            var resolved = sp.Resolve<IFoo>();
             Assert.Same(replacement, resolved);   // the new registration wins
             Assert.NotSame(cached, resolved);
         }
@@ -106,10 +106,10 @@ namespace WinformsMVP.Samples.Tests.Services
             });
 
             // First resolution: the factory throws, and the exception propagates.
-            Assert.Throws<InvalidOperationException>(() => sp.GetService<IFoo>());
+            Assert.Throws<InvalidOperationException>(() => sp.Resolve<IFoo>());
 
             // The entry was not marked built, so a later resolution re-runs the factory.
-            var resolved = sp.GetService<IFoo>();
+            var resolved = sp.Resolve<IFoo>();
             Assert.NotNull(resolved);
             Assert.Equal(2, calls);
         }
@@ -127,7 +127,7 @@ namespace WinformsMVP.Samples.Tests.Services
             });
 
             var results = new IFoo[100];
-            Parallel.For(0, 100, i => results[i] = sp.GetService<IFoo>());
+            Parallel.For(0, 100, i => results[i] = sp.Resolve<IFoo>());
 
             Assert.Equal(1, calls);                // factory ran exactly once
             var first = results[0];

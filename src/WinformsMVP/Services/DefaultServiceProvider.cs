@@ -24,7 +24,7 @@ namespace WinformsMVP.Services
         /// <summary>
         /// Registers a ready-made singleton instance for <typeparamref name="TService"/>.
         /// A <c>null</c> instance resolves as <c>null</c> — indistinguishable from "not registered" —
-        /// and <see cref="ServiceProviderExtensions.GetRequiredService{T}"/> will throw for it.
+        /// and <see cref="ServiceProviderExtensions.ResolveRequired{T}"/> will throw for it.
         /// </summary>
         public void RegisterInstance<TService>(TService instance)
         {

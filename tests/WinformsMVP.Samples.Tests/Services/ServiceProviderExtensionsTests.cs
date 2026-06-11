@@ -20,21 +20,21 @@ namespace WinformsMVP.Samples.Tests.Services
         public void GetService_Generic_CastsResult()
         {
             IServiceProvider p = new StubProvider(new Foo());
-            Assert.IsType<Foo>(p.GetService<IFoo>());
+            Assert.IsType<Foo>(p.Resolve<IFoo>());
         }
 
         [Fact]
         public void GetService_Generic_ReturnsNullWhenAbsent()
         {
             IServiceProvider p = new StubProvider(null);
-            Assert.Null(p.GetService<IFoo>());
+            Assert.Null(p.Resolve<IFoo>());
         }
 
         [Fact]
         public void GetRequiredService_ThrowsWhenAbsent()
         {
             IServiceProvider p = new StubProvider(null);
-            Assert.Throws<InvalidOperationException>(() => p.GetRequiredService<IFoo>());
+            Assert.Throws<InvalidOperationException>(() => p.ResolveRequired<IFoo>());
         }
     }
 }

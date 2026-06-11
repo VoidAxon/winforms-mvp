@@ -20,7 +20,7 @@ namespace WinformsMVP.Samples.Tests.Services
         public void Current_DefaultsToEmptyProvider_NotNull()
         {
             Assert.NotNull(ServiceLocator.Current);
-            Assert.Null(ServiceLocator.Current.GetService<IFoo>()); // empty by default in this phase
+            Assert.Null(ServiceLocator.Current.Resolve<IFoo>()); // empty by default in this phase
         }
 
         [Fact]
@@ -29,14 +29,14 @@ namespace WinformsMVP.Samples.Tests.Services
             var sp = new DefaultServiceProvider();
             sp.RegisterInstance<IFoo>(new Foo());
             ServiceLocator.Current = sp;
-            Assert.NotNull(ServiceLocator.Current.GetService<IFoo>());
+            Assert.NotNull(ServiceLocator.Current.Resolve<IFoo>());
         }
 
         [Fact]
         public void Configure_RegistersIntoFreshProvider()
         {
             ServiceLocator.Configure(reg => reg.RegisterInstance<IFoo>(new Foo()));
-            Assert.NotNull(ServiceLocator.Current.GetService<IFoo>());
+            Assert.NotNull(ServiceLocator.Current.Resolve<IFoo>());
         }
 
         [Fact]
@@ -44,7 +44,7 @@ namespace WinformsMVP.Samples.Tests.Services
         {
             ServiceLocator.Configure(reg => reg.RegisterInstance<IFoo>(new Foo()));
             ServiceLocator.Reset();
-            Assert.Null(ServiceLocator.Current.GetService<IFoo>());
+            Assert.Null(ServiceLocator.Current.Resolve<IFoo>());
         }
     }
 }

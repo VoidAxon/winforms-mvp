@@ -8,14 +8,14 @@ namespace WinformsMVP.Services
     public static class ServiceProviderExtensions
     {
         /// <summary>Resolves <typeparamref name="T"/>, or <c>null</c> if not registered.</summary>
-        public static T GetService<T>(this IServiceProvider provider)
+        public static T Resolve<T>(this IServiceProvider provider)
         {
             if (provider == null) throw new ArgumentNullException(nameof(provider));
             return (T)provider.GetService(typeof(T));
         }
 
         /// <summary>Resolves <typeparamref name="T"/>, throwing if it is not registered.</summary>
-        public static T GetRequiredService<T>(this IServiceProvider provider)
+        public static T ResolveRequired<T>(this IServiceProvider provider)
         {
             if (provider == null) throw new ArgumentNullException(nameof(provider));
             object service = provider.GetService(typeof(T));
