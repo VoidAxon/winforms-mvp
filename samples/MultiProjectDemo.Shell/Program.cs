@@ -51,7 +51,7 @@ namespace MultiProjectDemo.Shell
                 serviceProvider: provider);
 
             // 6. Resolve the root Presenter from DI, show it, and pump messages.
-            var mainPresenter = provider.GetRequiredService<MainPresenter>();
+            var mainPresenter = ServiceProviderServiceExtensions.GetRequiredService<MainPresenter>(provider);
             PlatformServices.Default.WindowNavigator.ShowWindow(mainPresenter);
 
             Application.Run();
