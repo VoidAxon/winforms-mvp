@@ -193,6 +193,7 @@ All presenters have built-in access to framework services via convenience proper
 - `Files` — `IFileService`
 - `Navigator` — `IWindowNavigator`
 - `Logger` — `ILogger`
+- `View.ShowToast(...)` / `View.ConfirmYesNo(...)` — cursor-anchored feedback via `IViewBase` extension methods (`IAnchoredMessageService`), synchronous-call contract: call inside the action handler so cursor equals the click point.
 
 Business-specific services (`IUserRepository`, etc.) should be injected via the constructor, not resolved through the service locator.
 

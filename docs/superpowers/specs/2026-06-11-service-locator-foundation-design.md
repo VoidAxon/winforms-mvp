@@ -203,14 +203,21 @@ framework's services into the M.E.DI `IServiceCollection`) and `IPresenterFactor
 - **Docs**: the DI section of `CLAUDE.md` + the DI wiki page updated (Service Locator pattern now
   = `ServiceLocator`/`IServiceProvider`).
 
-## Follow-on: the anchored-toast feature (paused, lands on this foundation)
+## Follow-on: the anchored-toast feature (DONE, landed on this foundation)
 
-After the foundation, the anchored-feedback feature is simply:
+The anchored-feedback feature is implemented as `IAnchoredMessageService` (Phase 3):
 
-- `IAnchoredMessages` (toast + later anchored message box), registered as a built-in.
-- Cursor-anchored (`Cursor.Position` read in the real impl at call time); decoupled from
-  ViewAction/ActionBinder.
+- `IAnchoredMessageService` — 2-method interface (ShowToast + ShowMessage), registered as a
+  built-in in both `ServiceLocator.RegisterBuiltIns` and `AddWinformsMVP` (TryAdd). All
+  convenience overloads (`ShowInfo`, `ConfirmYesNo`, ...) are extension methods.
+- Cursor-anchored (`Cursor.Position` read in the real `AnchoredMessageService` at call time);
+  decoupled from ViewAction/ActionBinder.
+- Entry point for Presenters is `IViewBase` extension methods (`View.ShowToast(...)`,
+  `View.ConfirmYesNo(...)` in `AnchoredMessageViewExtensions`) — NOT a `PresenterBase` accessor.
+  The extensions resolve `IAnchoredMessageService` from `ServiceLocator.Current`.
 - The `ViewActionBinder` trigger-capture, `IActionTriggerSource`, and
   `PresenterBase.ShowToastFor(action, ...)` from the earlier exploration are **dropped**.
-- The `ToastNotification.ShowAnchored` multi-monitor fix (use `Screen.FromPoint(anchor)`) is an
-  independent bug fix to carry over from the `feature/show-toast-for` WIP commit.
+- The `ToastNotification.ShowAnchored` multi-monitor fix (`Screen.FromPoint(anchor).WorkingArea`
+  instead of `Screen.PrimaryScreen.WorkingArea`) is included as a bug fix.
+- `MockAnchoredMessageService` in `tests/WinformsMVP.Samples.Tests/Mocks/` documents the test
+  pattern (install in ServiceLocator with `[Collection("ServiceLocator")]`, reset on Dispose).
