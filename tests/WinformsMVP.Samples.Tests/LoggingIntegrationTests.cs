@@ -13,7 +13,7 @@ using static WinformsMVP.Samples.LoggingDemoExample;
 namespace WinformsMVP.Samples.Tests
 {
     /// <summary>
-    /// Tests for WinformsMVP.Logging integration via DefaultPlatformServices.
+    /// Tests for WinformsMVP.Logging integration via the service provider.
     /// </summary>
     public class LoggingIntegrationTests
     {

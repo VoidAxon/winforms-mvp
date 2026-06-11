@@ -5,7 +5,7 @@ namespace WinformsMVP.Samples.Tests.Mocks
 {
     /// <summary>
     /// Test fixture that builds a service provider populated with mock framework services and
-    /// exposes the concrete mocks for verification. Replaces the former MockPlatformServices.
+    /// exposes the concrete mocks for verification.
     /// </summary>
     public class MockServices
     {

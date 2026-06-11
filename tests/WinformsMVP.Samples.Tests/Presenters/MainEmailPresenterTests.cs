@@ -12,7 +12,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
     /// Unit tests for MainEmailPresenter.
     ///
     /// Demonstrates:
-    /// 1. Using MockPlatformServices to inject mock services
+    /// 1. Using MockServices to inject mock services via the service provider
     /// 2. Using MockMainEmailView to mock the view
     /// 3. Using MockEmailRepository to provide test data
     /// 4. Testing business logic and service interactions

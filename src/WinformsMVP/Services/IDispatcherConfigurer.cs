@@ -7,7 +7,7 @@ namespace WinformsMVP.Services
     /// first access. Register one in the service provider to install application-wide middleware
     /// (audit, authorization, telemetry) that must run for every dispatch in every presenter.
     /// When no <c>IDispatcherConfigurer</c> is registered, no global configuration is applied.
-    /// This replaces the former <c>IPlatformServices.ConfigureDispatcher</c> callback.
+    /// Register this interface in the service provider to apply global dispatcher configuration.
     /// </summary>
     public interface IDispatcherConfigurer
     {

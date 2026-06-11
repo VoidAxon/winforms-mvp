@@ -16,7 +16,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
     /// Unit tests for ComposeEmailPresenter.
     ///
     /// Demonstrates:
-    /// 1. Using MockPlatformServices to inject mock services
+    /// 1. Using MockServices to inject mock services via the service provider
     /// 2. Using MockComposeEmailView to mock the view
     /// 3. Using MockEmailRepository to provide test data
     /// 4. Testing ChangeTracker integration for dirty state management
