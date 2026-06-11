@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.Extensions.DependencyInjection;
 using WinformsMVP.DependencyInjection;
+using WinformsMVP.Samples.Tests.Mocks;
 using WinformsMVP.Services;
 using WinformsMVP.Services.Implementations;
 using Xunit;
@@ -318,6 +319,24 @@ namespace WinformsMVP.Samples.Tests.DependencyInjection
         {
             IServiceProvider provider = null;
             Assert.Throws<ArgumentNullException>(() => provider.UseWinformsMVP());
+        }
+
+        [Fact]
+        public void AddWinformsMVP_DoesNotOverrideHostIMessageService_RegisteredBefore()
+        {
+            // TryAdd semantics: a host that registers IMessageService before calling
+            // AddWinformsMVP must keep its own implementation (host-override precedence).
+            var services = new ServiceCollection();
+            var customMessageService = new MockMessageService();
+            services.AddSingleton<IMessageService>(customMessageService);
+            var registry = new ViewMappingRegister();
+
+            services.AddWinformsMVP(registry);
+
+            var provider = services.BuildServiceProvider();
+            var resolved = provider.GetService<IMessageService>();
+
+            Assert.Same(customMessageService, resolved);
         }
     }
 }

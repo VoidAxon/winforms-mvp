@@ -40,6 +40,7 @@ namespace MultiProjectDemo.Shell
             services.AddWinformsMVP(viewRegistry);
 
             // 4. Override the framework logger with a real M.E.Logging-backed factory.
+            // Plain AddSingleton (not TryAdd) overrides AddWinformsMVP's TryAddSingleton(NullLoggerFactory) regardless of registration order.
             var loggerFactory = LoggerFactory.Create(b => b.AddDebug());
             services.AddSingleton<WinformsMVP.Logging.ILoggerFactory>(
                 loggerFactory.AsFrameworkLoggerFactory());
