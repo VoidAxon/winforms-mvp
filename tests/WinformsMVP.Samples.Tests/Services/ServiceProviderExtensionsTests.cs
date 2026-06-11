@@ -20,8 +20,7 @@ namespace WinformsMVP.Samples.Tests.Services
         public void GetService_Generic_CastsResult()
         {
             IServiceProvider p = new StubProvider(new Foo());
-            IFoo foo = p.GetService<IFoo>();
-            Assert.NotNull(foo);
+            Assert.IsType<Foo>(p.GetService<IFoo>());
         }
 
         [Fact]

@@ -1,4 +1,5 @@
 using System;
+using System.Threading.Tasks;
 using WinformsMVP.Services;
 using Xunit;
 
@@ -75,6 +76,64 @@ namespace WinformsMVP.Samples.Tests.Services
         {
             var sp = new DefaultServiceProvider();
             Assert.Throws<ArgumentNullException>(() => sp.RegisterFactory<IFoo>(null));
+        }
+
+        [Fact]
+        public void ReRegisterInstance_AfterResolve_ReplacesCachedSingleton()
+        {
+            var sp = new DefaultServiceProvider();
+            sp.RegisterFactory<IFoo>(_ => new Foo());
+            var cached = sp.GetService<IFoo>();   // builds and caches the factory result
+
+            var replacement = new Foo();
+            sp.RegisterInstance<IFoo>(replacement);
+
+            var resolved = sp.GetService<IFoo>();
+            Assert.Same(replacement, resolved);   // the new registration wins
+            Assert.NotSame(cached, resolved);
+        }
+
+        [Fact]
+        public void RegisterFactory_ThatThrows_PropagatesAndStaysRetryable()
+        {
+            var sp = new DefaultServiceProvider();
+            int calls = 0;
+            sp.RegisterFactory<IFoo>(_ =>
+            {
+                calls++;
+                if (calls == 1) throw new InvalidOperationException("boom");
+                return new Foo();
+            });
+
+            // First resolution: the factory throws, and the exception propagates.
+            Assert.Throws<InvalidOperationException>(() => sp.GetService<IFoo>());
+
+            // The entry was not marked built, so a later resolution re-runs the factory.
+            var resolved = sp.GetService<IFoo>();
+            Assert.NotNull(resolved);
+            Assert.Equal(2, calls);
+        }
+
+        [Fact]
+        public void ConcurrentResolve_RunsFactoryExactlyOnce()
+        {
+            var sp = new DefaultServiceProvider();
+            int calls = 0;
+            sp.RegisterFactory<IFoo>(_ =>
+            {
+                System.Threading.Interlocked.Increment(ref calls);
+                System.Threading.Thread.SpinWait(1000); // tiny bit of work to widen the race window
+                return new Foo();
+            });
+
+            var results = new IFoo[100];
+            Parallel.For(0, 100, i => results[i] = sp.GetService<IFoo>());
+
+            Assert.Equal(1, calls);                // factory ran exactly once
+            var first = results[0];
+            Assert.NotNull(first);
+            foreach (var r in results)
+                Assert.Same(first, r);             // all callers got the same singleton
         }
     }
 }

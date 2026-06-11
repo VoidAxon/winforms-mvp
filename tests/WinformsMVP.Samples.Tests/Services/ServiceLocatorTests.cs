@@ -4,6 +4,9 @@ using Xunit;
 
 namespace WinformsMVP.Samples.Tests.Services
 {
+    [CollectionDefinition("ServiceLocator", DisableParallelization = true)]
+    public class ServiceLocatorCollection { }
+
     [Collection("ServiceLocator")] // serialize: ServiceLocator.Current is process-global
     public class ServiceLocatorTests : IDisposable
     {

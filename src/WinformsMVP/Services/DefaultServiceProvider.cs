@@ -21,6 +21,11 @@ namespace WinformsMVP.Services
         private readonly Dictionary<Type, Entry> _entries = new Dictionary<Type, Entry>();
         private readonly object _lock = new object();
 
+        /// <summary>
+        /// Registers a ready-made singleton instance for <typeparamref name="TService"/>.
+        /// A <c>null</c> instance resolves as <c>null</c> — indistinguishable from "not registered" —
+        /// and <see cref="ServiceProviderExtensions.GetRequiredService{T}"/> will throw for it.
+        /// </summary>
         public void RegisterInstance<TService>(TService instance)
         {
             lock (_lock)
@@ -29,6 +34,11 @@ namespace WinformsMVP.Services
             }
         }
 
+        /// <summary>
+        /// Registers a lazy-singleton factory for <typeparamref name="TService"/>.
+        /// Factories must not introduce resolution cycles: a cyclic factory graph overflows the stack
+        /// (the lock is reentrant, so there is no deadlock — it recurses until the stack is exhausted).
+        /// </summary>
         public void RegisterFactory<TService>(Func<IServiceProvider, TService> factory)
         {
             if (factory == null) throw new ArgumentNullException(nameof(factory));
