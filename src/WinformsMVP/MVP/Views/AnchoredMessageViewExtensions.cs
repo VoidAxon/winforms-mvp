@@ -12,13 +12,12 @@ namespace WinformsMVP.MVP.Views
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Layering convention: a Presenter must never <b>compute</b> coordinates. The cursor forms
-    /// cover the common case ("feedback where the user just clicked") with no coordinate flow at
-    /// all. The <see cref="Point"/> forms serve two callers: View-layer code that owns pixel
-    /// locations (a Form calling <c>this.ShowToast(...)</c> with a control's bounds, a hit-test
-    /// result, ...), and a Presenter <b>relaying</b> an anchor the View supplied as opaque data
-    /// (e.g. carried on an event payload) — passing it through unchanged is fine; fabricating or
-    /// deriving coordinates in the Presenter is not.
+    /// One simple rule: <b>Presenters use the cursor forms</b> ("feedback where the user just
+    /// clicked" — no coordinates involved); <b>the Point forms are for View-layer code</b> that
+    /// picks its own anchor (a Form calling <c>this.ShowToast(...)</c> with a control's bounds,
+    /// a hit-test result, ...). For the rare case where feedback depends on a business outcome
+    /// but must appear at a view-specific spot, give the view one small semantic method (e.g.
+    /// <c>ShowNameError(message)</c>) and let its implementation pick the anchor.
     /// </para>
     /// <para>
     /// These extensions resolve <see cref="IAnchoredMessageService"/> from the GLOBAL
