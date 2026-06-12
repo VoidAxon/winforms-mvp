@@ -52,7 +52,6 @@ namespace WinformsMVP.DependencyInjection
             services.TryAddSingleton<IWindowNavigator>(sp =>
                 new WindowNavigator(
                     sp.GetRequiredService<IViewMappingRegister>().WithServiceProvider(sp)));
-            services.TryAddSingleton<IAnchoredMessageService, AnchoredMessageService>();
 
             return services;
         }

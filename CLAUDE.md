@@ -195,7 +195,7 @@ All presenters have built-in access to framework services via convenience proper
 - `Files` — `IFileService`
 - `Navigator` — `IWindowNavigator`
 - `Logger` — `ILogger`
-- `View.ShowToast(...)` / `View.ConfirmYesNo(...)` — cursor-anchored feedback via `IViewBase` extension methods (`IAnchoredMessageService`), synchronous-call contract: call inside the action handler so cursor equals the click point.
+- Anchored (positioned) feedback is a **View-layer concern**: View code uses the `AnchoredToast` / `AnchoredMessageBox` static utilities directly. A Presenter that needs position-meaningful feedback calls a small **semantic view method** (e.g. `View.ConfirmDelete()`) whose Form implementation picks the anchor — explicit and correct for every input kind. Default presenter feedback is `Messages` (corner toast / centered dialogs), which is right regardless of how the action was triggered. See `samples/.../AnchoredMessageDemo/`.
 
 Business-specific services (`IUserRepository`, etc.) should be injected via the constructor, not resolved through the service locator.
 

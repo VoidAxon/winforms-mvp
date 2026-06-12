@@ -339,11 +339,5 @@ namespace WinformsMVP.Samples.Tests.DependencyInjection
             Assert.Same(customMessageService, resolved);
         }
 
-        [Fact]
-        public void AddWinformsMVP_Provider_ResolvesIAnchoredMessageService()
-        {
-            var provider = BuildProvider();
-            Assert.NotNull(provider.GetService<IAnchoredMessageService>());
-        }
     }
 }

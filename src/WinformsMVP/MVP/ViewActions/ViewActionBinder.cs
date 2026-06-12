@@ -173,30 +173,19 @@ namespace WinformsMVP.MVP.ViewActions
             {
                 if (actionMap.TryGetValue(sender, out var key))
                 {
-                    // Record the triggering component for the duration of the synchronous
-                    // dispatch (a fact about the input event; consumed by anchored feedback).
-                    // Save/restore keeps nested dispatches correct.
-                    var previousTrigger = InteractionSource.Swap(sender as Component);
-                    try
-                    {
-                        // Always raise ActionTriggered event (for explicit event-based pattern)
-                        ActionTriggered?.Invoke(this, new ActionRequestEventArgs(key));
+                    // Always raise ActionTriggered event (for explicit event-based pattern)
+                    ActionTriggered?.Invoke(this, new ActionRequestEventArgs(key));
 
-                        // Auto-detect mode: Check if explicit event handlers are registered
-                        bool hasExplicitHandlers = ActionTriggered != null &&
-                                                  ActionTriggered.GetInvocationList().Length > 0;
+                    // Auto-detect mode: Check if explicit event handlers are registered
+                    bool hasExplicitHandlers = ActionTriggered != null &&
+                                              ActionTriggered.GetInvocationList().Length > 0;
 
-                        if (!hasExplicitHandlers)
-                        {
-                            // Implicit pattern: No explicit handlers, use callback
-                            onActionTriggered?.Invoke(key);
-                        }
-                        // Explicit pattern: Has explicit handlers, skip callback to prevent double-dispatch
-                    }
-                    finally
+                    if (!hasExplicitHandlers)
                     {
-                        InteractionSource.Swap(previousTrigger);
+                        // Implicit pattern: No explicit handlers, use callback
+                        onActionTriggered?.Invoke(key);
                     }
+                    // Explicit pattern: Has explicit handlers, skip callback to prevent double-dispatch
                 }
             });
 

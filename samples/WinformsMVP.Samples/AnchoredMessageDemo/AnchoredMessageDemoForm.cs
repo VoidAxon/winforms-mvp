@@ -1,21 +1,23 @@
 using System.Drawing;
 using System.Windows.Forms;
+using WinformsMVP.Common;
 using WinformsMVP.MVP.ViewActions;
 using WinformsMVP.MVP.Views;
+using WinformsMVP.Services.Implementations;
 
 namespace WinformsMVP.Samples.AnchoredMessageDemo
 {
     /// <summary>
-    /// Demo form for interaction-point-anchored feedback (toast + message box).
+    /// Demo form for the feedback division of labor.
     ///
     /// Demonstrates:
-    /// - View.ShowToast() / View.ConfirmYesNo() called from the presenter via IViewBase extensions
-    /// - Mouse input: feedback at the exact click point (buttons, grid cells, menu items)
-    /// - Keyboard input: feedback at the focused control (Alt+S / Alt+D mnemonics, the menu's
-    ///   Ctrl+S shortcut, Tab + Enter/Space, Space on the CheckBox)
-    /// - A MenuStrip whose items are ToolStripItems (non-focusable — bound via the binder's
-    ///   ToolStripItem strategy), a TextBox as a focus target, and a CheckBox bound through the
-    ///   CheckedChanged strategy
+    /// - Presenter feedback defaults to Messages.ShowToast (corner) — correct for every trigger
+    ///   (mouse, Alt+S/Alt+D mnemonics, the menu's Ctrl+S shortcut, Tab + Enter/Space, code)
+    /// - Position-meaningful feedback via semantic view methods: ConfirmDelete() anchors a
+    ///   message box at the Delete button, ShowRowTouched() anchors a toast at the grid's
+    ///   current row — one explicit line each, trivially correct for all input kinds
+    /// - The AnchoredToast / AnchoredMessageBox view-layer utilities (Do NOT call them from a
+    ///   presenter; the semantic method is the presenter's entry)
     /// - No WinForms types or coordinates in the presenter
     /// </summary>
     public class AnchoredMessageDemoForm : Form, IAnchoredMessageDemoView
@@ -46,9 +48,6 @@ namespace WinformsMVP.Samples.AnchoredMessageDemo
             this.StartPosition = FormStartPosition.CenterScreen;
             this.Font = new Font("Segoe UI", 9f);
 
-            // Menu — items are ToolStripItems (they never take focus). Ctrl+S lives here as a
-            // proper menu ShortcutKeys; it raises the item's Click, which goes through the same
-            // binder -> dispatcher -> presenter path as everything else.
             _menuStrip = new MenuStrip();
             var actionsMenu = new ToolStripMenuItem("&Actions");
             _menuSave = new ToolStripMenuItem("&Save")
@@ -75,8 +74,8 @@ namespace WinformsMVP.Samples.AnchoredMessageDemo
 
             var infoLabel = new Label
             {
-                Text = "Mouse: feedback at the click point. Keyboard (Alt+S / Alt+D, Ctrl+S,\n" +
-                       "Tab + Enter/Space, Space on the checkbox): feedback at the focused control.",
+                Text = "Save/Notify/Toggle: corner toast (Messages — right for any trigger).\n" +
+                       "Delete and grid rows: anchored via semantic view methods.",
                 Location = new Point(20, 66),
                 Size = new Size(480, 30),
                 ForeColor = Color.DarkGray
@@ -112,8 +111,6 @@ namespace WinformsMVP.Samples.AnchoredMessageDemo
                 TextAlign = ContentAlignment.MiddleLeft
             };
 
-            // A focus target: put the caret here, park the mouse far away, press Ctrl+S —
-            // the toast appears at this TextBox ("where you are working").
             _nameTextBox = new TextBox
             {
                 Text = "Alpha",
@@ -130,7 +127,7 @@ namespace WinformsMVP.Samples.AnchoredMessageDemo
 
             var gridLabel = new Label
             {
-                Text = "Click any row to send a GridTouch action:",
+                Text = "Click any row — the toast is anchored at the current row:",
                 Location = new Point(20, 184),
                 Size = new Size(480, 20),
                 ForeColor = Color.FromArgb(64, 64, 64)
@@ -158,8 +155,8 @@ namespace WinformsMVP.Samples.AnchoredMessageDemo
 
             _hintLabel = new Label
             {
-                Text = "Hint: try the mouse first, then park the mouse far away and use\n" +
-                       "Alt+S / Ctrl+S / Tab + Enter — the toast follows the focused control.",
+                Text = "Hint: try Alt+D — the confirmation appears at the Delete button no matter\n" +
+                       "how it was triggered, because the view anchors it explicitly.",
                 Location = new Point(20, 338),
                 Size = new Size(480, 56),
                 ForeColor = Color.FromArgb(0, 80, 140),
@@ -175,7 +172,6 @@ namespace WinformsMVP.Samples.AnchoredMessageDemo
                 _hintLabel
             });
 
-            // Add the menu last and register it so mnemonics/shortcuts route correctly.
             this.Controls.Add(_menuStrip);
             this.MainMenuStrip = _menuStrip;
         }
@@ -183,7 +179,6 @@ namespace WinformsMVP.Samples.AnchoredMessageDemo
         private void InitializeActionBindings()
         {
             _viewActionBinder = new ViewActionBinder();
-            // One action, several triggers: button + menu item (incl. its Ctrl+S shortcut).
             _viewActionBinder.Add(AnchoredMessageDemoActions.Save, _saveButton, _menuSave);
             _viewActionBinder.Add(AnchoredMessageDemoActions.Delete, _deleteButton, _menuDelete);
             _viewActionBinder.Add(AnchoredMessageDemoActions.MenuNotify, _menuNotify);
@@ -200,6 +195,32 @@ namespace WinformsMVP.Samples.AnchoredMessageDemo
         public void ShowHint(string message)
         {
             _hintLabel.Text = message;
+        }
+
+        // Semantic feedback methods: the placement decision lives here, in the view, where the
+        // controls are. One explicit anchor line each — correct for mouse, mnemonic, keyboard,
+        // and programmatic triggers alike.
+
+        public bool ConfirmDelete()
+        {
+            var anchor = _deleteButton.PointToScreen(new Point(0, _deleteButton.Height));
+            return AnchoredMessageBox.ConfirmYesNo("Delete this item?", anchor, "Confirm");
+        }
+
+        public void ShowRowTouched()
+        {
+            var address = _grid.CurrentCellAddress;
+            Point anchor;
+            if (address.Y >= 0)
+            {
+                var cell = _grid.GetCellDisplayRectangle(address.X, address.Y, false);
+                anchor = _grid.PointToScreen(new Point(cell.Left, cell.Bottom));
+            }
+            else
+            {
+                anchor = _grid.PointToScreen(new Point(0, _grid.Height));
+            }
+            AnchoredToast.Show("Row touched", ToastType.Info, anchor);
         }
     }
 }

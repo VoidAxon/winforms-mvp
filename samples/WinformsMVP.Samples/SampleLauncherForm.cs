@@ -126,7 +126,7 @@ namespace WinformsMVP.Samples
                     "Layered popup • Invisible to OpenForms (like MessageBox)",
                     Color.FromArgb(0, 150, 199), LaunchToastDemo),
                 new DemoItem("Anchored Message Demo",
-                    "Cursor-anchored toast & MessageBox • View.ShowToast extension • IAnchoredMessageService",
+                    "Corner toast by default • Anchored via semantic view methods • AnchoredToast/AnchoredMessageBox",
                     Color.FromArgb(0, 128, 128), LaunchAnchoredMessageDemo));
 
             AddSection(content, "Architecture",

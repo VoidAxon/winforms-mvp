@@ -15,11 +15,11 @@ namespace WinformsMVP.Services
         void ShowWarning(string text, string caption = "");
         void ShowError(string text, string caption = "");
 
-        // Positioned (cursor-anchored) feedback is available to Presenters via IViewBase extension
-        // methods: View.ShowToast(text, type) and View.ConfirmYesNo(text, caption). These resolve
-        // IAnchoredMessageService from ServiceLocator.Current and read Cursor.Position at call time.
-        // Call synchronously inside the action handler so the cursor equals the click point.
-        // View code can also call AnchoredMessageBox / AnchoredToast directly (raw coordinates).
+        // Positioned dialogs are a View-layer concern (the View knows screen coordinates), not a
+        // Presenter one. View code uses AnchoredMessageBox / AnchoredToast directly. A Presenter
+        // that needs position-meaningful feedback calls a small semantic view method (e.g.
+        // View.ConfirmDelete()) whose Form implementation picks the anchor. Neither belongs on
+        // this Presenter-facing API.
 
         // Toast notifications (non-blocking temporary messages)
         void ShowToast(string text, ToastType type, int duration = 3000);

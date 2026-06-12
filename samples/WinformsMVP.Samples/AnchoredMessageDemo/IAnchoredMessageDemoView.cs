@@ -16,8 +16,12 @@ namespace WinformsMVP.Samples.AnchoredMessageDemo
     }
 
     /// <summary>
-    /// View for the anchored-message demo. Note there is no feedback method here — anchored
-    /// toast/message-box come from the framework's IViewBase extensions (View.ShowToast, ...).
+    /// View for the anchored-message demo, showing the division of labor for user feedback:
+    /// most feedback goes through <c>Messages</c> (corner toast / centered dialogs — always
+    /// correct, regardless of how the action was triggered); when the feedback position carries
+    /// meaning, the view exposes a small <b>semantic method</b> and its implementation picks the
+    /// anchor (using the <c>AnchoredToast</c> / <c>AnchoredMessageBox</c> view-layer utilities).
+    /// The presenter never sees a coordinate.
     /// </summary>
     public interface IAnchoredMessageDemoView : IWindowView
     {
@@ -28,5 +32,17 @@ namespace WinformsMVP.Samples.AnchoredMessageDemo
         bool NotificationsEnabled { get; }
 
         void ShowHint(string message);
+
+        /// <summary>
+        /// Asks the user to confirm the deletion. The view decides where the dialog appears
+        /// (anchored at the Delete button) — correct for mouse, mnemonic, and keyboard alike,
+        /// because the anchor is explicit instead of inferred.
+        /// </summary>
+        bool ConfirmDelete();
+
+        /// <summary>
+        /// Position-meaningful feedback: a toast anchored at the grid's current row.
+        /// </summary>
+        void ShowRowTouched();
     }
 }

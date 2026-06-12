@@ -89,7 +89,6 @@ namespace WinformsMVP.Services
             provider.RegisterInstance<ILoggerFactory>(NullLoggerFactory.Instance);
             provider.RegisterFactory<IWindowNavigator>(sp =>
                 new WindowNavigator(sp.Resolve<IViewMappingRegister>().WithServiceProvider(sp)));
-            provider.RegisterInstance<IAnchoredMessageService>(new AnchoredMessageService());
         }
     }
 }

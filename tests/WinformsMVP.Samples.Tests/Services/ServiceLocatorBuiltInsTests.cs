@@ -22,7 +22,6 @@ namespace WinformsMVP.Samples.Tests.Services
             Assert.NotNull(sp.Resolve<ILoggerFactory>());
             Assert.NotNull(sp.Resolve<IWindowNavigator>());
             Assert.NotNull(sp.Resolve<IViewMappingRegister>());
-            Assert.NotNull(sp.Resolve<IAnchoredMessageService>());
         }
 
         [Fact]

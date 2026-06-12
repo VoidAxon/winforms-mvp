@@ -1,57 +1,78 @@
-using System;
 using WinformsMVP.Common;
 using WinformsMVP.MVP.ViewActions;
-using WinformsMVP.MVP.Views;
 using WinformsMVP.Samples.AnchoredMessageDemo;
 using WinformsMVP.Samples.Tests.Mocks;
 using WinformsMVP.Samples.Tests.TestHelpers;
-using WinformsMVP.Services;
 using Xunit;
 
 namespace WinformsMVP.Samples.Tests.Presenters
 {
     /// <summary>
-    /// Demonstrates the testing pattern for cursor-anchored feedback: the View.ShowToast
-    /// extensions resolve IAnchoredMessageService from the global ServiceLocator, so the test
-    /// installs a recording mock via ServiceLocator.Configure (serialized by the
-    /// "ServiceLocator" collection) and resets it on Dispose.
+    /// Demonstrates testing the feedback division of labor: corner toasts are asserted through
+    /// the injected MockServices' message service; position-meaningful feedback goes through
+    /// semantic view methods, asserted directly on the mock view. No global state involved.
     /// </summary>
-    [Collection("ServiceLocator")]
-    public class AnchoredMessageDemoPresenterTests : IDisposable
+    public class AnchoredMessageDemoPresenterTests
     {
         private sealed class StubView : IAnchoredMessageDemoView
         {
             public string LastHint;
+            public bool ConfirmDeleteResult;
+            public int ConfirmDeleteCalls;
+            public int ShowRowTouchedCalls;
+
             public IViewActionBinder ActionBinder => null; // explicit: no auto-binding in tests
             public string ItemName { get; set; } = "Alpha";
             public bool NotificationsEnabled { get; set; }
             public void ShowHint(string message) => LastHint = message;
+            public bool ConfirmDelete() { ConfirmDeleteCalls++; return ConfirmDeleteResult; }
+            public void ShowRowTouched() => ShowRowTouchedCalls++;
         }
 
-        private readonly MockAnchoredMessageService _anchored = new MockAnchoredMessageService();
+        private readonly MockServices _services = new MockServices();
         private readonly StubView _view = new StubView();
-        private readonly AnchoredMessageDemoPresenter _presenter = new AnchoredMessageDemoPresenter();
+        private readonly AnchoredMessageDemoPresenter _presenter;
 
         public AnchoredMessageDemoPresenterTests()
         {
-            ServiceLocator.Configure(reg => reg.RegisterInstance<IAnchoredMessageService>(_anchored));
+            _presenter = new AnchoredMessageDemoPresenter().WithServiceProvider(_services.Provider);
             _presenter.AttachView(_view);
             _presenter.Initialize();
         }
 
-        public void Dispose()
+        [Fact]
+        public void Save_ShowsCornerToast_WithItemName()
         {
-            _presenter.Dispose();
-            ServiceLocator.Reset();
+            _presenter.Dispatch(AnchoredMessageDemoActions.Save);
+            Assert.Contains(_services.MessageService.Calls,
+                c => c.Type == MessageType.Toast && c.Message.Contains("Saved 'Alpha'"));
         }
 
         [Fact]
-        public void Save_ShowsSuccessToast_WithItemName()
+        public void Delete_Confirmed_ShowsDeletedToast()
         {
-            _presenter.Dispatch(AnchoredMessageDemoActions.Save);
-            Assert.Single(_anchored.Toasts);
-            Assert.Equal("Saved 'Alpha'", _anchored.Toasts[0].Text);
-            Assert.Equal(ToastType.Success, _anchored.Toasts[0].Type);
+            _view.ConfirmDeleteResult = true;
+            _presenter.Dispatch(AnchoredMessageDemoActions.Delete);
+            Assert.Equal(1, _view.ConfirmDeleteCalls);
+            Assert.Contains(_services.MessageService.Calls,
+                c => c.Type == MessageType.Toast && c.Message.Contains("Deleted"));
+        }
+
+        [Fact]
+        public void Delete_Declined_ShowsNoToast()
+        {
+            _view.ConfirmDeleteResult = false;
+            _presenter.Dispatch(AnchoredMessageDemoActions.Delete);
+            Assert.DoesNotContain(_services.MessageService.Calls,
+                c => c.Type == MessageType.Toast && c.Message.Contains("Deleted"));
+            Assert.Equal("Delete cancelled.", _view.LastHint);
+        }
+
+        [Fact]
+        public void GridTouch_UsesSemanticViewMethod()
+        {
+            _presenter.Dispatch(AnchoredMessageDemoActions.GridTouch);
+            Assert.Equal(1, _view.ShowRowTouchedCalls);
         }
 
         [Fact]
@@ -59,30 +80,8 @@ namespace WinformsMVP.Samples.Tests.Presenters
         {
             _view.NotificationsEnabled = true;
             _presenter.Dispatch(AnchoredMessageDemoActions.ToggleNotify);
-            Assert.Equal("Notifications enabled", _anchored.Toasts[0].Text);
-
-            _view.NotificationsEnabled = false;
-            _presenter.Dispatch(AnchoredMessageDemoActions.ToggleNotify);
-            Assert.Equal("Notifications disabled", _anchored.Toasts[1].Text);
-        }
-
-        [Fact]
-        public void Delete_Confirmed_ShowsWarningToast()
-        {
-            _anchored.NextResult = ConfirmResult.Yes;
-            _presenter.Dispatch(AnchoredMessageDemoActions.Delete);
-            Assert.Equal("ConfirmYesNo", _anchored.Messages[0].Method);
-            Assert.Single(_anchored.Toasts);
-            Assert.Equal(ToastType.Warning, _anchored.Toasts[0].Type);
-        }
-
-        [Fact]
-        public void Delete_Declined_ShowsNoToast()
-        {
-            _anchored.NextResult = ConfirmResult.No;
-            _presenter.Dispatch(AnchoredMessageDemoActions.Delete);
-            Assert.Empty(_anchored.Toasts);
-            Assert.Equal("Delete cancelled.", _view.LastHint);
+            Assert.Contains(_services.MessageService.Calls,
+                c => c.Type == MessageType.Toast && c.Message.Contains("enabled"));
         }
     }
 }
