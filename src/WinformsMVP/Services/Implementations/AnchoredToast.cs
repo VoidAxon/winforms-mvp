@@ -13,7 +13,9 @@ namespace WinformsMVP.Services.Implementations
     /// (a control's screen rectangle, the cursor, a hit-test result). <b>Do NOT call it from a
     /// Presenter</b> — Presenters must not deal in screen coordinates. Presenters that want a toast
     /// use <see cref="IMessageService.ShowToast(string, ToastType, ToastOptions)"/>, which shows
-    /// stacked toasts in a screen corner instead.
+    /// stacked toasts in a screen corner instead; when the toast's position carries meaning, the
+    /// Presenter calls a small semantic view method (e.g. <c>View.ShowRowTouched()</c>) whose Form
+    /// implementation picks the anchor and calls this utility.
     /// <para>
     /// Unlike the corner toasts, an anchored toast is a standalone singleton: only one exists at a
     /// time, and showing a new one closes the previous. It does not stack with — or disturb — the

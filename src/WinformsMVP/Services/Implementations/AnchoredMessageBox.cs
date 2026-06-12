@@ -16,7 +16,9 @@ namespace WinformsMVP.Services.Implementations
     /// Presenter</b> — it returns <see cref="DialogResult"/>, depends on <c>System.Windows.Forms</c>,
     /// and deals in screen coordinates, all of which violate the MVP rule that Presenters stay out
     /// of the UI/positioning layer. Presenters use <see cref="IMessageService"/> for centered
-    /// dialogs instead.
+    /// dialogs instead; when the dialog's position carries meaning, the Presenter calls a small
+    /// semantic view method (e.g. <c>bool View.ConfirmDelete()</c>) whose Form implementation
+    /// picks the anchor and calls this utility — the business result flows back as the return value.
     /// <para>
     /// Positioning uses a native MessageBox with a CBT hook, so — like any MessageBox — it never
     /// appears in <see cref="Application.OpenForms"/>. The requested location is clamped to the
