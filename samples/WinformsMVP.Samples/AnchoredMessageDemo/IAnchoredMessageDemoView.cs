@@ -11,6 +11,8 @@ namespace WinformsMVP.Samples.AnchoredMessageDemo
         public static readonly ViewAction Save = Factory.Create("Save");
         public static readonly ViewAction Delete = Factory.Create("Delete");
         public static readonly ViewAction GridTouch = Factory.Create("GridTouch");
+        public static readonly ViewAction MenuNotify = Factory.Create("MenuNotify");
+        public static readonly ViewAction ToggleNotify = Factory.Create("ToggleNotify");
     }
 
     /// <summary>
@@ -19,6 +21,12 @@ namespace WinformsMVP.Samples.AnchoredMessageDemo
     /// </summary>
     public interface IAnchoredMessageDemoView : IWindowView
     {
+        /// <summary>The item name being edited (data property — no TextBox exposed).</summary>
+        string ItemName { get; }
+
+        /// <summary>Whether the notifications option is checked.</summary>
+        bool NotificationsEnabled { get; }
+
         void ShowHint(string message);
     }
 }

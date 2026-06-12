@@ -23,6 +23,8 @@ namespace WinformsMVP.Samples.Tests.Presenters
         {
             public string LastHint;
             public IViewActionBinder ActionBinder => null; // explicit: no auto-binding in tests
+            public string ItemName { get; set; } = "Alpha";
+            public bool NotificationsEnabled { get; set; }
             public void ShowHint(string message) => LastHint = message;
         }
 
@@ -44,12 +46,24 @@ namespace WinformsMVP.Samples.Tests.Presenters
         }
 
         [Fact]
-        public void Save_ShowsSuccessToast()
+        public void Save_ShowsSuccessToast_WithItemName()
         {
             _presenter.Dispatch(AnchoredMessageDemoActions.Save);
             Assert.Single(_anchored.Toasts);
-            Assert.Equal("Saved!", _anchored.Toasts[0].Text);
+            Assert.Equal("Saved 'Alpha'", _anchored.Toasts[0].Text);
             Assert.Equal(ToastType.Success, _anchored.Toasts[0].Type);
+        }
+
+        [Fact]
+        public void ToggleNotify_ReflectsCheckedState()
+        {
+            _view.NotificationsEnabled = true;
+            _presenter.Dispatch(AnchoredMessageDemoActions.ToggleNotify);
+            Assert.Equal("Notifications enabled", _anchored.Toasts[0].Text);
+
+            _view.NotificationsEnabled = false;
+            _presenter.Dispatch(AnchoredMessageDemoActions.ToggleNotify);
+            Assert.Equal("Notifications disabled", _anchored.Toasts[1].Text);
         }
 
         [Fact]
