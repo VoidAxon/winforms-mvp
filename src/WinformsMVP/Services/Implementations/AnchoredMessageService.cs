@@ -1,6 +1,8 @@
+using System.ComponentModel;
 using System.Drawing;
 using System.Windows.Forms;
 using WinformsMVP.Common;
+using WinformsMVP.MVP.ViewActions;
 
 namespace WinformsMVP.Services.Implementations
 {
@@ -75,18 +77,20 @@ namespace WinformsMVP.Services.Implementations
         /// <summary>
         /// Resolves the interaction point for the anchor-free overloads, following the same
         /// convention Windows uses for keyboard-invoked context menus (WM_CONTEXTMENU): mouse
-        /// input anchors at the exact cursor point; keyboard input anchors at the focused
-        /// control; with no usable focus information it falls back to the center of the active
-        /// window, then of the screen (the default MessageBox placement).
+        /// input anchors at the exact cursor point; keyboard input anchors at the control that
+        /// triggered the action (falling back to the focused control — they differ for e.g.
+        /// button mnemonics, which click without moving focus); with no usable control
+        /// information it falls back to the center of the active window, then of the screen
+        /// (the default MessageBox placement).
         /// </summary>
         /// <remarks>
         /// Mouse vs keyboard comes from <see cref="LastInputTracker"/>, which watches the raw
         /// input messages: the action handler runs synchronously inside the processing of the
         /// triggering input message, so "the last input" is exactly the one that triggered this
         /// call. (A geometric inference — cursor inside the active window → mouse — is only the
-        /// fallback for the first call before any input has been observed. It cannot be the
-        /// primary mechanism: the mouse usually rests inside the window while the user works the
-        /// keyboard, and for a maximized window it always does.)
+        /// fallback for the first call before any input has been observed.) The triggering
+        /// control comes from <see cref="InteractionSource"/>, set by the binder around handler
+        /// invocation.
         /// </remarks>
         private static Point ResolveAnchor()
         {
@@ -95,25 +99,27 @@ namespace WinformsMVP.Services.Implementations
             bool? lastInputWasKeyboard = LastInputTracker.LastInputWasKeyboard;
             if (active == null)
             {
-                return ResolveAnchorCore(cursor, null, null, Screen.FromPoint(cursor).WorkingArea, lastInputWasKeyboard);
+                return ResolveAnchorCore(cursor, null, null, null, Screen.FromPoint(cursor).WorkingArea, lastInputWasKeyboard);
             }
 
+            var triggerBounds = ScreenBoundsOf(InteractionSource.Current);
             var focused = InnermostActiveControl(active);
             Rectangle? focusedBounds = focused != null
                 ? focused.RectangleToScreen(focused.ClientRectangle)
                 : (Rectangle?)null;
-            return ResolveAnchorCore(cursor, active.Bounds, focusedBounds, Screen.FromPoint(cursor).WorkingArea, lastInputWasKeyboard);
+            return ResolveAnchorCore(cursor, active.Bounds, triggerBounds, focusedBounds, Screen.FromPoint(cursor).WorkingArea, lastInputWasKeyboard);
         }
 
         /// <summary>
         /// Pure interaction-point decision (unit-tested; all inputs injected).
-        /// Keyboard → the focused control's bottom-left, else the window center;
-        /// mouse → the cursor; unknown modality → geometric fallback (cursor inside the window
-        /// counts as mouse); no active window → the screen center.
+        /// Keyboard → the triggering control's bottom-left, else the focused control's, else the
+        /// window center; mouse → the cursor; unknown modality → geometric fallback (cursor
+        /// inside the window counts as mouse); no active window → the screen center.
         /// </summary>
         internal static Point ResolveAnchorCore(
             Point cursor,
             Rectangle? activeWindowBounds,
+            Rectangle? triggerControlBounds,
             Rectangle? focusedControlBounds,
             Rectangle screenWorkingArea,
             bool? lastInputWasKeyboard)
@@ -129,13 +135,39 @@ namespace WinformsMVP.Services.Implementations
                 return cursor;
             }
 
-            if (focusedControlBounds != null)
+            var anchorRect = triggerControlBounds ?? focusedControlBounds;
+            if (anchorRect != null)
             {
-                var r = focusedControlBounds.Value;
+                var r = anchorRect.Value;
                 return new Point(r.Left, r.Bottom);
             }
 
             return Center(activeWindowBounds.Value);
+        }
+
+        /// <summary>
+        /// Screen bounds of the component that triggered the in-flight dispatch, when they are
+        /// usable: a visible Control with a created handle, or a ToolStripItem whose hosting
+        /// strip is currently visible (a menu item reached via its shortcut has no visible host —
+        /// then the focused control is the better anchor). Null otherwise.
+        /// </summary>
+        private static Rectangle? ScreenBoundsOf(Component trigger)
+        {
+            if (trigger is Control control && control.IsHandleCreated && control.Visible)
+            {
+                return control.RectangleToScreen(control.ClientRectangle);
+            }
+
+            if (trigger is ToolStripItem item)
+            {
+                var host = item.GetCurrentParent();
+                if (host != null && host.Visible)
+                {
+                    return host.RectangleToScreen(item.Bounds);
+                }
+            }
+
+            return null;
         }
 
         /// <summary>ActiveControl can be a container (Panel/UserControl); walk down to the leaf
