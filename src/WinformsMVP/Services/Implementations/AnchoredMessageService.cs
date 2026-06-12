@@ -79,9 +79,10 @@ namespace WinformsMVP.Services.Implementations
         /// convention Windows uses for keyboard-invoked context menus (WM_CONTEXTMENU): mouse
         /// input anchors at the exact cursor point; keyboard input anchors at the control that
         /// triggered the action (falling back to the focused control — they differ for e.g.
-        /// button mnemonics, which click without moving focus); with no usable control
-        /// information it falls back to the center of the active window, then of the screen
-        /// (the default MessageBox placement).
+        /// button mnemonics, which click without moving focus), at selection granularity for
+        /// large controls (grid cell / caret / selected item, see <see cref="AnchorBoundsOf"/>);
+        /// with no usable control information it falls back to the center of the active window,
+        /// then of the screen (the default MessageBox placement).
         /// </summary>
         /// <remarks>
         /// Mouse vs keyboard comes from <see cref="LastInputTracker"/>, which watches the raw
@@ -104,9 +105,7 @@ namespace WinformsMVP.Services.Implementations
 
             var triggerBounds = ScreenBoundsOf(InteractionSource.Current);
             var focused = InnermostActiveControl(active);
-            Rectangle? focusedBounds = focused != null
-                ? focused.RectangleToScreen(focused.ClientRectangle)
-                : (Rectangle?)null;
+            Rectangle? focusedBounds = focused != null ? AnchorBoundsOf(focused) : null;
             return ResolveAnchorCore(cursor, active.Bounds, triggerBounds, focusedBounds, Screen.FromPoint(cursor).WorkingArea, lastInputWasKeyboard);
         }
 
@@ -153,9 +152,9 @@ namespace WinformsMVP.Services.Implementations
         /// </summary>
         private static Rectangle? ScreenBoundsOf(Component trigger)
         {
-            if (trigger is Control control && control.IsHandleCreated && control.Visible)
+            if (trigger is Control control)
             {
-                return control.RectangleToScreen(control.ClientRectangle);
+                return AnchorBoundsOf(control);
             }
 
             if (trigger is ToolStripItem item)
@@ -168,6 +167,47 @@ namespace WinformsMVP.Services.Implementations
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// Anchor rectangle for a control, at selection granularity per Windows' keyboard
+        /// convention ("display at the location of the current selection"): the current cell for
+        /// a DataGridView, the caret for a TextBoxBase, the selected item for a ListBox. Falls
+        /// back to the control's bounds — fine for small controls (buttons, checkboxes), too
+        /// coarse only for large ones, which is exactly what the selection cases cover.
+        /// </summary>
+        private static Rectangle? AnchorBoundsOf(Control control)
+        {
+            if (control == null || !control.IsHandleCreated || !control.Visible)
+            {
+                return null;
+            }
+
+            if (control is DataGridView grid &&
+                grid.CurrentCellAddress.X >= 0 && grid.CurrentCellAddress.Y >= 0)
+            {
+                var cell = grid.GetCellDisplayRectangle(
+                    grid.CurrentCellAddress.X, grid.CurrentCellAddress.Y, cutOverflow: false);
+                if (!cell.IsEmpty)
+                {
+                    return grid.RectangleToScreen(cell);
+                }
+            }
+
+            if (control is TextBoxBase text)
+            {
+                var caret = text.GetPositionFromCharIndex(text.SelectionStart);
+                var screenCaret = text.PointToScreen(caret);
+                return new Rectangle(screenCaret.X, screenCaret.Y, 1, text.Font.Height);
+            }
+
+            if (control is ListBox list && list.SelectedIndex >= 0)
+            {
+                var item = list.GetItemRectangle(list.SelectedIndex);
+                return list.RectangleToScreen(item);
+            }
+
+            return control.RectangleToScreen(control.ClientRectangle);
         }
 
         /// <summary>ActiveControl can be a container (Panel/UserControl); walk down to the leaf
