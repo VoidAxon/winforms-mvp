@@ -240,15 +240,19 @@ public sealed class CategoryListPresenter : ControlPresenterBase<ISelectListView
     }
 
     protected override void OnViewAttached()
-        => View.SelectionChanged += OnUserSelected;     // 出: View 選択 → Store
+    {
+        // 出: View 選択 → Store。購読の解除は Disposables バッグが自動で行う
+        EventHandler handler = OnUserSelected;
+        View.SelectionChanged += handler;
+        Disposable.Create(() => View.SelectionChanged -= handler).DisposeWith(Disposables);
+    }
 
     protected override void OnInitialize()
         => View.Items = _repo.GetAll();                  // 初期リスト読み込みは OnInitialize
 
     private void OnUserSelected(object sender, EventArgs e) => _store.Select(View.Selected);
 
-    protected override void Cleanup()
-        => View.SelectionChanged -= OnUserSelected;
+    // Cleanup の override は不要 — Disposables は Dispose 時にフレームワークが解放する
 }
 
 // 中間 — 入: Category を購読してリスト再読込; 出: サブカテゴリ選択を Store へ
@@ -257,7 +261,6 @@ public sealed class SubCategoryListPresenter : ControlPresenterBase<ISelectListV
     private readonly ISelectionStore<Category> _parent;       // 上位選択 (共有 Model)
     private readonly ISelectionStore<SubCategory> _self;      // 自分の選択 (共有 Model)
     private readonly ISubCategoryRepository _repo;
-    private IDisposable _bind;
 
     public SubCategoryListPresenter(
         ISelectionStore<Category> parent,
@@ -269,10 +272,11 @@ public sealed class SubCategoryListPresenter : ControlPresenterBase<ISelectListV
 
     protected override void OnViewAttached()
     {
-        View.SelectionChanged += OnUserSelected;
+        EventHandler handler = OnUserSelected;
+        View.SelectionChanged += handler;
+        Disposable.Create(() => View.SelectionChanged -= handler).DisposeWith(Disposables);
 
-        if (_bind != null) _bind.Dispose();              // 再 attach 時の二重束縛を防ぐ
-        _bind = Cascade.Bind(_parent, _self, category =>
+        Cascade.Bind(_parent, _self, category =>
         {
             try
             {
@@ -285,16 +289,13 @@ public sealed class SubCategoryListPresenter : ControlPresenterBase<ISelectListV
                 View.Items = new SubCategory[0];         // reload は自己回復する。Cascade は巻き戻さない
                 Messages.ShowError("Failed to load subcategories: " + ex.Message, "Error");
             }
-        });
+        }).DisposeWith(Disposables);                     // 生存期間を作成行で宣言
+
     }
 
     private void OnUserSelected(object sender, EventArgs e) => _self.Select(View.Selected);
 
-    protected override void Cleanup()
-    {
-        View.SelectionChanged -= OnUserSelected;
-        if (_bind != null) _bind.Dispose();
-    }
+    // Cleanup の override は不要 — フレームワークが Disposables を自動解放する
 }
 
 // 末端 — SubCategory を購読する。中間とまったく同じ形
@@ -303,7 +304,6 @@ public sealed class ProductListPresenter : ControlPresenterBase<ISelectListView<
     private readonly ISelectionStore<SubCategory> _parent;
     private readonly ISelectionStore<Product> _self;
     private readonly IProductRepository _repo;
-    private IDisposable _bind;
 
     public ProductListPresenter(
         ISelectionStore<SubCategory> parent,
@@ -315,10 +315,11 @@ public sealed class ProductListPresenter : ControlPresenterBase<ISelectListView<
 
     protected override void OnViewAttached()
     {
-        View.SelectionChanged += OnUserSelected;
+        EventHandler handler = OnUserSelected;
+        View.SelectionChanged += handler;
+        Disposable.Create(() => View.SelectionChanged -= handler).DisposeWith(Disposables);
 
-        if (_bind != null) _bind.Dispose();
-        _bind = Cascade.Bind(_parent, _self, sub =>
+        Cascade.Bind(_parent, _self, sub =>
         {
             try { View.Items = sub == null ? new Product[0] : _repo.GetBySubCategory(sub.Id); }
             catch (Exception ex)
@@ -326,16 +327,10 @@ public sealed class ProductListPresenter : ControlPresenterBase<ISelectListView<
                 View.Items = new Product[0];
                 Messages.ShowError("Failed to load products: " + ex.Message, "Error");
             }
-        });
+        }).DisposeWith(Disposables);
     }
 
     private void OnUserSelected(object sender, EventArgs e) => _self.Select(View.Selected);
-
-    protected override void Cleanup()
-    {
-        View.SelectionChanged -= OnUserSelected;
-        if (_bind != null) _bind.Dispose();
-    }
 }
 ```
 
@@ -435,13 +430,13 @@ public IList<T> Items
 両方の親を購読し、どちらが変わっても両方の現在値で再読込する `Combine` を使います。
 
 ```csharp
-_bind = Cascade.Combine(_subCategoryStore, _warehouseStore, _productStore,
+Cascade.Combine(_subCategoryStore, _warehouseStore, _productStore,
     (sub, warehouse) =>
     {
         View.Items = (sub == null || warehouse == null)
             ? new Product[0]
             : _repo.GetBySubCategoryAndWarehouse(sub.Id, warehouse.Id);
-    });
+    }).DisposeWith(Disposables);
 // sub か warehouse のどちらが変わっても: productStore をクリア → 両方の現在値で reload
 ```
 
@@ -454,7 +449,7 @@ _bind = Cascade.Combine(_subCategoryStore, _warehouseStore, _productStore,
 - **判定は Id・参照ではない** (上の ⚠️)。再読込は実例を入れ替えるので、参照同値はこの場面で必ず咬みます。
 - **`initialSync` は既定 ON**。「束縛時に親が既に値を持っているのに下位が空のまま」という隠れた罠を消します。各層が独立に初期同期し、束縛順に依存しません。初期同期は **再読込のみでクリアはしない** ので、Store を事前に詰めてから順に束縛すれば状態復元にも使えます。
 - **`reload` は自己回復する**。`Cascade` は巻き戻しません。同期 `reload` が途中で例外を投げると、最初に発火した Presenter まで呼び出しスタックを遡って「半端な連鎖」を残します。同期リポジトリでも例外は起き得る (タイムアウト・接続断) ので、`reload` 内で try/catch し、失敗時はリストを空にして通知 (上の例)。
-- **二重束縛を防ぐ**: `OnViewAttached` は detach/attach 後に再実行され得るので、束縛前に `_bind?.Dispose()`。
+- **解放は `Disposables` バッグに任せる**: `Cascade.Bind` / `Combine` の戻り値と View イベント購読は、作成行で `.DisposeWith(Disposables)` を付ければ Presenter の Dispose 時にフレームワークが自動解放します。`_bind` フィールドや `Cleanup` override は不要です ([購読ライフサイクルの管理](HowTo-Manage-Presenter-Subscriptions) 参照)。
 - **初期リスト読み込みは `OnInitialize`**、View イベント購読は `OnViewAttached` (フレームワークのライフサイクル。[Presenter 基底クラス](Reference-Presenter-Base-Classes) 参照)。
 - **DI は開放ジェネリック登録が前提**。`services.AddSingleton(typeof(ISelectionStore<>), typeof(SelectionStore<>));` 1 行で全レベルを賄えます。ただし **singleton はアプリ全体共有** になるため、独立した複数の連鎖画面があるなら scoped/transient か手書き組み立てで **画面ごとに隔離** してください。
 - **将来の非同期化**は `Action<TParent>` 版とは別に `Func<TParent, Task>` 版の `Cascade.Bind` を追加して並存させれば、既存 API を壊さず移行できます ([非同期処理を扱う](HowTo-Handle-Async-Operations) 参照)。

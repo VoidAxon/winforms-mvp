@@ -112,8 +112,11 @@ public class OrderSummaryPresenter : ControlPresenterBase<IOrderSummaryView>
 
     protected override void OnViewAttached()
     {
+        // 購読解除は Disposables バッグに任せる (Presenter の Dispose 時に自動実行)
         _orderModel.ProductAdded += OnProductAdded;
+        Disposable.Create(() => _orderModel.ProductAdded -= OnProductAdded).DisposeWith(Disposables);
         _orderModel.OrderCleared += OnOrderCleared;
+        Disposable.Create(() => _orderModel.OrderCleared -= OnOrderCleared).DisposeWith(Disposables);
     }
 
     private void OnProductAdded(object sender, ProductAddedEventArgs e)
@@ -122,11 +125,8 @@ public class OrderSummaryPresenter : ControlPresenterBase<IOrderSummaryView>
         View.Total = _orderModel.TotalAmount;
     }
 
-    protected override void Cleanup()
-    {
-        _orderModel.ProductAdded -= OnProductAdded;
-        _orderModel.OrderCleared -= OnOrderCleared;
-    }
+    // Cleanup の override は不要 — Disposables バッグが解除を肩代わりする
+    // ([購読ライフサイクルの管理](HowTo-Manage-Presenter-Subscriptions) 参照)
 }
 ```
 
@@ -175,23 +175,18 @@ public class AuthPresenter : WindowPresenterBase<IAuthView>
 // 購読 (各モジュールの Presenter が自分の責任で対応)
 public class UserListPresenter : WindowPresenterBase<IUserListView>
 {
-    private IDisposable _subscription;
-
     protected override void OnViewAttached()
     {
         // ハンドラはインスタンスメソッドで渡す（this をキャプチャするラムダは弱参照下で静かに失効する）
-        _subscription = _eventAggregator.Subscribe<UserLoggedOutNotification>(OnUserLoggedOut);
+        // 解除は Disposables バッグに登録するだけ — Cleanup の override は不要
+        _eventAggregator.Subscribe<UserLoggedOutNotification>(OnUserLoggedOut)
+            .DisposeWith(Disposables);
     }
 
     private void OnUserLoggedOut(UserLoggedOutNotification _)
     {
         View.ClearList();
         View.ShowLoginPrompt();
-    }
-
-    protected override void Cleanup()
-    {
-        _subscription?.Dispose();
     }
 }
 ```

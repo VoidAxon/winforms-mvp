@@ -230,9 +230,31 @@ presenter.Connect(_searchPanel, parameters);   // アタッチ + パラメータ
 | `OnViewAttached()` | View が注入された直後 | View イベントの購読 |
 | `OnInitialize()` / `OnInitialize(TParam)` | View アタッチ後・表示前 | View プロパティの初期化、データロード |
 | `RegisterViewActions()` | `OnInitialize` の前 (Initialize 内) | `Dispatcher.Register` でアクション登録 (この直後にフレームワークが ActionBinder を自動 Bind) |
-| `Cleanup()` | Presenter が破棄されるとき | イベント購読解除、リソース解放 |
+| `Cleanup()` | Presenter が破棄されるとき | `Disposables` で賄えない特殊なリソース解放 |
 
-すべて `protected override`。`Cleanup` 内で View イベントを `-=` で解除する習慣にすると、メモリリークを防げます。
+すべて `protected override`。
+
+### `Disposables` — 購読の自動解放バッグ
+
+購読 (`IEventAggregator.Subscribe` のトークン、`Cascade.Bind` の戻り値、`+=`/`-=` のイベント) は
+`Cleanup` で手動解除する代わりに、**作成行で `.DisposeWith(Disposables)` を付けるだけ**です。
+バッグは遅延生成され (購読のない Presenter はコストゼロ)、Presenter の `Dispose` 時に
+`Cleanup()` の**直後**にフレームワークが逆順で自動解放します — `Cleanup` を override して
+base を呼び忘れても漏れません。
+
+```csharp
+protected override void OnViewAttached()
+{
+    Events.Subscribe<OrderShipped>(OnShipped).DisposeWith(Disposables);
+
+    EventHandler handler = OnSelectionChanged;
+    View.SelectionChanged += handler;
+    Disposable.Create(() => View.SelectionChanged -= handler).DisposeWith(Disposables);
+}
+// Cleanup の override は不要
+```
+
+詳細は [購読ライフサイクルの管理](HowTo-Manage-Presenter-Subscriptions) を参照してください。
 
 ---
 

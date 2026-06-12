@@ -84,7 +84,6 @@ var eventAggregator = new EventAggregator();
 public class OrderSummaryPresenter : ControlPresenterBase<IOrderSummaryView>
 {
     private readonly IEventAggregator _eventAggregator;
-    private IDisposable _productAddedSubscription;
 
     public OrderSummaryPresenter(IEventAggregator eventAggregator)
     {
@@ -93,8 +92,9 @@ public class OrderSummaryPresenter : ControlPresenterBase<IOrderSummaryView>
 
     protected override void OnViewAttached()
     {
-        _productAddedSubscription =
-            _eventAggregator.Subscribe<ProductAddedMessage>(OnProductAdded);
+        // 生存期間を作成行で宣言 — Presenter の Dispose 時にフレームワークが自動解除する
+        _eventAggregator.Subscribe<ProductAddedMessage>(OnProductAdded)
+            .DisposeWith(Disposables);
     }
 
     private void OnProductAdded(ProductAddedMessage msg)
@@ -103,10 +103,7 @@ public class OrderSummaryPresenter : ControlPresenterBase<IOrderSummaryView>
         View.AddItem(msg.Product, msg.Quantity);
     }
 
-    protected override void Cleanup()
-    {
-        _productAddedSubscription?.Dispose();
-    }
+    // Cleanup の override は不要 — Disposables バッグが解除を肩代わりする
 }
 ```
 
@@ -256,13 +253,14 @@ var eventAggregator = new EventAggregator();   // ✅ UI スレッド
 ### 2. 必ず購読を Dispose する
 
 ```csharp
-protected override void Cleanup()
-{
-    _subscription?.Dispose();   // ✅ 明示的にクリーンアップ
-}
+// Subscribe の戻り値を作成行で Disposables バッグに登録する — これだけで
+// Presenter の Dispose 時にフレームワークが自動解除する
+Events.Subscribe<OrderShipped>(OnShipped).DisposeWith(Disposables);
 ```
 
-弱参照によって最終的には自動でクリーンアップされますが、`Dispose` で明示的に外す方が即座に効果があります。
+弱参照によって最終的には自動でクリーンアップされますが、明示的に外す方が即座に効果があります。
+バッグを使わず手で管理する場合は `Cleanup()` で `_subscription?.Dispose()` しても同じです
+(詳細は [購読ライフサイクルの管理](HowTo-Manage-Presenter-Subscriptions))。
 
 ### 3. ハンドラはインスタンスメソッドで渡す（キャプチャするラムダを渡さない）
 

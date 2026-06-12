@@ -242,7 +242,7 @@ Key API: `CurrentValue`, `IsChanged`, `AcceptChanges()`, `RejectChanges()`, `IsC
 
 Thread-safe pub/sub for **cross-presenter** communication: weak-reference subscriptions (auto-cleanup), automatic UI-thread marshaling, exception isolation, compiled-delegate dispatch. Create it on the UI thread.
 
-Use for cross-presenter/cross-module events. Do **not** use for parent-child coordination (call methods directly) or shared state (use a service with events). Dispose subscriptions in `Cleanup()`. See [wiki/Reference-EventAggregator.md](wiki/Reference-EventAggregator.md) and `samples/.../ComplexInteractionDemo_EventBased/`.
+Use for cross-presenter/cross-module events. Do **not** use for parent-child coordination (call methods directly) or shared state (use a service with events). Register subscriptions with `.DisposeWith(Disposables)` at the creation line (released automatically; no `Cleanup` override needed). See [wiki/Reference-EventAggregator.md](wiki/Reference-EventAggregator.md) and `samples/.../ComplexInteractionDemo_EventBased/`.
 
 ## Project Structure
 
