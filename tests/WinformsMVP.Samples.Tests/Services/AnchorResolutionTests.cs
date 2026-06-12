@@ -5,10 +5,11 @@ using Xunit;
 namespace WinformsMVP.Samples.Tests.Services
 {
     /// <summary>
-    /// Tests for the pure interaction-point decision used by the cursor-anchored forms of
-    /// <c>AnchoredMessageService</c>. Convention mirrors Windows' WM_CONTEXTMENU handling:
-    /// mouse (cursor inside the active window) → exact cursor point; keyboard (cursor outside)
-    /// → the focused control; fallbacks → window center, then screen center.
+    /// Tests for the pure interaction-point decision used by the anchor-free forms of
+    /// <c>AnchoredMessageService</c>. The input modality comes from the message-level
+    /// <c>LastInputTracker</c> (keydown vs mouse-button-down); when it has not observed any
+    /// input yet (<c>null</c>), the decision falls back to the geometric inference
+    /// (cursor inside the active window → mouse).
     /// </summary>
     public class AnchorResolutionTests
     {
@@ -17,44 +18,57 @@ namespace WinformsMVP.Samples.Tests.Services
         private static readonly Rectangle Focused = new Rectangle(300, 400, 80, 30);
 
         [Fact]
-        public void CursorInsideActiveWindow_ReturnsCursor()
+        public void MouseInput_ReturnsCursor_EvenWhenFocusInfoExists()
         {
             var cursor = new Point(500, 300);
-            var result = AnchoredMessageService.ResolveAnchorCore(cursor, Window, Focused, Screen);
-            Assert.Equal(cursor, result);   // mouse click: exact point wins even when focus info exists
+            var result = AnchoredMessageService.ResolveAnchorCore(cursor, Window, Focused, Screen, lastInputWasKeyboard: false);
+            Assert.Equal(cursor, result);
         }
 
         [Fact]
-        public void CursorOutsideWindow_WithFocusedControl_ReturnsControlBottomLeft()
+        public void KeyboardInput_ReturnsFocusedControlBottomLeft_EvenWhenCursorIsInsideWindow()
         {
-            var cursor = new Point(1500, 50);   // mouse parked elsewhere → keyboard-triggered
-            var result = AnchoredMessageService.ResolveAnchorCore(cursor, Window, Focused, Screen);
+            // The decisive case: the mouse is parked inside the window (it almost always is),
+            // but the trigger was a keyboard shortcut — anchor at the focused control.
+            var cursor = new Point(500, 300);
+            var result = AnchoredMessageService.ResolveAnchorCore(cursor, Window, Focused, Screen, lastInputWasKeyboard: true);
             Assert.Equal(new Point(Focused.Left, Focused.Bottom), result);
         }
 
         [Fact]
-        public void CursorOutsideWindow_NoFocusedControl_ReturnsWindowCenter()
+        public void KeyboardInput_NoFocusedControl_ReturnsWindowCenter()
         {
-            var cursor = new Point(1500, 50);
-            var result = AnchoredMessageService.ResolveAnchorCore(cursor, Window, null, Screen);
+            var cursor = new Point(500, 300);
+            var result = AnchoredMessageService.ResolveAnchorCore(cursor, Window, null, Screen, lastInputWasKeyboard: true);
             Assert.Equal(new Point(Window.Left + Window.Width / 2, Window.Top + Window.Height / 2), result);
         }
 
         [Fact]
-        public void NoActiveWindow_ReturnsScreenCenter()
+        public void UnknownModality_CursorInsideWindow_FallsBackToCursor()
         {
-            var cursor = new Point(1500, 50);
-            var result = AnchoredMessageService.ResolveAnchorCore(cursor, null, null, Screen);
-            Assert.Equal(new Point(Screen.Left + Screen.Width / 2, Screen.Top + Screen.Height / 2), result);
+            var cursor = new Point(500, 300);
+            var result = AnchoredMessageService.ResolveAnchorCore(cursor, Window, Focused, Screen, lastInputWasKeyboard: null);
+            Assert.Equal(cursor, result);
         }
 
         [Fact]
-        public void NoActiveWindow_FocusInfoIgnored_StillScreenCenter()
+        public void UnknownModality_CursorOutsideWindow_FallsBackToFocusedControl()
         {
-            // Focus bounds without an active window is an inconsistent reading; the safe center wins.
-            var cursor = new Point(10, 10);
-            var result = AnchoredMessageService.ResolveAnchorCore(cursor, null, Focused, Screen);
-            Assert.Equal(new Point(Screen.Left + Screen.Width / 2, Screen.Top + Screen.Height / 2), result);
+            var cursor = new Point(1500, 50);
+            var result = AnchoredMessageService.ResolveAnchorCore(cursor, Window, Focused, Screen, lastInputWasKeyboard: null);
+            Assert.Equal(new Point(Focused.Left, Focused.Bottom), result);
+        }
+
+        [Fact]
+        public void NoActiveWindow_ReturnsScreenCenter_RegardlessOfModality()
+        {
+            var cursor = new Point(1500, 50);
+            Assert.Equal(
+                new Point(Screen.Left + Screen.Width / 2, Screen.Top + Screen.Height / 2),
+                AnchoredMessageService.ResolveAnchorCore(cursor, null, Focused, Screen, lastInputWasKeyboard: true));
+            Assert.Equal(
+                new Point(Screen.Left + Screen.Width / 2, Screen.Top + Screen.Height / 2),
+                AnchoredMessageService.ResolveAnchorCore(cursor, null, null, Screen, lastInputWasKeyboard: false));
         }
     }
 }

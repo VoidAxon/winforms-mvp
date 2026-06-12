@@ -13,6 +13,14 @@ namespace WinformsMVP.Services.Implementations
     /// </summary>
     public class AnchoredMessageService : IAnchoredMessageService
     {
+        public AnchoredMessageService()
+        {
+            // Start observing input modality as early as possible (typically at service
+            // registration during app wiring), so the first anchored call already knows
+            // whether the trigger was keyboard or mouse.
+            LastInputTracker.EnsureInstalled();
+        }
+
         public void ShowToast(string text, ToastType type, ToastOptions options = null)
             => ShowToast(text, type, ResolveAnchor(), options);
 
@@ -72,47 +80,51 @@ namespace WinformsMVP.Services.Implementations
         /// window, then of the screen (the default MessageBox placement).
         /// </summary>
         /// <remarks>
-        /// Mouse vs keyboard is inferred geometrically: a mouse click is always delivered to the
-        /// window under the cursor and the handler runs synchronously during it, so the cursor
-        /// being inside the active window's bounds means mouse (or a harmless equivalent: the
-        /// toast lands under the parked pointer, in plain sight); the cursor being outside means
-        /// the trigger cannot have been a mouse click. The inference is self-correcting for the
-        /// common case because clicking a focusable control also makes it the focused control —
-        /// both branches then point at the same place.
+        /// Mouse vs keyboard comes from <see cref="LastInputTracker"/>, which watches the raw
+        /// input messages: the action handler runs synchronously inside the processing of the
+        /// triggering input message, so "the last input" is exactly the one that triggered this
+        /// call. (A geometric inference — cursor inside the active window → mouse — is only the
+        /// fallback for the first call before any input has been observed. It cannot be the
+        /// primary mechanism: the mouse usually rests inside the window while the user works the
+        /// keyboard, and for a maximized window it always does.)
         /// </remarks>
         private static Point ResolveAnchor()
         {
             var cursor = Cursor.Position;
             var active = Form.ActiveForm;
+            bool? lastInputWasKeyboard = LastInputTracker.LastInputWasKeyboard;
             if (active == null)
             {
-                return ResolveAnchorCore(cursor, null, null, Screen.FromPoint(cursor).WorkingArea);
+                return ResolveAnchorCore(cursor, null, null, Screen.FromPoint(cursor).WorkingArea, lastInputWasKeyboard);
             }
 
             var focused = InnermostActiveControl(active);
             Rectangle? focusedBounds = focused != null
                 ? focused.RectangleToScreen(focused.ClientRectangle)
                 : (Rectangle?)null;
-            return ResolveAnchorCore(cursor, active.Bounds, focusedBounds, Screen.FromPoint(cursor).WorkingArea);
+            return ResolveAnchorCore(cursor, active.Bounds, focusedBounds, Screen.FromPoint(cursor).WorkingArea, lastInputWasKeyboard);
         }
 
         /// <summary>
-        /// Pure interaction-point decision (unit-tested; all inputs injected):
-        /// cursor inside the active window → the cursor; otherwise the focused control's
-        /// bottom-left; otherwise the window center; with no active window, the screen center.
+        /// Pure interaction-point decision (unit-tested; all inputs injected).
+        /// Keyboard → the focused control's bottom-left, else the window center;
+        /// mouse → the cursor; unknown modality → geometric fallback (cursor inside the window
+        /// counts as mouse); no active window → the screen center.
         /// </summary>
         internal static Point ResolveAnchorCore(
             Point cursor,
             Rectangle? activeWindowBounds,
             Rectangle? focusedControlBounds,
-            Rectangle screenWorkingArea)
+            Rectangle screenWorkingArea,
+            bool? lastInputWasKeyboard)
         {
             if (activeWindowBounds == null)
             {
                 return Center(screenWorkingArea);
             }
 
-            if (activeWindowBounds.Value.Contains(cursor))
+            bool keyboard = lastInputWasKeyboard ?? !activeWindowBounds.Value.Contains(cursor);
+            if (!keyboard)
             {
                 return cursor;
             }
