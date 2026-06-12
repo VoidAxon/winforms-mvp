@@ -7,8 +7,9 @@ namespace WinformsMVP.MVP.Views
     /// <summary>
     /// Anchored feedback as view behavior: <c>View.ShowToast(...)</c>,
     /// <c>View.ConfirmYesNo(...)</c>. Each method mirrors <see cref="IAnchoredMessageService"/>
-    /// in two forms — without a <see cref="Point"/> (anchored at the cursor at call time) and
-    /// with a <see cref="Point"/> (caller-supplied screen anchor).
+    /// in two forms — without a <see cref="Point"/> (anchored at the interaction point: the
+    /// click point for mouse input, the focused control for keyboard input) and with a
+    /// <see cref="Point"/> (caller-supplied screen anchor).
     /// </summary>
     /// <remarks>
     /// <para>
@@ -27,9 +28,10 @@ namespace WinformsMVP.MVP.Views
     /// collection and call <c>ServiceLocator.Reset()</c> afterwards.
     /// </para>
     /// <para>
-    /// For the cursor forms the anchor is the cursor position at call time — call synchronously
-    /// inside the event/action handler. After an <c>await</c> use <c>Messages.ShowToast</c>
-    /// instead.
+    /// The anchor-free forms resolve the interaction point at call time (mouse → click point,
+    /// keyboard → focused control, fallback → window/screen center — the Windows context-menu
+    /// convention). Call them synchronously inside the event/action handler; after an
+    /// <c>await</c> use <c>Messages.ShowToast</c> instead.
     /// </para>
     /// <para>
     /// The <paramref name="view"/> receiver is not used by the current implementation; it exists
@@ -42,7 +44,7 @@ namespace WinformsMVP.MVP.Views
         private static IAnchoredMessageService Service()
             => ServiceLocator.Current.ResolveRequired<IAnchoredMessageService>();
 
-        /// <summary>Shows a toast anchored at the cursor.</summary>
+        /// <summary>Shows a toast anchored at the interaction point.</summary>
         public static void ShowToast(this IViewBase view, string text, ToastType type, ToastOptions options = null)
             => Service().ShowToast(text, type, options);
 
@@ -50,7 +52,7 @@ namespace WinformsMVP.MVP.Views
         public static void ShowToast(this IViewBase view, string text, ToastType type, Point anchor, ToastOptions options = null)
             => Service().ShowToast(text, type, anchor, options);
 
-        /// <summary>Shows an anchored information message at the cursor.</summary>
+        /// <summary>Shows an anchored information message at the interaction point.</summary>
         public static void ShowInfo(this IViewBase view, string text, string caption = "")
             => Service().ShowInfo(text, caption);
 
@@ -58,7 +60,7 @@ namespace WinformsMVP.MVP.Views
         public static void ShowInfo(this IViewBase view, string text, Point anchor, string caption = "")
             => Service().ShowInfo(text, anchor, caption);
 
-        /// <summary>Shows an anchored warning message at the cursor.</summary>
+        /// <summary>Shows an anchored warning message at the interaction point.</summary>
         public static void ShowWarning(this IViewBase view, string text, string caption = "")
             => Service().ShowWarning(text, caption);
 
@@ -66,7 +68,7 @@ namespace WinformsMVP.MVP.Views
         public static void ShowWarning(this IViewBase view, string text, Point anchor, string caption = "")
             => Service().ShowWarning(text, anchor, caption);
 
-        /// <summary>Shows an anchored error message at the cursor.</summary>
+        /// <summary>Shows an anchored error message at the interaction point.</summary>
         public static void ShowError(this IViewBase view, string text, string caption = "")
             => Service().ShowError(text, caption);
 
@@ -74,7 +76,7 @@ namespace WinformsMVP.MVP.Views
         public static void ShowError(this IViewBase view, string text, Point anchor, string caption = "")
             => Service().ShowError(text, anchor, caption);
 
-        /// <summary>Anchored Yes/No confirmation at the cursor. True when the user chose Yes.</summary>
+        /// <summary>Anchored Yes/No confirmation at the interaction point. True when the user chose Yes.</summary>
         public static bool ConfirmYesNo(this IViewBase view, string text, string caption = "")
             => Service().ConfirmYesNo(text, caption);
 
@@ -82,7 +84,7 @@ namespace WinformsMVP.MVP.Views
         public static bool ConfirmYesNo(this IViewBase view, string text, Point anchor, string caption = "")
             => Service().ConfirmYesNo(text, anchor, caption);
 
-        /// <summary>Anchored OK/Cancel confirmation at the cursor. True when the user chose OK.</summary>
+        /// <summary>Anchored OK/Cancel confirmation at the interaction point. True when the user chose OK.</summary>
         public static bool ConfirmOkCancel(this IViewBase view, string text, string caption = "")
             => Service().ConfirmOkCancel(text, caption);
 
@@ -90,7 +92,7 @@ namespace WinformsMVP.MVP.Views
         public static bool ConfirmOkCancel(this IViewBase view, string text, Point anchor, string caption = "")
             => Service().ConfirmOkCancel(text, anchor, caption);
 
-        /// <summary>Anchored Yes/No/Cancel confirmation at the cursor. Returns the raw result.</summary>
+        /// <summary>Anchored Yes/No/Cancel confirmation at the interaction point. Returns the raw result.</summary>
         public static ConfirmResult ConfirmYesNoCancel(this IViewBase view, string text, string caption = "")
             => Service().ConfirmYesNoCancel(text, caption);
 

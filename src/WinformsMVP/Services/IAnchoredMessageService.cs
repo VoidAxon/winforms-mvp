@@ -12,11 +12,14 @@ namespace WinformsMVP.Services
     /// <remarks>
     /// <para>
     /// Every method comes in two forms. The form <b>without</b> a <see cref="Point"/> anchors at
-    /// the cursor position <b>at call time</b> — call it synchronously inside the event/action
-    /// handler on the UI thread so it equals the click point; after an <c>await</c> the cursor
-    /// may have moved (use <see cref="IMessageService.ShowToast(string, ToastType, int)"/>, the
-    /// corner toast, for deferred feedback). The form <b>with</b> a <see cref="Point"/> lets the
-    /// caller supply its own screen anchor (a control's bounds, a hit-test result, ...).
+    /// the <b>interaction point</b>, resolved at call time with the same convention Windows uses
+    /// for keyboard-invoked context menus: mouse input → the exact click point (cursor), keyboard
+    /// input → the focused control, fallback → the center of the active window, then of the
+    /// screen. Call it synchronously inside the event/action handler on the UI thread; after an
+    /// <c>await</c> the interaction context is gone (use
+    /// <see cref="IMessageService.ShowToast(string, ToastType, int)"/>, the corner toast, for
+    /// deferred feedback). The form <b>with</b> a <see cref="Point"/> lets the caller supply its
+    /// own screen anchor (a control's bounds, a hit-test result, ...).
     /// </para>
     /// <para>
     /// Presenters never pass coordinates: they use the cursor-anchored <c>IViewBase</c>
