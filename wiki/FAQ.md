@@ -76,16 +76,16 @@ A.
 
 A. View の `ActionBinder` プロパティに `_binder.Add(action, button)` で登録します。Presenter 側は `Dispatcher.Register(action, handler)` でハンドラを登録します。詳しくは [ViewAction システム](Reference-ViewAction-System) または [Getting Started § 3](Getting-Started) を参照。
 
-### Q. `CanExecute` で Save ボタンを自動的にグレーアウトしたい
+### Q. `CanExecute` でボタンを自動的にグレーアウトしたい
 
 A.
 
 ```csharp
-Dispatcher.Register(StandardActions.Save, OnSave,
-    canExecute: () => View.HasUnsavedChanges);
+Dispatcher.Register(StandardActions.Delete, OnDelete,
+    canExecute: () => View.HasSelection);
 ```
 
-これでフレームワークが自動的にボタンの `Enabled` プロパティを切り替えます。状態が変わったとき (例: TextBox の TextChanged) は `Dispatcher.RaiseCanExecuteChanged()` を呼んでください。
+これでフレームワークが自動的にボタンの `Enabled` プロパティを切り替えます。状態が変わったとき (例: ListBox の SelectionChanged) は `Dispatcher.RaiseCanExecuteChanged()` を呼んでください。
 
 ### Q. 同じアクションに複数のボタン (ツールバー + メニュー) を紐付けたい
 

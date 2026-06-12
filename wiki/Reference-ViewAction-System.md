@@ -75,7 +75,7 @@ public static class UserEditorActions
 public interface IUserEditorView : IWindowView
 {
     string UserName { get; set; }
-    bool HasUnsavedChanges { get; }
+    bool HasSelectedUser { get; }
 
     ViewActionBinder ActionBinder { get; }
 }
@@ -117,10 +117,10 @@ public class UserEditorPresenter : WindowPresenterBase<IUserEditorView>
 {
     protected override void RegisterViewActions()
     {
-        Dispatcher.Register(UserEditorActions.Save, OnSave,
-            canExecute: () => View.HasUnsavedChanges);
+        Dispatcher.Register(UserEditorActions.Save, OnSave);
 
-        Dispatcher.Register(UserEditorActions.Delete, OnDelete);
+        Dispatcher.Register(UserEditorActions.Delete, OnDelete,
+            canExecute: () => View.HasSelectedUser);   // 選択があるときだけ有効
         Dispatcher.Register(UserEditorActions.Cancel, OnCancel);
 
         // After this method returns, the framework calls
@@ -226,18 +226,13 @@ public static class MainActions
 
 ```csharp
 Dispatcher.Register(
-    StandardActions.Save,
-    OnSave,
-    canExecute: () => View.HasUnsavedChanges);
-
-Dispatcher.Register(
     StandardActions.Delete,
     OnDelete,
     canExecute: () => View.HasSelectedItem);
 ```
 
-- `View.HasUnsavedChanges` が `false` のとき、`_saveButton.Enabled` は自動で `false` になる
-- `View.HasSelectedItem` が変わったタイミングで Dispatcher に通知すれば、`_deleteButton.Enabled` も追従する
+- `View.HasSelectedItem` が `false` のとき、`_deleteButton.Enabled` は自動で `false` になる
+- 選択が変わったタイミングで `Dispatcher.RaiseCanExecuteChanged()` を呼べば `Enabled` が追従する
 
 ### いつ再評価されるか
 

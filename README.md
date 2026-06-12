@@ -40,7 +40,6 @@ WPF 風のコマンドバインドとサービス抽象 (`IMessageService` / `ID
 public interface IUserEditorView : IWindowView
 {
     string UserName { get; set; }
-    bool HasUnsavedChanges { get; }
     ViewActionBinder ActionBinder { get; }
 }
 
@@ -49,8 +48,7 @@ public class UserEditorPresenter : WindowPresenterBase<IUserEditorView>
 {
     protected override void RegisterViewActions()
     {
-        Dispatcher.Register(StandardActions.Save, OnSave,
-            canExecute: () => View.HasUnsavedChanges);
+        Dispatcher.Register(StandardActions.Save, OnSave);
     }
 
     private void OnSave()
@@ -78,8 +76,6 @@ public class UserEditorForm : Form, IUserEditorView
         get => _nameTextBox.Text;
         set => _nameTextBox.Text = value;
     }
-
-    public bool HasUnsavedChanges => /* ... */;
 }
 
 // 4. 起動

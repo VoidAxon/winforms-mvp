@@ -111,7 +111,7 @@ The Presenter registers handlers; it never references controls:
 ```csharp
 protected override void RegisterViewActions()
 {
-    Dispatcher.Register(CommonActions.Save, OnSave, canExecute: () => View.HasUnsavedChanges);
+    Dispatcher.Register(CommonActions.Delete, OnDelete, canExecute: () => View.HasSelection);
     // Framework auto-calls View.ActionBinder?.Bind(_dispatcher) after this method returns.
 }
 ```

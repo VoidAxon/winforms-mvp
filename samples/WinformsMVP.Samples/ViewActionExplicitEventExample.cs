@@ -55,8 +55,7 @@ namespace WinformsMVP.Samples
         int ItemCount { get; set; }
         string StatusMessage { set; }
 
-        // State properties for CanExecute
-        bool HasUnsavedChanges { get; }
+        // State property for CanExecute
         bool HasSelection { get; }
 
         // ✅ Explicit event for ViewAction handling
@@ -133,8 +132,6 @@ namespace WinformsMVP.Samples
             this.Controls.Add(_btnRefresh);
 
             // Track changes for CanExecute
-            _txtItemName.TextChanged += (s, e) => OnDataChanged();
-            _numItemCount.ValueChanged += (s, e) => OnDataChanged();
             _lstItems.SelectedIndexChanged += (s, e) => OnSelectionChanged();
         }
 
@@ -177,8 +174,6 @@ namespace WinformsMVP.Samples
             set => _lblStatus.Text = value;
         }
 
-        public bool HasUnsavedChanges { get; private set; }
-
         public bool HasSelection => _lstItems.SelectedIndex >= 0;
 
         public void ShowItems(string[] items)
@@ -194,16 +189,9 @@ namespace WinformsMVP.Samples
         {
             _txtItemName.Clear();
             _numItemCount.Value = 0;
-            HasUnsavedChanges = false;
         }
 
         // Helper methods
-        private void OnDataChanged()
-        {
-            HasUnsavedChanges = true;
-            // ✅ No need to trigger event - automatic CanExecute updates work!
-        }
-
         private void OnSelectionChanged()
         {
             // ✅ No need to notify presenter - automatic CanExecute updates work!
@@ -238,11 +226,10 @@ namespace WinformsMVP.Samples
 
         protected override void RegisterViewActions()
         {
-            // ✅ Register handlers with CanExecute predicates
+            // ✅ Register handlers; CanExecute drives Enabled where state matters
             Dispatcher.Register(
                 ExplicitDemoActions.Save,
-                OnSave,
-                canExecute: () => View.HasUnsavedChanges);
+                OnSave);
 
             Dispatcher.Register(
                 ExplicitDemoActions.Delete,
@@ -323,8 +310,8 @@ namespace WinformsMVP.Samples
      * // Presenter
      * protected override void RegisterViewActions()
      * {
-     *     Dispatcher.Register(CommonActions.Save, OnSave,
-     *         canExecute: () => View.HasUnsavedChanges);
+     *     Dispatcher.Register(CommonActions.Delete, OnDelete,
+     *         canExecute: () => View.HasSelection);
      *
      *     // Framework auto-calls View.ActionBinder.Bind(_dispatcher) here!
      * }
@@ -358,8 +345,8 @@ namespace WinformsMVP.Samples
      *
      * protected override void RegisterViewActions()
      * {
-     *     Dispatcher.Register(CommonActions.Save, OnSave,
-     *         canExecute: () => View.HasUnsavedChanges);
+     *     Dispatcher.Register(CommonActions.Delete, OnDelete,
+     *         canExecute: () => View.HasSelection);
      *
      *     // Framework calls View.ActionBinder.Bind(_dispatcher) automatically
      *     // Mode detection prevents double-dispatch while enabling automatic UI updates

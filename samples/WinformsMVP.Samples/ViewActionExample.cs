@@ -58,7 +58,6 @@ namespace WinformsMVP.Samples
         // ========================================
 
         string UserName { get; set; }
-        bool HasUnsavedChanges { get; }
         bool HasSelectedUser { get; }
 
         // ========================================
@@ -113,11 +112,10 @@ namespace WinformsMVP.Samples
             // The View's BindActions implementation will automatically enable/disable
             // controls based on these predicates
 
-            // Save is only enabled when there are unsaved changes
+            // Save is always enabled
             _dispatcher.Register(
                 CommonActions.Save,
-                OnSave,
-                canExecute: () => View.HasUnsavedChanges);
+                OnSave);
 
             // Cancel is always enabled
             _dispatcher.Register(

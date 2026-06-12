@@ -437,7 +437,6 @@ public class MockUserEditorView : IUserEditorView
 {
     public string UserName { get; set; }
     public string Email { get; set; }
-    public bool HasUnsavedChanges { get; set; }
 
     public List<string> MethodCalls { get; } = new List<string>();
 

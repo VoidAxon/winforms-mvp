@@ -340,7 +340,6 @@ public interface IMyView : IWindowView
 {
     // データ — プロパティ
     string UserName { get; set; }
-    bool HasUnsavedChanges { get; }
     IReadOnlyList<User> Users { get; set; }
 
     // 処理を起こすもの — メソッド
