@@ -98,22 +98,26 @@ namespace WinformsMVP.Services.Implementations
             var cursor = Cursor.Position;
             var active = Form.ActiveForm;
             bool? lastInputWasKeyboard = LastInputTracker.LastInputWasKeyboard;
+            bool inputLive = LastInputTracker.IsInputLive;
             if (active == null)
             {
-                return ResolveAnchorCore(cursor, null, null, null, Screen.FromPoint(cursor).WorkingArea, lastInputWasKeyboard);
+                return ResolveAnchorCore(cursor, null, null, null, Screen.FromPoint(cursor).WorkingArea, lastInputWasKeyboard, inputLive);
             }
 
             var triggerBounds = ScreenBoundsOf(InteractionSource.Current);
             var focused = InnermostActiveControl(active);
             Rectangle? focusedBounds = focused != null ? AnchorBoundsOf(focused) : null;
-            return ResolveAnchorCore(cursor, active.Bounds, triggerBounds, focusedBounds, Screen.FromPoint(cursor).WorkingArea, lastInputWasKeyboard);
+            return ResolveAnchorCore(cursor, active.Bounds, triggerBounds, focusedBounds, Screen.FromPoint(cursor).WorkingArea, lastInputWasKeyboard, inputLive);
         }
 
         /// <summary>
         /// Pure interaction-point decision (unit-tested; all inputs injected).
-        /// Keyboard → the triggering control's bottom-left, else the focused control's, else the
-        /// window center; mouse → the cursor; unknown modality → geometric fallback (cursor
-        /// inside the window counts as mouse); no active window → the screen center.
+        /// With a live input: keyboard → the triggering control's bottom-left, else the focused
+        /// control's, else the window center; mouse → the cursor; unknown modality → geometric
+        /// fallback (cursor inside the window counts as mouse). Without a live input (timer,
+        /// async continuation, plain code): the triggering control when known (programmatic
+        /// PerformClick), else the window center — never the stale cursor/focus, which would be
+        /// causally unrelated to the event. No active window → the screen center.
         /// </summary>
         internal static Point ResolveAnchorCore(
             Point cursor,
@@ -121,11 +125,23 @@ namespace WinformsMVP.Services.Implementations
             Rectangle? triggerControlBounds,
             Rectangle? focusedControlBounds,
             Rectangle screenWorkingArea,
-            bool? lastInputWasKeyboard)
+            bool? lastInputWasKeyboard,
+            bool inputLive)
         {
             if (activeWindowBounds == null)
             {
                 return Center(screenWorkingArea);
+            }
+
+            if (!inputLive)
+            {
+                // Programmatic trigger: anchor to the explicitly clicked control if any;
+                // otherwise the dignified default — the window center, like a MessageBox.
+                if (triggerControlBounds != null)
+                {
+                    return BottomLeft(triggerControlBounds.Value);
+                }
+                return Center(activeWindowBounds.Value);
             }
 
             bool keyboard = lastInputWasKeyboard ?? !activeWindowBounds.Value.Contains(cursor);
@@ -137,12 +153,14 @@ namespace WinformsMVP.Services.Implementations
             var anchorRect = triggerControlBounds ?? focusedControlBounds;
             if (anchorRect != null)
             {
-                var r = anchorRect.Value;
-                return new Point(r.Left, r.Bottom);
+                return BottomLeft(anchorRect.Value);
             }
 
             return Center(activeWindowBounds.Value);
         }
+
+        private static Point BottomLeft(Rectangle r)
+            => new Point(r.Left, r.Bottom);
 
         /// <summary>
         /// Screen bounds of the component that triggered the in-flight dispatch, when they are

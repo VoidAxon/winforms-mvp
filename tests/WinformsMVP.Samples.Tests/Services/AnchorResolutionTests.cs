@@ -23,7 +23,7 @@ namespace WinformsMVP.Samples.Tests.Services
         {
             var cursor = new Point(500, 300);
             var result = AnchoredMessageService.ResolveAnchorCore(
-                cursor, Window, Trigger, Focused, Screen, lastInputWasKeyboard: false);
+                cursor, Window, Trigger, Focused, Screen, lastInputWasKeyboard: false, inputLive: true);
             Assert.Equal(cursor, result);
         }
 
@@ -34,7 +34,7 @@ namespace WinformsMVP.Samples.Tests.Services
             // The feedback must anchor at the ACTIVATED control, not the focused one.
             var cursor = new Point(500, 300);
             var result = AnchoredMessageService.ResolveAnchorCore(
-                cursor, Window, Trigger, Focused, Screen, lastInputWasKeyboard: true);
+                cursor, Window, Trigger, Focused, Screen, lastInputWasKeyboard: true, inputLive: true);
             Assert.Equal(new Point(Trigger.Left, Trigger.Bottom), result);
         }
 
@@ -45,7 +45,7 @@ namespace WinformsMVP.Samples.Tests.Services
             // parked inside the window — feedback anchors at the focused control, not the mouse.
             var cursor = new Point(500, 300);
             var result = AnchoredMessageService.ResolveAnchorCore(
-                cursor, Window, null, Focused, Screen, lastInputWasKeyboard: true);
+                cursor, Window, null, Focused, Screen, lastInputWasKeyboard: true, inputLive: true);
             Assert.Equal(new Point(Focused.Left, Focused.Bottom), result);
         }
 
@@ -54,7 +54,7 @@ namespace WinformsMVP.Samples.Tests.Services
         {
             var cursor = new Point(500, 300);
             var result = AnchoredMessageService.ResolveAnchorCore(
-                cursor, Window, null, null, Screen, lastInputWasKeyboard: true);
+                cursor, Window, null, null, Screen, lastInputWasKeyboard: true, inputLive: true);
             Assert.Equal(new Point(Window.Left + Window.Width / 2, Window.Top + Window.Height / 2), result);
         }
 
@@ -63,7 +63,7 @@ namespace WinformsMVP.Samples.Tests.Services
         {
             var cursor = new Point(500, 300);
             var result = AnchoredMessageService.ResolveAnchorCore(
-                cursor, Window, Trigger, Focused, Screen, lastInputWasKeyboard: null);
+                cursor, Window, Trigger, Focused, Screen, lastInputWasKeyboard: null, inputLive: true);
             Assert.Equal(cursor, result);
         }
 
@@ -72,8 +72,30 @@ namespace WinformsMVP.Samples.Tests.Services
         {
             var cursor = new Point(1500, 50);
             var result = AnchoredMessageService.ResolveAnchorCore(
-                cursor, Window, Trigger, Focused, Screen, lastInputWasKeyboard: null);
+                cursor, Window, Trigger, Focused, Screen, lastInputWasKeyboard: null, inputLive: true);
             Assert.Equal(new Point(Trigger.Left, Trigger.Bottom), result);
+        }
+
+        [Fact]
+        public void ProgrammaticTrigger_WithTriggerControl_AnchorsAtIt()
+        {
+            // Code-driven PerformClick on a button (e.g. from a timer): the clicked control is
+            // an explicit causal anchor even though no input is live.
+            var cursor = new Point(500, 300);
+            var result = AnchoredMessageService.ResolveAnchorCore(
+                cursor, Window, Trigger, Focused, Screen, lastInputWasKeyboard: false, inputLive: false);
+            Assert.Equal(new Point(Trigger.Left, Trigger.Bottom), result);
+        }
+
+        [Fact]
+        public void ProgrammaticTrigger_NoTrigger_ReturnsWindowCenter_IgnoringStaleCursorAndFocus()
+        {
+            // Pure Dispatcher.Dispatch from a timer/async continuation: the stale cursor and the
+            // current focus are causally unrelated — the dignified default is the window center.
+            var cursor = new Point(500, 300);
+            var result = AnchoredMessageService.ResolveAnchorCore(
+                cursor, Window, null, Focused, Screen, lastInputWasKeyboard: false, inputLive: false);
+            Assert.Equal(new Point(Window.Left + Window.Width / 2, Window.Top + Window.Height / 2), result);
         }
 
         [Fact]
@@ -82,10 +104,10 @@ namespace WinformsMVP.Samples.Tests.Services
             var cursor = new Point(1500, 50);
             Assert.Equal(
                 new Point(Screen.Left + Screen.Width / 2, Screen.Top + Screen.Height / 2),
-                AnchoredMessageService.ResolveAnchorCore(cursor, null, Trigger, Focused, Screen, lastInputWasKeyboard: true));
+                AnchoredMessageService.ResolveAnchorCore(cursor, null, Trigger, Focused, Screen, lastInputWasKeyboard: true, inputLive: true));
             Assert.Equal(
                 new Point(Screen.Left + Screen.Width / 2, Screen.Top + Screen.Height / 2),
-                AnchoredMessageService.ResolveAnchorCore(cursor, null, null, null, Screen, lastInputWasKeyboard: false));
+                AnchoredMessageService.ResolveAnchorCore(cursor, null, null, null, Screen, lastInputWasKeyboard: false, inputLive: true));
         }
     }
 }
