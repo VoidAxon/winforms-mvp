@@ -93,7 +93,9 @@ namespace WinformsMVP.Samples.Tests.Mocks
             MethodCalls.Add("RefreshEmailList()");
         }
 
-        public IViewActionBinder ActionBinder { get; } = NullViewActionBinder.Instance;
+        // Captures the dispatcher so tests can dispatch actions through the real entry point.
+        public CapturingActionBinder Binder { get; } = new CapturingActionBinder();
+        public IViewActionBinder ActionBinder => Binder;
 
         // Events
         public event EventHandler EmailSelectionChanged;

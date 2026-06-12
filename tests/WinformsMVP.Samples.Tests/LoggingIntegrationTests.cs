@@ -22,7 +22,8 @@ namespace WinformsMVP.Samples.Tests
             public string LogOutput { get; set; }
             public string UserName { get; set; }
             public int ProcessedCount { get; set; }
-            public IViewActionBinder ActionBinder { get; } = NullViewActionBinder.Instance;
+            public CapturingActionBinder Binder { get; } = new CapturingActionBinder();
+            public IViewActionBinder ActionBinder => Binder;
             public object Tag { get; set; }
 
         }
@@ -85,7 +86,7 @@ namespace WinformsMVP.Samples.Tests
 
             view.UserName = "Alice";
 
-            presenter.TestDispatcher.Dispatch(LoggingActions.LogStructured);
+            view.Binder.Dispatch(LoggingActions.LogStructured);
 
             var structuredMessage = loggerFactory.Logger.Entries
                 .FirstOrDefault(m => m.Message.Contains("Alice") && m.Message.Contains("performed action"));
@@ -112,7 +113,7 @@ namespace WinformsMVP.Samples.Tests
 
             view.UserName = "Bob";
 
-            presenter.TestDispatcher.Dispatch(LoggingActions.LogException);
+            view.Binder.Dispatch(LoggingActions.LogException);
 
             var exceptionMessage = loggerFactory.Logger.Entries
                 .FirstOrDefault(m => m.Exception != null);
@@ -139,10 +140,10 @@ namespace WinformsMVP.Samples.Tests
             presenter.AttachView(view);
             presenter.Initialize();
 
-            presenter.TestDispatcher.Dispatch(LoggingActions.LogDebug);
-            presenter.TestDispatcher.Dispatch(LoggingActions.LogInfo);
-            presenter.TestDispatcher.Dispatch(LoggingActions.LogWarning);
-            presenter.TestDispatcher.Dispatch(LoggingActions.LogError);
+            view.Binder.Dispatch(LoggingActions.LogDebug);
+            view.Binder.Dispatch(LoggingActions.LogInfo);
+            view.Binder.Dispatch(LoggingActions.LogWarning);
+            view.Binder.Dispatch(LoggingActions.LogError);
 
             var debugLog = loggerFactory.Logger.Entries.FirstOrDefault(m => m.Level == LogLevel.Debug);
             var infoLog = loggerFactory.Logger.Entries.FirstOrDefault(m => m.Level == LogLevel.Information && m.Message.Contains("performed an action"));
@@ -209,9 +210,9 @@ namespace WinformsMVP.Samples.Tests
             presenter.AttachView(view);
             presenter.Initialize();
 
-            presenter.TestDispatcher.Dispatch(LoggingActions.LogStructured);
-            presenter.TestDispatcher.Dispatch(LoggingActions.LogStructured);
-            presenter.TestDispatcher.Dispatch(LoggingActions.LogStructured);
+            view.Binder.Dispatch(LoggingActions.LogStructured);
+            view.Binder.Dispatch(LoggingActions.LogStructured);
+            view.Binder.Dispatch(LoggingActions.LogStructured);
 
             Assert.Equal(3, view.ProcessedCount);
         }
@@ -228,10 +229,10 @@ namespace WinformsMVP.Samples.Tests
             presenter.AttachView(view);
             presenter.Initialize();
 
-            presenter.TestDispatcher.Dispatch(LoggingActions.LogStructured);
-            presenter.TestDispatcher.Dispatch(LoggingActions.LogStructured);
+            view.Binder.Dispatch(LoggingActions.LogStructured);
+            view.Binder.Dispatch(LoggingActions.LogStructured);
 
-            presenter.TestDispatcher.Dispatch(LoggingActions.ClearLog);
+            view.Binder.Dispatch(LoggingActions.ClearLog);
 
             Assert.Equal(0, view.ProcessedCount);
             Assert.Contains("Log Cleared", view.LogOutput);

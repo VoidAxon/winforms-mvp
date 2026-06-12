@@ -18,7 +18,7 @@ namespace WinformsMVP.Samples.Tests.Services
         // The controller talks to ICloseParticipant, not the view, so the view stays slim.
         private sealed class FakeWindow : Form, IWindowView
         {
-            public IViewActionBinder ActionBinder => NullViewActionBinder.Instance;
+            public IViewActionBinder ActionBinder { get; } = new CapturingActionBinder();
         }
 
         private sealed class FakeParticipant : ICloseParticipant, IDisposable

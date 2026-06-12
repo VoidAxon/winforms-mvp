@@ -53,7 +53,7 @@ namespace WinformsMVP.Samples.Tests.Services
         /// </summary>
         private sealed class NotAFormView : ITestNavView
         {
-            public IViewActionBinder ActionBinder => NullViewActionBinder.Instance;
+            public IViewActionBinder ActionBinder { get; } = new CapturingActionBinder();
         }
 
         private static WindowNavigator NewNavigatorWithEmptyRegistry()
@@ -63,7 +63,7 @@ namespace WinformsMVP.Samples.Tests.Services
         /// navigator gets past form creation into Initialize. Never actually shown by these tests.</summary>
         private sealed class TestNavForm : Form, ITestNavView
         {
-            public IViewActionBinder ActionBinder => NullViewActionBinder.Instance;
+            public IViewActionBinder ActionBinder { get; } = new CapturingActionBinder();
         }
 
         /// <summary>Presenter whose <c>OnInitialize</c> throws, exercising the init-failure path.</summary>

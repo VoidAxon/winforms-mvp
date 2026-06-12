@@ -58,7 +58,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             _mockView.TaskText = "Buy groceries";
 
             // Act
-            _presenter.Dispatch(ToDoDemoActions.AddTask);
+            _mockView.Binder.Dispatch(ToDoDemoActions.AddTask);
 
             // Assert
             Assert.Contains("AddTaskToList(Buy groceries)", _mockView.MethodCalls);
@@ -73,7 +73,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             _mockView.TaskText = "Buy groceries";
 
             // Act
-            _presenter.Dispatch(ToDoDemoActions.AddTask);
+            _mockView.Binder.Dispatch(ToDoDemoActions.AddTask);
 
             // Assert
             Assert.Equal(string.Empty, _mockView.TaskText);
@@ -86,7 +86,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             _mockView.TaskText = "Buy groceries";
 
             // Act
-            _presenter.Dispatch(ToDoDemoActions.AddTask);
+            _mockView.Binder.Dispatch(ToDoDemoActions.AddTask);
 
             // Assert - Verify MessageService was called
             Assert.True(_mockServices.MessageService.InfoMessageShown);
@@ -102,7 +102,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             _mockView.TaskText = "";
 
             // Act
-            _presenter.Dispatch(ToDoDemoActions.AddTask);
+            _mockView.Binder.Dispatch(ToDoDemoActions.AddTask);
 
             // Assert - Verify warning message was displayed
             Assert.True(_mockServices.MessageService.WarningMessageShown);
@@ -116,7 +116,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             _mockView.TaskText = "   ";
 
             // Act
-            _presenter.Dispatch(ToDoDemoActions.AddTask);
+            _mockView.Binder.Dispatch(ToDoDemoActions.AddTask);
 
             // Assert
             Assert.True(_mockServices.MessageService.WarningMessageShown);
@@ -132,12 +132,12 @@ namespace WinformsMVP.Samples.Tests.Presenters
         {
             // Arrange
             _mockView.TaskText = "Task to delete";
-            _presenter.Dispatch(ToDoDemoActions.AddTask);
+            _mockView.Binder.Dispatch(ToDoDemoActions.AddTask);
             _mockView.SelectTask(0);
             _mockServices.MessageService.ConfirmYesNoResult = true;
 
             // Act
-            _presenter.Dispatch(ToDoDemoActions.RemoveTask);
+            _mockView.Binder.Dispatch(ToDoDemoActions.RemoveTask);
 
             // Assert
             Assert.True(_mockServices.MessageService.ConfirmDialogShown);
@@ -150,12 +150,12 @@ namespace WinformsMVP.Samples.Tests.Presenters
         {
             // Arrange
             _mockView.TaskText = "Task to keep";
-            _presenter.Dispatch(ToDoDemoActions.AddTask);
+            _mockView.Binder.Dispatch(ToDoDemoActions.AddTask);
             _mockView.SelectTask(0);
             _mockServices.MessageService.ConfirmYesNoResult = false;  // User clicks No
 
             // Act
-            _presenter.Dispatch(ToDoDemoActions.RemoveTask);
+            _mockView.Binder.Dispatch(ToDoDemoActions.RemoveTask);
 
             // Assert
             Assert.True(_mockServices.MessageService.ConfirmDialogShown);
@@ -172,11 +172,11 @@ namespace WinformsMVP.Samples.Tests.Presenters
         {
             // Arrange
             _mockView.TaskText = "Task to complete";
-            _presenter.Dispatch(ToDoDemoActions.AddTask);
+            _mockView.Binder.Dispatch(ToDoDemoActions.AddTask);
             _mockView.SelectTask(0);
 
             // Act
-            _presenter.Dispatch(ToDoDemoActions.CompleteTask);
+            _mockView.Binder.Dispatch(ToDoDemoActions.CompleteTask);
 
             // Assert
             Assert.Contains("CompleteSelectedTask()", _mockView.MethodCalls);
@@ -192,11 +192,11 @@ namespace WinformsMVP.Samples.Tests.Presenters
         {
             // Arrange
             _mockView.TaskText = "New task";
-            _presenter.Dispatch(ToDoDemoActions.AddTask);
+            _mockView.Binder.Dispatch(ToDoDemoActions.AddTask);
             Assert.True(_mockView.HasPendingChanges);
 
             // Act
-            _presenter.Dispatch(ToDoDemoActions.SaveAll);
+            _mockView.Binder.Dispatch(ToDoDemoActions.SaveAll);
 
             // Assert
             Assert.Contains("ClearPendingChanges()", _mockView.MethodCalls);
@@ -208,10 +208,10 @@ namespace WinformsMVP.Samples.Tests.Presenters
         {
             // Arrange
             _mockView.TaskText = "New task";
-            _presenter.Dispatch(ToDoDemoActions.AddTask);
+            _mockView.Binder.Dispatch(ToDoDemoActions.AddTask);
 
             // Act
-            _presenter.Dispatch(ToDoDemoActions.SaveAll);
+            _mockView.Binder.Dispatch(ToDoDemoActions.SaveAll);
 
             // Assert - Verify success message was displayed
             Assert.True(_mockServices.MessageService.InfoMessageShown);
@@ -229,23 +229,23 @@ namespace WinformsMVP.Samples.Tests.Presenters
         {
             // 1. Add first task
             _mockView.TaskText = "Task 1";
-            _presenter.Dispatch(ToDoDemoActions.AddTask);
+            _mockView.Binder.Dispatch(ToDoDemoActions.AddTask);
 
             // 2. Add second task
             _mockView.TaskText = "Task 2";
-            _presenter.Dispatch(ToDoDemoActions.AddTask);
+            _mockView.Binder.Dispatch(ToDoDemoActions.AddTask);
 
             // 3. Complete first task
             _mockView.SelectTask(0);
-            _presenter.Dispatch(ToDoDemoActions.CompleteTask);
+            _mockView.Binder.Dispatch(ToDoDemoActions.CompleteTask);
 
             // 4. Delete second task
             _mockView.SelectTask(1);
             _mockServices.MessageService.ConfirmYesNoResult = true;
-            _presenter.Dispatch(ToDoDemoActions.RemoveTask);
+            _mockView.Binder.Dispatch(ToDoDemoActions.RemoveTask);
 
             // 5. Save all changes
-            _presenter.Dispatch(ToDoDemoActions.SaveAll);
+            _mockView.Binder.Dispatch(ToDoDemoActions.SaveAll);
 
             // Assert - verify final state
             Assert.Equal(1, _mockView.TaskCount);
@@ -270,7 +270,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
 
             // Arrange
             _mockView.TaskText = "Test task";
-            _presenter.Dispatch(ToDoDemoActions.AddTask);
+            _mockView.Binder.Dispatch(ToDoDemoActions.AddTask);
 
             // Act - Trigger SelectionChanged event
             _mockView.SelectTask(0);
@@ -291,7 +291,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
 
             // Act
             _mockView.TaskText = "Test";
-            _presenter.Dispatch(ToDoDemoActions.AddTask);
+            _mockView.Binder.Dispatch(ToDoDemoActions.AddTask);
 
             // Assert - Verify mock service recorded the call
             Assert.Single(_mockServices.MessageService.Calls);

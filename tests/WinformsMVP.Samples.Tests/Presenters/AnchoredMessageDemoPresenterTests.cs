@@ -21,7 +21,8 @@ namespace WinformsMVP.Samples.Tests.Presenters
             public int ConfirmDeleteCalls;
             public int ShowRowTouchedCalls;
 
-            public IViewActionBinder ActionBinder => null; // explicit: no auto-binding in tests
+            public CapturingActionBinder Binder { get; } = new CapturingActionBinder();
+            public IViewActionBinder ActionBinder => Binder;
             public string ItemName { get; set; } = "Alpha";
             public bool NotificationsEnabled { get; set; }
             public void ShowHint(string message) => LastHint = message;
@@ -43,7 +44,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
         [Fact]
         public void Save_ShowsCornerToast_WithItemName()
         {
-            _presenter.Dispatch(AnchoredMessageDemoActions.Save);
+            _view.Binder.Dispatch(AnchoredMessageDemoActions.Save);
             Assert.Contains(_services.MessageService.Calls,
                 c => c.Type == MessageType.Toast && c.Message.Contains("Saved 'Alpha'"));
         }
@@ -52,7 +53,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
         public void Delete_Confirmed_ShowsDeletedToast()
         {
             _view.ConfirmDeleteResult = true;
-            _presenter.Dispatch(AnchoredMessageDemoActions.Delete);
+            _view.Binder.Dispatch(AnchoredMessageDemoActions.Delete);
             Assert.Equal(1, _view.ConfirmDeleteCalls);
             Assert.Contains(_services.MessageService.Calls,
                 c => c.Type == MessageType.Toast && c.Message.Contains("Deleted"));
@@ -62,7 +63,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
         public void Delete_Declined_ShowsNoToast()
         {
             _view.ConfirmDeleteResult = false;
-            _presenter.Dispatch(AnchoredMessageDemoActions.Delete);
+            _view.Binder.Dispatch(AnchoredMessageDemoActions.Delete);
             Assert.DoesNotContain(_services.MessageService.Calls,
                 c => c.Type == MessageType.Toast && c.Message.Contains("Deleted"));
             Assert.Equal("Delete cancelled.", _view.LastHint);
@@ -71,7 +72,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
         [Fact]
         public void GridTouch_UsesSemanticViewMethod()
         {
-            _presenter.Dispatch(AnchoredMessageDemoActions.GridTouch);
+            _view.Binder.Dispatch(AnchoredMessageDemoActions.GridTouch);
             Assert.Equal(1, _view.ShowRowTouchedCalls);
         }
 
@@ -79,7 +80,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
         public void ToggleNotify_ReflectsCheckedState()
         {
             _view.NotificationsEnabled = true;
-            _presenter.Dispatch(AnchoredMessageDemoActions.ToggleNotify);
+            _view.Binder.Dispatch(AnchoredMessageDemoActions.ToggleNotify);
             Assert.Contains(_services.MessageService.Calls,
                 c => c.Type == MessageType.Toast && c.Message.Contains("enabled"));
         }

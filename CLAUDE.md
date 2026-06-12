@@ -49,7 +49,7 @@ Button SaveButton { get; }               string Name { get; set; }
 TextBox NameTextBox { get; }             bool HasSelection { get; }
                                          void AddItem(string item);
                                          event EventHandler SelectionChanged;
-                                         ViewActionBinder ActionBinder { get; }  // framework abstraction
+                                         IViewActionBinder ActionBinder { get; }  // framework abstraction (inherited from IWindowView)
 ```
 
 **3. Presenter does use-case logic only, not view logic.** Presenter owns the business workflow (validate → save → notify); the View decides *how* to display things. All data lives in the Model, not just in UI controls.
@@ -64,8 +64,11 @@ Subscriptions registered via `.DisposeWith(Disposables)` (event tokens, `Cascade
 
 **Testing rule:** never widen visibility for tests. Drive the Presenter through its real entry points so the same `CanExecute` / close logic runs:
 ```csharp
-// Action dispatch (works as-is — Dispatcher is public):
-presenter.Dispatcher.Dispatch(CommonActions.Save);            // not presenter.OnSave()
+// Action dispatch — Dispatcher stays protected; nothing is exposed for testing.
+// The mock view exposes a CapturingActionBinder (tests/.../Mocks/CapturingActionBinder.cs)
+// that captures the dispatcher the framework hands to View.ActionBinder during Initialize,
+// so tests dispatch through the same channel a real Form's bound controls use:
+view.Binder.Dispatch(CommonActions.Save);                     // not presenter.OnSave()
 
 // Pull veto — ICloseParticipant is internal; tests get access via InternalsVisibleTo:
 ((ICloseParticipant)presenter).CanCloseGate(CloseReason.Normal, ok => allow = ok);

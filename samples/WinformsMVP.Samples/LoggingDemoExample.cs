@@ -40,9 +40,6 @@ namespace WinformsMVP.Samples
         // Presenter
         public class LoggingDemoPresenter : WindowPresenterBase<ILoggingDemoView>
         {
-            // Internal accessor for testing
-            internal ViewActionDispatcher TestDispatcher => Dispatcher;
-
             protected override void OnViewAttached()
             {
                 // Nothing to do - using ViewAction implicit pattern

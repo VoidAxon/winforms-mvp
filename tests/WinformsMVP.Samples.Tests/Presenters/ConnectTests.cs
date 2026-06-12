@@ -17,7 +17,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
 
         private sealed class FakeView : IFakeView
         {
-            public IViewActionBinder ActionBinder => NullViewActionBinder.Instance;
+            public IViewActionBinder ActionBinder { get; } = new CapturingActionBinder();
         }
 
         private sealed class FakePresenter : WindowPresenterBase<IFakeView>
@@ -38,7 +38,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
 
         private sealed class FakeWindowForm : Form, IFakeView
         {
-            public IViewActionBinder ActionBinder => NullViewActionBinder.Instance;
+            public IViewActionBinder ActionBinder { get; } = new CapturingActionBinder();
         }
 
         private sealed class ResultPresenter : WindowPresenterBase<IFakeView>

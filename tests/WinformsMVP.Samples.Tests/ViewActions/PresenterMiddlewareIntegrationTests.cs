@@ -32,10 +32,11 @@ namespace WinformsMVP.Samples.Tests.ViewActions
             var presenter = new TestPresenter(trace)
                 .WithServiceProvider(platform.Provider);
 
-            presenter.AttachView(new TestView());
+            var view = new TestView();
+            presenter.AttachView(view);
             presenter.Initialize();
 
-            presenter.Dispatch(SaveAction);
+            view.Binder.Dispatch(SaveAction);
 
             // Global wraps local; local wraps handler.
             Assert.Equal(
@@ -52,10 +53,11 @@ namespace WinformsMVP.Samples.Tests.ViewActions
             var presenter = new TestPresenter(trace)
                 .WithServiceProvider(platform.Provider);
 
-            presenter.AttachView(new TestView());
+            var view = new TestView();
+            presenter.AttachView(view);
             presenter.Initialize();
 
-            presenter.Dispatch(SaveAction);
+            view.Binder.Dispatch(SaveAction);
 
             Assert.Equal(
                 new[] { "local:pre", "handler", "local:post" },
@@ -72,10 +74,11 @@ namespace WinformsMVP.Samples.Tests.ViewActions
             var presenter = new FastPathPresenter(trace)
                 .WithServiceProvider(platform.Provider);
 
-            presenter.AttachView(new TestView());
+            var view = new TestView();
+            presenter.AttachView(view);
             presenter.Initialize();
 
-            presenter.Dispatch(SaveAction);
+            view.Binder.Dispatch(SaveAction);
 
             Assert.Equal(new[] { "handler" }, trace);
         }
@@ -92,13 +95,14 @@ namespace WinformsMVP.Samples.Tests.ViewActions
             var presenter = new TestPresenter(trace)
                 .WithServiceProvider(platform.Provider);
 
-            presenter.AttachView(new TestView());
+            var view = new TestView();
+            presenter.AttachView(view);
             presenter.Initialize();
 
             // Dispatch many times — config should still only have fired once.
             for (int i = 0; i < 10; i++)
             {
-                presenter.Dispatch(SaveAction);
+                view.Binder.Dispatch(SaveAction);
             }
 
             Assert.Equal(1, globalConfigInvocations);
@@ -122,7 +126,8 @@ namespace WinformsMVP.Samples.Tests.ViewActions
         // Minimal IWindowView mock - just enough to drive a WindowPresenterBase.
         public class TestView : IWindowView
         {
-            public IViewActionBinder ActionBinder => NullViewActionBinder.Instance;
+            public CapturingActionBinder Binder { get; } = new CapturingActionBinder();
+            public IViewActionBinder ActionBinder => Binder;
         }
 
         public class TestPresenter : WindowPresenterBase<TestView>

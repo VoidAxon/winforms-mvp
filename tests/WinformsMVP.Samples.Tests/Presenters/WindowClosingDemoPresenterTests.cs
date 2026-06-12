@@ -33,7 +33,8 @@ namespace WinformsMVP.Samples.Tests.Presenters
             public string Text { get; set; } = "";
             public string LastStatus { get; private set; }
             public string StatusMessage { set { LastStatus = value; } }
-            public IViewActionBinder ActionBinder { get; } = NullViewActionBinder.Instance;
+            public CapturingActionBinder Binder { get; } = new CapturingActionBinder();
+            public IViewActionBinder ActionBinder => Binder;
 
 
             public event EventHandler EditChanged;
@@ -134,7 +135,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
         {
             _view.SimulateEdit("hello");
 
-            _presenter.Dispatch(WindowClosingDemoActions.Save);
+            _view.Binder.Dispatch(WindowClosingDemoActions.Save);
 
             Assert.Single(_sink.Closed);
             Assert.Equal("hello", _sink.Closed[0].result);
@@ -146,7 +147,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
         {
             _view.SimulateEdit("hello");
 
-            _presenter.Dispatch(WindowClosingDemoActions.Cancel);
+            _view.Binder.Dispatch(WindowClosingDemoActions.Cancel);
 
             Assert.Single(_sink.Closed);
             Assert.Equal(InteractionStatus.Cancel, _sink.Closed[0].status);
@@ -165,7 +166,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
         {
             _view.SimulateEdit("hello");
 
-            _presenter.Dispatch(WindowClosingDemoActions.Save);
+            _view.Binder.Dispatch(WindowClosingDemoActions.Save);
             // Simulate framework follow-up close gate after RequestClose.
             Assert.True(RunCanClose());
             Assert.False(_platform.MessageService.ConfirmDialogShown);
@@ -177,7 +178,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
         {
             _view.SimulateEdit("hello");
 
-            _presenter.Dispatch(WindowClosingDemoActions.Cancel);
+            _view.Binder.Dispatch(WindowClosingDemoActions.Cancel);
             Assert.True(RunCanClose());
             Assert.False(_platform.MessageService.ConfirmDialogShown);
         }

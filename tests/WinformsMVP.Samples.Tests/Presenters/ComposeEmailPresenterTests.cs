@@ -283,7 +283,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             _mockRepository.SendEmailAsyncResult = true;
 
             // Act
-            _presenter.Dispatch(ComposeEmailActions.Send);
+            _mockView.Binder.Dispatch(ComposeEmailActions.Send);
 
             // Wait for async operation
             await Task.Delay(50);
@@ -308,7 +308,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             _mockView.SimulateEmailDataChange();
 
             // Act - try to dispatch (will be blocked by CanExecute)
-            _presenter.Dispatch(ComposeEmailActions.Send);
+            _mockView.Binder.Dispatch(ComposeEmailActions.Send);
 
             // Assert - Send should not have been called (blocked by CanExecute)
             Assert.DoesNotContain("SendEmailAsync", string.Join(", ", _mockRepository.MethodCalls));
@@ -328,7 +328,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             _mockView.SimulateEmailDataChange();
 
             // Act - try to dispatch (will be blocked by CanExecute)
-            _presenter.Dispatch(ComposeEmailActions.Send);
+            _mockView.Binder.Dispatch(ComposeEmailActions.Send);
 
             // Assert - Send should not have been called (blocked by CanExecute)
             Assert.DoesNotContain("SendEmailAsync", string.Join(", ", _mockRepository.MethodCalls));
@@ -348,7 +348,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             _mockView.SimulateEmailDataChange();
 
             // Act
-            _presenter.Dispatch(ComposeEmailActions.Send);
+            _mockView.Binder.Dispatch(ComposeEmailActions.Send);
 
             // Assert - warning should be shown by internal validation
             Assert.True(_mockServices.MessageService.WarningMessageShown);
@@ -371,7 +371,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             _mockView.MethodCalls.Clear();
 
             // Act
-            _presenter.Dispatch(ComposeEmailActions.Send);
+            _mockView.Binder.Dispatch(ComposeEmailActions.Send);
             await Task.Delay(50);
 
             // Assert - EnableInput should be set to false, then true
@@ -392,7 +392,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             _mockRepository.SendEmailAsyncResult = false;  // Simulate failure
 
             // Act
-            _presenter.Dispatch(ComposeEmailActions.Send);
+            _mockView.Binder.Dispatch(ComposeEmailActions.Send);
             await Task.Delay(50);
 
             // Assert - error message should be shown
@@ -421,7 +421,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             _mockRepository.MethodCalls.Clear();
 
             // Act
-            _presenter.Dispatch(ComposeEmailActions.SaveDraft);
+            _mockView.Binder.Dispatch(ComposeEmailActions.SaveDraft);
             await Task.Delay(50);
 
             // Assert
@@ -442,7 +442,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             Assert.True(_mockView.IsDirty);
 
             // Act
-            _presenter.Dispatch(ComposeEmailActions.SaveDraft);
+            _mockView.Binder.Dispatch(ComposeEmailActions.SaveDraft);
             await Task.Delay(100);  // Wait for async operation
 
             // Assert - verify SaveDraft was called
@@ -464,7 +464,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             _mockView.SimulateEmailDataChange();
 
             // Act
-            _presenter.Dispatch(ComposeEmailActions.SaveDraft);
+            _mockView.Binder.Dispatch(ComposeEmailActions.SaveDraft);
             await Task.Delay(50);
 
             // Assert - success message should be shown
@@ -495,7 +495,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             }
 
             // Act
-            _presenter.Dispatch(ComposeEmailActions.Discard);
+            _mockView.Binder.Dispatch(ComposeEmailActions.Discard);
 
             // Assert - close should be pushed with Cancel status and no result (discard = cancel, no payload).
             Assert.Single(_sink.Closed);
@@ -515,7 +515,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             _mockServices.MessageService.ConfirmYesNoResult = true;
 
             // Act
-            _presenter.Dispatch(ComposeEmailActions.Discard);
+            _mockView.Binder.Dispatch(ComposeEmailActions.Discard);
 
             // Assert - should show confirmation dialog and push the close.
             Assert.True(_mockServices.MessageService.ConfirmDialogShown);
@@ -679,7 +679,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             _mockRepository.SendEmailAsyncResult = true;
 
             // Act — simulate Send completing (AcceptChanges + RequestClose).
-            _presenter.Dispatch(ComposeEmailActions.Send);
+            _mockView.Binder.Dispatch(ComposeEmailActions.Send);
             await Task.Delay(50);
             // Then framework runs the close gate in response to RequestClose.
             bool allow = RunCanClose();
@@ -703,7 +703,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             _mockServices.MessageService.ConfirmYesNoResult = true;  // confirm discard
 
             // Act — Discard then run the close gate.
-            _presenter.Dispatch(ComposeEmailActions.Discard);
+            _mockView.Binder.Dispatch(ComposeEmailActions.Discard);
             var initialCalls = _mockServices.MessageService.Calls.Count;
             bool allow = RunCanClose();
             var afterClosingCalls = _mockServices.MessageService.Calls.Count;
@@ -789,7 +789,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             _mockView.Subject = "Test";
 
             // Act - dispatch Send with invalid email
-            _presenter.Dispatch(ComposeEmailActions.Send);
+            _mockView.Binder.Dispatch(ComposeEmailActions.Send);
 
             // Assert - verify mock service recorded calls
             Assert.True(_mockServices.MessageService.WarningMessageShown);
@@ -840,7 +840,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             Assert.True(_mockView.IsDirty);
 
             // 4. Send email
-            _presenter.Dispatch(ComposeEmailActions.Send);
+            _mockView.Binder.Dispatch(ComposeEmailActions.Send);
             await Task.Delay(100);  // Wait for async operation
 
             // Assert - verify complete workflow
@@ -864,7 +864,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             Assert.True(_mockView.IsDirty);
 
             // 2. Save as draft
-            _presenter.Dispatch(ComposeEmailActions.SaveDraft);
+            _mockView.Binder.Dispatch(ComposeEmailActions.SaveDraft);
             await Task.Delay(50);
 
             // 3. Verify save
@@ -876,7 +876,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             _mockView.SimulateEmailDataChange();
 
             // 5. Save again
-            _presenter.Dispatch(ComposeEmailActions.SaveDraft);
+            _mockView.Binder.Dispatch(ComposeEmailActions.SaveDraft);
             await Task.Delay(50);
 
             // Assert - can save multiple times
