@@ -338,7 +338,7 @@ public void Save_PushesResultWithOkStatus()
     ((ICloseParticipant)_presenter).BindCloseSink(sink);
 
     _view.SimulateEdit("hello");
-    _presenter.Dispatcher.Dispatch(WindowClosingDemoActions.Save);
+    _view.Binder.Dispatch(WindowClosingDemoActions.Save);
 
     Assert.Single(sink.Closed);
     Assert.Equal("hello", sink.Closed[0].result);
@@ -351,7 +351,7 @@ public void Cancel_PushesCancelStatus()
     var sink = new RecordingSink();
     ((ICloseParticipant)_presenter).BindCloseSink(sink);
 
-    _presenter.Dispatcher.Dispatch(WindowClosingDemoActions.Cancel);
+    _view.Binder.Dispatch(WindowClosingDemoActions.Cancel);
 
     Assert.Equal(InteractionStatus.Cancel, sink.Closed[0].status);
 }
@@ -369,7 +369,7 @@ public void Save_ThenCanClose_DoesNotPrompt()
     ((ICloseParticipant)_presenter).BindCloseSink(sink);
 
     _view.SimulateEdit("hello");
-    _presenter.Dispatcher.Dispatch(WindowClosingDemoActions.Save);
+    _view.Binder.Dispatch(WindowClosingDemoActions.Save);
 
     // Simulate the framework re-running the Pull gate after the Push close.
     bool? allow = null;

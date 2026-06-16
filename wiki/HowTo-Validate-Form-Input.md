@@ -742,7 +742,7 @@ public void Save_WithInvalidEmail_ShowsFieldError()
     _view.Email    = "not-an-email";
     _view.RaiseInputChanged();
 
-    _presenter.Dispatcher.Dispatch(StandardActions.Save);
+    _view.Binder.Dispatch(StandardActions.Save);
 
     Assert.Contains("Invalid email", _view.FieldErrors[nameof(_view.Email)]);
     Assert.False(_view.SavedCalled);
@@ -756,7 +756,7 @@ public void Save_WithAllValid_PersistsData()
     _view.Phone    = "090-1234-5678";
     _view.RaiseInputChanged();
 
-    _presenter.Dispatcher.Dispatch(StandardActions.Save);
+    _view.Binder.Dispatch(StandardActions.Save);
 
     Assert.True(_view.SavedCalled);
     Assert.True(_platform.MessageService.InfoMessageShown);
@@ -768,7 +768,7 @@ public void CanExecute_BecomesFalse_WhenAnyFieldInvalid()
     _view.UserName = "";    // 不正
     _view.RaiseInputChanged();
 
-    Assert.False(_presenter.Dispatcher.CanDispatch(StandardActions.Save));
+    Assert.False(_view.Binder.CanDispatch(StandardActions.Save));
 }
 ```
 

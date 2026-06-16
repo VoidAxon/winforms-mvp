@@ -346,7 +346,7 @@ public void OnSave_ShouldLogSuccess()
     presenter.AttachView(mockView);
     presenter.Initialize();
 
-    presenter.Dispatcher.Dispatch(StandardActions.Save);
+    mockView.Binder.Dispatch(StandardActions.Save);
 
     Assert.Contains(loggerFactory.Logger.Entries,
         e => e.Level == LogLevel.Information && e.Message.Contains("saved"));

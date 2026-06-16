@@ -492,7 +492,7 @@ public class ToDoPresenterTests
         _view.NewTaskTitle = "Write tests";
         _view.RaiseInputChanged();
 
-        _presenter.Dispatcher.Dispatch(ToDoActions.Add);
+        _view.Binder.Dispatch(ToDoActions.Add);
 
         Assert.Contains(_view.Items, i => i.Title == "Write tests");
         Assert.Equal(string.Empty, _view.NewTaskTitle);
@@ -504,7 +504,7 @@ public class ToDoPresenterTests
         _view.SelectedItem = null;
         _view.RaiseSelectionChanged();
 
-        Assert.False(_presenter.Dispatcher.CanDispatch(ToDoActions.Delete));
+        Assert.False(_view.Binder.CanDispatch(ToDoActions.Delete));
     }
 
     [Fact]
@@ -514,7 +514,7 @@ public class ToDoPresenterTests
         _view.RaiseSelectionChanged();
         _platform.MessageService.ConfirmYesNoResult = true;
 
-        _presenter.Dispatcher.Dispatch(ToDoActions.Delete);
+        _view.Binder.Dispatch(ToDoActions.Delete);
 
         Assert.True(_platform.MessageService.ConfirmDialogShown);
         Assert.DoesNotContain(_view.Items, i => i.Title == "Read the framework docs");
@@ -525,11 +525,11 @@ public class ToDoPresenterTests
     {
         _view.NewTaskTitle = "New";
         _view.RaiseInputChanged();
-        _presenter.Dispatcher.Dispatch(ToDoActions.Add);
+        _view.Binder.Dispatch(ToDoActions.Add);
 
         Assert.True(_view.HasUnsavedChanges);                            // dirty
 
-        _presenter.Dispatcher.Dispatch(ToDoActions.Save);
+        _view.Binder.Dispatch(ToDoActions.Save);
 
         Assert.False(_view.HasUnsavedChanges);                           // clean
         Assert.True(_platform.MessageService.InfoMessageShown);

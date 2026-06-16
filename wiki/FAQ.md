@@ -170,7 +170,7 @@ A. はい。`MockMessageService.ConfirmYesNoResult = true/false` で戻り値を
 
 ```csharp
 _platform.MessageService.ConfirmYesNoResult = false;   // No を選択
-_presenter.Dispatcher.Dispatch(StandardActions.Delete);
+_view.Binder.Dispatch(StandardActions.Delete);
 Assert.False(_view.WasDeleted);
 ```
 

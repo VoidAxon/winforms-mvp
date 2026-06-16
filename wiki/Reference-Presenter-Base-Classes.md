@@ -330,7 +330,7 @@ Presenter を **本物のエントリーポイントから** 駆動してくだ�
 
 ```csharp
 // ❌ Wrong:   presenter.OnSave();
-// ✅ Right:   presenter.Dispatcher.Dispatch(StandardActions.Save);
+// ✅ Right:   view.Binder.Dispatch(StandardActions.Save);
 
 // Pull ゲート (CanClose) のテスト — ICloseParticipant は internal、InternalsVisibleTo で到達
 bool? allow = null;
@@ -340,7 +340,7 @@ Assert.False(allow);
 // Push (RequestClose) のテスト — recording sink を注入
 var sink = new RecordingSink();   // ICloseSink を実装する小さなテスト用クラス
 ((ICloseParticipant)presenter).BindCloseSink(sink);
-presenter.Dispatcher.Dispatch(StandardActions.Save);
+view.Binder.Dispatch(StandardActions.Save);
 Assert.Equal(InteractionStatus.Ok, sink.Closed[0].status);
 ```
 

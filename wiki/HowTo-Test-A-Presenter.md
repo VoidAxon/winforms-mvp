@@ -48,7 +48,8 @@ MockServices                    (モックサービスを束ね DefaultServicePr
    └── MockWindowNavigator      (子ウィンドウ表示の検証)
    .Provider                    (DefaultServiceProvider — presenter.WithServiceProvider(mock.Provider) に渡す)
 
-Mock<IXxxView>                  (View インターフェイス用のモック)
+Mock<IXxxView>                  (View インターフェイス用のモック — CapturingActionBinder を公開する)
+CapturingActionBinder           (フレームワークが View に渡す dispatcher を捕捉。テストから Dispatch する入口)
 業務依存 (IXxxRepository 等)     (Presenter のコンストラクタに注入。フレームワークサービスとは別経路)
 ```
 
@@ -93,7 +94,7 @@ public class UserEditorPresenterTests
         _view.Email    = "john@example.com";
 
         // Act
-        _presenter.Dispatcher.Dispatch(StandardActions.Save);
+        _view.Binder.Dispatch(StandardActions.Save);
 
         // Assert — 種別ブール + 本文は HasCall / GetLastCall().Message で検証
         Assert.True(_mockServices.MessageService.InfoMessageShown);
@@ -103,6 +104,29 @@ public class UserEditorPresenterTests
 ```
 
 **AAA パターン** (Arrange / Act / Assert) で書くと、テストの意図が明確になります。
+
+> **アクションは `_view.Binder.Dispatch(...)` で駆動します。** Presenter の `Dispatcher` は protected で、テスト用に公開されることはありません。代わりにモック View が `CapturingActionBinder` を公開します — フレームワークは `Initialize()` 中に `View.ActionBinder.Bind(dispatcher)` を自動で呼ぶため、binder はそこで dispatcher を捕捉できます。本物の Form のボタンが使うのと同一の経路なので、`CanExecute` もミドルウェアも production と同じように評価されます。
+
+```csharp
+// tests/WinformsMVP.Samples.Tests/Mocks/CapturingActionBinder.cs (リポジトリに同梱 — 要点のみ抜粋)
+public sealed class CapturingActionBinder : IViewActionBinder
+{
+    public ViewActionDispatcher Dispatcher { get; private set; }
+
+    public void Bind(ViewActionDispatcher dispatcher) => Dispatcher = dispatcher;   // フレームワークが呼ぶ
+
+    public void Dispatch(ViewAction action, object payload = null) => Dispatcher.Dispatch(action, payload);
+    public bool CanDispatch(ViewAction action) => Dispatcher.CanDispatch(action);
+    // Bind() / Unbind() / ActionTriggered は no-op
+}
+```
+
+モック View 側は 2 行で公開します:
+
+```csharp
+public CapturingActionBinder Binder { get; } = new CapturingActionBinder();
+public IViewActionBinder ActionBinder => Binder;
+```
 
 > **業務依存はコンストラクタ、フレームワークサービスは `WithServiceProvider`。** `MockServices` が束ねるのは Message/Dialog/File/Navigator (+ Logger) の **フレームワークサービス** だけです。`IUserRepository` のような業務依存は Presenter のコンストラクタに注入します (`new UserEditorPresenter(_repository)`)。実例は [`MainEmailPresenterTests.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/tests/WinformsMVP.Samples.Tests/Presenters/MainEmailPresenterTests.cs) の `new MainEmailPresenter(_mockRepository).WithServiceProvider(_mockServices.Provider)` を参照。
 
@@ -119,7 +143,7 @@ public void OnSave_WhenSaveFails_ShowsError()
     _view.UserName = "John";
     _repository.SaveShouldThrow = true;   // 失敗をシミュレート (コンストラクタ注入した mock repo)
 
-    _presenter.Dispatcher.Dispatch(StandardActions.Save);
+    _view.Binder.Dispatch(StandardActions.Save);
 
     Assert.True(_mockServices.MessageService.ErrorMessageShown);
     Assert.True(_mockServices.MessageService.HasCall(MessageType.Error, "Failed to save"));
@@ -130,7 +154,7 @@ public void OnDelete_WithoutSelection_ShowsWarning()
 {
     _view.SelectedId = null;   // 未選択
 
-    _presenter.Dispatcher.Dispatch(StandardActions.Delete);
+    _view.Binder.Dispatch(StandardActions.Delete);
 
     Assert.True(_mockServices.MessageService.WarningMessageShown);
 }
@@ -146,7 +170,7 @@ public void OnImport_WhenUserSelectsFile_ImportsContent()
     _mockServices.DialogProvider.OpenFileDialogResult = "C:\\users.csv";
     _mockServices.FileService.AddFile("C:\\users.csv", "id,name\n1,John");
 
-    _presenter.Dispatcher.Dispatch(ImportActions.Import);
+    _view.Binder.Dispatch(ImportActions.Import);
 
     Assert.Equal(1, _view.Users.Count);
     Assert.Equal("John", _view.Users[0].Name);
@@ -157,7 +181,7 @@ public void OnImport_WhenUserCancels_DoesNothing()
 {
     _mockServices.DialogProvider.OpenFileDialogResult = null;   // null/空 → Cancel をシミュレート
 
-    _presenter.Dispatcher.Dispatch(ImportActions.Import);
+    _view.Binder.Dispatch(ImportActions.Import);
 
     Assert.Equal(0, _view.Users.Count);   // キャンセル時は取り込みが起きない
 }
@@ -173,7 +197,7 @@ public void OnLoadConfig_ReadsFromFileSystem()
 {
     _mockServices.FileService.AddFile("C:\\config.json", "{ \"theme\": \"dark\" }");
 
-    _presenter.Dispatcher.Dispatch(ConfigActions.Load);
+    _view.Binder.Dispatch(ConfigActions.Load);
 
     Assert.Equal("dark", _view.Theme);
 }
@@ -183,7 +207,7 @@ public void OnSaveConfig_WritesToFileSystem()
 {
     _view.Theme = "light";
 
-    _presenter.Dispatcher.Dispatch(ConfigActions.Save);
+    _view.Binder.Dispatch(ConfigActions.Save);
 
     Assert.Equal("{ \"theme\": \"light\" }",
         _mockServices.FileService.ReadAllText("C:\\config.json"));
@@ -199,7 +223,7 @@ public void OnDelete_UserConfirms_RemovesItem()
     _view.SelectedId = 42;
     _mockServices.MessageService.ConfirmYesNoResult = true;   // Yes を選択
 
-    _presenter.Dispatcher.Dispatch(StandardActions.Delete);
+    _view.Binder.Dispatch(StandardActions.Delete);
 
     Assert.True(_mockServices.MessageService.ConfirmDialogShown);
     Assert.True(_repository.WasDeleted(42));
@@ -211,7 +235,7 @@ public void OnDelete_UserDeclines_DoesNotRemove()
     _view.SelectedId = 42;
     _mockServices.MessageService.ConfirmYesNoResult = false;  // No を選択
 
-    _presenter.Dispatcher.Dispatch(StandardActions.Delete);
+    _view.Binder.Dispatch(StandardActions.Delete);
 
     Assert.True(_mockServices.MessageService.ConfirmDialogShown);
     Assert.False(_repository.WasDeleted(42));
@@ -231,7 +255,7 @@ public void OnEditUser_OpensEditorAndReloadsOnSuccess()
     _view.SelectedUserId = 1;
     _mockServices.WindowNavigator.ShowModalBoolResult = true;   // Ok を返す
 
-    _presenter.Dispatcher.Dispatch(MainActions.EditUser);
+    _view.Binder.Dispatch(MainActions.EditUser);
 
     Assert.True(_mockServices.WindowNavigator.ShowModalCalls
         .Any(p => p is EditUserPresenter));
@@ -244,7 +268,7 @@ public void OnEditUser_WhenCancelled_DoesNotReload()
     _view.SelectedUserId = 1;
     _mockServices.WindowNavigator.ShowModalBoolResult = false;   // Cancel を返す
 
-    _presenter.Dispatcher.Dispatch(MainActions.EditUser);
+    _view.Binder.Dispatch(MainActions.EditUser);
 
     Assert.False(_view.ReloadCalled);
 }
@@ -284,7 +308,7 @@ public void OnSave_LogsSuccess()
     presenter.AttachView(_view);
     presenter.Initialize();
 
-    presenter.Dispatcher.Dispatch(StandardActions.Save);
+    _view.Binder.Dispatch(StandardActions.Save);
 
     Assert.Contains(loggerFactory.Logger.Entries,
         e => e.Level == LogLevel.Information && e.Message.Contains("saved"));
@@ -303,9 +327,11 @@ public void OnSave_LogsSuccess()
 // ❌ Wrong — private メソッドを直接呼ぶと CanExecute 判定を迂回する
 presenter.OnSave();
 
-// ✅ Right — Dispatcher 経由で呼ぶ (CanExecute も評価される)
-presenter.Dispatcher.Dispatch(StandardActions.Save);
+// ✅ Right — View の binder 経由で Dispatch (CanExecute も評価される)
+view.Binder.Dispatch(StandardActions.Save);
 ```
+
+`Dispatcher` を public/internal に広げてテストするのも誤りです — `CapturingActionBinder` (上記) が公開 API だけで同じ経路を提供します。
 
 ### ウィンドウクローズのテスト
 
@@ -337,7 +363,7 @@ private sealed class RecordingSink : ICloseSink
 var sink = new RecordingSink();
 ((ICloseParticipant)presenter).BindCloseSink(sink);
 
-presenter.Dispatcher.Dispatch(StandardActions.Save);
+view.Binder.Dispatch(StandardActions.Save);
 
 Assert.Single(sink.Closed);
 Assert.Equal(InteractionStatus.Ok, sink.Closed[0].status);
@@ -375,7 +401,7 @@ public void TestName()
     _mockServices.MessageService.ConfirmYesNoResult = true;
 
     // Act — テスト対象のアクション
-    _presenter.Dispatcher.Dispatch(MyActions.DoSomething);
+    _view.Binder.Dispatch(MyActions.DoSomething);
 
     // Assert — 期待値の検証
     Assert.True(_mockServices.MessageService.InfoMessageShown);
@@ -402,7 +428,7 @@ TestAddTask()
 [Fact]
 public void OnSave_ShowsMessageAndUpdatesView()
 {
-    _presenter.Dispatcher.Dispatch(StandardActions.Save);
+    _view.Binder.Dispatch(StandardActions.Save);
     Assert.True(_mockServices.MessageService.InfoMessageShown);
     Assert.Equal(1, _view.SavedCount);
 }
@@ -445,11 +471,12 @@ public class MockUserEditorView : IUserEditorView
         MethodCalls.Add($"ShowValidationErrors({string.Join(",", errors)})");
     }
 
-    public ViewActionBinder ActionBinder => null;   // テストでは Bind 不要
+    public CapturingActionBinder Binder { get; } = new CapturingActionBinder();
+    public IViewActionBinder ActionBinder => Binder;
 }
 ```
 
-`ActionBinder` を `null` にすると、フレームワークの自動 Bind がスキップされてテストが軽くなります。Dispatcher 自体は依然として動作します。
+`CapturingActionBinder` は本物の `ViewActionBinder` と違い WinForms のコントロール戦略を登録しないため軽量で、そのままテストの Dispatch 入口を兼ねます。なお `ActionBinder` プロパティの型は `IViewActionBinder` です (`IWindowView` から継承 — View インターフェイス側での再宣言は不要)。
 
 ---
 

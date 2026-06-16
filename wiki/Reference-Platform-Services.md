@@ -427,7 +427,7 @@ public void OnSave_ShowsSuccessMessage()
 
     presenter.AttachView(mockView);
     presenter.Initialize();
-    presenter.Dispatcher.Dispatch(StandardActions.Save);
+    mockView.Binder.Dispatch(StandardActions.Save);
 
     Assert.True(mockMessages.InfoMessageShown);
     Assert.True(mockMessages.HasCall(MessageType.Info, "Saved"));

@@ -420,7 +420,7 @@ public void CanDelete_WhenNoCustomerSelected_IsFalse()
     _view.SelectedCustomer = null;
     _view.RaiseSelectedCustomerChanged();
 
-    Assert.False(_presenter.Dispatcher.CanDispatch(OrderActions.DeleteOrder));
+    Assert.False(_view.Binder.CanDispatch(OrderActions.DeleteOrder));
 }
 
 [Fact]
@@ -430,7 +430,7 @@ public void DeletingCustomer_WithOrders_ConfirmsBeforeDelete()
     _platform.OrderRepository.SetupCountByCustomer(1, 5);
     _platform.MessageService.ConfirmYesNoResult = false;   // Cancel
 
-    _presenter.Dispatcher.Dispatch(CustomerActions.Delete);
+    _view.Binder.Dispatch(CustomerActions.Delete);
 
     Assert.True(_platform.MessageService.ConfirmDialogShown);
     Assert.False(_platform.CustomerRepository.DeleteCalled);

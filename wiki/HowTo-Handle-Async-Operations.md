@@ -418,7 +418,7 @@ public async Task OnRefresh_LoadsData()
     _platform.CustomerRepository.SetupGetAllAsync(
         new[] { new Customer { Name = "Alice" } });
 
-    _presenter.Dispatcher.Dispatch(StandardActions.Refresh);
+    _view.Binder.Dispatch(StandardActions.Refresh);
 
     // 非同期完了を待つ
     await Task.Yield();
@@ -433,7 +433,7 @@ public async Task OnRefresh_WhenRepositoryThrows_ShowsError()
 {
     _platform.CustomerRepository.GetAllAsyncShouldThrow = true;
 
-    _presenter.Dispatcher.Dispatch(StandardActions.Refresh);
+    _view.Binder.Dispatch(StandardActions.Refresh);
     await Task.Yield();
 
     Assert.True(_platform.MessageService.ErrorMessageShown);
