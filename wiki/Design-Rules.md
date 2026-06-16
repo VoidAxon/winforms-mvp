@@ -110,7 +110,6 @@ private void OnSave()
 public interface IMyView : IWindowView
 {
     string UserName { get; set; }
-    ViewActionBinder ActionBinder { get; }
     // IWindowView には WinForms 型は含まれない。クローズ制御は Presenter の CanClose override で行う。
 }
 
@@ -515,7 +514,7 @@ public class GoodPresenter : WindowPresenterBase<IMyView>
 - [ ] WinForms 型 (`Button`、`DialogResult` 等) を持たない (Rule 4)
 - [ ] UI コントロール名がプロパティ名に混入していない (Rule 14)
 - [ ] プロパティは「データ」、メソッドは「処理」(Rule 12)
-- [ ] `ViewActionBinder ActionBinder { get; }` を公開している
+- [ ] `IViewActionBinder ActionBinder { get; }` を公開している
 
 ### Form (View 実装)
 - [ ] `XxxForm` または `XxxControl` という命名 (Rule 1)

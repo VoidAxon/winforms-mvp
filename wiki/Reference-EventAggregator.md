@@ -255,7 +255,7 @@ var eventAggregator = new EventAggregator();   // ✅ UI スレッド
 ```csharp
 // Subscribe の戻り値を作成行で Disposables バッグに登録する — これだけで
 // Presenter の Dispose 時にフレームワークが自動解除する
-Events.Subscribe<OrderShipped>(OnShipped).DisposeWith(Disposables);
+_eventAggregator.Subscribe<OrderShipped>(OnShipped).DisposeWith(Disposables);
 ```
 
 弱参照によって最終的には自動でクリーンアップされますが、明示的に外す方が即座に効果があります。

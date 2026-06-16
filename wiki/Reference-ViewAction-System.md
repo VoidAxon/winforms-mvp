@@ -76,8 +76,6 @@ public interface IUserEditorView : IWindowView
 {
     string UserName { get; set; }
     bool HasSelectedUser { get; }
-
-    ViewActionBinder ActionBinder { get; }
 }
 ```
 
@@ -140,7 +138,7 @@ public class UserEditorPresenter : WindowPresenterBase<IUserEditorView>
 
 ### なぜ「メソッド」ではなく「プロパティ」か
 
-過去設計では `void BindActions(ViewActionDispatcher dispatcher)` というメソッドを View インターフェイスに置いていましたが、現在は **`ViewActionBinder ActionBinder { get; }` プロパティ** に統一されています。
+過去設計では `void BindActions(ViewActionDispatcher dispatcher)` というメソッドを View インターフェイスに置いていましたが、現在は **`IViewActionBinder ActionBinder { get; }` プロパティ** に統一されています（`IWindowView` から継承 — View インターフェイス側での再宣言は不要です）。
 
 | 観点 | プロパティの利点 |
 |------|----------------|

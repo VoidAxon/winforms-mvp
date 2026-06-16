@@ -272,7 +272,18 @@ namespace WinformsMVP.Common
             if (newValue == null)
                 throw new ArgumentNullException(nameof(newValue));
 
-            CurrentValue = newValue;
+            // Always invalidate the cache, even when the same reference is passed.
+            // In-place mutations on the tracked object would otherwise leave a stale
+            // cached IsChanged value — the setter's ReferenceEquals guard is an optimisation
+            // for AcceptChanges/RejectChanges flows only.
+            lock (_lock)
+            {
+                var wasChanged = IsChanged;
+                _currentValue = newValue;
+                _cachedIsChanged = null;
+                if (wasChanged != IsChanged)
+                    OnIsChangedChanged();
+            }
         }
 
         // ----------------------------------------------------------------------------------

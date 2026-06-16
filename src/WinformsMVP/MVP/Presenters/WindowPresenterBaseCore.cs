@@ -51,7 +51,13 @@ namespace WinformsMVP.MVP.Presenters
         protected void RequestClose<TResult>(TResult result, InteractionStatus status = InteractionStatus.Ok)
             => _closeSink?.Close(result, status);
 
-        void ICloseParticipant.BindCloseSink(ICloseSink sink) => _closeSink = sink;
+        void ICloseParticipant.BindCloseSink(ICloseSink sink)
+        {
+            if (_closeSink != null)
+                throw new InvalidOperationException(
+                    "A close sink is already bound. Connect must not be called more than once on the same presenter.");
+            _closeSink = sink;
+        }
         void ICloseParticipant.CanCloseGate(CloseReason reason, Action<bool> proceed)
             => CanClose(reason, proceed);
     }

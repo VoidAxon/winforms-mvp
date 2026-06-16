@@ -171,11 +171,10 @@ textBox.Bind(model, m => m.Email);
 | 双方向 | ✅ (ユーザー入力 → Model、Model → TextBox) |
 | 型 | 任意 (内部で `ToString()`) |
 
-### CheckBox / RadioButton
+### CheckBox
 
 ```csharp
 checkBox.Bind(model, m => m.IsActive);
-radioButton.Bind(model, m => m.IsSelected);
 ```
 
 | | |
@@ -183,6 +182,8 @@ radioButton.Bind(model, m => m.IsSelected);
 | バインド対象 | `Checked` プロパティ |
 | 双方向 | ✅ |
 | 型 | `bool` のみ |
+
+> **RadioButton には `.Bind()` は使用しない。** `BindRadioGroup` を使うこと（下記参照）。
 
 ### NumericUpDown
 

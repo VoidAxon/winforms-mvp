@@ -231,11 +231,25 @@ namespace WinformsMVP.MVP.ViewActions
         /// <param name="dispatcher">The dispatcher to bind to</param>
         public void Bind(ViewActionDispatcher dispatcher)
         {
-            _dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
+            if (dispatcher == null) throw new ArgumentNullException(nameof(dispatcher));
 
-            // Important: Call Bind first (which calls Unbind internally)
-            // Then subscribe to events after, otherwise Unbind will unsubscribe them
+            // Save the old dispatcher so we can clean up its subscriptions after Unbind().
+            // Unbind() uses _dispatcher; if we overwrote it first the old dispatcher's events
+            // would never be removed on a re-bind.
+            var oldDispatcher = _dispatcher;
+            _dispatcher = dispatcher;
+
+            // Rebind controls (calls Unbind() internally, which now harmlessly attempts to
+            // remove events from the new dispatcher — that's a no-op since they haven't been
+            // added yet).
             Bind(action => dispatcher.Dispatch(action));
+
+            // Remove subscriptions from the old dispatcher that Unbind() missed.
+            if (oldDispatcher != null)
+            {
+                oldDispatcher.ActionExecuted -= OnActionExecuted;
+                oldDispatcher.CanExecuteChanged -= OnCanExecuteChanged;
+            }
 
             // Subscribe to both events for automatic UI refresh
             _dispatcher.ActionExecuted += OnActionExecuted;
@@ -287,11 +301,18 @@ namespace WinformsMVP.MVP.ViewActions
         {
             if (component is Control control)
             {
-                control.Enabled = enabled;
+                if (control.InvokeRequired)
+                    control.BeginInvoke(new Action(() => control.Enabled = enabled));
+                else
+                    control.Enabled = enabled;
             }
             else if (component is ToolStripItem toolStripItem)
             {
-                toolStripItem.Enabled = enabled;
+                var owner = toolStripItem.GetCurrentParent();
+                if (owner != null && owner.InvokeRequired)
+                    owner.BeginInvoke(new Action(() => toolStripItem.Enabled = enabled));
+                else
+                    toolStripItem.Enabled = enabled;
             }
         }
 

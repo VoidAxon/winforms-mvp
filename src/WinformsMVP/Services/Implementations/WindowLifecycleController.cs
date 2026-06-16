@@ -112,7 +112,9 @@ namespace WinformsMVP.Services.Implementations
             catch (Exception ex)
             {
                 _logger?.LogError(ex, "CanClose threw; blocking the close as a safe default.");
-                decision = false;
+                // Never block system-level shutdowns even when CanClose throws.
+                decision = reason == WinformsMVP.Common.CloseReason.SystemShutdown
+                        || reason == WinformsMVP.Common.CloseReason.TaskManager;
             }
             sync = false;
 

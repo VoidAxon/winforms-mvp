@@ -316,7 +316,7 @@ var eventAggregator = new EventAggregator();   // ← UI スレッド
 
 ### コンストラクタ注入の Presenter を Navigator で開けない
 
-**原因**: `WindowNavigator` は `new TPresenter()` でなく `IPresenterFactory.Create<TPresenter>()` でインスタンスを取得する仕組み。コンストラクタに DI 依存があると、Navigator は解決できない。
+**原因**: Presenter はコンテナ管理外で `new` されているため、コンストラクタ引数が DI で解決されない。`IPresenterFactory.Create<TPresenter>()` を通じて Presenter を取得する必要がある。
 
 **対処**: `IPresenterFactory` を親 Presenter のコンストラクタに注入し、そこで子 Presenter を生成する。
 

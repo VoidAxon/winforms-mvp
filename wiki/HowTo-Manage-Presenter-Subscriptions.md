@@ -48,6 +48,14 @@ protected override void Cleanup()
 購読を作る行に `.DisposeWith(Disposables)` を付けるだけです。`Cleanup` は書きません:
 
 ```csharp
+// IEventAggregator is injected via the constructor and stored in a field
+private readonly IEventAggregator _events;
+
+public MyPresenter(IEventAggregator events, ...)
+{
+    _events = events;
+}
+
 protected override void OnViewAttached()
 {
     // Cascade binding — released automatically when the presenter is disposed
@@ -56,7 +64,7 @@ protected override void OnViewAttached()
         .DisposeWith(Disposables);
 
     // EventAggregator subscription — same one-liner
-    Events.Subscribe<OrderShipped>(OnOrderShipped)
+    _events.Subscribe<OrderShipped>(OnOrderShipped)
         .DisposeWith(Disposables);
 }
 // No _bind field, no null guard, no Cleanup override.

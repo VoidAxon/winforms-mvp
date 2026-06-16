@@ -57,14 +57,27 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView, EditUserPara
     private ChangeTracker<UserModel> _changeTracker;
 
     protected override void OnViewAttached()
-        => View.EditChanged += (s, e) => Dispatcher.RaiseCanExecuteChanged();
+    {
+        // Push the view's current snapshot into the tracker so IsChangedWith
+        // always compares against the freshest user input, then re-evaluate
+        // CanExecute so the Save button reflects the updated dirty state.
+        View.EditChanged += (s, e) =>
+        {
+            _changeTracker.UpdateCurrentValue(View.GetModel());
+            Dispatcher.RaiseCanExecuteChanged();
+        };
+    }
 
     protected override void OnInitialize(EditUserParameters parameters)
     {
         var user = LoadUser(parameters.UserId);
         _changeTracker = new ChangeTracker<UserModel>(user);
-        View.Bind(_changeTracker.CurrentValue);
+        // Populate sets field values without establishing a live data-binding,
+        // so the tracker owns the snapshot and WinForms does not mutate it in place.
+        View.Populate(_changeTracker.CurrentValue);
 
+        // IsChangedChanged fires after each UpdateCurrentValue call above; keep
+        // the subscription so CanExecute is also refreshed on snapshot acceptance.
         _changeTracker.IsChangedChanged += (s, e) => Dispatcher.RaiseCanExecuteChanged();
     }
 
@@ -90,6 +103,9 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView, EditUserPara
     // ── Push direction: Save / Cancel buttons ────────────────────────────────
     private void OnSave()
     {
+        // Sync the final view state before persisting; EditChanged may not have
+        // fired if the control with focus has not yet committed its value.
+        _changeTracker.UpdateCurrentValue(View.GetModel());
         SaveUser(_changeTracker.CurrentValue);
         _changeTracker.AcceptChanges();   // commit model state; CanClose will see clean state
         RequestClose(BuildResult(), InteractionStatus.Ok);

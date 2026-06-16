@@ -30,8 +30,11 @@ namespace WinformsMVP.Common.EventAggregator
     /// Passing a lambda that captures <c>this</c> (e.g. <c>Subscribe&lt;T&gt;(msg =&gt; View.Update(msg))</c>) is a
     /// silent trap: the handler's target is a compiler-generated closure object that nothing else strongly
     /// references, so the next GC collects it and the subscription expires with no notification (the classic
-    /// WPF <c>WeakEventManager</c> pitfall). A <c>filter</c> predicate is fine as a lambda — it is evaluated
-    /// synchronously per message and is not retained as the subscription target.
+    /// WPF <c>WeakEventManager</c> pitfall). A <c>filter</c> predicate is fine as a lambda only when it
+    /// does not capture instance members. A filter that captures <c>this</c>
+    /// (e.g. <c>filter: msg =&gt; msg.Id == _myId</c>) creates a strong reference through the
+    /// subscription's internal <c>_filter</c> field, defeating weak-reference auto-cleanup;
+    /// always unsubscribe explicitly with <c>DisposeWith(Disposables)</c> in that case.
     /// </para>
     ///
     /// <example>

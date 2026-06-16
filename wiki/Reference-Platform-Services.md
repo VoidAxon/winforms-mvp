@@ -209,13 +209,12 @@ private void OnImport()
 ```csharp
 public class OpenFileDialogOptions
 {
-    public string Title { get; set; }
     public string Filter { get; set; }
     public string InitialDirectory { get; set; }
-    public bool RestoreDirectory { get; set; } = true;
+    public string FileName { get; set; }
     public bool CheckFileExists { get; set; } = true;
-    public bool Multiselect { get; set; } = false;
-    public string DefaultExt { get; set; }
+    public bool CheckPathExists { get; set; } = true;
+    public string Title { get; set; }
 }
 ```
 

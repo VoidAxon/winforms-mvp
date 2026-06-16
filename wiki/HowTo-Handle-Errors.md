@@ -175,8 +175,8 @@ private void OnEditCustomer(int id)
 // Program.cs
 DialogDefaults.FileOpenErrorMessage    = "ファイルを開くに失敗しました";
 DialogDefaults.FileSaveErrorMessage    = "ファイルの保存に失敗しました";
-DialogDefaults.FolderBrowseErrorMessage = "フォルダの選択に失敗しました";
-DialogDefaults.DefaultErrorCaption      = "エラー";
+DialogDefaults.FolderSelectErrorMessage = "フォルダの選択に失敗しました";
+DialogDefaults.DefaultMessageCaption    = "エラー";
 ```
 
 ### メリット

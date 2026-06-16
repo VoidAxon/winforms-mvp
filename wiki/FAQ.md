@@ -66,7 +66,7 @@ A.
 - **Form 系**: `WindowNavigator` が Form 閉じ時に自動で `Cleanup()` を呼びます
 - **UserControl 系**: UserControl が `Dispose` されると Presenter も自動で `Cleanup()` を呼びます
 
-`Cleanup()` を override してイベント購読の解除等を行ってください。
+イベント購読の解除には `DisposeWith(Disposables)` を使用してください。購読を `Disposables` バッグに登録しておけば `Cleanup` 後に自動解除されます。`Cleanup()` の override は不要です。
 
 ---
 

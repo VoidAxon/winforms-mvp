@@ -493,14 +493,15 @@ internal static class Program
         //    TryAdd セマンティクスなので、前述のモジュール登録が優先される。
         services.AddWinformsMVP(viewRegistry);
 
-        // 4. プロバイダを構築して ServiceLocator に結ぶ
-        var provider = services.BuildServiceProvider();
-
-        // Plain AddSingleton は AddWinformsMVP の TryAddSingleton を上書きする (登録順不問)。
+        // 4. Register the logger bridge before building the provider.
+        //    Plain AddSingleton overrides AddWinformsMVP's TryAddSingleton regardless of order,
+        //    but the registration must happen before BuildServiceProvider().
         var loggerFactory = LoggerFactory.Create(b => b.AddDebug());
         services.AddSingleton<WinformsMVP.Logging.ILoggerFactory>(
             loggerFactory.AsFrameworkLoggerFactory());
 
+        // 5. プロバイダを構築して ServiceLocator に結ぶ
+        var provider = services.BuildServiceProvider();
         provider.UseWinformsMVP();   // ServiceLocator.Current = provider
 
         // 5. ルート Presenter をコンテナから取得して起動

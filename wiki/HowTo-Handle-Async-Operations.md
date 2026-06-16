@@ -154,7 +154,7 @@ public class ImportProgress
 ```csharp
 public async Task ImportAsync(string filePath, IProgress<ImportProgress> progress)
 {
-    var rows = await File.ReadAllLinesAsync(filePath);
+    var rows = await Task.Run(() => File.ReadAllLines(filePath));
 
     for (int i = 0; i < rows.Length; i++)
     {
@@ -224,7 +224,7 @@ public class ImportPresenter : WindowPresenterBase<IImportView>
 ```csharp
 public async Task ImportAsync(string filePath, CancellationToken cancellationToken)
 {
-    var rows = await File.ReadAllLinesAsync(filePath, cancellationToken);
+    var rows = await Task.Run(() => File.ReadAllLines(filePath), cancellationToken);
 
     foreach (var row in rows)
     {

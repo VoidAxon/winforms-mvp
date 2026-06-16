@@ -377,6 +377,12 @@ public class ToDoPresenter : WindowPresenterBase<IToDoView>
         };
     }
 
+    protected override void OnViewAttached()
+    {
+        View.SelectionChanged += (s, e) => Dispatcher.RaiseCanExecuteChanged();
+        View.InputChanged     += (s, e) => Dispatcher.RaiseCanExecuteChanged();
+    }
+
     protected override void RegisterViewActions()
     {
         Dispatcher.Register(ToDoActions.Add, OnAdd,
@@ -512,11 +518,11 @@ public class ToDoPresenterTests
     {
         _view.SelectedItem = _view.Items[0];
         _view.RaiseSelectionChanged();
-        _platform.MessageService.ConfirmYesNoResult = true;
+        _mockServices.MessageService.ConfirmYesNoResult = true;
 
         _view.Binder.Dispatch(ToDoActions.Delete);
 
-        Assert.True(_platform.MessageService.ConfirmDialogShown);
+        Assert.True(_mockServices.MessageService.ConfirmDialogShown);
         Assert.DoesNotContain(_view.Items, i => i.Title == "Read the framework docs");
     }
 
@@ -532,7 +538,7 @@ public class ToDoPresenterTests
         _view.Binder.Dispatch(ToDoActions.Save);
 
         Assert.False(_view.HasUnsavedChanges);                           // clean
-        Assert.True(_platform.MessageService.InfoMessageShown);
+        Assert.True(_mockServices.MessageService.InfoMessageShown);
     }
 }
 ```
