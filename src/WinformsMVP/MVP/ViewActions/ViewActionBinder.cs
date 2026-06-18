@@ -140,6 +140,30 @@ namespace WinformsMVP.MVP.ViewActions
         }
 
         /// <summary>
+        /// Binds a control whose current value is captured at trigger time and forwarded as the
+        /// action payload. The value is read from <paramref name="valueSelector"/> when the control
+        /// fires — flowing to a <c>Register&lt;TValue&gt;</c> handler (implicit pattern) or carried on a
+        /// value-bearing <see cref="ActionRequestEventArgs{T}"/> via <see cref="ActionTriggered"/>
+        /// (explicit pattern). The presenter never touches the control.
+        /// </summary>
+        /// <typeparam name="TControl">The control type (inferred from <paramref name="control"/>).</typeparam>
+        /// <typeparam name="TValue">The payload type (inferred from <paramref name="valueSelector"/>).</typeparam>
+        /// <param name="actionKey">The action to dispatch.</param>
+        /// <param name="control">The control to bind.</param>
+        /// <param name="valueSelector">Reads the payload value off the control when it triggers.</param>
+        public void Add<TControl, TValue>(ViewAction actionKey, TControl control, Func<TControl, TValue> valueSelector)
+            where TControl : Component
+        {
+            if (control == null) throw new ArgumentNullException(nameof(control));
+            if (valueSelector == null) throw new ArgumentNullException(nameof(valueSelector));
+
+            _bindings.Add(new ActionBinding(
+                actionKey,
+                new Component[] { control },
+                comp => valueSelector((TControl)comp)));
+        }
+
+        /// <summary>
         /// Binds all registered controls to their actions.
         /// Automatically detects whether to use implicit or explicit pattern based on ActionTriggered event subscribers.
         /// </summary>
@@ -153,12 +177,12 @@ namespace WinformsMVP.MVP.ViewActions
         /// <item><b>Implicit Pattern:</b> If ActionTriggered event has no subscribers, only the callback fires</item>
         /// </list>
         /// </remarks>
-        private void Bind(Action<ViewAction> onActionTriggered)
+        private void Bind(Action<ViewAction, object> onActionTriggered)
         {
             Unbind();
 
             _actionToControls.Clear();
-            var actionMap = new Dictionary<object, ViewAction>();
+            var actionMap = new Dictionary<object, ActionBinding>();
 
             foreach (var binding in _bindings)
             {
@@ -169,17 +193,28 @@ namespace WinformsMVP.MVP.ViewActions
 
                 foreach (var component in binding.Components)
                 {
-                    actionMap[component] = binding.ActionKey;
+                    actionMap[component] = binding;
                     _actionToControls[binding.ActionKey].Add(component);
                 }
             }
 
             Delegate handler = new EventHandler((sender, args) =>
             {
-                if (actionMap.TryGetValue(sender, out var key))
+                if (actionMap.TryGetValue(sender, out var binding))
                 {
-                    // Always raise ActionTriggered event (for explicit event-based pattern)
-                    ActionTriggered?.Invoke(this, new ActionRequestEventArgs(key));
+                    var key = binding.ActionKey;
+
+                    // Read the payload off the triggering control, if this binding carries a value.
+                    object payload = binding.ValueSelector != null
+                        ? binding.ValueSelector((Component)sender)
+                        : null;
+
+                    // Always raise ActionTriggered event (for explicit event-based pattern).
+                    // Value bindings raise a value-carrying ActionRequestEventArgs<T> so the payload
+                    // survives the explicit hop through the view's ActionRequest event.
+                    ActionTriggered?.Invoke(this, binding.ValueSelector != null
+                        ? new ActionRequestEventArgs<object>(key, payload)
+                        : new ActionRequestEventArgs(key));
 
                     // Auto-detect mode: Check if explicit event handlers are registered
                     bool hasExplicitHandlers = ActionTriggered != null &&
@@ -188,7 +223,7 @@ namespace WinformsMVP.MVP.ViewActions
                     if (!hasExplicitHandlers)
                     {
                         // Implicit pattern: No explicit handlers, use callback
-                        onActionTriggered?.Invoke(key);
+                        onActionTriggered?.Invoke(key, payload);
                     }
                     // Explicit pattern: Has explicit handlers, skip callback to prevent double-dispatch
                 }
@@ -247,7 +282,7 @@ namespace WinformsMVP.MVP.ViewActions
             // Rebind controls (calls Unbind() internally, which now harmlessly attempts to
             // remove events from the new dispatcher — that's a no-op since they haven't been
             // added yet).
-            Bind(action => dispatcher.Dispatch(action));
+            Bind((action, payload) => dispatcher.Dispatch(action, payload));
 
             // Remove subscriptions from the old dispatcher that Unbind() missed.
             if (oldDispatcher != null)
