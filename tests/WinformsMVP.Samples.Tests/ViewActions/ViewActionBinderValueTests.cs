@@ -109,5 +109,24 @@ namespace WinformsMVP.Samples.Tests.ViewActions
                 Assert.True(ran);
             }
         }
+
+        [Fact]
+        public void Default_NumericUpDownValueChanged_DispatchesValueWithoutRegisterStrategy()
+        {
+            using (var numeric = new NumericUpDown { Minimum = 0, Maximum = 100 })
+            {
+                decimal received = -1;
+                var dispatcher = new ViewActionDispatcher();
+                dispatcher.Register<decimal>(ValueAction, v => received = v);
+
+                var binder = new ViewActionBinder();
+                binder.Add(ValueAction, numeric, n => n.Value); // no RegisterStrategy needed
+                binder.Bind(dispatcher);
+
+                numeric.Value = 42; // raises ValueChanged via the default strategy
+
+                Assert.Equal(42m, received);
+            }
+        }
     }
 }

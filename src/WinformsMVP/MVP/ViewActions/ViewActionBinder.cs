@@ -114,6 +114,14 @@ namespace WinformsMVP.MVP.ViewActions
                 (c, h) => c.SelectionChangeCommitted += (EventHandler)h,
                 (c, h) => c.SelectionChangeCommitted -= (EventHandler)h);
 
+            // NumericUpDown - fires on value change (spin buttons, typing, AND programmatic Value
+            // assignment). Unlike ComboBox there is no user-committed-only event, so initializing or
+            // refilling Value in code will also trigger the action; suppress around such assignments
+            // (Unbind/Bind or a guard flag) if that matters.
+            RegisterStrategy<NumericUpDown>(
+                (c, h) => c.ValueChanged += (EventHandler)h,
+                (c, h) => c.ValueChanged -= (EventHandler)h);
+
             // ToolStripMenuItem, ToolStripButton, ToolStripDropDownButton, ToolStripStatusLabel
             RegisterStrategy<ToolStripItem>(
                 (c, h) => c.Click += (EventHandler)h,
