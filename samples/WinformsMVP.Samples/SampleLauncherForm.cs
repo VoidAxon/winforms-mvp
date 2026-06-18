@@ -15,6 +15,7 @@ using WinformsMVP.Samples.ComplexInteractionDemo_EventBased;
 using WinformsMVP.Samples.CascadeDemo;
 using WinformsMVP.Samples.ToastDemo;
 using WinformsMVP.Samples.AnchoredMessageDemo;
+using WinformsMVP.Samples.DebounceThrottleDemo;
 using WinformsMVP.Services;
 using WinformsMVP.Services.Implementations;
 
@@ -135,7 +136,10 @@ namespace WinformsMVP.Samples
                     Color.FromArgb(220, 20, 60), LaunchMVPComparisonDemo),
                 new DemoItem("ExecutionRequest Pattern",
                     "Legacy Integration • Delayed Execution",
-                    Color.FromArgb(128, 0, 128), LaunchExecutionRequestDemo));
+                    Color.FromArgb(128, 0, 128), LaunchExecutionRequestDemo),
+                new DemoItem("Debounce / Throttle",
+                    "Rate-limit rapid events • UI-thread marshaling • Error handling",
+                    Color.FromArgb(0, 128, 128), LaunchDebounceThrottleDemo));
 
             AddSection(content, "Cross-Presenter Communication",
                 new DemoItem("Order Mgmt (Service-Based)",
@@ -307,6 +311,16 @@ namespace WinformsMVP.Samples
 
             presenter.AttachView(view);
             presenter.Initialize();
+            view.Show();
+
+            this.Hide();
+            view.FormClosed += (s, e) => this.Show();
+        }
+
+        private void LaunchDebounceThrottleDemo()
+        {
+            // View-driven demo: rate limiting is a UI-timing concern, so there is no presenter.
+            var view = new DebounceThrottleDemoForm();
             view.Show();
 
             this.Hide();

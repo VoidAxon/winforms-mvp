@@ -26,6 +26,7 @@
 - [Data Binding](Reference-Data-Binding)
 - [Logging](Reference-Logging)
 - [ChangeTracker](Reference-ChangeTracker)
+- [レート制限 (Debounce / Throttle)](Reference-RateLimiting)
 - [EventAggregator](Reference-EventAggregator)
 - [Dependency Injection](Reference-DependencyInjection)
 
