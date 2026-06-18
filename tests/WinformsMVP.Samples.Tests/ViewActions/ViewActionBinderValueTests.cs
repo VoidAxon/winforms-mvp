@@ -149,5 +149,49 @@ namespace WinformsMVP.Samples.Tests.ViewActions
                 Assert.Equal(newDate, received);
             }
         }
+
+        [Fact]
+        public void Default_MonthCalendarDateChanged_DispatchesValueWithoutRegisterStrategy()
+        {
+            using (var calendar = new MonthCalendar())
+            {
+                DateTime received = default;
+                var dispatcher = new ViewActionDispatcher();
+                dispatcher.Register<DateTime>(ValueAction, v => received = v);
+
+                var binder = new ViewActionBinder();
+                binder.Add(ValueAction, calendar, c => c.SelectionStart); // no RegisterStrategy needed
+                binder.Bind(dispatcher);
+
+                var newDate = new DateTime(2030, 2, 1);
+                calendar.SetDate(newDate); // raises DateChanged (DateRangeEventHandler) via default strategy
+
+                Assert.Equal(newDate, received);
+            }
+        }
+
+        [Fact]
+        public void SubscribeStrategy_UnbindStopsTriggering()
+        {
+            using (var calendar = new MonthCalendar())
+            {
+                int count = 0;
+                var dispatcher = new ViewActionDispatcher();
+                dispatcher.Register(PlainAction, () => count++);
+
+                var binder = new ViewActionBinder();
+                binder.Add(PlainAction, calendar);
+                binder.Bind(dispatcher);
+
+                calendar.SetDate(new DateTime(2030, 2, 1));
+                int afterBind = count;
+                Assert.True(afterBind >= 1, "DateChanged should fire while bound");
+
+                binder.Unbind();
+                calendar.SetDate(new DateTime(2030, 3, 1)); // must not dispatch after Unbind
+
+                Assert.Equal(afterBind, count);
+            }
+        }
     }
 }

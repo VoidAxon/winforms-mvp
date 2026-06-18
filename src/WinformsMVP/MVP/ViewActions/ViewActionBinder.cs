@@ -39,22 +39,14 @@ namespace WinformsMVP.MVP.ViewActions
     /// </remarks>
     public class ViewActionBinder : IViewActionBinder, IEnumerable<ActionBinding>
     {
-        private struct BindingStrategy
-        {
-            public Action<Component, Delegate> Attacher;
-            public Action<Component, Delegate> Detacher;
-        }
-
         private struct ActiveSubscription
         {
-            public Component Control;
-            public Delegate Handler;
-            public Action<Component, Delegate> Detacher;
+            public Action Unsubscribe;
         }
 
         private readonly List<ActionBinding> _bindings = new List<ActionBinding>();
-        private readonly Dictionary<Type, BindingStrategy> _bindingStrategies
-            = new Dictionary<Type, BindingStrategy>();
+        private readonly Dictionary<Type, Func<Component, Delegate, Action>> _bindingStrategies
+            = new Dictionary<Type, Func<Component, Delegate, Action>>();
         private readonly List<ActiveSubscription> _activeSubscriptions
             = new List<ActiveSubscription>();
         private readonly Dictionary<ViewAction, List<Component>> _actionToControls = new Dictionary<ViewAction, List<Component>>();
@@ -128,6 +120,16 @@ namespace WinformsMVP.MVP.ViewActions
                 (c, h) => c.ValueChanged += (EventHandler)h,
                 (c, h) => c.ValueChanged -= (EventHandler)h);
 
+            // MonthCalendar - DateChanged uses DateRangeEventHandler (not EventHandler), so register
+            // via the subscribe overload and adapt the delegate. Same caveat as the other value
+            // controls: programmatic SetDate / SelectionRange assignment also triggers.
+            RegisterStrategy<MonthCalendar>((c, h) =>
+            {
+                DateRangeEventHandler d = (s, e) => ((EventHandler)h)(s, e);
+                c.DateChanged += d;
+                return () => c.DateChanged -= d;
+            });
+
             // ToolStripMenuItem, ToolStripButton, ToolStripDropDownButton, ToolStripStatusLabel
             RegisterStrategy<ToolStripItem>(
                 (c, h) => c.Click += (EventHandler)h,
@@ -139,13 +141,33 @@ namespace WinformsMVP.MVP.ViewActions
                 (c, h) => c.Click -= (EventHandler)h);
         }
 
+        /// <summary>
+        /// Registers a binding strategy for controls of type <typeparamref name="T"/> whose trigger
+        /// event is a plain <see cref="EventHandler"/> (Click, CheckedChanged, ValueChanged, ...).
+        /// </summary>
         public void RegisterStrategy<T>(Action<T, Delegate> attacher, Action<T, Delegate> detacher) where T : Component
         {
-            _bindingStrategies[typeof(T)] = new BindingStrategy
+            if (attacher == null) throw new ArgumentNullException(nameof(attacher));
+            if (detacher == null) throw new ArgumentNullException(nameof(detacher));
+
+            RegisterStrategy<T>((control, handler) =>
             {
-                Attacher = (comp, handler) => attacher((T)comp, handler),
-                Detacher = (comp, handler) => detacher((T)comp, handler)
-            };
+                attacher(control, handler);
+                return () => detacher(control, handler);
+            });
+        }
+
+        /// <summary>
+        /// Registers a binding strategy for controls of type <typeparamref name="T"/>, subscribing to
+        /// the trigger event and returning an unsubscribe callback. Use this overload for controls
+        /// whose event uses a non-<see cref="EventHandler"/> delegate (e.g. MonthCalendar's
+        /// <c>DateChanged</c>): adapt the delegate inside, and the returned closure captures the exact
+        /// subscription so <see cref="Unbind"/> can detach it cleanly.
+        /// </summary>
+        public void RegisterStrategy<T>(Func<T, Delegate, Action> subscribe) where T : Component
+        {
+            if (subscribe == null) throw new ArgumentNullException(nameof(subscribe));
+            _bindingStrategies[typeof(T)] = (comp, handler) => subscribe((T)comp, handler);
         }
 
         public void Add(ViewAction actionKey, params Component[] controls)
@@ -381,7 +403,7 @@ namespace WinformsMVP.MVP.ViewActions
 
             foreach (var sub in _activeSubscriptions)
             {
-                sub.Detacher(sub.Control, sub.Handler);
+                sub.Unsubscribe();
             }
             _activeSubscriptions.Clear();
         }
@@ -391,16 +413,10 @@ namespace WinformsMVP.MVP.ViewActions
             Type currentType = control.GetType();
             while (currentType != null && currentType != typeof(object))
             {
-                if (_bindingStrategies.TryGetValue(currentType, out var strategy))
+                if (_bindingStrategies.TryGetValue(currentType, out var subscribe))
                 {
-                    Delegate specificHandler = handler;
-                    strategy.Attacher(control, specificHandler);
-                    _activeSubscriptions.Add(new ActiveSubscription
-                    {
-                        Control = control,
-                        Handler = specificHandler,
-                        Detacher = strategy.Detacher
-                    });
+                    Action unsubscribe = subscribe(control, handler);
+                    _activeSubscriptions.Add(new ActiveSubscription { Unsubscribe = unsubscribe });
                     return;
                 }
                 currentType = currentType.BaseType;
