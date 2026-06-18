@@ -109,6 +109,11 @@ namespace WinformsMVP.MVP.ViewActions
                 (c, h) => c.Click += (EventHandler)h,
                 (c, h) => c.Click -= (EventHandler)h);
 
+            // ComboBox - fires only on user-committed selection, not on programmatic SelectedIndex changes
+            RegisterStrategy<ComboBox>(
+                (c, h) => c.SelectionChangeCommitted += (EventHandler)h,
+                (c, h) => c.SelectionChangeCommitted -= (EventHandler)h);
+
             // ToolStripMenuItem, ToolStripButton, ToolStripDropDownButton, ToolStripStatusLabel
             RegisterStrategy<ToolStripItem>(
                 (c, h) => c.Click += (EventHandler)h,
