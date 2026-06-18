@@ -1,3 +1,4 @@
+using System;
 using System.Windows.Forms;
 using WinformsMVP.Common.Events;
 using WinformsMVP.MVP.ViewActions;
@@ -126,6 +127,26 @@ namespace WinformsMVP.Samples.Tests.ViewActions
                 numeric.Value = 42; // raises ValueChanged via the default strategy
 
                 Assert.Equal(42m, received);
+            }
+        }
+
+        [Fact]
+        public void Default_DateTimePickerValueChanged_DispatchesValueWithoutRegisterStrategy()
+        {
+            using (var picker = new DateTimePicker())
+            {
+                DateTime received = default;
+                var dispatcher = new ViewActionDispatcher();
+                dispatcher.Register<DateTime>(ValueAction, v => received = v);
+
+                var binder = new ViewActionBinder();
+                binder.Add(ValueAction, picker, p => p.Value); // no RegisterStrategy needed
+                binder.Bind(dispatcher);
+
+                var newDate = new DateTime(2030, 1, 15);
+                picker.Value = newDate; // raises ValueChanged via the default strategy
+
+                Assert.Equal(newDate, received);
             }
         }
     }

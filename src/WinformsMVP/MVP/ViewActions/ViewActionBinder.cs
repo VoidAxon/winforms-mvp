@@ -122,6 +122,12 @@ namespace WinformsMVP.MVP.ViewActions
                 (c, h) => c.ValueChanged += (EventHandler)h,
                 (c, h) => c.ValueChanged -= (EventHandler)h);
 
+            // DateTimePicker - fires on ValueChanged (user pick or programmatic Value set). Same
+            // caveat as NumericUpDown: no committed-only event, so assigning Value in code triggers too.
+            RegisterStrategy<DateTimePicker>(
+                (c, h) => c.ValueChanged += (EventHandler)h,
+                (c, h) => c.ValueChanged -= (EventHandler)h);
+
             // ToolStripMenuItem, ToolStripButton, ToolStripDropDownButton, ToolStripStatusLabel
             RegisterStrategy<ToolStripItem>(
                 (c, h) => c.Click += (EventHandler)h,
