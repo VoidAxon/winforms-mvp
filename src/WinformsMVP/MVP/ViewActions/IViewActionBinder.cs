@@ -1,6 +1,3 @@
-using System;
-using WinformsMVP.Common.Events;
-
 namespace WinformsMVP.MVP.ViewActions
 {
     /// <summary>
@@ -20,27 +17,11 @@ namespace WinformsMVP.MVP.ViewActions
     public interface IViewActionBinder
     {
         /// <summary>
-        /// Raised when a bound UI control triggers its associated action.
-        /// </summary>
-        /// <remarks>
-        /// This is the core outbound signal of the binder. It fires regardless of whether
-        /// the binder is wired to a dispatcher (implicit pattern) or not (explicit pattern).
-        /// Subscribe to this event to observe, log, or forward action requests.
-        /// </remarks>
-        event EventHandler<ActionRequestEventArgs> ActionTriggered;
-
-        /// <summary>
-        /// Binds all configured controls and connects this binder to the given dispatcher.
-        /// Enables automatic dispatch on <see cref="ActionTriggered"/> and automatic CanExecute UI refresh.
+        /// Binds all configured controls and connects this binder to the given dispatcher,
+        /// enabling automatic dispatch and automatic CanExecute UI refresh.
         /// </summary>
         /// <param name="dispatcher">The dispatcher to forward actions to.</param>
         void Bind(ViewActionDispatcher dispatcher);
-
-        /// <summary>
-        /// Binds all configured controls in event-only mode (no dispatcher).
-        /// Only <see cref="ActionTriggered"/> will fire; subscribers must handle dispatch themselves.
-        /// </summary>
-        void Bind();
 
         /// <summary>
         /// Releases all UI event subscriptions and any dispatcher hook-ups created by Bind.

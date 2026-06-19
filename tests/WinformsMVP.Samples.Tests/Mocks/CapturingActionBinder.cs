@@ -1,5 +1,4 @@
 using System;
-using WinformsMVP.Common.Events;
 using WinformsMVP.MVP.ViewActions;
 
 namespace WinformsMVP.Samples.Tests.Mocks
@@ -31,15 +30,7 @@ namespace WinformsMVP.Samples.Tests.Mocks
         /// </summary>
         public ViewActionDispatcher Dispatcher { get; private set; }
 
-        public event EventHandler<ActionRequestEventArgs> ActionTriggered
-        {
-            add { }
-            remove { }
-        }
-
         public void Bind(ViewActionDispatcher dispatcher) => Dispatcher = dispatcher;
-
-        public void Bind() { }
 
         public void Unbind() => Dispatcher = null;
 
