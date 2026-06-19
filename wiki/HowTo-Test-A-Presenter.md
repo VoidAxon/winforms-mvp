@@ -117,7 +117,6 @@ public sealed class CapturingActionBinder : IViewActionBinder
 
     public void Dispatch(ViewAction action, object payload = null) => Dispatcher.Dispatch(action, payload);
     public bool CanDispatch(ViewAction action) => Dispatcher.CanDispatch(action);
-    // Bind() / Unbind() / ActionTriggered は no-op
 }
 ```
 
