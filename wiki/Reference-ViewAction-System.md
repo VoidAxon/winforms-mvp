@@ -406,10 +406,33 @@ _binder.AddRange(mapping);
 | `CheckBox` | `CheckedChanged` | チェック状態が変わるたびにアクション発火 |
 | `RadioButton` | `CheckedChanged` | 同上 |
 | `ButtonBase` | `Click` | 通常のボタン |
+| `ComboBox` | `SelectionChangeCommitted` | ユーザーが選択を確定したときのみ発火 (programmatic な `SelectedIndex` 変更では発火しない) |
+| `NumericUpDown` | `ValueChanged` | 値変更で発火。programmatic な `Value` 代入でも発火 |
+| `DateTimePicker` | `ValueChanged` | 同上 |
+| `MonthCalendar` | `DateChanged` | 同上。`DateRangeEventHandler` を内部でアダプトして購読 |
 | `ToolStripItem` | `Click` | `ToolStripButton`、`ToolStripMenuItem` 等 |
 | `Control` (fallback) | `Click` | 上記に当てはまらない任意のコントロール |
 
 **重要**: `CheckBox` と `RadioButton` は `Click` ではなく `CheckedChanged` に紐付くため、キーボードや programmatic な変更でも発火します。
+
+**注意 (値系コントロール)**: `NumericUpDown` / `DateTimePicker` / `MonthCalendar` は `ComboBox` のような「確定時のみ」イベントを持たないため、コード上で `Value` / `SelectionStart` を代入したときも発火します。初期化やデータ再設定で意図せず発火させたくない場合は、代入の前後で `Unbind()` / `Bind()` するか、ガードフラグで抑制してください。
+
+### コントロールの値をペイロードとして渡す
+
+`Add(action, control, valueSelector)` オーバーロードを使うと、トリガー時にコントロールの現在値を読み取り、そのままアクションのペイロードとして渡せます。View 側に if-else や `ActionRequest` の配線を書く必要はありません。
+
+```csharp
+// View: バインドと同じ場所に「値の取り出し方」を書く
+_binder.Add(SettingsActions.SetMode,  _checkBox, c => c.Checked);         // bool
+_binder.Add(SettingsActions.SetZoom,  _numZoom,  n => (int)n.Value);      // int
+_binder.Add(SettingsActions.PickDate, _calendar, c => c.SelectionStart);  // DateTime
+
+// Presenter: 型付きハンドラを登録するだけ
+Dispatcher.Register<bool>(SettingsActions.SetMode, OnSetMode);
+Dispatcher.Register<int>(SettingsActions.SetZoom, OnSetZoom);
+```
+
+Implicit パターンでは `Dispatcher.Dispatch(key, payload)` に直接流れ、Explicit パターンでは値付きの `ActionRequestEventArgs<T>` が `ActionTriggered` 経由で発行されます。値を指定しない従来の `Add(action, controls)` は引き続きペイロード無しで動作します。
 
 ### CanExecute と CheckBox/RadioButton
 
@@ -425,8 +448,30 @@ Dispatcher.Register(
 
 ### カスタムコントロールに対応する
 
-独自コントロールに対するバインド戦略は、`RegisterStrategy<T>()` で登録できます。
-詳細は実装コード (`src/WinformsMVP/MVP/ViewActions/`) を参照してください。
+デフォルトに無いコントロールや、別のイベントで発火させたい場合は `RegisterStrategy<T>()` で登録します。オーバーロードは 2 つあり、コントロールのイベントのデリゲート型で使い分けます。
+
+**1. イベントが `EventHandler` 型の場合** (Click / `*Changed` など) — attacher / detacher を渡します。
+
+```csharp
+_binder.RegisterStrategy<TrackBar>(
+    (c, h) => c.ValueChanged += (EventHandler)h,
+    (c, h) => c.ValueChanged -= (EventHandler)h);
+```
+
+**2. イベントが `EventHandler` 以外のデリゲート型の場合** (`MonthCalendar.DateChanged` の `DateRangeEventHandler`、`TreeView.AfterSelect` の `TreeViewEventHandler` 等) — 購読してから「解除コールバック」を返す `subscribe` オーバーロードを使います。
+
+```csharp
+_binder.RegisterStrategy<TreeView>((c, h) =>
+{
+    TreeViewEventHandler d = (s, e) => ((EventHandler)h)(s, e);
+    c.AfterSelect += d;
+    return () => c.AfterSelect -= d;   // captures the same instance -> clean detach on Unbind
+});
+```
+
+`subscribe` が返すクロージャは購読した実際のデリゲートインスタンスをキャプチャするため、`Unbind()` が正しく解除できます (ラムダで包んだ別インスタンスを `-=` しようとして解除できない、という問題を回避します)。`EventHandler` 版 (1.) は内部でこの `subscribe` 版に橋渡しされています。
+
+実装の詳細は `src/WinformsMVP/MVP/ViewActions/ViewActionBinder.cs` を参照してください。
 
 ---
 
