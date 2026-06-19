@@ -4,6 +4,7 @@ using System.Windows.Forms;
 using WinformsMVP.Samples.ToDoDemo;
 using WinformsMVP.Samples.CheckBoxDemo;
 using WinformsMVP.Samples.BulkBindingDemo;
+using WinformsMVP.Samples.ValueBindingDemo;
 using WinformsMVP.Samples.NavigatorDemo;
 using WinformsMVP.Samples.MVPComparisonDemo;
 using WinformsMVP.Samples.ExecutionRequestDemo;
@@ -114,7 +115,10 @@ namespace WinformsMVP.Samples
                     Color.FromArgb(16, 137, 62), LaunchCheckBoxDemo),
                 new DemoItem("Bulk Binding Demo (Survey)",
                     "AddRange • AddByTag • Many RadioButtons",
-                    Color.FromArgb(139, 69, 19), LaunchBulkBindingDemo));
+                    Color.FromArgb(139, 69, 19), LaunchBulkBindingDemo),
+                new DemoItem("Value Binding Demo",
+                    "Add(ctrl, selector) • CheckBox/NumericUpDown/DateTimePicker/MonthCalendar values as payload",
+                    Color.FromArgb(120, 80, 0), LaunchValueBindingDemo));
 
             AddSection(content, "Navigation & Windows",
                 new DemoItem("WindowNavigator Demo",
@@ -265,6 +269,19 @@ namespace WinformsMVP.Samples
 
             presenter.AttachView(view);
             presenter.Initialize();  // Must call Initialize!
+            view.Show();
+
+            this.Hide();
+            view.FormClosed += (s, e) => this.Show();
+        }
+
+        private void LaunchValueBindingDemo()
+        {
+            var view = new ValueBindingForm();
+            var presenter = new ValueBindingPresenter();
+
+            presenter.AttachView(view);
+            presenter.Initialize();
             view.Show();
 
             this.Hide();
