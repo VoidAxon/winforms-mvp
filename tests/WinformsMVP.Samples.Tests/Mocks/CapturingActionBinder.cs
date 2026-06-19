@@ -32,8 +32,6 @@ namespace WinformsMVP.Samples.Tests.Mocks
 
         public void Bind(ViewActionDispatcher dispatcher) => Dispatcher = dispatcher;
 
-        public void Unbind() => Dispatcher = null;
-
         /// <summary>Dispatches through the captured dispatcher — the same path a bound control uses.</summary>
         public void Dispatch(ViewAction action, object payload = null) => Captured().Dispatch(action, payload);
 

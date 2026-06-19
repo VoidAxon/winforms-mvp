@@ -22,10 +22,5 @@ namespace WinformsMVP.MVP.ViewActions
         /// </summary>
         /// <param name="dispatcher">The dispatcher to forward actions to.</param>
         void Bind(ViewActionDispatcher dispatcher);
-
-        /// <summary>
-        /// Releases all UI event subscriptions and any dispatcher hook-ups created by Bind.
-        /// </summary>
-        void Unbind();
     }
 }
