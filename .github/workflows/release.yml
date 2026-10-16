@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   release:
-    runs-on: windows-latest   # net40/net48 + WinForms require .NET Framework MSBuild (Windows only)
+    runs-on: windows-latest   # net472 + WinForms tests need the .NET Framework runtime (Windows only)
 
     steps:
       - name: Checkout
@@ -22,7 +22,7 @@ jobs:
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '9.0.x'
+          dotnet-version: '10.0.x'
 
       - name: Derive version from tag
         shell: pwsh

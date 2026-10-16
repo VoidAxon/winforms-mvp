@@ -27,6 +27,9 @@
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
 
     <IsPackable>false</IsPackable>
+
+    <!-- Lets *-windows TFMs (net10.0-windows) restore and build on non-Windows hosts (CI lint, WSL). -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
   </PropertyGroup>
 
 </Project>

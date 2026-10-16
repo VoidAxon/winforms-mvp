@@ -1,41 +1,30 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net40;net48</TargetFrameworks>
+    <TargetFrameworks>net472;net10.0-windows</TargetFrameworks>
     <OutputType>Library</OutputType>
     <RootNamespace>WinformsMVP</RootNamespace>
     <AssemblyName>WinformsMVP</AssemblyName>
     <LangVersion>latest</LangVersion>
     <UseWindowsForms>true</UseWindowsForms>
-    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
 
     <!-- Shippable: opt in to packing (Directory.Build.props defaults to false). -->
     <IsPackable>true</IsPackable>
     <PackageId>WinformsMVP</PackageId>
-    <Description>A WinForms Model-View-Presenter (Supervising Controller) framework for .NET Framework, with compile-time MVP design-rule analyzers bundled in. Multi-targets net40 and net48.</Description>
+    <Description>A WinForms Model-View-Presenter (Supervising Controller) framework for .NET Framework 4.7.2+ and .NET 10 (Windows), with compile-time MVP design-rule analyzers bundled in.</Description>
     <PackageTags>mvp;winforms;model-view-presenter;desktop;dotnet-framework;analyzers</PackageTags>
   </PropertyGroup>
 
-  <ItemGroup>
+  <!-- net10.0-windows gets WinForms via UseWindowsForms; .NET Framework needs explicit references. -->
+  <ItemGroup Condition="'$(TargetFrameworkIdentifier)' == '.NETFramework'">
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Drawing" />
     <Reference Include="System.ComponentModel.DataAnnotations" />
   </ItemGroup>
 
-  <!--
-    System.ValueTuple is BCL on net47+, but missing on net40-net46. We expose
-    ValueTuple in public API (ViewActionBinderExtensions.AddRange(params (...)[])),
-    so net40 consumers need the NuGet package. net48 ignores this reference.
-  -->
-  <ItemGroup Condition="'$(TargetFramework)' == 'net40'">
-    <PackageReference Include="System.ValueTuple" Version="4.5.0" />
-    <!--
-      GitHub-hosted runners do not ship the net40 targeting pack. This package
-      supplies the net40 reference assemblies (including WinForms) so the net40
-      target compiles without a locally installed targeting pack. Build-only:
-      PrivateAssets="all" keeps it out of the package's dependency list.
-    -->
-    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net40" Version="1.0.3" PrivateAssets="all" />
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="WinformsMVP.Samples.Tests" />
   </ItemGroup>
 
   <!-- Pack the repo-root README into the package (referenced by PackageReadmeFile in Directory.Build.props). -->
@@ -48,8 +37,7 @@
     Host applications either use a built-in implementation (NullLogger / DebugLogger)
     or write a thin adapter for an existing ecosystem (e.g. Microsoft.Extensions.Logging) —
     see MultiProjectDemo.Shell/Logging/ for an example. The main package itself has zero
-    external dependencies (apart from System.ValueTuple on net40) so it can be
-    multi-targeted to net40.
+    external dependencies.
   -->
 
   <!-- Exclude old-style project folders that are not needed in SDK-style -->
@@ -65,17 +53,16 @@
     no extra package to install.
 
     We use an MSBuild Target (not a ProjectReference) to trigger the analyzer build.
-    A ProjectReference would cause NuGet to check TFM compatibility, which fails for
-    net40 because netstandard2.0 requires .NET Framework 4.6.1+. The analyzer runs
-    inside the C# compiler — TFM compatibility is irrelevant here.
+    A ProjectReference would make the analyzer a runtime dependency of the package.
+    The analyzer runs inside the C# compiler — TFM compatibility is irrelevant here.
 
     The analyzer ships under analyzers/dotnet/cs (no TFM segment) so the single
-    netstandard2.0 build applies to both net40 and net48 consumers.
+    netstandard2.0 build applies to every consumer TFM.
   -->
   <!--
     Run only on the outer dispatch build (TargetFramework is empty) so we don't
     fire once per TFM. RemoveProperties strips TargetFramework from global props
-    so the inner MSBuild call does not inherit net40/net48 into a netstandard2.0 project.
+    so the inner MSBuild call does not inherit the outer TFM into a netstandard2.0 project.
   -->
   <Target Name="BuildMVPAnalyzers"
           BeforeTargets="Build;Pack"
