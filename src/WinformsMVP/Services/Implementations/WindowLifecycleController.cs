@@ -98,12 +98,19 @@ namespace WinformsMVP.Services.Implementations
         {
             if (_suppressGate) { _suppressGate = false; return; }
 
-            // An async CanClose is still deciding: keep the window open and don't ask again
-            // (a second X click must not raise a second prompt / save).
-            if (_gatePending) { e.Cancel = true; return; }
-
             var winFormsReason = e.CloseReason;
             var reason = CloseReasonMap.From(winFormsReason);
+
+            if (_gatePending)
+            {
+                // An async CanClose is still deciding. A system-level close is never blocked (the
+                // late answer then finds the form disposed and is ignored); anything else keeps the
+                // window open without asking again (a second X click must not raise a second
+                // prompt / save).
+                e.Cancel = !(reason == WinformsMVP.Common.CloseReason.SystemShutdown
+                          || reason == WinformsMVP.Common.CloseReason.TaskManager);
+                return;
+            }
             var gate = new object();
             bool sync = true;
             bool? decision = null;

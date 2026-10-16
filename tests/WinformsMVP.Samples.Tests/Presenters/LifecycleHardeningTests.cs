@@ -371,6 +371,19 @@ namespace WinformsMVP.Samples.Tests.Presenters
         }
 
         [Fact]
+        public void Connect_Twice_ThrowsWithoutDisposingTheConnectedPresenter()
+        {
+            var presenter = new ScriptedPresenter();
+            using (var form = new HardForm())
+            {
+                presenter.Connect(form);
+
+                Assert.Throws<InvalidOperationException>(() => presenter.Connect(form));
+                Assert.False(presenter.Disposed);
+            }
+        }
+
+        [Fact]
         public void Connect_InitializeThrows_DisposesPresenter()
         {
             var presenter = new ScriptedPresenter { OnInit = _ => throw new InvalidOperationException("boom") };
@@ -447,6 +460,23 @@ namespace WinformsMVP.Samples.Tests.Presenters
             gate.Pending[0](true);
             Assert.False(form.Visible);
             Assert.Single(closed);
+        }
+
+        [Fact]
+        public void AsyncGate_PendingDoesNotBlockSystemShutdown()
+        {
+            var (form, gate, closed) = BuildController();
+            form.Show();
+            form.Close();                       // async gate pending
+            Assert.Single(gate.Pending);
+
+            var e = new FormClosingEventArgs(System.Windows.Forms.CloseReason.WindowsShutDown, cancel: false);
+            typeof(Form).GetMethod("OnFormClosing", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                .Invoke(form, new object[] { e });
+
+            Assert.False(e.Cancel);
+            Assert.Single(gate.Pending);        // not asked again
+            form.Dispose();
         }
 
         [Fact]

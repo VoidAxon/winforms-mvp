@@ -72,21 +72,30 @@ namespace WinformsMVP.MVP.Presenters
             var controller = new WindowLifecycleController(
                 view, (ICloseParticipant)presenter, onClosed, disposeForm);
 
-            try
-            {
-                // Each step is skipped when the caller already did it by hand, so Connect stays
-                // idempotent for attached-only and attached+initialized presenters alike.
-                if (!attachable.IsViewAttached) attachable.AttachView(view);
-                controller.BindSink();   // before Initialize; also delivers a close requested earlier
-                if (!attachable.IsInitialized) initialize();
-            }
+            // Each step is skipped when the caller already did it by hand, so Connect stays
+            // idempotent for attached-only and attached+initialized presenters alike. A failed
+            // attach/initialize leaves a presenter that can never run, so it is released (the
+            // caller owns the Form).
+            if (!attachable.IsViewAttached)
+                DisposeOnFailure(presenter, () => attachable.AttachView(view));
+
+            // Throws for a second Connect of an already-connected presenter. Deliberately outside
+            // the dispose-on-failure guard: that presenter is still serving its window.
+            controller.BindSink();   // before Initialize; also delivers a close requested earlier
+
+            if (!attachable.IsInitialized)
+                DisposeOnFailure(presenter, initialize);
+            controller.WireFormEvents();
+        }
+
+        private static void DisposeOnFailure(object presenter, Action step)
+        {
+            try { step(); }
             catch
             {
-                // The caller owns the Form; the presenter can never run, so release it.
                 (presenter as IDisposable)?.Dispose();
                 throw;
             }
-            controller.WireFormEvents();
         }
     }
 }
