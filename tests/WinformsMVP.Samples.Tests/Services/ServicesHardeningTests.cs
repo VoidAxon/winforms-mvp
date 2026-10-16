@@ -109,6 +109,17 @@ namespace WinformsMVP.Samples.Tests.Services
         }
 
         [Fact]
+        public void AddWinformsMVP_DialogInterfacesShareOneInstance()
+        {
+            var services = new ServiceCollection();
+            services.AddWinformsMVP(new ViewMappingRegister());
+            var provider = services.BuildServiceProvider();
+
+            Assert.Same(provider.GetRequiredService<IDialogProvider>(),
+                        provider.GetRequiredService<IWinFormsDialogProvider>());
+        }
+
+        [Fact]
         public void AddWinformsMVP_SameRegistryTwice_IsAllowed()
         {
             var services = new ServiceCollection();

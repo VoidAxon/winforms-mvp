@@ -126,7 +126,8 @@ namespace WinformsMVP.Common
 
         /// <summary>
         /// Gets a value indicating whether the current value differs from the original value.
-        /// This property uses caching for performance.
+        /// Computed on every read (not cached), so in-place edits made through
+        /// <see cref="CurrentValue"/> are reflected immediately.
         /// </summary>
         public bool IsChanged
         {

@@ -47,8 +47,10 @@ namespace WinformsMVP.DependencyInjection
 
             // Framework built-ins — host may register its own before calling AddWinformsMVP.
             services.TryAddSingleton<IMessageService, MessageService>();
-            services.TryAddSingleton<IDialogProvider, DialogProvider>();
-            services.TryAddSingleton<IWinFormsDialogProvider, DialogProvider>();
+            // One DialogProvider serves both interfaces, as in the ServiceLocator defaults.
+            services.TryAddSingleton<DialogProvider>();
+            services.TryAddSingleton<IDialogProvider>(sp => sp.GetRequiredService<DialogProvider>());
+            services.TryAddSingleton<IWinFormsDialogProvider>(sp => sp.GetRequiredService<DialogProvider>());
             services.TryAddSingleton<IFileService, FileService>();
             services.TryAddSingleton<ILoggerFactory>(NullLoggerFactory.Instance);
             services.TryAddSingleton<IWindowNavigator>(sp =>
