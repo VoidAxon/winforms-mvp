@@ -41,6 +41,7 @@ namespace WinformsMVP.DependencyInjection
             if (services == null) throw new ArgumentNullException(nameof(services));
             if (viewMappingRegister == null) throw new ArgumentNullException(nameof(viewMappingRegister));
 
+            EnsureSingleViewMappingRegister(services, viewMappingRegister);
             services.TryAddSingleton(viewMappingRegister);
             services.TryAddSingleton<IPresenterFactory, ServiceProviderPresenterFactory>();
 
@@ -55,6 +56,25 @@ namespace WinformsMVP.DependencyInjection
                     sp.GetRequiredService<IViewMappingRegister>().WithServiceProvider(sp)));
 
             return services;
+        }
+
+        /// <summary>
+        /// The view mappings passed in are what the navigator must see. If the host already
+        /// registered a different <see cref="IViewMappingRegister"/>, TryAdd would keep the host's
+        /// and every mapping written into <paramref name="viewMappingRegister"/> (including by
+        /// <see cref="RegisterModules"/>) would be silently invisible to the navigator.
+        /// </summary>
+        private static void EnsureSingleViewMappingRegister(IServiceCollection services, IViewMappingRegister viewMappingRegister)
+        {
+            foreach (var descriptor in services)
+            {
+                if (descriptor.ServiceType != typeof(IViewMappingRegister)) continue;
+                if (ReferenceEquals(descriptor.ImplementationInstance, viewMappingRegister)) continue;
+                throw new InvalidOperationException(
+                    "A different IViewMappingRegister is already registered. Pass that same instance to " +
+                    "AddWinformsMVP / RegisterModules, or remove the other registration; otherwise the " +
+                    "navigator would not see the mappings registered here.");
+            }
         }
 
         /// <summary>

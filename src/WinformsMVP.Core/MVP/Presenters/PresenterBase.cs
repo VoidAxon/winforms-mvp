@@ -12,7 +12,7 @@ namespace WinformsMVP.MVP.Presenters
     /// Base class for all presenters providing common functionality.
     /// This class should not be used directly - use WindowPresenterBase or ControlPresenterBase instead.
     /// </summary>
-    public abstract class PresenterBase<TView> : IPresenter, IViewAttachable where TView : IViewBase
+    public abstract class PresenterBase<TView> : IPresenter, IViewAttachable, IPresenterResourceOwner where TView : IViewBase
     {
         protected TView View { get; private set; }
         protected readonly ViewActionDispatcher _dispatcher;
@@ -95,6 +95,8 @@ namespace WinformsMVP.MVP.Presenters
         /// Casts the framework-supplied view to <typeparamref name="TView"/> and routes through
         /// the same <see cref="SetView"/> path as the typed <see cref="IViewAttacher{TView}"/>.
         /// </summary>
+        void IPresenterResourceOwner.OwnUntilDisposed(IDisposable resource) => Disposables.Add(resource);
+
         void IViewAttachable.AttachView(IViewBase view) => SetView((TView)view);
         bool IViewAttachable.IsViewAttached => View != null;
         bool IViewAttachable.IsInitialized => _initialized;

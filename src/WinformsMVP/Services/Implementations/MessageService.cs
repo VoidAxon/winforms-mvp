@@ -57,10 +57,18 @@ namespace WinformsMVP.Services.Implementations
             ShowToast(text, type, new ToastOptions { Duration = duration });
         }
 
+        /// <remarks>
+        /// Safe to call from any thread (e.g. a presenter continuing after
+        /// <c>ConfigureAwait(false)</c>): the toast is created on the UI thread, which owns its
+        /// window, close timer and the shared stacking state.
+        /// </remarks>
         public void ShowToast(string text, ToastType type, ToastOptions options)
         {
-            var toast = new ToastNotification(text, type, options);
-            toast.Show();
+            UiThread.Run(() =>
+            {
+                var toast = new ToastNotification(text, type, options);
+                toast.Show();
+            });
         }
 
         #endregion

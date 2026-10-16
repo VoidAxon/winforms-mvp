@@ -4,7 +4,7 @@ using System.Diagnostics;
 namespace WinformsMVP.Logging
 {
     /// <summary>
-    /// Simple logger that writes to <see cref="Debug.WriteLine(string)"/>. Useful for
+    /// Simple logger that writes to <see cref="Trace.WriteLine(string)"/>. Useful for
     /// .NET Framework 4.0 hosts that cannot reference Microsoft.Extensions.Logging
     /// but still want visibility into framework internals while debugging.
     /// </summary>
@@ -25,8 +25,8 @@ namespace WinformsMVP.Logging
 
             var formatted = MessageFormatter.Format(message, args);
 
-            Debug.WriteLine("[" + level + "] [" + _category + "] " + formatted);
-            if (exception != null) Debug.WriteLine(exception);
+            Trace.WriteLine("[" + level + "] [" + _category + "] " + formatted);
+            if (exception != null) Trace.WriteLine(exception);
         }
     }
 }

@@ -74,6 +74,12 @@ namespace WinformsMVP.Services.Implementations
 
             // 2. Fall back to IServiceProvider. Per BCL contract, missing => null.
             var resolved = _serviceProvider.GetService(viewInterfaceType);
+            if (resolved is Form form && form.IsDisposed)
+                throw new InvalidOperationException(
+                    $"The service provider returned an already-disposed Form for {viewInterfaceType.Name}. " +
+                    "A view must be a new instance per window: register it as transient (M.E.DI AddTransient) " +
+                    "or map it with IViewMappingRegister. Factories registered in the built-in ServiceLocator " +
+                    "registry are cached as singletons and cannot serve views.");
             if (resolved != null)
                 return resolved;
 

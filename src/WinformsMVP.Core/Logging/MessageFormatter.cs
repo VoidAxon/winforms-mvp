@@ -48,6 +48,8 @@ namespace WinformsMVP.Logging
             var sb = new StringBuilder(template.Length);
             int i = 0;
             int nextIndex = 0;
+            // A name used twice ("{Id} ... {Id}") refers to the same argument.
+            var indexByName = new System.Collections.Generic.Dictionary<string, int>(StringComparer.Ordinal);
 
             while (i < template.Length)
             {
@@ -80,12 +82,21 @@ namespace WinformsMVP.Logging
                     string name = separator < 0 ? body : body.Substring(0, separator);
                     string trailing = separator < 0 ? string.Empty : body.Substring(separator);
 
+                    // Structured-logging capture hints ({@Order} destructure, {$Order} stringify)
+                    // only matter to structured sinks; for text they are the plain name.
+                    if (name.Length > 1 && (name[0] == '@' || name[0] == '$'))
+                        name = name.Substring(1);
+
                     if (IsNamedIdentifier(name))
                     {
-                        sb.Append('{').Append(nextIndex.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                        if (!indexByName.TryGetValue(name, out var index))
+                        {
+                            index = nextIndex++;
+                            indexByName[name] = index;
+                        }
+                        sb.Append('{').Append(index.ToString(System.Globalization.CultureInfo.InvariantCulture));
                         sb.Append(trailing);
                         sb.Append('}');
-                        nextIndex++;
                     }
                     else
                     {

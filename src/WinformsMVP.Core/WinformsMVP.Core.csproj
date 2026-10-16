@@ -30,6 +30,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="WinformsMVP" />
+    <InternalsVisibleTo Include="WinformsMVP.DependencyInjection" />
     <InternalsVisibleTo Include="WinformsMVP.Samples.Tests" />
   </ItemGroup>
 
