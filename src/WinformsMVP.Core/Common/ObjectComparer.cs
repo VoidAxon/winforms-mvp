@@ -48,7 +48,7 @@ namespace WinformsMVP.Common
             var elementType = DeepReflection.GetSequenceElementType(type);
             if (elementType != null)
                 return DeepReflection.IsSet(type, elementType)
-                    ? SetEquals((IEnumerable)a, b, elementType)
+                    ? SetEquals((IEnumerable)a, b, elementType, visited)
                     : SequenceEquals((IEnumerable)a, (IEnumerable)b, visited);
 
             if (DeepReflection.IsUnsupported(type))
@@ -102,16 +102,42 @@ namespace WinformsMVP.Common
             }
         }
 
-        // Sets: same count and every element of a is a member of b, using b's own comparer
-        // (pragmatic, like dictionary keys: set elements are usually value-like).
-        private static bool SetEquals(IEnumerable a, object b, Type elementType)
+        // Sets: same count, then membership. Value-like elements (immutable or with their own
+        // Equals) use b's own comparer. Reference-identity elements would never match a deep copy
+        // that way, so they are paired structurally — each element of a with a distinct, deeply
+        // equal element of b (O(n²), fine for model-sized sets).
+        private static bool SetEquals(IEnumerable a, object b, Type elementType, HashSet<RefPair> visited)
         {
             var collectionType = typeof(ICollection<>).MakeGenericType(elementType);
             var count = collectionType.GetProperty("Count");
             if ((int)count.GetValue(a, null) != (int)count.GetValue(b, null)) return false;
-            var contains = collectionType.GetMethod("Contains");
+
+            if (DeepReflection.IsImmutable(elementType) || DeepReflection.HasCustomEquals(elementType))
+            {
+                var contains = collectionType.GetMethod("Contains");
+                foreach (var item in a)
+                    if (!(bool)contains.Invoke(b, new[] { item })) return false;
+                return true;
+            }
+
+            var unmatched = new List<object>();
+            foreach (var item in (IEnumerable)b) unmatched.Add(item);
             foreach (var item in a)
-                if (!(bool)contains.Invoke(b, new[] { item })) return false;
+            {
+                int match = -1;
+                for (int i = 0; i < unmatched.Count && match < 0; i++)
+                {
+                    // A failed trial must not leave "assumed equal" pairs behind in `visited`.
+                    var trial = new HashSet<RefPair>(visited);
+                    if (AreEqual(item, unmatched[i], trial))
+                    {
+                        match = i;
+                        visited.UnionWith(trial);
+                    }
+                }
+                if (match < 0) return false;
+                unmatched.RemoveAt(match);
+            }
             return true;
         }
 

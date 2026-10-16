@@ -50,7 +50,15 @@ namespace WinformsMVP.Common
             if (source is Delegate) return null;                       // skip delegates / events
 
             object existing;
-            if (visited.TryGetValue(source, out existing)) return existing;
+            if (visited.TryGetValue(source, out existing))
+            {
+                if (ReferenceEquals(existing, InProgress))
+                    throw new NotSupportedException(
+                        "ObjectCloner cannot deep-copy a cycle through collection type '" + type.FullName +
+                        "' (it can only be rebuilt from its finished elements). Implement ICloneable on the " +
+                        "model, or set ChangeTrackerDefaults.Cloner.");
+                return existing;
+            }
 
             if (type.IsArray) return CopyArray((Array)source, type, visited);
 
@@ -163,43 +171,74 @@ namespace WinformsMVP.Common
             return copy;
         }
 
+        // Placeholder in `visited` while a collection that can only be built from its finished
+        // elements (constructor-based) is being copied: reaching it again means a cycle.
+        private static readonly object InProgress = new object();
+
         /// <summary>
-        /// Rebuilds a collection from deep-copied elements through a constructor taking
-        /// <c>IEnumerable&lt;T&gt;</c> (plus the source's comparer when it exposes one, so a
-        /// case-insensitive HashSet stays case-insensitive). Returns null when no such constructor
-        /// exists. Elements are copied before the collection is built, so a cycle back to this
-        /// collection is not supported (rare for set/queue/stack element types).
+        /// Copies a collection through its elements. Preferred: create it empty (keeping the
+        /// source's comparer, so a case-insensitive HashSet stays case-insensitive), register it in
+        /// <paramref name="visited"/>, then add deep-copied elements — cycles back to the collection
+        /// resolve to the copy. Otherwise rebuild through a constructor taking the elements, where a
+        /// cycle cannot be represented and is rejected. Returns null when neither is possible.
         /// </summary>
         private static object CopySequence(IEnumerable source, Type type, Type elementType,
             Dictionary<object, object> visited)
         {
+            var add = FindAdder(type, elementType);
+            var empty = add == null ? null : CreateEmpty(source, type);
+            if (empty != null)
+            {
+                visited[source] = empty;
+                var copies = new List<object>();
+                foreach (var item in source)
+                    copies.Add(Copy(item, visited));
+                // Stack<T> enumerates top-first; pushing in that order would invert it.
+                if (IsStack(type)) copies.Reverse();
+                foreach (var item in copies)
+                    add.Invoke(empty, new[] { item });
+                return empty;
+            }
+
             var enumerableType = typeof(IEnumerable<>).MakeGenericType(elementType);
+            var ctor = type.GetConstructor(new[] { enumerableType })
+                    ?? type.GetConstructor(new[] { typeof(IList<>).MakeGenericType(elementType) });
+            if (ctor == null) return null;
+
+            visited[source] = InProgress;
             var items = (IList)Activator.CreateInstance(typeof(List<>).MakeGenericType(elementType));
             foreach (var item in source)
                 items.Add(Copy(item, visited));
+            if (IsStack(type)) ReverseInPlace(items);
+            var copy = ctor.Invoke(new object[] { items });
+            visited[source] = copy;
+            return copy;
+        }
 
-            // Stack<T> enumerates top-first but its constructor pushes in order: reverse to keep the top.
-            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Stack<>))
-                ReverseInPlace(items);
+        private static bool IsStack(Type type)
+            => type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Stack<>);
 
-            object copy = null;
+        private static System.Reflection.MethodInfo FindAdder(Type type, Type elementType)
+        {
+            foreach (var name in new[] { "Add", "Enqueue", "Push", "AddLast" })
+            {
+                var method = type.GetMethod(name, new[] { elementType });
+                if (method != null) return method;
+            }
+            return null;
+        }
+
+        private static object CreateEmpty(IEnumerable source, Type type)
+        {
             var comparerProperty = type.GetProperty("Comparer");
             var comparer = comparerProperty?.GetValue(source, null);
             if (comparer != null)
             {
-                var withComparer = type.GetConstructor(new[] { enumerableType, comparerProperty.PropertyType });
-                if (withComparer != null) copy = withComparer.Invoke(new[] { items, comparer });
+                var withComparer = type.GetConstructor(new[] { comparerProperty.PropertyType });
+                if (withComparer != null) return withComparer.Invoke(new[] { comparer });
             }
-            if (copy == null)
-            {
-                var ctor = type.GetConstructor(new[] { enumerableType })
-                        ?? type.GetConstructor(new[] { typeof(IList<>).MakeGenericType(elementType) });
-                if (ctor == null) return null;
-                copy = ctor.Invoke(new object[] { items });
-            }
-
-            visited[source] = copy;
-            return copy;
+            var parameterless = type.GetConstructor(Type.EmptyTypes);
+            return parameterless?.Invoke(null);
         }
 
         private static void ReverseInPlace(IList items)

@@ -315,6 +315,69 @@ namespace WinformsMVP.Samples.Tests.Common
         }
 
         [Fact]
+        public void Comparer_SetOfReferenceObjects_EqualsItsUntouchedDeepCopy()
+        {
+            var original = new Model();
+            original.Tags.Add(new Tag { Name = "x" });
+            original.Tags.Add(new Tag { Name = "y" });
+            var copy = ObjectCloner.DeepCopy(original);
+
+            Assert.True(ObjectComparer.DeepEquals(original, copy));
+
+            foreach (var tag in copy.Tags) { tag.Name = "changed"; break; }
+            Assert.False(ObjectComparer.DeepEquals(original, copy));
+        }
+
+        [Fact]
+        public void ChangeTracker_ModelWithReferenceSet_StartsClean()
+        {
+            var model = new Model();
+            model.Tags.Add(new Tag { Name = "x" });
+
+            var tracker = new ChangeTracker<Model>(model);
+
+            Assert.False(tracker.IsChanged);
+        }
+
+        [Fact]
+        public void Cloner_QueueContainingItself_CopiesTheCycle()
+        {
+            var queue = new Queue<object>();
+            queue.Enqueue(queue);
+
+            var copy = ObjectCloner.DeepCopy(queue);
+
+            Assert.NotSame(queue, copy);
+            Assert.Same(copy, copy.Peek());
+        }
+
+        [Fact]
+        public void Cloner_CycleViaObjectThroughConstructorOnlyCollection_IsCopied()
+        {
+            var holder = new Holder();
+            holder.Items = new ReadOnlyCollection<object>(new List<object> { holder });
+
+            var copy = ObjectCloner.DeepCopy(holder);
+
+            Assert.Same(copy, copy.Items[0]);   // the object was registered before its fields
+        }
+
+        [Fact]
+        public void Cloner_ConstructorOnlyCollectionContainingItself_ThrowsNotSupported()
+        {
+            var inner = new List<object>();
+            var readOnly = new ReadOnlyCollection<object>(inner);
+            inner.Add(readOnly);
+
+            Assert.Throws<NotSupportedException>(() => ObjectCloner.DeepCopy(readOnly));
+        }
+
+        private sealed class Holder
+        {
+            public ReadOnlyCollection<object> Items;
+        }
+
+        [Fact]
         public void Comparer_HashSetAddThenRemove_IsUnchanged()
         {
             var original = new Model();
