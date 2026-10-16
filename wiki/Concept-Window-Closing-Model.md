@@ -97,7 +97,7 @@ protected override bool CanClose(CloseReason reason)
 
 ### 非同期 Pull ゲート
 
-クローズ判断にコールバック (非同期保存、サーバーラウンドトリップ) が必要な場合は、2 引数の形式をオーバーライドします。`proceed(true)` で許可、`proceed(false)` でブロックします — 必要に応じてコンティニュエーションの中から呼んでも構いません。`Task` ではなく `Action<bool>` を使うことで net40 との互換性を維持します:
+クローズ判断にコールバック (非同期保存、サーバーラウンドトリップ) が必要な場合は、2 引数の形式をオーバーライドします。`proceed(true)` で許可、`proceed(false)` でブロックします — 必要に応じてコンティニュエーションの中から呼んでも構いません。`Task` ではなく `Action<bool>` を使うのは、クローズ API を `Task` に依存させない設計のためです (`proceed` はどのスレッドから呼んでも構いません。フレームワークが UI スレッドへマーシャリングします):
 
 ```csharp
 protected override void CanClose(CloseReason reason, Action<bool> proceed)
@@ -117,6 +117,8 @@ protected override void CanClose(CloseReason reason, Action<bool> proceed)
 ```
 
 フレームワーク内部の非同期処理: `proceed` が同期的に (つまり `CanCloseGate` が返る前に) 呼ばれた場合、答えは `e.Cancel` に直接適用されます。コンティニュエーションから (つまり `CanCloseGate` が返った後に) 呼ばれた場合、`proceed(true)` はゲートを抑制した再クローズをトリガーし、`proceed(false)` はウィンドウを開いたままにします (何もアクションは不要です)。
+
+判定待ち (`proceed` 未呼び出し) の間に来た再クローズ (X の連打など) は、もう一度 `CanClose` を尋ねずに保留 (キャンセル) されます。ただし `SystemShutdown` / `TaskManager` によるクローズは保留せずに通します。また、owner ウィンドウ・MDI 親・`Application.Exit` から来たクローズが非同期に許可された場合、フレームワークはそのクローズ (owner / MDI 親のクローズ、`Application.Exit`) を再発行するので、親側の終了も続行されます。
 
 ---
 
@@ -150,6 +152,12 @@ protected void RequestClose<TResult>(TResult result, InteractionStatus status = 
 ```
 
 注意: `RequestClose(InteractionStatus.Cancel)` は結果なしオーバーロードに解決されます。結果の型がそのまま `InteractionStatus` であるウィンドウは `RequestClose<InteractionStatus>(x)` で明示的に型指定できますが、実際にそのケースが必要になることはほぼありません。
+
+結果の変換ルール (Managed / Adopted 共通):
+
+- `Ok` で渡した結果の型が呼び出し元の `TResult` と合わない場合、または `TResult` が null 非許容の値型なのに結果を渡さなかった場合は、`Ok(default)` ではなく **`InteractionStatus.Error`** (原因を説明する `ErrorMessage` 付き) になります。
+- エラーで閉じるときは `RequestClose("保存に失敗しました", InteractionStatus.Error)` や `RequestClose(exception, InteractionStatus.Error)` のように渡すと、そのメッセージ/例外が `InteractionResult.ErrorMessage` / `Exception` に入ります。
+- フレームワークが close sink をバインドする前 (例: `OnInitialize` の中) に呼ばれた `RequestClose` は保持され、バインド時に配送されます。
 
 ---
 
@@ -208,6 +216,8 @@ presenter.Connect(form, parameters);
 
 `Connect` 後は `Show` / `Application.Run` の呼び出しは呼び出し元が行います。クローズ配線は Presenter が担当します。
 
+> `Connect` は、同じ Form をアタッチ済みで未初期化の Presenter なら初期化まで行います。アタッチ済みの View と異なる Form を渡すと例外、接続済みの Presenter への 2 回目の `Connect` も例外です (生きている Presenter は破棄されません)。アタッチや初期化の途中で失敗した場合は Presenter が破棄されます。
+
 ---
 
 ## 内部ブリッジ — `WindowLifecycleController`
@@ -217,7 +227,7 @@ presenter.Connect(form, parameters);
 - `ICloseSink` (Push シンク) を実装し、保留中の結果とステータスを記録し、抑制フラグをセットして `form.Close()` を呼びます。
 - `FormClosing` (Pull ゲート) をブリッジし、`ICloseParticipant.CanCloseGate` を呼んで `e.Cancel` の決定を適用します。
 - `CloseRequestedBeforeShow` + `ConvergeWithoutShow` を通じて、表示前クローズのエッジケースを処理します。
-- `FormClosed` に収束し、`onClosed` コールバックを呼び出して、Presenter を (Managed モーダル / Adopted の場合は Form も) Dispose します。
+- `FormClosed` に収束し、`onClosed` コールバックを呼び出して、Presenter を (Managed モーダル / Adopted の場合は Form も) Dispose します。Presenter の `Dispose` が例外を投げても Form は破棄されます。
 
 フレームワーク内で `Form` を直接参照する唯一のコンポーネントです。
 

@@ -9,9 +9,9 @@
 
 | 項目 | バージョン |
 |------|----------|
-| .NET Framework | 4.0 または 4.8 |
+| ターゲット | .NET Framework 4.7.2 以降、または .NET 10 (Windows) |
 | 言語 | 不問（コンパイル済み DLL を参照するため。利用側プロジェクトの C# バージョンに制約なし） |
-| IDE | Visual Studio 2019 以降 / JetBrains Rider / VS Code |
+| IDE | Visual Studio / JetBrains Rider / VS Code (`net10.0-windows` には .NET 10 SDK が必要) |
 | 知識 | C# と WinForms の基本 |
 
 ---

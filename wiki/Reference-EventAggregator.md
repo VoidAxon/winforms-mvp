@@ -73,7 +73,9 @@ public class OrderClearedMessage { }
 ### Step 2: 共有 `EventAggregator` インスタンスを作る
 
 ```csharp
-// UI スレッド上で作成する必要がある (SynchronizationContext をキャプチャするため)
+// 構築時に SynchronizationContext があればそれをキャプチャする。
+// Program.Main (Application.Run 前) のようにまだ無い場合は、各購読が Subscribe 時点の
+// コンテキスト (通常は UI スレッド上の Presenter) をキャプチャする。
 // 通常は Program.Main や Composition Root で 1 つだけ作る
 var eventAggregator = new EventAggregator();
 ```
@@ -177,7 +179,9 @@ private void OnDataLoaded(DataLoadedMessage msg)
 }
 ```
 
-> **重要**: `EventAggregator` は構築時に `SynchronizationContext` をキャプチャするため、**UI スレッド上で構築する** 必要があります。
+> **重要**: マーシャリング先は、構築時にキャプチャした `SynchronizationContext`、それが無ければ **購読 (`Subscribe`) した時点のスレッドのコンテキスト** です。`Program.Main` (最初の Control 生成前で `SynchronizationContext` がまだ無い) で構築しても、Presenter が UI スレッドで購読していれば UI スレッドで実行されます。どちらも無い場合のみ、ハンドラは発行スレッドで同期実行されます。
+>
+> UI スレッドへポスト済みのメッセージは、その間に Dispose された購読 (例: ウィンドウが閉じた) には配送されません。
 
 ---
 
@@ -243,12 +247,14 @@ _eventAggregator.Publish(new ProductAddedNotification(...));
 
 ## ベストプラクティス
 
-### 1. EventAggregator を UI スレッドで作る
+### 1. EventAggregator はアプリで 1 つ作り、UI スレッドで購読する
 
 ```csharp
 // Program.Main または MainForm のコンストラクタ内で
-var eventAggregator = new EventAggregator();   // ✅ UI スレッド
+var eventAggregator = new EventAggregator();   // ✅ SynchronizationContext が無ければ購読側のコンテキストを使う
 ```
+
+ワーカースレッドで構築した場合はそのスレッドのコンテキスト (通常は無し) が使われないよう、構築は UI スレッドか `Program.Main` で行い、購読は UI スレッド (Presenter の `OnInitialize` など) で行ってください。
 
 ### 2. 必ず購読を Dispose する
 

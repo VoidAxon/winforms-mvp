@@ -17,6 +17,8 @@ PresenterBase<TView>                              [共通基底・直接継承�
 └─ ControlPresenterBase<TView, TParam>            [UserControl、パラメータあり]
 ```
 
+これらの基底クラスはすべて `WinformsMVP.Core` パッケージ (`netstandard2.0`、WinForms 非参照) にあります。`Connect` 拡張メソッドや `WindowNavigator` など WinForms に触れる部分は `WinformsMVP` パッケージ側です (名前空間は共通)。
+
 `WindowPresenterBaseCore<TView>` には Pull ゲート (`CanClose` オーバーライド)、Push helper (`RequestClose`)、および `Connect` で使われるクローズシンクバインディングが集約されています。直接継承せず、`WindowPresenterBase<TView>` または `WindowPresenterBase<TView, TParam>` を使ってください。
 
 業務結果を返す Presenter は、`RequestClose(result, status)` 基底メソッドを呼ぶだけです — インターフェイスの実装も拡張メソッドも不要。`TResult` は引数から推論されます (詳細は [ウィンドウクローズモデル](Concept-Window-Closing-Model))。
@@ -209,8 +211,8 @@ presenter.Connect(_searchPanel, parameters);   // アタッチ + パラメータ
 2. `WindowNavigator` が `IViewMappingRegister` から View 型を解決して View を生成
 3. View を Presenter にアタッチ (`IViewAttacher<TView>.AttachView()`)
 4. **`OnViewAttached()` 呼び出し**
-5. **`OnInitialize()` または `OnInitialize(parameters)` 呼び出し**
-6. **`RegisterViewActions()` 呼び出し** (フレームワークが続けて `View.ActionBinder?.Bind(Dispatcher)` を実行)
+5. **`RegisterViewActions()` 呼び出し** (フレームワークが続けて `View.ActionBinder?.Bind(Dispatcher)` を実行)
+6. **`OnInitialize()` または `OnInitialize(parameters)` 呼び出し**
 7. Form 表示 (Modal / Non-Modal)
 8. (Form が閉じられたとき) **`Cleanup()` 呼び出し**
 
@@ -220,6 +222,13 @@ presenter.Connect(_searchPanel, parameters);   // アタッチ + パラメータ
 2. Presenter インスタンスを生成 (`new SettingsPresenter(deps?)` — Presenter 自身の依存のみ)
 3. `presenter.Connect(view[, parameters])` を呼ぶ → 構築後に **View アタッチ** (`OnViewAttached`) → **アクション登録** (`RegisterViewActions`、続けてフレームワークが `ActionBinder` を自動 Bind) → **初期化** (`OnInitialize`) が走る
 4. UserControl が `Dispose` されると Presenter も自動 `Dispose` (`Connect` が `ControlLifecycleController` 経由で橋渡し)
+
+### 誤用時の挙動 (フェイルファスト)
+
+- View をアタッチせずに `Initialize` すると `InvalidOperationException`。
+- アタッチ済みの Presenter に 2 つ目の View をアタッチすると例外。
+- UserControl 用 `Connect` が途中 (アタッチ/初期化) で失敗した場合、Presenter は破棄されます。
+- Form 用 `Connect` (Adopted) の挙動は [ウィンドウクローズモデル § Adopted ホスティング](Concept-Window-Closing-Model) を参照 (アタッチ済み・未初期化なら初期化、異なる View や 2 回目の `Connect` は例外、失敗時は破棄)。
 
 ---
 

@@ -297,6 +297,14 @@ public enum DispatchValidationMode
 
 Strict が対象とするのは **設定ミスだけ** です。ハンドラ/`CanExecute` の例外は常に捕捉・ログされ (集中エラーハンドリングを維持)、無効化されたアクション (`CanExecute == false`) はエラー扱いしません。
 
+なお、次の配線ミスはモードに関係なく **常に登録時点で例外** になります:
+
+| 事象 | 挙動 |
+|------|------|
+| `default(ViewAction)` (未初期化のキー) を `Register` / `ViewActionBinder.Add` に渡す | `ArgumentException` (`Dispatch` に渡した場合は無視) |
+| `Register` に null ハンドラを渡す | `ArgumentNullException` |
+| 同じコントロールを 2 つのアクションに `Add` する | `InvalidOperationException` (以前は最後の 1 つが黙って残っていた) |
+
 **推奨される使い方**: Debug ビルドでのみ Strict を有効化します。`IDispatcherConfigurer` をサービスプロバイダに登録することで配線できます (全 Dispatch より前に適用されます):
 
 ```csharp
@@ -687,6 +695,8 @@ Dispatcher.Use((ctx, next) =>
 
 ハンドラの例外はミドルウェアチェーンを上方向に伝播します。捕捉したい場合は `next(context)` を `try`/`catch` で囲みます (例: `ErrorDialogMiddleware`)。誰も捕捉しない場合はフレームワークの安全網がログを出力し、`context.Exception` に記録します。`ActionExecuted` イベントは「ハンドラが完走 **かつ** `context.Exception` が `null`」のときだけ発火します。
 
+ハンドラが投げた例外は、**ハンドラを抜けた時点で** `context.Exception` に設定されます。そのため外側のミドルウェアは、例外を捕捉しなくても `finally` ブロックで `context.Exception` を参照できます (監査・計測向け)。また、例外を投げたハンドラの後には `CanExecuteChanged` が発火し、コントロールの有効/無効状態が更新されます。
+
 ### ミドルウェアが見えないケース
 
 パイプラインは Dispatcher の前提チェック **後** に走ります。以下のディスパッチではミドルウェアは呼ばれません:
@@ -701,7 +711,7 @@ Dispatcher.Use((ctx, next) =>
 
 - **ファストパス** (ミドルウェア未登録): アロケーションなし、追加のインダイレクションなし
 - **スローパス** (ミドルウェア登録あり): ディスパッチごとに `DispatchContext` 1 個ヒープ確保 + N 個のクロージャ呼び出し (N = ミドルウェア数)。コンパイル済みパイプラインは Dispatcher にキャッシュされ、ミドルウェア追加時のみ再構築される
-- リフレクション・Expression Trees は使用していないので、`net40` ホストでも追加コストはありません
+- リフレクション・Expression Trees は使用していないので、どのターゲットでも追加コストはありません
 
 ---
 

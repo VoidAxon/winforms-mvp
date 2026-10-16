@@ -179,6 +179,8 @@ Navigator.For(fooPresenter).WithParam(42);
 // ❌ コンパイルエラー: 'FooPresenter' does not satisfy IInitializable<int>
 ```
 
+逆方向 (パラメータが必要な Presenter をパラメータなしで表示) は実行時に検出されます。`IInitializable<TParam>` だけを実装する Presenter (`WindowPresenterBase<TView, TParam>` 派生) を `ShowAsModal()` / `ShowWindow()` などパラメータなしのオーバーロードで表示すると、ウィンドウを作る前に `InvalidOperationException` が送出されます (以前は未初期化のままウィンドウが開いていました)。
+
 ### 全 4 バリエーション
 
 ```csharp
@@ -305,16 +307,20 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView, EditUserPara
 
 ### エラーの2分類: 業務エラー vs 設定エラー
 
-`InteractionResult.IsError` は **業務側のエラー** を表します。これは Presenter 自身が `RequestClose(result, InteractionStatus.Error)` を呼んだときにだけ発生します。
+`InteractionResult.IsError` は **業務側のエラー** を表します。これは次の場合に発生します:
+
+- Presenter 自身が `RequestClose(result, InteractionStatus.Error)` を呼んだとき。`result` が `string` / `Exception` ならそれが `ErrorMessage` / `Exception` に入ります (例: `RequestClose("保存に失敗しました", InteractionStatus.Error)`)。
+- `Ok` で閉じたが、結果の型が呼び出し元の `TResult` と合わないとき、または `TResult` が null 非許容の値型なのに結果がないとき (以前は `Ok(default)` になっていました)。
 
 一方、**ビュー解決・設定の誤り** は `IsError` では返らず、**例外として送出されます** (コードベースの規約: 設定/プログラミングミスは握りつぶさず大きく失敗させる):
 
 | 失敗 | 送出される例外 |
 |------|--------------|
 | ビューインターフェイスに実装が未登録 | `KeyNotFoundException` |
-| 登録された実装が `Form` でない / `IWindowView` 未実装 / Presenter が `IViewAttacher<TView>` 未実装 | `InvalidOperationException` |
+| 登録された実装が `Form` でない / `IWindowView` 未実装 / Presenter が `IViewAttacher<TView>` 未実装 / ウィンドウ Presenter でない | `InvalidOperationException` |
+| パラメータが必要な Presenter をパラメータなしのオーバーロードで表示 | `InvalidOperationException` |
 
-> いずれの場合も、ウィンドウは表示され得ないため Presenter は送出前に Dispose されます。これらは起動時の配線ミスであり、`ShowDialog`/`Show` に到達する前に投げられます。`IsError` を待つコードではなく、`ViewMappingRegister` への登録を正しく行うことで防いでください。
+> いずれの場合も、ウィンドウは表示され得ないため Presenter (と生成済みなら Form) は送出前に Dispose されます。これらは起動時の配線ミスであり、`ShowDialog`/`Show` に到達する前に投げられます。`IsError` を待つコードではなく、`ViewMappingRegister` への登録を正しく行うことで防いでください。
 
 ---
 

@@ -34,4 +34,4 @@ assignees: ''
 
 - [ ] 既存の Issue で同じ提案がないか検索した
 - [ ] [MVP 設計ルール](https://github.com/VoidAxon/winforms-mvp/wiki/Design-Rules) と矛盾しない提案である
-- [ ] 提案する API が `net40` 互換であるか、`net48` 専用にする妥当な理由がある
+- [ ] Presenter 向けの API なら `WinformsMVP.Core` (`netstandard2.0`、WinForms 非参照) に置ける

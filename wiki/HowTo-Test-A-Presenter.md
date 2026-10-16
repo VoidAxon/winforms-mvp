@@ -5,6 +5,8 @@ Presenter は WinForms に依存しないため、**UI スレッド不要・実�
 
 > **本フレームワークの主要メリットの 1 つが、まさにこのテスタビリティです。**
 
+> **ターゲットについて:** Presenter と基底クラスは `WinformsMVP.Core` (`netstandard2.0`、WinForms 非参照) にあるため、Presenter だけのテストプロジェクトは Core を参照すれば任意のランタイムで動かせます (このとき `ServiceLocator` の既定プロバイダには `FileService` と `NullLoggerFactory` しか入らないので、フレームワークサービスはモックを渡してください)。本リポジトリの `WinformsMVP.Samples.Tests` は Form も扱う `net48` プロジェクトなので、`dotnet test` には Windows (または mono) が必要です。
+
 ---
 
 ## 目次
@@ -78,7 +80,7 @@ public class UserEditorPresenterTests
         _presenter = new UserEditorPresenter(_repository)
             .WithServiceProvider(_mockServices.Provider);
 
-        _presenter.AttachView(_view);
+        _presenter.AttachView(_view);   // AttachView を忘れて Initialize すると InvalidOperationException
         _presenter.Initialize();
 
         // 初期化時の呼び出し記録をクリアして純粋なテスト実行に集中

@@ -34,13 +34,13 @@ A. 以下の順番がおすすめです。
 A. 状況次第です。新規プロジェクトで自由に選べるなら WPF / Avalonia / MAUI も候補ですが、以下のようなケースでは WinForms + 本フレームワークが選択肢になります。
 
 - 既存の WinForms 資産を活かしながら近代化したい
-- `net40` / `net48` ターゲットが必要
+- .NET Framework 4.7.2 以降 / .NET 10 (Windows) で WinForms を使い続けたい
 - デザイナ機能 (フォームデザイナでのドラッグ&ドロップ) を維持したい
 - WPF/Avalonia の学習コストを避けたい
 
 ### Q. このフレームワークは何 KB ですか?
 
-A. メインパッケージ (`WinformsMVP`) は **外部依存ゼロ**、コア DLL は ~100 KB 程度です。`net40` と `net48` をマルチターゲットしています。
+A. `WinformsMVP.Core` (`netstandard2.0`) と `WinformsMVP` (`net472` / `net10.0-windows`) の 2 つの DLL で構成され、小さなライブラリです。外部依存は Core の `System.ComponentModel.Annotations` (netstandard2.0 に DataAnnotations が無いため) のみで、WinformsMVP は Core に依存します。
 
 ---
 
@@ -118,15 +118,15 @@ A. 不要です。Presenter からは `Messages` プロパティで直接アク�
 
 ### Q. `Microsoft.Extensions.DependencyInjection` を使えますか?
 
-A. はい、オプションで `WinformsMVP.DependencyInjection` パッケージを併用すれば統合できます (`net48` 以降)。詳しくは [Dependency Injection § M.E.DI との統合](Reference-DependencyInjection#medi-との統合) を参照。
+A. はい、オプションで `WinformsMVP.DependencyInjection` パッケージを併用すれば統合できます (`net472` / `net10.0-windows`)。詳しくは [Dependency Injection § M.E.DI との統合](Reference-DependencyInjection#medi-との統合) を参照。
 
 ### Q. ロギングはどう設定しますか?
 
 A. 3 通りあります。
 
 1. **何もしない** — デフォルトの `NullLoggerFactory` で出力なし
-2. **`DebugLoggerFactory` を使う** — VS の Debug ウィンドウに出力。`net40` 対応
-3. **M.E.L. アダプタ経由で本格的なロギング** — App Insights / Seq / Serilog 等を接続。`net48` 専用
+2. **`DebugLoggerFactory` を使う** — `Trace` 経由で VS の出力ウィンドウ等に出力 (Release ビルドでも有効)
+3. **M.E.L. アダプタ経由で本格的なロギング** — App Insights / Seq / Serilog 等を接続 (全ターゲットで利用可)
 
 詳しくは [Logging](Reference-Logging) を参照。
 
@@ -188,12 +188,15 @@ A. 不要です。`MockXxxView` を実装してインターフェイス越しに
 
 A.
 
-- メインパッケージ (`WinformsMVP`) — `net40` および `net48` のマルチターゲット
-- オプションパッケージ (`WinformsMVP.DependencyInjection`) — `net48` のみ
+- コアパッケージ (`WinformsMVP.Core`) — `netstandard2.0` (WinForms 非参照。Presenter・ViewAction ディスパッチャ・サービスインターフェイス等)
+- メインパッケージ (`WinformsMVP`) — `net472` および `net10.0-windows` のマルチターゲット (WinForms 実装、Core に依存)
+- オプションパッケージ (`WinformsMVP.DependencyInjection`) — `net472` および `net10.0-windows`
+
+最低バージョンは .NET Framework 4.7.2 です。`net40` のサポートは終了しました。
 
 ### Q. .NET 5/6/7/8 で使えますか?
 
-A. 現時点では .NET Framework 専用です。.NET (Core 系) 対応は将来的に検討予定です。
+A. モダン .NET 向けには `net10.0-windows` をターゲットにしています (.NET 10 以降、Windows)。.NET 5〜9 専用のビルドはありません。なお `WinformsMVP.Core` は `netstandard2.0` なので、Presenter だけを切り出したライブラリやそのテストはどのランタイムでもビルドできます。
 
 ### Q. Visual Studio のフォームデザイナは使えますか?
 

@@ -261,7 +261,7 @@ private void OnOpenFile()
 
 ## M.E.DI との統合
 
-`Microsoft.Extensions.DependencyInjection` を使った構成にも完全に対応します。**`net48` 専用** (M.E.DI 自体が `netstandard2.0+`)。
+`Microsoft.Extensions.DependencyInjection` を使った構成にも完全に対応します。`WinformsMVP.DependencyInjection` パッケージ (`net472` / `net10.0-windows`) を参照してください。
 
 ### `Program.cs` での構成
 
@@ -286,9 +286,10 @@ internal static class Program
         var services = new ServiceCollection();
 
         // フレームワークサービスを登録 (TryAdd — ホスト登録が優先される)。
+        // 別の IViewMappingRegister が登録済みだと InvalidOperationException (そのマッピングが Navigator から見えなくなるため)。
         services.AddWinformsMVP(viewRegistry);
 
-        // 業務サービス
+        // 業務サービス (Scoped は IPresenterFactory で生成した Presenter ごと = ウィンドウごとに 1 つ)
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IOrderService, OrderService>();
 
@@ -407,7 +408,7 @@ public class MainPresenter : WindowPresenterBase<IMainView>
 
 `IPresenterFactory` の既定実装は `ServiceProviderPresenterFactory` (`WinformsMVP.DependencyInjection` パッケージ) で、`AddWinformsMVP()` を呼ぶと自動的に DI コンテナに登録されます。
 
-実装は単純です:
+実装 (要約):
 
 ```csharp
 public class ServiceProviderPresenterFactory : IPresenterFactory
@@ -416,15 +417,40 @@ public class ServiceProviderPresenterFactory : IPresenterFactory
 
     public ServiceProviderPresenterFactory(IServiceProvider serviceProvider)
     {
-        _serviceProvider = serviceProvider;
+        _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
     }
 
     public TPresenter Create<TPresenter>() where TPresenter : IPresenter
-        => _serviceProvider.GetRequiredService<TPresenter>();
+    {
+        // IPresenterResourceOwner (internal) = フレームワークの Presenter 基底。
+        // それ以外の Presenter やスコープ非対応のプロバイダなら従来どおりルートから解決
+        var scopeFactory = _serviceProvider.GetService<IServiceScopeFactory>();
+        if (scopeFactory == null || !typeof(IPresenterResourceOwner).IsAssignableFrom(typeof(TPresenter)))
+            return _serviceProvider.GetRequiredService<TPresenter>();
+
+        // Presenter ごとに専用スコープ — Presenter の Dispose と一緒に破棄される
+        var scope = scopeFactory.CreateScope();
+        try
+        {
+            var presenter = scope.ServiceProvider.GetRequiredService<TPresenter>();
+            ((IPresenterResourceOwner)presenter).OwnUntilDisposed(scope);
+            return presenter;
+        }
+        catch
+        {
+            scope.Dispose();
+            throw;
+        }
+    }
 }
 ```
 
-`GetRequiredService<T>()` を呼ぶだけなので、Presenter のコンストラクタ依存は **コンテナの通常の解決ルール** にそのまま乗ります。未登録の Presenter を要求すると `InvalidOperationException` がスローされる、という M.E.DI の標準セマンティクスをそのまま継承します。
+各 Presenter は **専用の `IServiceScope`** から解決され、スコープは Presenter の破棄 (ウィンドウを閉じたとき等) と一緒に破棄されます。そのため:
+
+- **Scoped サービスは Presenter (ウィンドウ) 単位** になります。同じウィンドウの Presenter 内では共有され、別ウィンドウとは共有されません。
+- ルートコンテナが transient な Presenter (とその View・transient 依存) を終了まで保持し続けることがなくなります (以前はルートから解決していたため、`IDisposable` な Presenter が溜まり続けていました)。
+
+Presenter のコンストラクタ依存は **コンテナの通常の解決ルール** にそのまま乗ります。未登録の Presenter を要求すると `InvalidOperationException` がスローされる、という M.E.DI の標準セマンティクスをそのまま継承します。
 
 カスタム Factory を使いたい場合は、`AddWinformsMVP()` を呼ぶ **前** に独自の `IPresenterFactory` を登録すれば、`TryAdd` セマンティクスにより上書きされません。
 
@@ -513,7 +539,7 @@ internal static class Program
 }
 ```
 
-> ⚠️ **`AsFrameworkLoggerFactory()` はフレームワーク同梱のメソッドではありません。** コアパッケージは `Microsoft.Extensions.Logging` に依存しない設計なので、`WinformsMVP.DependencyInjection` もログ用アダプタを含みません (依存は `Microsoft.Extensions.DependencyInjection.Abstractions` のみ)。M.E.L. の `ILoggerFactory` を框架の `WinformsMVP.Logging.ILoggerFactory` に橋渡しするには、~30 行のアダプタを自分で書きます (**net48 専用**)。実装例は `samples/MultiProjectDemo.Shell/Logging/MicrosoftLoggingExtensions.cs` と [Logging リファレンス](Reference-Logging) を参照。ログが不要なら `NullLoggerFactory` が自動で使われます。
+> ⚠️ **`AsFrameworkLoggerFactory()` はフレームワーク同梱のメソッドではありません。** コアパッケージは `Microsoft.Extensions.Logging` に依存しない設計なので、`WinformsMVP.DependencyInjection` もログ用アダプタを含みません (依存は `Microsoft.Extensions.DependencyInjection.Abstractions` のみ)。M.E.L. の `ILoggerFactory` を框架の `WinformsMVP.Logging.ILoggerFactory` に橋渡しするには、~30 行のアダプタを自分で書きます (全ターゲットで利用可)。実装例は `samples/MultiProjectDemo.Shell/Logging/MicrosoftLoggingExtensions.cs` と [Logging リファレンス](Reference-Logging) を参照。ログが不要なら `NullLoggerFactory` が自動で使われます。
 
 ### グローバル Dispatcher ミドルウェアの設定 (`IDispatcherConfigurer`)
 

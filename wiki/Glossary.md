@@ -67,7 +67,7 @@ UserControl 系の View を扱う Presenter 基底クラス。`ControlPresenterB
 
 ### DialogProvider
 
-`IDialogProvider`。`OpenFileDialog` / `SaveFileDialog` / `FolderBrowserDialog` 等のシステムダイアログを抽象化したサービス。Presenter からは `Dialogs` プロパティでアクセスする。
+`IDialogProvider`。`OpenFileDialog` / `SaveFileDialog` / `FolderBrowserDialog` / `ColorDialog` のシステムダイアログを抽象化したサービス。Presenter からは `Dialogs` プロパティでアクセスする。フォント・印刷系ダイアログは `WinformsMVP` パッケージの `IWinFormsDialogProvider : IDialogProvider` にある。
 
 詳細: [Platform Services § IDialogProvider](Reference-Platform-Services#idialogprovider--システムダイアログ)
 
@@ -123,7 +123,7 @@ ViewAction の使い方の 2 種類。Implicit ではフレームワークが自
 
 ### IPresenterFactory
 
-DI 管理の依存を持つ子 Presenter を生成するためのファクトリ。親 Presenter がコンストラクタで受け取り、`_presenters.Create<ChildPresenter>()` で子を取得する。
+DI 管理の依存を持つ子 Presenter を生成するためのファクトリ。親 Presenter がコンストラクタで受け取り、`_presenters.Create<ChildPresenter>()` で子を取得する。M.E.DI 実装 (`ServiceProviderPresenterFactory`) は Presenter ごとに `IServiceScope` を作り、Presenter の破棄と一緒にスコープも破棄する。
 
 詳細: [Dependency Injection § IPresenterFactory](Reference-DependencyInjection#ipresenterfactory-子-presenter-の生成)
 

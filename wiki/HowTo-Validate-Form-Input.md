@@ -198,6 +198,8 @@ public class RegistrationModel : IValidatableObject
 
 `Validator.TryValidateObject` が `IValidatableObject.Validate` を自動的に呼ぶため、`_validator.ValidateAll(model)` だけで属性ベース検証 + クロスフィールド検証の両方が走ります。
 
+`ValidateSequential` / `IsValid` も、プロパティ規則がすべて通った後にクラスレベル属性と `IValidatableObject.Validate` を評価し、渡されたインスタンスが派生型ならその型の規則も使います。そのため `IsValid(model)` と `ValidateAll(model)` の結果は常に一致します (以前のバージョンではプロパティ規則しか見ていませんでした)。
+
 ---
 
 ## `[ValidationOrder]` でフィールド順序を制御

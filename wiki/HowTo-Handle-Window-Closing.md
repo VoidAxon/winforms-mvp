@@ -192,6 +192,8 @@ public class CustomerListPresenter : WindowPresenterBase<ICustomerListView>
 }
 ```
 
+> `result.IsError` になるのは、子が `RequestClose("メッセージ", InteractionStatus.Error)` / `RequestClose(exception, InteractionStatus.Error)` で閉じた場合 (メッセージ/例外が `ErrorMessage` / `Exception` に入る) のほか、`Ok` で閉じたのに結果の型が `TResult` と合わない場合や、`TResult` が null 非許容の値型なのに結果がない場合です (以前は `Ok(default)` になっていました)。
+
 ---
 
 ## シナリオ 5: システムシャットダウンを絶対にブロックしない
@@ -219,7 +221,7 @@ protected override bool CanClose(CloseReason reason)
 
 ## シナリオ 6: 非同期クローズ判断
 
-クローズ判断にサーバー呼び出しやコンティニュエーションが必要な場合は、`CanClose` の 2 引数形式をオーバーライドします。net40 でコンパイルできるよう、`Task` ではなく `Action<bool>` を使います:
+クローズ判断にサーバー呼び出しやコンティニュエーションが必要な場合は、`CanClose` の 2 引数形式をオーバーライドします。クローズ API を `Task` に依存させないため、`Task` ではなく `Action<bool>` を使います:
 
 ```csharp
 protected override void CanClose(CloseReason reason, Action<bool> proceed)
@@ -253,7 +255,7 @@ protected override void CanClose(CloseReason reason, Action<bool> proceed)
 }
 ```
 
-フレームワークは `proceed` が同期的に呼ばれなかったことを検出してクローズを抑制し、コンティニュエーションから `proceed(true)` が届いたときにゲートをバイパスした再クローズをトリガーします。
+フレームワークは `proceed` が同期的に呼ばれなかったことを検出してクローズを抑制し、コンティニュエーションから `proceed(true)` が届いたときにゲートをバイパスした再クローズをトリガーします。`proceed` はワーカースレッドから呼んでも UI スレッドへマーシャリングされます。判定待ちの間の再クローズ (X の連打など) は再質問せずに保留されますが、`SystemShutdown` / `TaskManager` によるクローズは通ります。owner / MDI 親 / `Application.Exit` から来たクローズが非同期に許可された場合は、そのクローズが再発行されます。
 
 ---
 

@@ -43,6 +43,8 @@ public class ChangeTracker<T> where T : class
 
 リフレクション深いコピーは正確だが速度面では `ICloneable` 実装に劣ります。性能が重要なら `ICloneable` を実装してください。
 
+> 組み込みの `ObjectCloner` / 深い比較は、`HashSet` / `SortedSet` / `Queue` / `Stack` / `LinkedList` / `ReadOnlyCollection` を要素単位で扱います (セットの比較子やスタックの順序は維持)。`Type` / `MemberInfo` / `Uri` / `Version` は不変として扱いコピーせずに共有します。コレクションを通る循環参照はコピー側に解決されます (コンストラクタでしか要素を受け取れないコレクションを通る循環のみ `NotSupportedException`)。参照同一性の要素を持つセットは要素の深い等価性で対応付けて比較するため、未変更のディープコピーと等しく判定され、構築直後に dirty になることはありません。
+
 ---
 
 ## 比較の解決順序
@@ -193,7 +195,7 @@ public void Clone_CreatesIndependentCopy()
 | メンバー | 型 | 説明 |
 |---------|----|----|
 | `CurrentValue` | `T` | tracker が保持する作業スナップショット (読み取り専用)。**開発時のデバッグ確認用**で、IntelliSense からは隠してある (`[EditorBrowsable(Never)]`)。データの源は View であって tracker ではない |
-| `IsChanged` | `bool` | 現在値がベースラインと異なるか (結果キャッシュあり。詳細は「パフォーマンス最適化」の注記)。ダーティ判定は通常 `IsChangedWith(View の値)` を使う |
+| `IsChanged` | `bool` | 現在値がベースラインと異なるか (読むたびに比較。詳細は「パフォーマンス」の注記)。ダーティ判定は通常 `IsChangedWith(View の値)` を使う |
 
 ### メソッド
 
@@ -231,13 +233,13 @@ _changeTracker.IsChangedChanged += (s, e) =>
 すべての操作は内部でロック保護されており、マルチスレッド環境で安全に使用できます。
 非同期な業務処理 (`async/await`) からも問題なく `UpdateCurrentValue` 等を呼べます。
 
-### 2. パフォーマンス最適化
+### 2. パフォーマンス
 
-`IsChanged` プロパティは結果をキャッシュし、頻繁にアクセスしても比較コストは累積しません。
+`IsChanged` は結果をキャッシュせず、**読むたびに現在値とベースラインを比較** します。そのため `CurrentValue` のオブジェクトをインプレースで編集した場合も検出されます (以前のバージョンはキャッシュしていたため、`AcceptChanges` / `RejectChanges` / `UpdateCurrentValue` を呼ぶまで反映されませんでした)。深い比較のコストは読むたびにかかるので、頻繁なポーリングは避けてください。
 
-> ⚠️ **`IsChanged`(キャッシュ版)が再計算されるのは `AcceptChanges` / `RejectChanges` / `UpdateCurrentValue` を呼んだときだけです。** `ChangeTracker` はあなたのデータを所有せず `INotifyPropertyChanged` も購読しないため、View 側で編集された値を `IsChanged` は感知できません。**ダーティ判定は現在値を渡して実時比較する `IsChangedWith(View.GetModel())` で行ってください**(キャッシュを読まない)。Save / ウィンドウクローズのような一発判定に最適で、本ページの例もこの形です。
+> ⚠️ `ChangeTracker` はあなたのデータを所有せず `INotifyPropertyChanged` も購読しないため、**View 側にしか無い編集値**は `IsChanged` からは見えません。**ダーティ判定は現在値を渡して比較する `IsChangedWith(View.GetModel())` で行ってください**。Save / ウィンドウクローズのような一発判定に最適で、本ページの例もこの形です。
 >
-> tracker に現在値を反映させたい場合 (イベント駆動 UI 等) は、View 変更時に `UpdateCurrentValue(View.GetModel())` を呼べばキャッシュ `IsChanged` が保たれ `IsChangedChanged` も発火します (実例 `samples/.../EmailDemo/ComposeEmailPresenter.cs`)。それでもデータの源は View です。
+> `IsChangedChanged` が発火するのは `AcceptChanges` / `RejectChanges` / `UpdateCurrentValue` で状態が変わったときだけです (インプレース編集では発火しません。イベントは内部ロックの外で発火するので、ハンドラから tracker を呼んでもデッドロックしません)。イベント駆動 UI で通知が欲しい場合は、View 変更時に `UpdateCurrentValue(View.GetModel())` を呼んでください (実例 `samples/.../EmailDemo/ComposeEmailPresenter.cs`)。それでもデータの源は View です。
 
 ### 3. ウィンドウクローズとの連携
 

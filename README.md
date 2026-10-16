@@ -1,9 +1,10 @@
 # WinForms MVP Framework
 
-[![.NET Framework](https://img.shields.io/badge/.NET%20Framework-4.8-blue.svg)](https://dotnet.microsoft.com/download/dotnet-framework)
+[![.NET Framework](https://img.shields.io/badge/.NET%20Framework-4.7.2%2B-blue.svg)](https://dotnet.microsoft.com/download/dotnet-framework)
+[![.NET](https://img.shields.io/badge/.NET-10%20(Windows)-blue.svg)](https://dotnet.microsoft.com/download/dotnet)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE.txt)
 
-.NET Framework 上で WinForms アプリケーションを **構築・保守する** チームのための、**Model-View-Presenter (MVP)** フレームワーク。Presenter から WinForms 型を完全に切り離し、**UI スレッドなしで単体テストできる** クリーンな関心の分離をもたらします。
+.NET Framework / .NET (Windows) 上で WinForms アプリケーションを **構築・保守する** チームのための、**Model-View-Presenter (MVP)** フレームワーク。Presenter から WinForms 型を完全に切り離し、**UI スレッドなしで単体テストできる** クリーンな関心の分離をもたらします。
 
 **こんな課題に効きます:**
 
@@ -11,7 +12,7 @@
 - `MessageBox.Show()` やダイアログ呼び出しが UI と密結合していて、モックできない
 - 画面遷移・ウィンドウのクローズ処理・dirty 判定が場当たり的で、再利用も検証も難しい
 
-WPF 風のコマンドバインドとサービス抽象 (`IMessageService` / `IDialogProvider` …) でこれらを解きほぐします。コアライブラリは **外部依存ゼロ**。主ターゲットは `net48` ですが、`net40` でも動作するため、ランタイムを固定された企業内システムにも導入できます。
+WPF 風のコマンドバインドとサービス抽象 (`IMessageService` / `IDialogProvider` …) でこれらを解きほぐします。コアライブラリ (`WinformsMVP.Core`, `netstandard2.0`) は **WinForms 非参照** で、外部依存は `System.ComponentModel.Annotations` (DataAnnotations) のみ — Presenter のコードはコンパイル時点で WinForms 型に触れられません。WinForms 実装 (`WinformsMVP`) は .NET Framework 4.7.2 以降と .NET 10 (Windows) をターゲットにします。
 
 > **ドキュメントは [GitHub Wiki](https://github.com/VoidAxon/winforms-mvp/wiki) を参照してください。**
 > 本 README はプロジェクトの入口です。詳細な使い方・設計指針・サンプル解説は Wiki に集約されています。
@@ -25,7 +26,7 @@ WPF 風のコマンドバインドとサービス抽象 (`IMessageService` / `ID
 - 🪟 **ウィンドウナビゲーション** — Modal / 非 Modal、パラメータ付き、Fluent API、基底 `RequestClose` による結果返却
 - 🔁 **二方向ウィンドウクローズモデル** — Push (Presenter 主導) と Pull (フレームワーク主導) を明確に分離。dirty 判定の単一情報源
 - 🚀 **サービス抽象化レイヤー** — `IMessageService` / `IDialogProvider` / `IFileService` で `MessageBox.Show()` から脱却。完全モック可能
-- 📊 **構造化ロギング** — `Microsoft.Extensions.Logging` 互換 API の自社抽象。BCL のみ依存で `net40` でも動作
+- 📊 **構造化ロギング** — `Microsoft.Extensions.Logging` 互換 API の自社抽象。BCL のみ依存 (`WinformsMVP.Core`)
 - 🔄 **ChangeTracker** — 編集/キャンセル用の堅牢な変更追跡。`IRevertibleChangeTracking` 実装、深いコピー対応
 - 📡 **EventAggregator** — 弱参照ベースの pub/sub。UI スレッドへの自動マーシャリング、コンパイル済みデリゲートで高速
 - 🎨 **柔軟な DI** — Service Locator / Constructor Injection / Hybrid の 3 パターンに対応。`Microsoft.Extensions.DependencyInjection` 連携用の `WinformsMVP.DependencyInjection` パッケージも同梱
@@ -121,10 +122,12 @@ navigator.ShowWindow(new UserEditorPresenter());
    dotnet add package WinformsMVP.DependencyInjection --prerelease
    ```
 
+   `WinformsMVP` は `WinformsMVP.Core` に依存しているため、Core と同梱のアナライザーは自動で入ります。Presenter だけを別プロジェクトに切り出す場合は、そのプロジェクトで `WinformsMVP.Core` のみを参照すると WinForms 型を使えなくなります (`dotnet add package WinformsMVP.Core --prerelease`)。
+
 ### 方法B — Releases から .nupkg をダウンロード（認証不要）
 
 1. リポジトリの **Releases** ページを開き、目的のバージョンの `.nupkg` ファイルをダウンロードします。
-2. ローカルフォルダに置き、ソースとして登録してインストールします:
+2. ローカルフォルダに置き、ソースとして登録してインストールします (`WinformsMVP` は `WinformsMVP.Core` に依存するので、両方の `.nupkg` を同じフォルダに置いてください):
 
    ```bash
    dotnet nuget add source C:\path\to\folder --name winformsmvp-local
@@ -153,7 +156,7 @@ navigator.ShowWindow(new UserEditorPresenter());
    dotnet run --project samples/WinformsMVP.Samples/WinformsMVP.Samples.csproj
    ```
 
-4. テストを実行
+4. テストを実行 (テストプロジェクトは `net48` ターゲットのため、実行には Windows (または mono) が必要です。ビルド自体は `EnableWindowsTargeting` により Linux / macOS でも可能)
 
    ```bash
    dotnet test tests/WinformsMVP.Samples.Tests/WinformsMVP.Samples.Tests.csproj
@@ -198,14 +201,22 @@ navigator.ShowWindow(new UserEditorPresenter());
 
 | | 対応バージョン |
 |---|---|
-| ターゲットフレームワーク | .NET Framework 4.0 / 4.8 (multi-targeting) |
+| ターゲットフレームワーク | `WinformsMVP.Core`: `netstandard2.0` / `WinformsMVP`・`WinformsMVP.DependencyInjection`: `net472` + `net10.0-windows` (.NET Framework 4.7.2 以降 / .NET 10 Windows) |
 | 言語 | コンパイル済み DLL を配布するため利用側の C# バージョンは不問（ライブラリ本体は `LangVersion=latest` でビルド） |
 | プロジェクト形式 | SDK-style `.csproj` |
 | テストフレームワーク | xUnit 2.9 |
-| IDE | Visual Studio 2019+、JetBrains Rider、VS Code |
+| SDK / IDE | .NET 10 SDK (`net10.0-windows` ターゲットのビルドに必要)。Visual Studio、JetBrains Rider、VS Code |
 
-メインパッケージ (`WinformsMVP`) は **外部依存ゼロ** で `net40` / `net48` をマルチターゲットします。
-`Microsoft.Extensions.DependencyInjection` 連携が必要なら、オプションパッケージ **`WinformsMVP.DependencyInjection`** を使います (`net48` 以降)。`Microsoft.Extensions.Logging` 連携については出荷パッケージは無く、M.E.L. の `ILoggerFactory` を框架の `ILoggerFactory` に橋渡しする **~30 行のアダプタを自分で書きます** ([Logging](https://github.com/VoidAxon/winforms-mvp/wiki/Reference-Logging) 参照、`net48` 以降)。
+パッケージは 3 つです:
+
+| パッケージ | ターゲット | 内容 |
+|---|---|---|
+| `WinformsMVP.Core` | `netstandard2.0` | Presenter 基底クラス、ViewAction ディスパッチャ、EventAggregator、ChangeTracker、検証、ロギング、サービスインターフェイス。WinForms 非参照 (外部依存は `System.ComponentModel.Annotations` のみ)。MVP アナライザーを同梱 |
+| `WinformsMVP` | `net472`; `net10.0-windows` | WinForms 実装 (WindowNavigator、ViewActionBinder、ダイアログ、トースト、MessageService、View マッピング)。`WinformsMVP.Core` に依存し、アナライザーも推移的に有効 |
+| `WinformsMVP.DependencyInjection` | `net472`; `net10.0-windows` | `Microsoft.Extensions.DependencyInjection` 連携 (オプション) |
+
+名前空間はアセンブリをまたいで変わりません。`net40` のサポートは終了しました (最低 .NET Framework 4.7.2)。
+`Microsoft.Extensions.Logging` 連携については出荷パッケージは無く、M.E.L. の `ILoggerFactory` を框架の `ILoggerFactory` に橋渡しする **~30 行のアダプタを自分で書きます** ([Logging](https://github.com/VoidAxon/winforms-mvp/wiki/Reference-Logging) 参照、全ターゲットで利用可)。
 
 ---
 
@@ -214,11 +225,15 @@ navigator.ShowWindow(new UserEditorPresenter());
 ```
 winforms-mvp/
 ├── src/
-│   ├── WinformsMVP/                          コアフレームワーク (net40;net48)
-│   ├── WinformsMVP.DependencyInjection/      M.E.DI 連携 (オプション、net48)
+│   ├── WinformsMVP.Core/                     プラットフォーム非依存コア (netstandard2.0、WinForms 非参照)
+│   ├── WinformsMVP/                          WinForms 実装 (net472;net10.0-windows)
+│   ├── WinformsMVP.DependencyInjection/      M.E.DI 連携 (オプション、net472;net10.0-windows)
+│   └── WinformsMVP.Analyzers/                Roslyn アナライザー (WinformsMVP.Core パッケージに同梱)
+├── samples/
 │   ├── WinformsMVP.Samples/                  サンプル WinForms アプリ
-│   ├── WinformsMVP.Samples.Tests/            xUnit テストプロジェクト
 │   └── MultiProjectDemo.*/                   複数プロジェクト DI 構成のデモ
+├── tests/
+│   └── WinformsMVP.Samples.Tests/            xUnit テストプロジェクト (net48)
 ├── docs/archive/                             過去のレポート類 (参照用)
 └── README.md                                 このファイル
 ```

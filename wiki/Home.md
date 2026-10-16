@@ -49,7 +49,7 @@ WinForms アプリケーションのための **Model-View-Presenter** フレー
 - [Platform Services](Reference-Platform-Services) — `IMessageService` / `IDialogProvider` / `IFileService`
 - [トースト通知](Reference-Toast-Notifications) — 隅に積み上がるトースト、`ToastOptions` / `ToastDefaults`、`AnchoredToast`
 - [Data Binding 拡張メソッド](Reference-Data-Binding) — View 側で UI コントロールをモデルに紐付ける拡張メソッド群
-- [Logging](Reference-Logging) — 自社抽象、`net40` 対応、M.E.L. 連携
+- [Logging](Reference-Logging) — 自社抽象 (外部依存ゼロ)、M.E.L. 連携
 - [ChangeTracker](Reference-ChangeTracker) — 編集/キャンセル、深いコピー、フック差し込み
 - [レート制限 (Debounce / Throttle)](Reference-RateLimiting) — 高頻度イベントの間引き、UI 非依存、`Flush` / 確定的破棄
 - [EventAggregator](Reference-EventAggregator) — 弱参照 pub/sub、UI スレッド自動マーシャリング

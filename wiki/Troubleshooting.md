@@ -301,13 +301,13 @@ public object Clone()
 
 ### バックグラウンドスレッドから `Publish` するとクロススレッド例外
 
-**原因**: `EventAggregator` が UI スレッド以外で構築された。
+**原因**: マーシャリング先のコンテキストが無い。`EventAggregator` は構築時の `SynchronizationContext`、それが無ければ購読時のスレッドのコンテキストへマーシャリングするため、ワーカースレッドで構築かつワーカースレッドで購読すると、ハンドラは発行スレッドで実行される。
 
-**対処**: `EventAggregator` の `new` を **UI スレッド上** (`Program.Main` 等) で行う。
+**対処**: `EventAggregator` の `new` は UI スレッドか `Program.Main` で行い、購読は UI スレッド (Presenter の `OnInitialize` など) で行う。
 
 ```csharp
-// Program.Main 内で
-var eventAggregator = new EventAggregator();   // ← UI スレッド
+// Program.Main 内で (SynchronizationContext がまだ無くても、UI スレッドで購読すれば UI スレッドで実行される)
+var eventAggregator = new EventAggregator();
 ```
 
 ---

@@ -8,6 +8,47 @@
 
 ## [Unreleased]
 
+### Changed (変更)
+
+- **`net40` サポートを終了し、`net472` / `net10.0-windows` をターゲットに** (BREAKING) — `WinformsMVP` / `WinformsMVP.DependencyInjection` は `net472;net10.0-windows`。最低 .NET Framework は 4.7.2、モダン .NET は .NET 10 (Windows)。net40 用 CallerInfo polyfill・`System.ValueTuple` 参照・`WinformsMVP.Net40SmokeTest` を削除。SDK 生成の AssemblyInfo に切り替え (`-p:Version` がアセンブリバージョンに反映され、`net10.0-windows` では `SupportedOSPlatform` も出力)。`EnableWindowsTargeting` により `*-windows` TFM を非 Windows ホストでもビルド可能。リリースワークフローは .NET 10 SDK を使用。
+- **プラットフォーム非依存の `WinformsMVP.Core` (`netstandard2.0`) を分離** (BREAKING) — Presenter 基底クラス、ViewAction ディスパッチャ、EventAggregator、ChangeTracker、検証、ロギング、サービスインターフェイスを新パッケージ `WinformsMVP.Core` に移動。WinForms を参照しないため、Core に対してコンパイルされる Presenter コードは WinForms 型に触れられない。`WinformsMVP` は WinForms 実装 (`WindowNavigator`、`ViewActionBinder`、ダイアログ、トースト、`MessageService`、View マッピング) を保持し Core に依存する。**名前空間は変更なし**。
+  - MVP アナライザーは `WinformsMVP.Core` に同梱され、`WinformsMVP` の利用者にも推移的に流れる。リリースは `WinformsMVP.Core` / `WinformsMVP` / `WinformsMVP.DependencyInjection` の 3 パッケージを publish。
+  - **`IDialogProvider` からフォント/印刷ダイアログを分離** (BREAKING) — `IDialogProvider` はファイル/フォルダ/色ダイアログのみ。`ShowFontDialog` / `ShowPrintDialog` / `ShowPageSetupDialog` / `ShowPrintPreviewDialog`（戻り値が GDI+ 型）は新しい `IWinFormsDialogProvider : IDialogProvider` (`WinformsMVP`) へ。`ServiceLocator` の既定プロバイダは同じ `DialogProvider` インスタンスを両インターフェイスで登録し、`AddWinformsMVP` も `IWinFormsDialogProvider` を `DialogProvider` で既定登録する。
+  - **`IMessageService.ShowToast(text, type, ToastOptions)` を拡張メソッドに** (BREAKING) — `MessageServiceToastExtensions.ShowToast` (`WinformsMVP`)。`WinformsMVP` を参照していれば呼び出し側はそのままコンパイルできる。インターフェイスには `ShowToast(text, type, duration)` が残る。独自 `IMessageService` 実装は `ToastOptions` を受け取らず、duration のみが渡る。
+  - `ServiceLocator` の既定プロバイダは、実行時に `WinformsMVP` アセンブリの内部フック経由で WinForms の組み込みサービスを取り込む。`WinformsMVP.Core` のみ配置した場合は `FileService` + `NullLoggerFactory` のみ。
+- **`ServiceProviderPresenterFactory` は Presenter ごとに `IServiceScope` を作成** — スコープは Presenter と一緒に破棄されるため、scoped サービスは Presenter/ウィンドウ単位になる。ルートコンテナが一時 Presenter (と View・transient 依存) を終了まで保持し続けるリークを解消。
+- **`AddWinformsMVP` は別の `IViewMappingRegister` が登録済みなら例外** — その登録のマッピングが Navigator から見えなくなるため。
+- **`DebugLogger` は `Trace.WriteLine` で出力** — `Debug.WriteLine` は Release ビルドのパッケージからコンパイル時に除去されていた。
+- **`MessageFormatter` が `{@Name}` / `{$Name}` を受理** し、同じ名前の繰り返しは同じ引数を再利用 (従来は全引数が落ちていた)。
+
+### Removed (削除)
+
+- **`WinformsMVP.Net40SmokeTest`** プロジェクト。
+- 未使用の `PresenterBase<TView, TParameters>`。
+
+### Fixed (修正)
+
+- **Navigator** — `IInitializable<TParam>` のみを実装する Presenter をパラメータなしのオーバーロードで表示すると `InvalidOperationException` (従来は未初期化のままボタンが効かないウィンドウが開いた)。owner と Presenter の形はウィンドウ生成前に検証し、失敗時は Presenter と Form を破棄。キー付きウィンドウは `Initialize` 前に登録 (再入表示で二重に開かない)、閉じたウィンドウは自分のキーだけを削除。
+- **クローズ結果** (Navigator と `Connect` で共通) — `Ok` で `TResult` と型が合わない結果、または `TResult` が非 null 許容値型なのに結果なしの場合は `Ok(default)` ではなく `InteractionStatus.Error` (メッセージ付き)。`RequestClose(message, InteractionStatus.Error)` / `RequestClose(exception, InteractionStatus.Error)` のメッセージ/例外が `InteractionResult.ErrorMessage` / `Exception` に入る。
+- **`RequestClose`** — close sink がバインドされる前の呼び出しは保持され、バインド時に配送される。
+- **非同期 `CanClose`** — 判定待ちの間の再クローズは再質問せず保留。ただしシステムシャットダウン / タスクマネージャーによるクローズは通す。`proceed()` はどのスレッドから呼んでもよい (UI スレッドへマーシャリング)。非同期で許可された場合、owner / MDI 親 / `Application.Exit` によるクローズを再発行する。Presenter の `Dispose` が例外を投げても Form は破棄される。
+- **Presenter 基底** — View なしの `Initialize` は `InvalidOperationException`、2 つ目の View のアタッチは例外。`Dispose` は `Cleanup` が例外を投げても `Disposables` を解放し、再入安全。
+- **`Connect` (Adopted)** — アタッチ済み・未初期化の Presenter を初期化する。アタッチ済みと異なる View は拒否。2 回目の `Connect` は例外を投げるが、生きている Presenter は破棄しない。アタッチ/初期化の失敗時は Presenter を破棄。コントロール用 `Connect` も失敗時に Presenter を破棄。
+- **ViewAction** — `default(ViewAction)` は `Register` / `Binder.Add` で拒否 (`Dispatch` では無視)、null ハンドラも拒否。ハンドラの例外はハンドラを抜ける時点で `DispatchContext.Exception` に設定され、外側のミドルウェアが `finally` で参照できる。例外を投げたハンドラは `CanExecuteChanged` を発火してコントロール状態を更新。同じコントロールを 2 つのアクションにバインドすると `Add` 時に例外 (従来は最後の 1 つが黙って残った)。
+- **EventAggregator** — UI スレッドへポスト済みのメッセージは、その間に破棄された購読には配送しない。`SynchronizationContext` なし (`Program.Main` など) で生成した場合、各購読は購読者のコンテキストを使う (従来はワーカースレッドでハンドラが走った)。拡張メソッドのデリゲートを正しく呼び出す。
+- **ChangeTracker** — `IsChanged` をキャッシュしない (`CurrentValue` 経由のインプレース編集も検出)。`IsChangedChanged` はロックの外で発火。
+- **ObjectCloner / ObjectComparer** — `HashSet` / `SortedSet` / `Queue` / `Stack` / `LinkedList` / `ReadOnlyCollection` を要素単位で扱う (比較子とスタック順を維持)。`Type` / `MemberInfo` / `Uri` / `Version` はコピーせず共有。コレクションの循環参照はコピー側に解決 (コンストラクタ専用のコレクションを通る循環は `NotSupportedException`)。参照同一性の要素を持つセットは構造的に比較するため、未変更のディープコピーと等しくなり ChangeTracker が最初から dirty にならない。
+- **ModelValidator** — `IsValid` / `ValidateSequential` もクラスレベル属性、`IValidatableObject`、派生型のルールを含め、`ValidateAll` と結果が一致。
+- **CompositeDisposable** — 1 つが例外を投げても全要素を破棄し、その後に再スロー。
+- **Debouncer / Throttler** — `onError` 未指定のコールバックの例外をログ出力。
+- **View 解決** — サービスプロバイダ経由の View フォールバックで破棄済み Form を拒否し、View は transient にすべき旨を説明。
+- **`MessageService.ShowToast`** — ワーカースレッドから呼んでも UI スレッドへマーシャリング。
+- **`ShowPrintPreviewDialog`** — 表示できた時点で `Ok(true)` を返す (ダイアログは `DialogResult.OK` を返さないため従来は常に Cancel)。
+
+### Tests (テスト)
+
+- `LifecycleHardeningTests` (Navigator / クローズ結果 / 非同期 `CanClose` / `Connect` / Presenter 基底)、`CommonHardeningTests` (ViewAction / EventAggregator / ChangeTracker / ObjectCloner・ObjectComparer / ModelValidator / CompositeDisposable)、`ServicesHardeningTests` (DI スコープ / View 登録 / ロギング / トースト / 印刷プレビュー) を追加。`ServiceLocatorBuiltInsTests` に `IWinFormsDialogProvider` の既定登録を追加。テストプロジェクトは `net48` のため実行には Windows (または mono) が必要。
+
 ## [1.0.0-preview.4] - 2026-06-10
 
 ### Added (追加)
