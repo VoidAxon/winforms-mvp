@@ -348,6 +348,31 @@ public interface ITreeBuilderView { void AddTreeViewNode(string text); }"));
         // ------------------------------------------------------------------ MVP014
 
         [Fact]
+        public void MVP014_StaticImportedMessageBoxShow_Reports()
+        {
+            Assert.Equal(new[] { "MVP014:Show", "MVP014:OK" },
+                IdsWithText(Usings + @"
+using static System.Windows.Forms.MessageBox;
+using static System.Windows.Forms.DialogResult;
+public interface IOrderView : IWindowView { }
+public class OrderPresenter : WindowPresenterBase<IOrderView>
+{
+    private bool OnSave() => Show(""Saved!"") == OK;
+}"));
+        }
+
+        [Fact]
+        public void MVP004_ViewInterfaceExposingConcreteForm_Reports()
+        {
+            // MVP007 only covers presenters, so the concrete view on an interface is MVP004's.
+            Assert.Equal(new[] { "MVP004:ChildForm" },
+                IdsWithText(UiUsings + @"
+public interface IChildView : IWindowView { }
+public class ChildForm : Form, IChildView { }
+public interface IOrderView : IWindowView { IChildView Child { get; } ChildForm ChildForm { get; } }"));
+        }
+
+        [Fact]
         public void MVP014_MessageBoxShow_Reports()
         {
             Assert.Equal(new[] { "MVP014:MessageBox" },

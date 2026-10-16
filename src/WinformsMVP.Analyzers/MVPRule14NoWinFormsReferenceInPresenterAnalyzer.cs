@@ -43,7 +43,10 @@ namespace WinformsMVP.Analyzers
 
             var type = BoundType(context, name);
             if (type == null)
+            {
+                ReportStaticImportedMember(context, name, presenter);
                 return;
+            }
 
             // 'var' stands for the whole inferred type (List<Button> included); a named type
             // stands for itself only — its type arguments are separate name nodes.
@@ -65,6 +68,37 @@ namespace WinformsMVP.Analyzers
                 name.GetLocation(),
                 presenter.Name,
                 uiType.Name));
+        }
+
+        /// <summary>
+        /// An unqualified name bound to a WinForms member — only possible through
+        /// <c>using static System.Windows.Forms.MessageBox;</c> and similar — such as <c>Show("x")</c>
+        /// or <c>OK</c>. Qualified accesses (<c>MessageBox.Show</c>, <c>x.Close()</c>) are skipped:
+        /// the qualifying type name or the variable's declared type is reported instead.
+        /// </summary>
+        private static void ReportStaticImportedMember(SyntaxNodeAnalysisContext context, SimpleNameSyntax name, INamedTypeSymbol presenter)
+        {
+            if (name.Parent is MemberAccessExpressionSyntax access && access.Name == name)
+                return;
+            if (name.Parent is MemberBindingExpressionSyntax)
+                return;
+
+            var info = context.SemanticModel.GetSymbolInfo(name, context.CancellationToken);
+            var symbol = info.Symbol ?? info.CandidateSymbols.FirstOrDefault();
+            if (symbol == null || symbol is ITypeSymbol || symbol is INamespaceSymbol)
+                return;
+            if (symbol is ILocalSymbol || symbol is IParameterSymbol || symbol is IRangeVariableSymbol)
+                return;
+
+            var owner = symbol.ContainingType;
+            if (owner == null || !MvpSymbols.IsWinFormsType(owner))
+                return;
+
+            context.ReportDiagnostic(Diagnostic.Create(
+                DiagnosticDescriptors.MVPRule14NoWinFormsReferenceInPresenter,
+                name.GetLocation(),
+                presenter.Name,
+                owner.Name));
         }
 
         private static ITypeSymbol BoundType(SyntaxNodeAnalysisContext context, SimpleNameSyntax name)

@@ -79,8 +79,9 @@ namespace WinformsMVP.Analyzers
             INamedTypeSymbol containingType,
             ISymbol reportOn = null)
         {
-            // Concrete views (MyForm : Form, IMyView) are reported by MVP007; don't double-report.
-            var uiType = MvpSymbols.FindWinFormsType(type, skipConcreteViews: true);
+            // In presenters, concrete views (MyForm : Form, IMyView) are reported by MVP007; don't
+            // double-report. MVP007 does not look at view interfaces, so report them here.
+            var uiType = MvpSymbols.FindWinFormsType(type, skipConcreteViews: MvpSymbols.IsPresenter(containingType));
             if (uiType == null)
                 return;
 
