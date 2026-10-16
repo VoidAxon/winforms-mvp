@@ -30,27 +30,28 @@ namespace WinformsMVP.DependencyInjection
         /// disposed together with the presenter. Resolving from the root provider instead would make
         /// the container keep every transient (disposable) presenter — and its View and transient
         /// dependencies — alive until the application exits. Scoped services therefore live per
-        /// presenter (per window).
+        /// presenter (per window). This applies to presenters deriving from the framework presenter
+        /// bases; other <see cref="IPresenter"/> implementations resolve from the provider directly.
         /// </remarks>
         public TPresenter Create<TPresenter>() where TPresenter : IPresenter
         {
+            // A per-presenter scope needs a presenter that can own it (the framework presenter
+            // bases). Anything else — a non-scoping provider, a custom IPresenter — resolves from the
+            // provider as before, so the container stays responsible for disposing its dependencies.
             var scopeFactory = _serviceProvider.GetService<IServiceScopeFactory>();
-            if (scopeFactory == null)
-                return _serviceProvider.GetRequiredService<TPresenter>();   // non-scoping provider
+            if (scopeFactory == null || !typeof(IPresenterResourceOwner).IsAssignableFrom(typeof(TPresenter)))
+                return _serviceProvider.GetRequiredService<TPresenter>();
 
             var scope = scopeFactory.CreateScope();
             try
             {
                 var presenter = scope.ServiceProvider.GetRequiredService<TPresenter>();
-                if (presenter is IPresenterResourceOwner owner)
-                    owner.OwnUntilDisposed(scope);
-                else
-                    scope = null;   // custom IPresenter: cannot observe its disposal; leave the scope to the GC
+                ((IPresenterResourceOwner)presenter).OwnUntilDisposed(scope);
                 return presenter;
             }
             catch
             {
-                scope?.Dispose();
+                scope.Dispose();
                 throw;
             }
         }

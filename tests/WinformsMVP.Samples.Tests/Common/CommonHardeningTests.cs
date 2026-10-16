@@ -328,6 +328,36 @@ namespace WinformsMVP.Samples.Tests.Common
             Assert.False(ObjectComparer.DeepEquals(original, copy));
         }
 
+        private sealed class TagNameComparer : IEqualityComparer<Tag>
+        {
+            public bool Equals(Tag x, Tag y) => string.Equals(x?.Name, y?.Name, StringComparison.OrdinalIgnoreCase);
+            public int GetHashCode(Tag t) => StringComparer.OrdinalIgnoreCase.GetHashCode(t.Name ?? "");
+        }
+
+        [Fact]
+        public void Comparer_SetWithExplicitComparer_UsesThatComparer()
+        {
+            var a = new HashSet<Tag>(new TagNameComparer()) { new Tag { Name = "x" } };
+            var b = new HashSet<Tag>(new TagNameComparer()) { new Tag { Name = "X" } };
+
+            Assert.True(ObjectComparer.DeepEquals(a, b));
+        }
+
+        private sealed class IntStack : Stack<int> { }
+
+        [Fact]
+        public void Cloner_StackSubclass_KeepsOrder()
+        {
+            var stack = new IntStack();
+            stack.Push(1);
+            stack.Push(2);
+
+            var copy = ObjectCloner.DeepCopy(stack);
+
+            Assert.Equal(2, copy.Peek());
+            Assert.Equal(stack.ToArray(), copy.ToArray());
+        }
+
         [Fact]
         public void ChangeTracker_ModelWithReferenceSet_StartsClean()
         {

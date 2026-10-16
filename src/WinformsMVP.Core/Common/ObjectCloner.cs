@@ -216,7 +216,11 @@ namespace WinformsMVP.Common
         }
 
         private static bool IsStack(Type type)
-            => type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Stack<>);
+        {
+            for (var t = type; t != null; t = t.BaseType)
+                if (t.IsGenericType && t.GetGenericTypeDefinition() == typeof(Stack<>)) return true;
+            return false;
+        }
 
         private static System.Reflection.MethodInfo FindAdder(Type type, Type elementType)
         {

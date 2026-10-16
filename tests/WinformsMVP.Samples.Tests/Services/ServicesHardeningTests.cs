@@ -70,6 +70,29 @@ namespace WinformsMVP.Samples.Tests.Services
             second.Dispose();
         }
 
+        public sealed class CustomPresenter : IPresenter
+        {
+            public ScopedDependency Dependency { get; }
+            public CustomPresenter(ScopedDependency dependency) => Dependency = dependency;
+            public Type ViewInterfaceType => typeof(IScopeView);
+            public void Dispose() { }
+        }
+
+        [Fact]
+        public void PresenterFactory_CustomPresenter_ResolvesFromProviderSoContainerOwnsDependencies()
+        {
+            var services = new ServiceCollection();
+            services.AddScoped<ScopedDependency>();
+            services.AddTransient<CustomPresenter>();
+            services.AddSingleton<IPresenterFactory, ServiceProviderPresenterFactory>();
+            var provider = services.BuildServiceProvider();
+
+            var presenter = provider.GetRequiredService<IPresenterFactory>().Create<CustomPresenter>();
+            provider.Dispose();
+
+            Assert.True(presenter.Dependency.Disposed);
+        }
+
         #endregion
 
         #region AddWinformsMVP view registry

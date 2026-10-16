@@ -112,7 +112,7 @@ namespace WinformsMVP.Common
             var count = collectionType.GetProperty("Count");
             if ((int)count.GetValue(a, null) != (int)count.GetValue(b, null)) return false;
 
-            if (DeepReflection.IsImmutable(elementType) || DeepReflection.HasCustomEquals(elementType))
+            if (!UsesReferenceIdentity(b, elementType))
             {
                 var contains = collectionType.GetMethod("Contains");
                 foreach (var item in a)
@@ -139,6 +139,20 @@ namespace WinformsMVP.Common
                 unmatched.RemoveAt(match);
             }
             return true;
+        }
+
+        // Membership is reference identity only when the set uses the default equality comparer
+        // and the element type has no value equality of its own. An explicit comparer (e.g. a
+        // case-insensitive name comparer) or a SortedSet's IComparer defines membership itself.
+        private static bool UsesReferenceIdentity(object set, Type elementType)
+        {
+            if (DeepReflection.IsImmutable(elementType) || DeepReflection.HasCustomEquals(elementType))
+                return false;
+            var comparer = set.GetType().GetProperty("Comparer")?.GetValue(set, null);
+            if (comparer == null) return true;
+            var defaultComparer = typeof(EqualityComparer<>).MakeGenericType(elementType)
+                .GetProperty("Default").GetValue(null, null);
+            return Equals(comparer, defaultComparer);
         }
 
         private static bool PocoEquals(object a, object b, Type type, HashSet<RefPair> visited)
