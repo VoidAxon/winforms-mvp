@@ -486,7 +486,7 @@ public class GoodPresenter : WindowPresenterBase<IMyView>
 ## 自動検証 (Roslyn Analyzer)
 
 これらのルールの **一部は、すでに Roslyn Analyzer によってコンパイル時に自動検証されています**。
-アナライザは `WinformsMVP` パッケージに同梱されており (`analyzers/dotnet/cs`)、メインパッケージを参照するだけで消費側のビルドでも自動的に走ります — 別途インストールは不要です。
+アナライザは `WinformsMVP.Core` パッケージに同梱されており (`analyzers/dotnet/cs`)、`WinformsMVP` (Core に依存) を参照するだけで推移的に有効になり、消費側のビルドでも自動的に走ります — 別途インストールは不要です。
 
 | 診断 ID | タイトル | 対応ルール |
 |---------|---------|----------|
@@ -498,12 +498,16 @@ public class GoodPresenter : WindowPresenterBase<IMyView>
 | `MVP007` | View は具象 Form ではなくインターフェイス越しに扱う | [Rule 8](#rule-8-view-にはインターフェイス越しにのみアクセス) |
 | `MVP008` | 公開 View メソッドはインターフェイスに定義する | [Rule 9](#rule-9-view-メソッドの可視性) |
 | `MVP013` | インターフェイスメソッド名に UI コントロール型を入れない | [Rule 14](#rule-14-インターフェイスに-ui-コントロール名を入れない) |
+| `MVP014` | Presenter のコードで WinForms 型を参照しない (`MessageBox.Show`、`DialogResult`、`(Form)View`、`typeof(Form)` など) | [Rule 4](#rule-4-view-インターフェイスと-presenter-に-ui-型を入れない) |
+| `MVP016` | Presenter に public イベントを宣言しない | [Rule 17](#rule-17-presenter-イベントの可視性) |
+
+> Presenter / View インターフェイスの判定は名前ではなく型で行います: Presenter は `WinformsMVP.MVP.Presenters.PresenterBase<T>` の派生クラス、View インターフェイスは `WinformsMVP.MVP.Views.IViewBase` の派生インターフェイス、UI 型は `System.Windows.Forms` 名前空間の型 (およびその派生) です。
 
 > 既定の重大度はすべて **Warning** です (フレームワークをインストールしただけでビルドが壊れないように)。チームで厳格化したい場合は `.editorconfig` で個別に `error` へ引き上げられます。
 
 > **最小コンパイラ要件**: アナライザは Microsoft.CodeAnalysis 4.3 でビルドされているため、**Visual Studio 2022 17.3 以降 / .NET SDK 6.0.400 以降** のコンパイラが必要です。それより古いコンパイラではアナライザが (警告 CS8032 程度で) **黙ってスキップ** され、ルール違反は検出されません。
 
-それ以外のルール (Rule 5・6・10〜12・15〜17) はアナライザ化されていないため、引き続き **コードレビューのチェックリスト** として使ってください。
+それ以外のルール (Rule 5・6・10〜12・15・16) はアナライザ化されていないため、引き続き **コードレビューのチェックリスト** として使ってください。
 
 ---
 

@@ -28,6 +28,9 @@ dotnet build src/WinformsMVP/WinformsMVP.csproj
 dotnet test tests/WinformsMVP.Samples.Tests/WinformsMVP.Samples.Tests.csproj
 dotnet test tests/WinformsMVP.Samples.Tests/WinformsMVP.Samples.Tests.csproj -v detailed
 
+# Analyzer tests (net10.0, runs anywhere)
+dotnet test tests/WinformsMVP.Analyzers.Tests/WinformsMVP.Analyzers.Tests.csproj
+
 # Run the sample app
 dotnet run --project samples/WinformsMVP.Samples/WinformsMVP.Samples.csproj
 
@@ -276,7 +279,7 @@ Use for cross-presenter/cross-module events. Do **not** use for parent-child coo
 │   ├── WinformsMVP.DependencyInjection/   Optional M.E.DI integration (net472;net10.0-windows)
 │   └── WinformsMVP.Analyzers/             Roslyn analyzers (in the .sln, build-only — bundled into WinformsMVP.Core package)
 ├── samples/    Sample/demo apps (WinformsMVP.Samples, MultiProjectDemo.*)
-├── tests/      WinformsMVP.Samples.Tests (xUnit, net48)
+├── tests/      WinformsMVP.Samples.Tests (xUnit, net48), WinformsMVP.Analyzers.Tests (xUnit, net10.0)
 ├── docs/  wiki/  tools/
 └── winforms-mvp.sln
 ```
@@ -287,7 +290,7 @@ Use for cross-presenter/cross-module events. Do **not** use for parent-child coo
 
 - **Target frameworks:** `WinformsMVP.Core` → `netstandard2.0`; `WinformsMVP` / `WinformsMVP.DependencyInjection` → `net472;net10.0-windows`; samples and tests → `net48`. Minimum .NET Framework is 4.7.2; net40 is no longer supported. SDK-style gives automatic file inclusion and `PackageReference`; `EnableWindowsTargeting` (in `Directory.Build.props`) lets `dotnet build` run on non-Windows hosts.
 - **Where code goes:** anything a presenter needs goes in `WinformsMVP.Core` and must not reference WinForms / System.Drawing; WinForms implementations go in `WinformsMVP`.
-- **Tests:** xUnit 2.9.3. The test project targets net48, so `dotnet test` needs Windows (or mono).
+- **Tests:** xUnit 2.9.3. `WinformsMVP.Samples.Tests` targets net48, so `dotnet test` on it needs Windows (or mono); `WinformsMVP.Analyzers.Tests` (net10.0) runs anywhere.
 - **Adding a Form/Dialog:** define `IXxxView : IWindowView` → presenter extends `WindowPresenterBase<TView>[, TParam]` → implement the Form → register the mapping → show via `WindowNavigator`.
 - **Adding a UserControl:** define `IXxxView : IViewBase` → presenter extends `ControlPresenterBase<TView>[, TParam]` → implement the UserControl → in the parent, `new` the presenter (its own deps only) then `presenter.Connect(view[, param])`.
 - The `wiki/` folder mirrors every subsystem above with Concept / HowTo / Reference / Tutorial pages — consult it before duplicating explanation here.
