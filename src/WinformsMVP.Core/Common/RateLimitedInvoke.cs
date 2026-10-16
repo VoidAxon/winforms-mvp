@@ -1,5 +1,6 @@
 using System;
 using System.Threading;
+using WinformsMVP.Logging;
 
 namespace WinformsMVP.Common
 {
@@ -11,6 +12,21 @@ namespace WinformsMVP.Common
     /// </summary>
     internal static class RateLimitedInvoke
     {
+        private static void LogUnhandled(Exception ex)
+        {
+            try
+            {
+                var factory = (ILoggerFactory)WinformsMVP.Services.ServiceLocator.Current
+                    .GetService(typeof(ILoggerFactory));
+                factory?.CreateLogger("WinformsMVP.Common.RateLimit")
+                    .LogError(ex, "Debounced/throttled action threw and no onError handler was supplied.");
+            }
+            catch
+            {
+                // Logging must never turn a swallowed callback failure into a crash.
+            }
+        }
+
         /// <summary>
         /// Runs <paramref name="action"/>. If <paramref name="context"/> is non-null the call is
         /// posted to it (asynchronously); otherwise it runs inline on the caller's thread.
@@ -43,7 +59,11 @@ namespace WinformsMVP.Common
                 catch (Exception ex)
                 {
                     if (onError == null)
-                        return; // No handler: swallow rather than crash the timer/UI thread.
+                    {
+                        // No handler: don't crash the timer/UI thread, but never fail silently.
+                        LogUnhandled(ex);
+                        return;
+                    }
 
                     try
                     {

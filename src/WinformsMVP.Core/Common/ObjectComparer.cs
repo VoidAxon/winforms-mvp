@@ -45,6 +45,12 @@ namespace WinformsMVP.Common
             var listA = a as IList;
             if (listA != null) return ListEquals(listA, (IList)b, visited);
 
+            var elementType = DeepReflection.GetSequenceElementType(type);
+            if (elementType != null)
+                return DeepReflection.IsSet(type, elementType)
+                    ? SetEquals((IEnumerable)a, b, elementType)
+                    : SequenceEquals((IEnumerable)a, (IEnumerable)b, visited);
+
             if (DeepReflection.IsUnsupported(type))
                 throw new NotSupportedException(
                     "ObjectComparer cannot deep-compare type '" + type.FullName +
@@ -79,6 +85,33 @@ namespace WinformsMVP.Common
             if (a.Count != b.Count) return false;
             for (int i = 0; i < a.Count; i++)
                 if (!AreEqual(a[i], b[i], visited)) return false;
+            return true;
+        }
+
+        // Ordered collections (Queue, Stack, LinkedList, ...): element-by-element in enumeration order.
+        private static bool SequenceEquals(IEnumerable a, IEnumerable b, HashSet<RefPair> visited)
+        {
+            var ea = a.GetEnumerator();
+            var eb = b.GetEnumerator();
+            while (true)
+            {
+                bool hasA = ea.MoveNext(), hasB = eb.MoveNext();
+                if (hasA != hasB) return false;
+                if (!hasA) return true;
+                if (!AreEqual(ea.Current, eb.Current, visited)) return false;
+            }
+        }
+
+        // Sets: same count and every element of a is a member of b, using b's own comparer
+        // (pragmatic, like dictionary keys: set elements are usually value-like).
+        private static bool SetEquals(IEnumerable a, object b, Type elementType)
+        {
+            var collectionType = typeof(ICollection<>).MakeGenericType(elementType);
+            var count = collectionType.GetProperty("Count");
+            if ((int)count.GetValue(a, null) != (int)count.GetValue(b, null)) return false;
+            var contains = collectionType.GetMethod("Contains");
+            foreach (var item in a)
+                if (!(bool)contains.Invoke(b, new[] { item })) return false;
             return true;
         }
 

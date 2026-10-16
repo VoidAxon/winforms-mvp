@@ -34,11 +34,19 @@ namespace WinformsMVP.Common
         {
             if (_disposed) return;
             _disposed = true;
+            // Every item is disposed even if an earlier one throws, so one faulty subscription
+            // cannot leak the rest; failures are rethrown once the sweep is complete.
+            List<Exception> errors = null;
             for (int i = _items.Count - 1; i >= 0; i--)
             {
-                _items[i].Dispose();
+                try { _items[i].Dispose(); }
+                catch (Exception ex) { (errors ?? (errors = new List<Exception>())).Add(ex); }
             }
             _items.Clear();
+
+            if (errors == null) return;
+            if (errors.Count == 1) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(errors[0]).Throw();
+            throw new AggregateException("One or more disposables threw during CompositeDisposable.Dispose.", errors);
         }
     }
 }

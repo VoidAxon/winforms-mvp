@@ -104,15 +104,14 @@ namespace WinformsMVP.MVP.ViewActions
         /// <param name="canExecute">Optional predicate to determine if the action can execute. Defaults to always true.</param>
         public void Register(ViewAction actionKey, Action handler, Func<bool> canExecute = null)
         {
-            if (actionKey != null)
+            RequireKey(actionKey);
+            if (handler == null) throw new ArgumentNullException(nameof(handler));
+            _handlers[actionKey] = new ActionHandlerEntry
             {
-                _handlers[actionKey] = new ActionHandlerEntry
-                {
-                    Handler = new ViewActionHandler(handler),
-                    CanExecute = canExecute ?? (() => true),
-                    PayloadType = null
-                };
-            }
+                Handler = new ViewActionHandler(handler),
+                CanExecute = canExecute ?? (() => true),
+                PayloadType = null
+            };
         }
 
         /// <summary>
@@ -124,15 +123,14 @@ namespace WinformsMVP.MVP.ViewActions
         /// <param name="canExecute">Optional predicate to determine if the action can execute. Defaults to always true.</param>
         public void Register<T>(ViewAction actionKey, Action<T> handler, Func<bool> canExecute = null)
         {
-            if (actionKey != null)
+            RequireKey(actionKey);
+            if (handler == null) throw new ArgumentNullException(nameof(handler));
+            _handlers[actionKey] = new ActionHandlerEntry
             {
-                _handlers[actionKey] = new ActionHandlerEntry
-                {
-                    Handler = new ViewActionHandler<T>(handler),
-                    CanExecute = canExecute ?? (() => true),
-                    PayloadType = typeof(T)
-                };
-            }
+                Handler = new ViewActionHandler<T>(handler),
+                CanExecute = canExecute ?? (() => true),
+                PayloadType = typeof(T)
+            };
         }
 
         /// <summary>
@@ -181,6 +179,14 @@ namespace WinformsMVP.MVP.ViewActions
             return Use(new InlineMiddleware(middleware));
         }
 
+        private static void RequireKey(ViewAction actionKey)
+        {
+            if (actionKey.Name == null)
+                throw new ArgumentException(
+                    "default(ViewAction) is not a valid action key; create keys with ViewAction.Create(...).",
+                    nameof(actionKey));
+        }
+
         /// <summary>
         /// Checks if the specified action can be executed.
         /// </summary>
@@ -188,7 +194,7 @@ namespace WinformsMVP.MVP.ViewActions
         /// <returns>True if the action can execute; otherwise false</returns>
         public bool CanDispatch(ViewAction actionKey)
         {
-            if (actionKey != null && _handlers.TryGetValue(actionKey, out var entry))
+            if (actionKey.Name != null && _handlers.TryGetValue(actionKey, out var entry))
             {
                 return SafeCanExecute(actionKey, entry);
             }
@@ -204,8 +210,9 @@ namespace WinformsMVP.MVP.ViewActions
         /// <param name="payload">Optional payload to pass to the handler</param>
         public void Dispatch(ViewAction actionKey, object payload = null)
         {
-            if (actionKey == null)
+            if (actionKey.Name == null)
             {
+                // default(ViewAction): never registered, nothing to run.
                 return;
             }
 
@@ -259,6 +266,11 @@ namespace WinformsMVP.MVP.ViewActions
                 if (TryExecuteHandlerDirect(actionKey, entry, payload))
                 {
                     ActionExecuted?.Invoke(this, new ActionExecutedEventArgs(actionKey));
+                }
+                else
+                {
+                    // The handler threw part-way and may have changed state: re-query CanExecute.
+                    CanExecuteChanged?.Invoke(this, EventArgs.Empty);
                 }
                 return;
             }
@@ -314,6 +326,11 @@ namespace WinformsMVP.MVP.ViewActions
             {
                 ActionExecuted?.Invoke(this, new ActionExecutedEventArgs(actionKey));
             }
+            else if (context.Exception != null)
+            {
+                // Mirror the fast path: a failed handler may have changed state.
+                CanExecuteChanged?.Invoke(this, EventArgs.Empty);
+            }
         }
 
         private DispatchDelegate CompilePipeline()
@@ -321,9 +338,19 @@ namespace WinformsMVP.MVP.ViewActions
             // Terminal step: read the handler off the context and invoke it.
             // Reading from context (not capturing the per-dispatch entry) lets the compiled
             // pipeline be cached and reused across all actions registered on this dispatcher.
+            // The exception is recorded here, as it leaves the handler, so outer middleware
+            // (audit, perf) already sees ctx.Exception in its finally block while unwinding.
             DispatchDelegate next = ctx =>
             {
-                ctx.Handler.Execute(ctx.Payload);
+                try
+                {
+                    ctx.Handler.Execute(ctx.Payload);
+                }
+                catch (Exception ex)
+                {
+                    ctx.Exception = ex;
+                    throw;
+                }
                 ctx.HandlerExecuted = true;
             };
 

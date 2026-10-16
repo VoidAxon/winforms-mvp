@@ -34,8 +34,42 @@ namespace WinformsMVP.Common.Internal
                 || t == typeof(DateTime)
                 || t == typeof(DateTimeOffset)
                 || t == typeof(TimeSpan)
-                || t == typeof(Guid));
+                || t == typeof(Guid)
+                || t == typeof(Uri)
+                || t == typeof(Version)
+                // Type / MethodInfo / ... are runtime singletons: share, never field-copy.
+                || typeof(MemberInfo).IsAssignableFrom(t));
         }
+
+        /// <summary>
+        /// For a collection that is neither <c>IList</c> nor <c>IDictionary</c> (HashSet, SortedSet,
+        /// Queue, Stack, LinkedList, ...), returns its element type; null otherwise. Such collections
+        /// are copied and compared through their elements, never through private fields (which hold
+        /// cached hash codes, bucket layout and version counters).
+        /// </summary>
+        internal static Type GetSequenceElementType(Type type)
+        {
+            return SequenceElementCache.GetOrAdd(type, t =>
+            {
+                Type element = null;
+                bool isCollection = typeof(System.Collections.ICollection).IsAssignableFrom(t);
+                foreach (var i in t.GetInterfaces())
+                {
+                    if (!i.IsGenericType) continue;
+                    var def = i.GetGenericTypeDefinition();
+                    if (def == typeof(IEnumerable<>)) element = element ?? i.GetGenericArguments()[0];
+                    if (def == typeof(ICollection<>)) isCollection = true;
+                }
+                return isCollection ? element : null;
+            });
+        }
+
+        private static readonly ConcurrentDictionary<Type, Type> SequenceElementCache
+            = new ConcurrentDictionary<Type, Type>();
+
+        /// <summary>True for set types, compared by membership rather than by order.</summary>
+        internal static bool IsSet(Type type, Type elementType)
+            => typeof(ISet<>).MakeGenericType(elementType).IsAssignableFrom(type);
 
         /// <summary>Types that cannot be safely copied or compared via reflection; throws <see cref="System.NotSupportedException"/>.</summary>
         internal static bool IsUnsupported(Type type)

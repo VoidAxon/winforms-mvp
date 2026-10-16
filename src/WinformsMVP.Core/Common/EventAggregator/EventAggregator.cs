@@ -106,8 +106,10 @@ namespace WinformsMVP.Common.EventAggregator
         /// Creates an EventAggregator instance.
         ///
         /// <para>
-        /// <b>Important:</b> Must be created on the UI thread to capture the correct SynchronizationContext.
-        /// Typically created in Program.Main() or main form constructor.
+        /// Captures <see cref="SynchronizationContext.Current"/> if one is installed. In
+        /// <c>Program.Main()</c> there is usually none yet (WinForms installs it when the first
+        /// Control is created); in that case each subscription captures the context of the thread
+        /// that calls <c>Subscribe</c> — normally a presenter on the UI thread.
         /// </para>
         /// </summary>
         public EventAggregator() : this(null)
@@ -168,7 +170,8 @@ namespace WinformsMVP.Common.EventAggregator
             if (handler == null) throw new ArgumentNullException(nameof(handler));
 
             // Create weak reference subscription
-            var subscription = new WeakSubscription<T>(handler, filter, this, _context);
+            var subscription = new WeakSubscription<T>(handler, filter, this,
+                _context ?? SynchronizationContext.Current);
 
             lock (_lock)
             {
@@ -200,8 +203,8 @@ namespace WinformsMVP.Common.EventAggregator
         ///   <c>Publish</c> returns immediately and the handlers run later, asynchronously, with no ordering
         ///   guarantee relative to the publisher. There is no synchronous <c>Send</c> option. Do not assume a
         ///   handler has finished (or its side effects are visible) just because <c>Publish</c> has returned.</item>
-        ///   <item>If no <c>SynchronizationContext</c> was captured at construction, handlers run synchronously
-        ///   on the publishing thread with no marshaling.</item>
+        ///   <item>The target context is the one captured at construction or, failing that, the one current
+        ///   when the handler subscribed. With neither, handlers run synchronously on the publishing thread.</item>
         /// </list>
         ///
         /// <para>
@@ -315,8 +318,14 @@ namespace WinformsMVP.Common.EventAggregator
                 _parent = parent;
             }
 
+            // Set by Dispose; checked again inside a posted callback so a message queued before the
+            // subscriber was disposed (e.g. its window closed) is not delivered to it afterwards.
+            private volatile bool _disposed;
+            protected bool IsDisposed => _disposed;
+
             public void Dispose()
             {
+                _disposed = true;
                 _parent.Unsubscribe(this);
             }
         }
@@ -364,6 +373,8 @@ namespace WinformsMVP.Common.EventAggregator
 
             public override bool Invoke(object message)
             {
+                if (IsDisposed) return false;
+
                 // 1. First liveness check
                 var target = _targetWeakReference?.Target;
                 if (_targetWeakReference != null && target == null)
@@ -387,7 +398,9 @@ namespace WinformsMVP.Common.EventAggregator
                     {
                         _syncContext.Post(_ =>
                         {
-                            // 4. Second liveness check (handles object dying during queuing)
+                            // 4. Second liveness check (handles the subscription being disposed or
+                            //    the object dying while the message was queued)
+                            if (IsDisposed) return;
                             var currentTarget = _targetWeakReference?.Target;
                             if (_targetWeakReference != null && currentTarget == null)
                                 return;
@@ -468,6 +481,16 @@ namespace WinformsMVP.Common.EventAggregator
                     var targetParam = Expression.Parameter(typeof(object), "target");
                     var messageParam = Expression.Parameter(typeof(T), "message");
 
+                    if (method.IsStatic)
+                    {
+                        // A static method with a Target is a delegate closed over its first argument
+                        // (an extension method such as presenter.OnSaved): Ext.Method((First)target, message).
+                        var firstParamType = method.GetParameters()[0].ParameterType;
+                        var staticCall = Expression.Call(method,
+                            Expression.Convert(targetParam, firstParamType), messageParam);
+                        return Expression.Lambda<Action<object, T>>(staticCall, targetParam, messageParam).Compile();
+                    }
+
                     // (Type)target
                     var targetCast = Expression.Convert(targetParam, method.DeclaringType);
 
@@ -482,7 +505,9 @@ namespace WinformsMVP.Common.EventAggregator
                 catch (Exception)
                 {
                     // Compilation failed (e.g., private method permission restrictions) fallback to reflection
-                    return (target, msg) => method.Invoke(target, new object[] { msg });
+                    return method.IsStatic
+                        ? (Action<object, T>)((target, msg) => method.Invoke(null, new[] { target, msg }))
+                        : (target, msg) => method.Invoke(target, new object[] { msg });
                 }
             }
         }

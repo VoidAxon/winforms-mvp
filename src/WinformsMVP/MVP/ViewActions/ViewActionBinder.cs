@@ -172,8 +172,39 @@ namespace WinformsMVP.MVP.ViewActions
 
         public void Add(ViewAction actionKey, params Component[] controls)
         {
-            _bindings.Add(new ActionBinding(actionKey, controls));
+            if (controls == null) throw new ArgumentNullException(nameof(controls));
+            AddBinding(new ActionBinding(actionKey, controls));
         }
+
+        /// <summary>
+        /// A control drives exactly one action: a second binding would silently replace the first
+        /// at <c>Bind</c> time, and the control's Enabled state would follow whichever action the
+        /// refresh visited last. Reject it where the mistake is made.
+        /// </summary>
+        private void AddBinding(ActionBinding binding)
+        {
+            if (binding.ActionKey.Name == null)
+                throw new ArgumentException(
+                    "default(ViewAction) is not a valid action key; create keys with ViewAction.Create(...).");
+            foreach (var component in binding.Components)
+            {
+                if (component == null)
+                    throw new ArgumentException("Controls must not contain null.");
+                foreach (var existing in _bindings)
+                {
+                    if (Array.IndexOf(existing.Components, component) >= 0)
+                        throw new InvalidOperationException(
+                            $"{DescribeComponent(component)} is already bound to action '{existing.ActionKey}'; " +
+                            $"it cannot also be bound to '{binding.ActionKey}'. A control triggers one action.");
+                }
+            }
+            _bindings.Add(binding);
+        }
+
+        private static string DescribeComponent(Component component)
+            => component is Control c && !string.IsNullOrEmpty(c.Name) ? $"Control '{c.Name}'"
+             : component is ToolStripItem t && !string.IsNullOrEmpty(t.Name) ? $"Item '{t.Name}'"
+             : component.GetType().Name;
 
         /// <summary>
         /// Binds a control whose current value is captured at trigger time and forwarded as the
@@ -193,7 +224,7 @@ namespace WinformsMVP.MVP.ViewActions
             if (control == null) throw new ArgumentNullException(nameof(control));
             if (valueSelector == null) throw new ArgumentNullException(nameof(valueSelector));
 
-            _bindings.Add(new ActionBinding(
+            AddBinding(new ActionBinding(
                 actionKey,
                 new Component[] { control },
                 comp => valueSelector((TControl)comp)));

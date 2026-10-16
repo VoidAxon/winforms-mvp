@@ -103,6 +103,18 @@ namespace WinformsMVP.Common.Validation.Core
     /// </remarks>
     public static class ModelValidator
     {
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<Type, Func<object, ModelValidationResult>>
+            _sequentialByRuntimeType = new System.Collections.Concurrent.ConcurrentDictionary<Type, Func<object, ModelValidationResult>>();
+
+        /// <summary>Sequential validation using the rules of <paramref name="runtimeType"/> (cached).</summary>
+        private static Func<object, ModelValidationResult> SequentialFor(Type runtimeType)
+            => _sequentialByRuntimeType.GetOrAdd(runtimeType, t =>
+            {
+                var validator = typeof(ModelValidator).GetMethod(nameof(For)).MakeGenericMethod(t).Invoke(null, null);
+                var method = typeof(IModelValidator<>).MakeGenericType(t).GetMethod(nameof(IModelValidator<object>.ValidateSequential));
+                return model => (ModelValidationResult)method.Invoke(validator, new[] { model });
+            });
+
         /// <summary>
         /// Creates a validator for the specified model type.
         /// </summary>
@@ -240,6 +252,11 @@ namespace WinformsMVP.Common.Validation.Core
                 if (model == null)
                     throw new ArgumentNullException(nameof(model));
 
+                // The cached rules describe typeof(T); a derived instance may declare more.
+                // ValidateAll sees them through Validator, so ValidateSequential must too.
+                if (model.GetType() != typeof(T))
+                    return SequentialFor(model.GetType())(model);
+
                 // Optimization: Create ValidationContext once, reuse for all attributes
                 var context = new System.ComponentModel.DataAnnotations.ValidationContext(model, serviceProvider: null, items: null);
 
@@ -261,6 +278,16 @@ namespace WinformsMVP.Common.Validation.Core
                             result.MemberNames,
                             rule.Order);
                     }
+                }
+
+                // Property rules passed: run class-level attributes and IValidatableObject, as
+                // ValidateAll does, so IsValid(model) and ValidateAll(model) always agree.
+                var classLevel = new List<System.ComponentModel.DataAnnotations.ValidationResult>();
+                context.MemberName = null;
+                if (!Validator.TryValidateObject(model, context, classLevel, validateAllProperties: false))
+                {
+                    var first = classLevel[0];
+                    return new ModelValidationResult(first.ErrorMessage, first.MemberNames, int.MaxValue);
                 }
 
                 // All validations passed

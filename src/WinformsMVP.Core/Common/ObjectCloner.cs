@@ -70,6 +70,13 @@ namespace WinformsMVP.Common
             var list = source as IList;
             if (list != null) return CopyList(list, type, visited);
 
+            var elementType = DeepReflection.GetSequenceElementType(type);
+            if (elementType != null)
+            {
+                var sequence = CopySequence((IEnumerable)source, type, elementType, visited);
+                if (sequence != null) return sequence;
+            }
+
             if (DeepReflection.IsUnsupported(type))
                 throw new NotSupportedException(
                     "ObjectCloner cannot deep-copy type '" + type.FullName +
@@ -137,11 +144,72 @@ namespace WinformsMVP.Common
 
         private static object CopyList(IList source, Type type, Dictionary<object, object> visited)
         {
+            if (type.GetConstructor(Type.EmptyTypes) == null || source.IsReadOnly || source.IsFixedSize)
+            {
+                // ReadOnlyCollection<T> and similar wrappers: no parameterless constructor (or no Add),
+                // but they wrap a list passed to their constructor.
+                var elementType = DeepReflection.GetSequenceElementType(type);
+                var wrapped = elementType == null ? null : CopySequence(source, type, elementType, visited);
+                if (wrapped != null) return wrapped;
+                throw new NotSupportedException(
+                    "ObjectCloner cannot deep-copy read-only list type '" + type.FullName +
+                    "'. Implement ICloneable on the model, or set ChangeTrackerDefaults.Cloner.");
+            }
+
             var copy = (IList)Activator.CreateInstance(type);
             visited[source] = copy;
             foreach (var item in source)
                 copy.Add(Copy(item, visited));
             return copy;
+        }
+
+        /// <summary>
+        /// Rebuilds a collection from deep-copied elements through a constructor taking
+        /// <c>IEnumerable&lt;T&gt;</c> (plus the source's comparer when it exposes one, so a
+        /// case-insensitive HashSet stays case-insensitive). Returns null when no such constructor
+        /// exists. Elements are copied before the collection is built, so a cycle back to this
+        /// collection is not supported (rare for set/queue/stack element types).
+        /// </summary>
+        private static object CopySequence(IEnumerable source, Type type, Type elementType,
+            Dictionary<object, object> visited)
+        {
+            var enumerableType = typeof(IEnumerable<>).MakeGenericType(elementType);
+            var items = (IList)Activator.CreateInstance(typeof(List<>).MakeGenericType(elementType));
+            foreach (var item in source)
+                items.Add(Copy(item, visited));
+
+            // Stack<T> enumerates top-first but its constructor pushes in order: reverse to keep the top.
+            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Stack<>))
+                ReverseInPlace(items);
+
+            object copy = null;
+            var comparerProperty = type.GetProperty("Comparer");
+            var comparer = comparerProperty?.GetValue(source, null);
+            if (comparer != null)
+            {
+                var withComparer = type.GetConstructor(new[] { enumerableType, comparerProperty.PropertyType });
+                if (withComparer != null) copy = withComparer.Invoke(new[] { items, comparer });
+            }
+            if (copy == null)
+            {
+                var ctor = type.GetConstructor(new[] { enumerableType })
+                        ?? type.GetConstructor(new[] { typeof(IList<>).MakeGenericType(elementType) });
+                if (ctor == null) return null;
+                copy = ctor.Invoke(new object[] { items });
+            }
+
+            visited[source] = copy;
+            return copy;
+        }
+
+        private static void ReverseInPlace(IList items)
+        {
+            for (int i = 0, j = items.Count - 1; i < j; i++, j--)
+            {
+                var tmp = items[i];
+                items[i] = items[j];
+                items[j] = tmp;
+            }
         }
     }
 }

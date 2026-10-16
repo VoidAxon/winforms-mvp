@@ -46,7 +46,6 @@ namespace WinformsMVP.Common
         private T _currentValue;
         private readonly Func<T, T> _clone;
         private readonly Func<T, T, bool> _comparer;
-        private bool? _cachedIsChanged;
         private readonly object _lock = new object();
 
         /// <summary>
@@ -82,21 +81,7 @@ namespace WinformsMVP.Common
             }
             private set
             {
-                lock (_lock)
-                {
-                    if (!ReferenceEquals(_currentValue, value))
-                    {
-                        var wasChanged = IsChanged;
-                        _currentValue = value;
-                        InvalidateIsChanged();
-
-                        // Fire event only if IsChanged state changed
-                        if (wasChanged != IsChanged)
-                        {
-                            OnIsChangedChanged();
-                        }
-                    }
-                }
+                Mutate(() => _currentValue = value);
             }
         }
 
@@ -147,13 +132,11 @@ namespace WinformsMVP.Common
         {
             get
             {
+                // Not cached: CurrentValue is a live reference, so in-place edits made through it
+                // (or after UpdateCurrentValue) must be seen on the next read.
                 lock (_lock)
                 {
-                    if (!_cachedIsChanged.HasValue)
-                    {
-                        _cachedIsChanged = !_comparer(_originalValue, _currentValue);
-                    }
-                    return _cachedIsChanged.Value;
+                    return !_comparer(_originalValue, _currentValue);
                 }
             }
         }
@@ -167,17 +150,7 @@ namespace WinformsMVP.Common
         /// </remarks>
         public void AcceptChanges()
         {
-            lock (_lock)
-            {
-                var wasChanged = IsChanged;
-                _originalValue = _clone(_currentValue);
-                InvalidateIsChanged();
-
-                if (wasChanged)
-                {
-                    OnIsChangedChanged();
-                }
-            }
+            Mutate(() => _originalValue = _clone(_currentValue));
         }
 
         /// <summary>
@@ -190,18 +163,8 @@ namespace WinformsMVP.Common
         /// </remarks>
         public void RejectChanges()
         {
-            lock (_lock)
-            {
-                var wasChanged = IsChanged;
-                // Use _clone to prevent reference identity
-                _currentValue = _clone(_originalValue);
-                InvalidateIsChanged();
-
-                if (wasChanged)
-                {
-                    OnIsChangedChanged();
-                }
-            }
+            // Use _clone to prevent reference identity
+            Mutate(() => _currentValue = _clone(_originalValue));
         }
 
         // ----------------------------------------------------------------------------------
@@ -232,18 +195,11 @@ namespace WinformsMVP.Common
             if (newValue == null)
                 throw new ArgumentNullException(nameof(newValue));
 
-            lock (_lock)
+            Mutate(() =>
             {
-                var wasChanged = IsChanged;
                 _originalValue = _clone(newValue);
                 _currentValue = _clone(newValue);
-                InvalidateIsChanged();
-
-                if (wasChanged)
-                {
-                    OnIsChangedChanged();
-                }
-            }
+            });
         }
 
         /// <summary>
@@ -272,32 +228,33 @@ namespace WinformsMVP.Common
             if (newValue == null)
                 throw new ArgumentNullException(nameof(newValue));
 
-            // Always invalidate the cache, even when the same reference is passed.
-            // In-place mutations on the tracked object would otherwise leave a stale
-            // cached IsChanged value — the setter's ReferenceEquals guard is an optimisation
-            // for AcceptChanges/RejectChanges flows only.
-            lock (_lock)
-            {
-                var wasChanged = IsChanged;
-                _currentValue = newValue;
-                _cachedIsChanged = null;
-                if (wasChanged != IsChanged)
-                    OnIsChangedChanged();
-            }
+            Mutate(() => _currentValue = newValue);
         }
 
         // ----------------------------------------------------------------------------------
         // Private helper methods
         // ----------------------------------------------------------------------------------
 
-        private void InvalidateIsChanged()
-        {
-            _cachedIsChanged = null;
-        }
+        // Applies a state change under the lock and raises IsChangedChanged AFTER releasing it, so a
+        // subscriber that marshals to another thread (Control.Invoke) cannot deadlock with a caller
+        // waiting on the tracker.
+        //
+        // The "before" state is compared against the last state observed by a mutation, not
+        // re-computed: an in-place edit made through CurrentValue between two mutations is still
+        // reported by the next one.
+        private bool _lastReportedIsChanged;
 
-        private void OnIsChangedChanged()
+        private void Mutate(Action change)
         {
-            IsChangedChanged?.Invoke(this, EventArgs.Empty);
+            bool raise;
+            lock (_lock)
+            {
+                change();
+                var isChanged = !_comparer(_originalValue, _currentValue);
+                raise = isChanged != _lastReportedIsChanged;
+                _lastReportedIsChanged = isChanged;
+            }
+            if (raise) IsChangedChanged?.Invoke(this, EventArgs.Empty);
         }
 
         // Clone resolution: if the sample value implements ICloneable, use Clone(); otherwise fall back to the global hook.
