@@ -1,4 +1,4 @@
-using WinformsMVP.MVP.Views;
+﻿using WinformsMVP.MVP.Views;
 
 namespace WinformsMVP.MVP.Presenters
 {
@@ -22,5 +22,11 @@ namespace WinformsMVP.MVP.Presenters
         /// <summary>True once a view has been attached. Lets the <c>Connect</c> extension stay
         /// idempotent without touching the protected <c>View</c> property.</summary>
         bool IsViewAttached { get; }
+
+        /// <summary>True once <c>Initialize</c> has run.</summary>
+        bool IsInitialized { get; }
+
+        /// <summary>The attached view, or null.</summary>
+        IViewBase AttachedView { get; }
     }
 }

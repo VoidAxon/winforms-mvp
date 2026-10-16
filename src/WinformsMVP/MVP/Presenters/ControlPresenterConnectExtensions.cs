@@ -28,9 +28,11 @@ namespace WinformsMVP.MVP.Presenters
 
             // Construct first: validates `view is Control` before any side effect (no half-attach).
             var controller = new ControlLifecycleController(view, presenter);
-
-            presenter.AttachView(view);
-            presenter.Initialize();
+            Run(presenter, () =>
+            {
+                presenter.AttachView(view);
+                presenter.Initialize();
+            });
             controller.WireControlEvents();   // teardown bridge wired after Initialize
         }
 
@@ -44,10 +46,24 @@ namespace WinformsMVP.MVP.Presenters
             if (presenter == null) throw new ArgumentNullException(nameof(presenter));
 
             var controller = new ControlLifecycleController(view, presenter);
-
-            presenter.AttachView(view);
-            presenter.Initialize(param);
+            Run(presenter, () =>
+            {
+                presenter.AttachView(view);
+                presenter.Initialize(param);
+            });
             controller.WireControlEvents();
+        }
+
+        // A presenter whose attach/initialize failed can never run: dispose it (releasing anything
+        // OnViewAttached subscribed) and rethrow, matching WindowNavigator's failure contract.
+        private static void Run(IDisposable presenter, Action connect)
+        {
+            try { connect(); }
+            catch
+            {
+                presenter.Dispose();
+                throw;
+            }
         }
     }
 }

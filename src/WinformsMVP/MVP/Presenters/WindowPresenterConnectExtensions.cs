@@ -27,7 +27,7 @@ namespace WinformsMVP.MVP.Presenters
         public static void Connect<TView>(this WindowPresenterBase<TView> presenter,
             TView view, Action<InteractionResult> onClosed = null) where TView : IWindowView
             => ConnectCore(presenter, view, () => presenter.Initialize(),
-                (res, status) => onClosed?.Invoke(BuildResult(status)), disposeForm: true);
+                (res, status) => onClosed?.Invoke(CloseResults.Build(res, status)), disposeForm: true);
 
         /// <summary>
         /// Connects a no-param presenter that returns a typed result. The caller owns <c>Show</c>.
@@ -36,7 +36,7 @@ namespace WinformsMVP.MVP.Presenters
         public static void Connect<TView, TResult>(this WindowPresenterBase<TView> presenter,
             TView view, Action<InteractionResult<TResult>> onClosed) where TView : IWindowView
             => ConnectCore(presenter, view, () => presenter.Initialize(),
-                (res, status) => onClosed?.Invoke(BuildResult<TResult>(res, status)), disposeForm: true);
+                (res, status) => onClosed?.Invoke(CloseResults.Build<TResult>(res, status)), disposeForm: true);
 
         /// <summary>
         /// Connects a parameterized presenter that does not return a typed result.
@@ -45,7 +45,7 @@ namespace WinformsMVP.MVP.Presenters
         public static void Connect<TView, TParam>(this WindowPresenterBase<TView, TParam> presenter,
             TView view, TParam param, Action<InteractionResult> onClosed = null) where TView : IWindowView
             => ConnectCore(presenter, view, () => presenter.Initialize(param),
-                (res, status) => onClosed?.Invoke(BuildResult(status)), disposeForm: true);
+                (res, status) => onClosed?.Invoke(CloseResults.Build(res, status)), disposeForm: true);
 
         /// <summary>
         /// Connects a parameterized presenter that returns a typed result.
@@ -54,47 +54,39 @@ namespace WinformsMVP.MVP.Presenters
         public static void Connect<TView, TParam, TResult>(this WindowPresenterBase<TView, TParam> presenter,
             TView view, TParam param, Action<InteractionResult<TResult>> onClosed) where TView : IWindowView
             => ConnectCore(presenter, view, () => presenter.Initialize(param),
-                (res, status) => onClosed?.Invoke(BuildResult<TResult>(res, status)), disposeForm: true);
+                (res, status) => onClosed?.Invoke(CloseResults.Build<TResult>(res, status)), disposeForm: true);
 
         private static void ConnectCore(object presenter, IWindowView view,
             Action initialize, Action<object, InteractionStatus> onClosed, bool disposeForm)
         {
+            if (presenter == null) throw new ArgumentNullException(nameof(presenter));
+            if (view == null) throw new ArgumentNullException(nameof(view));
+
+            var attachable = (IViewAttachable)presenter;
+            if (attachable.IsViewAttached && !ReferenceEquals(attachable.AttachedView, view))
+                throw new InvalidOperationException(
+                    presenter.GetType().Name + " is already attached to a different view; " +
+                    "Connect it to the view it was attached to.");
+
             // Construct first: validates `view is Form` before any side effect (no half-attach).
             var controller = new WindowLifecycleController(
                 view, (ICloseParticipant)presenter, onClosed, disposeForm);
 
-            var attachable = (IViewAttachable)presenter;
-            if (!attachable.IsViewAttached)
+            try
             {
-                attachable.AttachView(view);
-                controller.BindSink();   // sink before Initialize
-                initialize();
+                // Each step is skipped when the caller already did it by hand, so Connect stays
+                // idempotent for attached-only and attached+initialized presenters alike.
+                if (!attachable.IsViewAttached) attachable.AttachView(view);
+                controller.BindSink();   // before Initialize; also delivers a close requested earlier
+                if (!attachable.IsInitialized) initialize();
             }
-            else
+            catch
             {
-                controller.BindSink();   // already attached/initialized: just add the sink
+                // The caller owns the Form; the presenter can never run, so release it.
+                (presenter as IDisposable)?.Dispose();
+                throw;
             }
             controller.WireFormEvents();
-        }
-
-        private static InteractionResult BuildResult(InteractionStatus status)
-        {
-            switch (status)
-            {
-                case InteractionStatus.Ok: return InteractionResult.Ok();
-                case InteractionStatus.Error: return InteractionResult.Error("Operation failed");
-                default: return InteractionResult.Cancel();
-            }
-        }
-
-        private static InteractionResult<TResult> BuildResult<TResult>(object result, InteractionStatus status)
-        {
-            switch (status)
-            {
-                case InteractionStatus.Ok: return InteractionResult<TResult>.Ok(result is TResult typed ? typed : default(TResult));
-                case InteractionStatus.Error: return InteractionResult<TResult>.Error("Operation failed");
-                default: return InteractionResult<TResult>.Cancel();
-            }
         }
     }
 }

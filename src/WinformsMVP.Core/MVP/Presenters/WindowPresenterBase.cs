@@ -31,19 +31,7 @@ namespace WinformsMVP.MVP.Presenters
         /// <summary>
         /// Initializes the presenter. Called by WindowNavigator after the view is attached.
         /// </summary>
-        public void Initialize()
-        {
-            if (_initialized)
-                throw new InvalidOperationException("Presenter has already been initialized");
-
-            _initialized = true;
-            RegisterViewActions();
-
-            // Automatically bind ViewActionBinder to dispatcher after actions are registered
-            View.ActionBinder?.Bind(_dispatcher);
-
-            OnInitialize();
-        }
+        public void Initialize() => InitializeCore(RegisterViewActions, OnInitialize);
 
         /// <summary>
         /// Override to register view actions (UI event bindings).

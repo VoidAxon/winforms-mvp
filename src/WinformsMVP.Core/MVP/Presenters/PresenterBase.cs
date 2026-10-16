@@ -97,6 +97,8 @@ namespace WinformsMVP.MVP.Presenters
         /// </summary>
         void IViewAttachable.AttachView(IViewBase view) => SetView((TView)view);
         bool IViewAttachable.IsViewAttached => View != null;
+        bool IViewAttachable.IsInitialized => _initialized;
+        IViewBase IViewAttachable.AttachedView => View;
 
         /// <summary>
         /// Sets the view for this presenter. Called by derived classes.
@@ -105,6 +107,9 @@ namespace WinformsMVP.MVP.Presenters
         {
             if (view == null)
                 throw new ArgumentNullException(nameof(view));
+            if (View != null)
+                throw new InvalidOperationException(
+                    GetType().Name + " already has a view attached. A presenter is attached to exactly one view.");
 
             View = view;
 
@@ -126,6 +131,29 @@ namespace WinformsMVP.MVP.Presenters
         /// Called when the view is attached to this presenter.
         /// </summary>
         protected abstract void OnViewAttached();
+
+        /// <summary>
+        /// The single Initialize sequence behind every presenter base: guard, register actions,
+        /// auto-bind the view's <see cref="IActionableView.ActionBinder"/>, then the user hook.
+        /// </summary>
+        private protected void InitializeCore(Action registerViewActions, Action onInitialize)
+        {
+            if (_initialized)
+                throw new InvalidOperationException("Presenter has already been initialized");
+            if (View == null)
+                throw new InvalidOperationException(
+                    GetType().Name + " has no view attached. Attach a view (AttachView / Connect) before Initialize.");
+
+            _initialized = true;
+            registerViewActions();
+
+            // Bind after actions are registered. Views outside the ViewAction system simply
+            // don't implement IActionableView.
+            if (View is IActionableView actionable)
+                actionable.ActionBinder?.Bind(_dispatcher);
+
+            onInitialize();
+        }
 
         public Type ViewInterfaceType => typeof(TView);
 
@@ -223,16 +251,21 @@ namespace WinformsMVP.MVP.Presenters
 
         public void Dispose()
         {
-            if (!_isDisposed)
+            if (_isDisposed) return;
+            // Mark first so a re-entrant Dispose (from inside Cleanup) is a no-op.
+            _isDisposed = true;
+            try
             {
                 // User teardown first (presenter state still intact), then the framework sweeps the
-                // subscription bag. The sweep lives here — not in Cleanup — so an override that
-                // forgets to call base cannot leak the bag.
+                // subscription bag. The sweep lives here — not in Cleanup — and in a finally, so an
+                // override that forgets to call base, or throws, cannot leak the bag.
                 Cleanup();
-                if (_disposables != null) _disposables.Dispose();
-                _isDisposed = true;
             }
-            GC.SuppressFinalize(this);
+            finally
+            {
+                _disposables?.Dispose();
+                GC.SuppressFinalize(this);
+            }
         }
 
         /// <summary>

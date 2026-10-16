@@ -40,20 +40,8 @@ namespace WinformsMVP.MVP.Presenters
         /// </summary>
         /// <param name="parameters">Initialization parameters</param>
         public void Initialize(TParam parameters)
-        {
-            if (_initialized)
-                throw new InvalidOperationException("Presenter has already been initialized");
-
-            _initialized = true;
-            Parameters = parameters;
-
-            RegisterViewActions();
-
-            // Automatically bind ViewActionBinder to dispatcher after actions are registered
-            View.ActionBinder?.Bind(_dispatcher);
-
-            OnInitialize(parameters);
-        }
+            => InitializeCore(() => { Parameters = parameters; RegisterViewActions(); },
+                              () => OnInitialize(parameters));
 
         /// <summary>
         /// Override to register view actions (UI event bindings).

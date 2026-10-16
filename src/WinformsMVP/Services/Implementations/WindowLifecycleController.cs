@@ -26,6 +26,7 @@ namespace WinformsMVP.Services.Implementations
         private InteractionStatus _pendingStatus = InteractionStatus.Cancel; // user X => Cancel
         private bool _suppressGate;            // self-initiated / re-close: skip the gate once
         private bool _closeRequestedBeforeShow;
+        private bool _gatePending;             // async CanClose has not answered yet
 
         /// <param name="disposeForm">True when this controller owns the Form lifetime (Managed
         /// modal, Adopted). False for non-modal Managed, where WinForms disposes on close.</param>
@@ -97,29 +98,87 @@ namespace WinformsMVP.Services.Implementations
         {
             if (_suppressGate) { _suppressGate = false; return; }
 
-            var reason = CloseReasonMap.From(e.CloseReason);
+            // An async CanClose is still deciding: keep the window open and don't ask again
+            // (a second X click must not raise a second prompt / save).
+            if (_gatePending) { e.Cancel = true; return; }
+
+            var winFormsReason = e.CloseReason;
+            var reason = CloseReasonMap.From(winFormsReason);
+            var gate = new object();
             bool sync = true;
             bool? decision = null;
             try
             {
                 _presenter.CanCloseGate(reason, ok =>
                 {
-                    if (sync) decision = ok;                                  // synchronous answer
-                    else if (ok) { _suppressGate = true; _form.Close(); }     // async allow => re-close
-                    // async block: leave the window open, nothing to reset
+                    lock (gate)
+                    {
+                        if (sync) { decision = ok; return; }                // synchronous answer
+                    }
+                    OnAsyncDecision(ok, winFormsReason);                    // answered later
                 });
             }
             catch (Exception ex)
             {
                 _logger?.LogError(ex, "CanClose threw; blocking the close as a safe default.");
                 // Never block system-level shutdowns even when CanClose throws.
-                decision = reason == WinformsMVP.Common.CloseReason.SystemShutdown
-                        || reason == WinformsMVP.Common.CloseReason.TaskManager;
+                lock (gate)
+                {
+                    decision = reason == WinformsMVP.Common.CloseReason.SystemShutdown
+                            || reason == WinformsMVP.Common.CloseReason.TaskManager;
+                }
             }
-            sync = false;
 
-            if (decision.HasValue) e.Cancel = !decision.Value;
-            else e.Cancel = true;
+            bool? answered;
+            lock (gate)
+            {
+                sync = false;
+                answered = decision;
+            }
+
+            if (answered.HasValue) e.Cancel = !answered.Value;
+            else { e.Cancel = true; _gatePending = true; }
+        }
+
+        /// <summary>
+        /// A deferred CanClose answer. May arrive on any thread; the form is only touched on its
+        /// UI thread. An "allow" re-issues the original close intent: the gate cancelled the whole
+        /// operation (an owner / MDI parent close or <c>Application.Exit</c>), not just this form.
+        /// </summary>
+        private void OnAsyncDecision(bool allow, System.Windows.Forms.CloseReason originalReason)
+        {
+            if (_form.IsDisposed) return;
+            if (_form.InvokeRequired)
+            {
+                try { _form.BeginInvoke(new Action(() => OnAsyncDecision(allow, originalReason))); }
+                catch (InvalidOperationException) { /* handle gone: the window is closing anyway */ }
+                return;
+            }
+
+            _gatePending = false;
+            if (!allow || _form.IsDisposed) return;   // blocked: leave the window open
+
+            _suppressGate = true;
+            switch (originalReason)
+            {
+                case System.Windows.Forms.CloseReason.FormOwnerClosing when _form.Owner != null:
+                    var owner = _form.Owner;
+                    _form.Close();
+                    owner.Close();
+                    break;
+                case System.Windows.Forms.CloseReason.MdiFormClosing when _form.MdiParent != null:
+                    var parent = _form.MdiParent;
+                    _form.Close();
+                    parent.Close();
+                    break;
+                case System.Windows.Forms.CloseReason.ApplicationExitCall:
+                    _form.Close();
+                    Application.Exit();
+                    break;
+                default:
+                    _form.Close();
+                    break;
+            }
         }
 
         // Converge (FormClosed)
@@ -136,8 +195,8 @@ namespace WinformsMVP.Services.Implementations
             try { _onClosed?.Invoke(_pendingResult, _pendingStatus); }
             finally
             {
-                (_presenter as IDisposable)?.Dispose();
-                if (_disposeForm) _form.Dispose();
+                try { (_presenter as IDisposable)?.Dispose(); }
+                finally { if (_disposeForm) _form.Dispose(); }
             }
         }
     }

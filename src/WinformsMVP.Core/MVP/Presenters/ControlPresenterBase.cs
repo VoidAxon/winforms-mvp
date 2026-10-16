@@ -40,20 +40,7 @@ namespace WinformsMVP.MVP.Presenters
         /// Initializes the presenter. Called after the view is attached.
         /// At this point the View property and all derived fields are guaranteed to be set.
         /// </summary>
-        public void Initialize()
-        {
-            if (_initialized)
-                throw new InvalidOperationException("Presenter has already been initialized");
-
-            _initialized = true;
-            RegisterViewActions();
-
-            // Views that don't participate in the ViewAction system simply don't implement IActionableView.
-            if (View is IActionableView actionable)
-                actionable.ActionBinder?.Bind(_dispatcher);
-
-            OnInitialize();
-        }
+        public void Initialize() => InitializeCore(RegisterViewActions, OnInitialize);
 
         /// <summary>
         /// Override to register view actions (UI event bindings).
