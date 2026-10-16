@@ -22,7 +22,8 @@ namespace WinformsMVP.Services
         // this Presenter-facing API.
 
         // Toast notifications (non-blocking temporary messages)
+        // Appearance (position, size, font, renderer) is configured globally through ToastDefaults
+        // in the WinformsMVP package; view code that needs per-call styling uses AnchoredToast.
         void ShowToast(string text, ToastType type, int duration = 3000);
-        void ShowToast(string text, ToastType type, ToastOptions options);
     }
 }

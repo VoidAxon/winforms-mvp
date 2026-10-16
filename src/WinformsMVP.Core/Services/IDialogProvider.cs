@@ -1,13 +1,16 @@
 ﻿using System.Drawing;
-using System.Drawing.Printing;
 using WinformsMVP.Common;
 using WinformsMVP.Services.Implementations.DialogOptions;
 
 namespace WinformsMVP.Services
 {
     /// <summary>
-    /// Provides standard WinForms dialog abstractions for file, folder, color, font, and print operations.
+    /// Provides presenter-facing dialog abstractions for file, folder and color selection.
     /// </summary>
+    /// <remarks>
+    /// Font and print dialogs return GDI+/WinForms types (<c>Font</c>, <c>PrinterSettings</c>),
+    /// so they live on <c>IWinFormsDialogProvider</c> in the WinformsMVP package instead.
+    /// </remarks>
     public interface IDialogProvider
     {
         // File dialogs
@@ -18,11 +21,5 @@ namespace WinformsMVP.Services
 
         // Style dialogs
         InteractionResult<Color> ShowColorDialog(ColorDialogOptions options = null);
-        InteractionResult<Font> ShowFontDialog(FontDialogOptions options = null);
-
-        // Print dialogs
-        InteractionResult<PrinterSettings> ShowPrintDialog(PrintDialogOptions options = null);
-        InteractionResult<PageSettings> ShowPageSetupDialog(PageSetupDialogOptions options = null);
-        InteractionResult<bool> ShowPrintPreviewDialog(PrintPreviewDialogOptions options = null);
     }
 }

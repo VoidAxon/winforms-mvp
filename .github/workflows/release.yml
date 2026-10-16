@@ -49,13 +49,14 @@ jobs:
       - name: Pack
         shell: pwsh
         run: |
+          dotnet pack src/WinformsMVP.Core/WinformsMVP.Core.csproj -c Release -p:Version=$env:VERSION -o artifacts
           dotnet pack src/WinformsMVP/WinformsMVP.csproj -c Release -p:Version=$env:VERSION -o artifacts
           dotnet pack src/WinformsMVP.DependencyInjection/WinformsMVP.DependencyInjection.csproj -c Release -p:Version=$env:VERSION -o artifacts
 
       - name: Assert analyzer is bundled in the core package
         shell: pwsh
         run: |
-          $pkg = Get-ChildItem "artifacts/WinformsMVP.[0-9]*.nupkg" | Select-Object -First 1
+          $pkg = Get-ChildItem "artifacts/WinformsMVP.Core.[0-9]*.nupkg" | Select-Object -First 1
           if (-not $pkg) { throw "Core package not found in artifacts" }
           Add-Type -AssemblyName System.IO.Compression.FileSystem
           $zip = [System.IO.Compression.ZipFile]::OpenRead($pkg.FullName)

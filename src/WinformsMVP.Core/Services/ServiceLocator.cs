@@ -1,4 +1,5 @@
 using System;
+using System.Reflection;
 using WinformsMVP.Logging;
 using WinformsMVP.Services.Implementations;
 
@@ -13,7 +14,9 @@ namespace WinformsMVP.Services
     /// <remarks>
     /// The default provider is pre-seeded with the framework built-ins: <see cref="IMessageService"/>,
     /// <see cref="IDialogProvider"/>, <see cref="IFileService"/>, <see cref="ILoggerFactory"/>,
-    /// <see cref="IWindowNavigator"/>, and <see cref="IViewMappingRegister"/>. Call
+    /// <see cref="IWindowNavigator"/>, and <c>IViewMappingRegister</c>. The WinForms-backed
+    /// services come from the WinformsMVP assembly, which this core assembly discovers at runtime;
+    /// without it only the platform-neutral built-ins are registered. Call
     /// <see cref="Configure"/> at startup to add or override any of these before presenters start
     /// resolving them. <c>IDispatcherConfigurer</c> is intentionally absent by default.
     /// </remarks>
@@ -75,20 +78,32 @@ namespace WinformsMVP.Services
         /// <summary>
         /// Registers the framework's built-in services into <paramref name="provider"/> with
         /// "first caller wins" intent: call this first, then let callers override via last-wins.
-        /// <see cref="IWindowNavigator"/> is built lazily from the registered
-        /// <see cref="IViewMappingRegister"/> and uses the same provider for view-resolution
-        /// fallback. <c>IDispatcherConfigurer</c> is intentionally NOT registered by default
+        /// <c>IDispatcherConfigurer</c> is intentionally NOT registered by default
         /// (null =&gt; no global configuration).
         /// </summary>
         private static void RegisterBuiltIns(DefaultServiceProvider provider)
         {
-            provider.RegisterInstance<IViewMappingRegister>(new ViewMappingRegister());
-            provider.RegisterInstance<IMessageService>(new MessageService());
-            provider.RegisterInstance<IDialogProvider>(new DialogProvider());
             provider.RegisterInstance<IFileService>(new FileService());
             provider.RegisterInstance<ILoggerFactory>(NullLoggerFactory.Instance);
-            provider.RegisterFactory<IWindowNavigator>(sp =>
-                new WindowNavigator(sp.Resolve<IViewMappingRegister>().WithServiceProvider(sp)));
+            PlatformRegistration.Value?.Invoke(provider);
         }
+
+        // The WinForms package contributes its built-ins (view mapping, message/dialog services,
+        // navigator) through an internal static Register(IServiceRegistry) on a well-known type.
+        // Looked up once; null when the WinformsMVP assembly is not deployed (e.g. pure presenter tests).
+        private const string PlatformRegistrationType =
+            "WinformsMVP.Services.Implementations.WinFormsPlatformServices, WinformsMVP";
+
+        private static readonly Lazy<Action<IServiceRegistry>> PlatformRegistration =
+            new Lazy<Action<IServiceRegistry>>(() =>
+            {
+                var type = Type.GetType(PlatformRegistrationType, throwOnError: false);
+                var method = type?.GetMethod("Register",
+                    BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic,
+                    null, new[] { typeof(IServiceRegistry) }, null);
+                return method == null
+                    ? null
+                    : (Action<IServiceRegistry>)Delegate.CreateDelegate(typeof(Action<IServiceRegistry>), method);
+            });
     }
 }

@@ -11,7 +11,7 @@ namespace WinformsMVP.Services.Implementations
     /// Default implementation of IDialogProvider using standard WinForms dialogs.
     /// Uses configurable defaults from DialogDefaults class.
     /// </summary>
-    public class DialogProvider : IDialogProvider
+    public class DialogProvider : IWinFormsDialogProvider
     {
         public InteractionResult<string> ShowOpenFileDialog(OpenFileDialogOptions options = null)
         {
