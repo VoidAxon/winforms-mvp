@@ -1,4 +1,5 @@
 using System;
+using WinformsMVP.Common;
 using WinformsMVP.MVP.Presenters;
 using WinformsMVP.MVP.ViewActions;
 using WinformsMVP.Services;
@@ -138,10 +139,7 @@ namespace WinformsMVP.Samples.MVPComparisonDemo.SupervisingController
         private void OnClose()
         {
             // Close the form
-            if (View is System.Windows.Forms.Form form)
-            {
-                form.Close();
-            }
+            RequestClose(InteractionStatus.Cancel);
         }
     }
 }

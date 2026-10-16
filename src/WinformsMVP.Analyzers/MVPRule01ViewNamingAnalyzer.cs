@@ -52,21 +52,10 @@ namespace WinformsMVP.Analyzers
             if (interfaceDeclaration.BaseList == null)
                 return false;
 
-            var semanticModel = context.SemanticModel;
-            var interfaceSymbol = semanticModel.GetDeclaredSymbol(interfaceDeclaration);
-
-            if (interfaceSymbol == null)
-                return false;
-
-            // Check all base interfaces recursively
-            foreach (var baseInterface in interfaceSymbol.AllInterfaces)
-            {
-                var baseInterfaceName = baseInterface.Name;
-                if (baseInterfaceName == "IViewBase" || baseInterfaceName == "IWindowView")
-                    return true;
-            }
-
-            return false;
+            // Semantic check: derives (transitively) from WinformsMVP.MVP.Views.IViewBase,
+            // matched by namespace + name rather than bare name.
+            var interfaceSymbol = context.SemanticModel.GetDeclaredSymbol(interfaceDeclaration);
+            return MvpSymbols.IsViewInterface(interfaceSymbol);
         }
     }
 }

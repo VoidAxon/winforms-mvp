@@ -32,13 +32,12 @@ namespace WinformsMVP.Analyzers
             if (!methodDeclaration.Modifiers.Any(m => m.IsKind(SyntaxKind.PublicKeyword)))
                 return;
 
-            // Only analyze in Presenter classes
-            var containingClass = methodDeclaration.Ancestors().OfType<ClassDeclarationSyntax>().FirstOrDefault();
+            // Only analyze in Presenter classes (semantic: derives from PresenterBase<TView>)
+            var containingClass = methodDeclaration.Parent as ClassDeclarationSyntax;
             if (containingClass == null)
                 return;
 
-            var className = containingClass.Identifier.Text;
-            if (!className.EndsWith("Presenter"))
+            if (!MvpSymbols.IsPresenter(context.SemanticModel.GetDeclaredSymbol(containingClass, context.CancellationToken)))
                 return;
 
             // Skip methods that start with "On" (event handlers - allowed to be public in some cases)

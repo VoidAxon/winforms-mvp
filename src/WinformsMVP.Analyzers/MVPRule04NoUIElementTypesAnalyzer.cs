@@ -1,33 +1,21 @@
 using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 
 namespace WinformsMVP.Analyzers
 {
     /// <summary>
     /// Analyzer for MVP Rule 4: No UI element types in View interfaces and Presenters.
-    /// Detects when View interfaces or Presenters expose WinForms UI types (Button, TextBox, etc.)
-    /// in properties, fields, parameters, or return types.
+    /// Detects when View interfaces or Presenters expose WinForms types (any type in
+    /// System.Windows.Forms or derived from one: Button, Form, Control, DialogResult, ...)
+    /// in properties, fields, events, parameters, or return types — including when wrapped
+    /// in generics or arrays (List&lt;Button&gt;, Button[]).
+    /// Concrete view types (a Form implementing a view interface) are left to MVP007.
     /// </summary>
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public class MVPRule04NoUIElementTypesAnalyzer : DiagnosticAnalyzer
     {
-        private static readonly string[] UIElementTypes = new[]
-        {
-            "Button", "TextBox", "Label", "ListBox", "DataGrid", "DataGridView",
-            "TreeView", "ListView", "TabControl", "Panel", "GroupBox",
-            "ComboBox", "CheckBox", "RadioButton", "PictureBox", "ProgressBar",
-            "TrackBar", "NumericUpDown", "DateTimePicker", "MonthCalendar",
-            "RichTextBox", "WebBrowser", "SplitContainer", "FlowLayoutPanel",
-            "TableLayoutPanel", "ToolStrip", "MenuStrip", "StatusStrip",
-            "ContextMenuStrip", "PropertyGrid", "MaskedTextBox", "Form",
-            "Control", "UserControl", "ToolStripButton", "ToolStripMenuItem",
-            "ToolStripLabel", "ToolStripTextBox", "ToolStripComboBox"
-        };
-
         public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
             ImmutableArray.Create(DiagnosticDescriptors.MVPRule04NoUIElementTypes);
 
@@ -35,184 +23,78 @@ namespace WinformsMVP.Analyzers
         {
             context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
             context.EnableConcurrentExecution();
-
-            // Check interface properties and methods
-            context.RegisterSyntaxNodeAction(AnalyzeInterfaceProperty, SyntaxKind.PropertyDeclaration);
-            context.RegisterSyntaxNodeAction(AnalyzeInterfaceMethod, SyntaxKind.MethodDeclaration);
-
-            // Check Presenter fields, properties, and methods
-            context.RegisterSyntaxNodeAction(AnalyzePresenterField, SyntaxKind.FieldDeclaration);
-            context.RegisterSyntaxNodeAction(AnalyzePresenterProperty, SyntaxKind.PropertyDeclaration);
-            context.RegisterSyntaxNodeAction(AnalyzePresenterMethod, SyntaxKind.MethodDeclaration);
+            context.RegisterSymbolAction(AnalyzeMember,
+                SymbolKind.Field, SymbolKind.Property, SymbolKind.Event, SymbolKind.Method);
         }
 
-        private void AnalyzeInterfaceProperty(SyntaxNodeAnalysisContext context)
+        private void AnalyzeMember(SymbolAnalysisContext context)
         {
-            var propertyDeclaration = (PropertyDeclarationSyntax)context.Node;
-
-            // Only analyze in View interfaces
-            if (!(propertyDeclaration.Parent is InterfaceDeclarationSyntax interfaceDeclaration))
+            var member = context.Symbol;
+            if (member.IsImplicitlyDeclared)
                 return;
 
-            var interfaceName = interfaceDeclaration.Identifier.Text;
-            if (!interfaceName.EndsWith("View"))
+            // Accessors are covered by their property/event; operators etc. are covered as ordinary methods.
+            if (member is IMethodSymbol accessor &&
+                (accessor.AssociatedSymbol != null || accessor.MethodKind == MethodKind.StaticConstructor))
                 return;
 
-            // Check property type
-            var typeSymbol = context.SemanticModel.GetTypeInfo(propertyDeclaration.Type).Type;
-            if (typeSymbol == null)
+            var containingType = member.ContainingType;
+            string memberKind;
+            if (MvpSymbols.IsViewInterface(containingType))
+                memberKind = "Interface";
+            else if (MvpSymbols.IsPresenter(containingType))
+                memberKind = "Presenter";
+            else
                 return;
 
-            CheckForUIElementType(context, typeSymbol, propertyDeclaration.Type.GetLocation(),
-                "Interface property", interfaceName);
-        }
-
-        private void AnalyzeInterfaceMethod(SyntaxNodeAnalysisContext context)
-        {
-            var methodDeclaration = (MethodDeclarationSyntax)context.Node;
-
-            // Only analyze in View interfaces
-            if (!(methodDeclaration.Parent is InterfaceDeclarationSyntax interfaceDeclaration))
-                return;
-
-            var interfaceName = interfaceDeclaration.Identifier.Text;
-            if (!interfaceName.EndsWith("View"))
-                return;
-
-            // Check return type
-            var returnTypeSymbol = context.SemanticModel.GetTypeInfo(methodDeclaration.ReturnType).Type;
-            if (returnTypeSymbol != null && returnTypeSymbol.SpecialType != SpecialType.System_Void)
+            switch (member)
             {
-                CheckForUIElementType(context, returnTypeSymbol, methodDeclaration.ReturnType.GetLocation(),
-                    "Interface method", interfaceName);
-            }
+                case IFieldSymbol field:
+                    Check(context, field.Type, memberKind + " field", containingType);
+                    break;
 
-            // Check parameters
-            foreach (var parameter in methodDeclaration.ParameterList.Parameters)
-            {
-                var paramTypeSymbol = context.SemanticModel.GetTypeInfo(parameter.Type).Type;
-                if (paramTypeSymbol != null)
-                {
-                    CheckForUIElementType(context, paramTypeSymbol, parameter.Type.GetLocation(),
-                        "Interface method parameter", interfaceName);
-                }
+                case IPropertySymbol property:
+                    Check(context, property.Type, memberKind + " property", containingType);
+                    foreach (var parameter in property.Parameters)
+                        Check(context, parameter.Type, memberKind + " indexer parameter", containingType, parameter);
+                    break;
+
+                case IEventSymbol evt:
+                    Check(context, evt.Type, memberKind + " event", containingType);
+                    break;
+
+                case IMethodSymbol method:
+                    if (!method.ReturnsVoid)
+                        Check(context, method.ReturnType, memberKind + " method", containingType);
+                    foreach (var parameter in method.Parameters)
+                        Check(context, parameter.Type, memberKind + " method parameter", containingType, parameter);
+                    break;
             }
         }
 
-        private void AnalyzePresenterField(SyntaxNodeAnalysisContext context)
-        {
-            var fieldDeclaration = (FieldDeclarationSyntax)context.Node;
-
-            // Only analyze in Presenter classes
-            if (!IsPresenterClass(fieldDeclaration.Parent))
-                return;
-
-            var containingClass = (ClassDeclarationSyntax)fieldDeclaration.Parent;
-            var className = containingClass.Identifier.Text;
-
-            var variableDeclaration = fieldDeclaration.Declaration;
-            var typeSymbol = context.SemanticModel.GetTypeInfo(variableDeclaration.Type).Type;
-            if (typeSymbol == null)
-                return;
-
-            CheckForUIElementType(context, typeSymbol, variableDeclaration.Type.GetLocation(),
-                "Presenter field", className);
-        }
-
-        private void AnalyzePresenterProperty(SyntaxNodeAnalysisContext context)
-        {
-            var propertyDeclaration = (PropertyDeclarationSyntax)context.Node;
-
-            // Only analyze in Presenter classes
-            if (!IsPresenterClass(propertyDeclaration.Parent))
-                return;
-
-            var containingClass = (ClassDeclarationSyntax)propertyDeclaration.Parent;
-            var className = containingClass.Identifier.Text;
-
-            // Skip the View property (it's supposed to be an interface)
-            if (propertyDeclaration.Identifier.Text == "View")
-                return;
-
-            var typeSymbol = context.SemanticModel.GetTypeInfo(propertyDeclaration.Type).Type;
-            if (typeSymbol == null)
-                return;
-
-            CheckForUIElementType(context, typeSymbol, propertyDeclaration.Type.GetLocation(),
-                "Presenter property", className);
-        }
-
-        private void AnalyzePresenterMethod(SyntaxNodeAnalysisContext context)
-        {
-            var methodDeclaration = (MethodDeclarationSyntax)context.Node;
-
-            // Only analyze in Presenter classes
-            if (!IsPresenterClass(methodDeclaration.Parent))
-                return;
-
-            var containingClass = (ClassDeclarationSyntax)methodDeclaration.Parent;
-            var className = containingClass.Identifier.Text;
-
-            // Check return type
-            var returnTypeSymbol = context.SemanticModel.GetTypeInfo(methodDeclaration.ReturnType).Type;
-            if (returnTypeSymbol != null && returnTypeSymbol.SpecialType != SpecialType.System_Void)
-            {
-                CheckForUIElementType(context, returnTypeSymbol, methodDeclaration.ReturnType.GetLocation(),
-                    "Presenter method", className);
-            }
-
-            // Check parameters
-            foreach (var parameter in methodDeclaration.ParameterList.Parameters)
-            {
-                var paramTypeSymbol = context.SemanticModel.GetTypeInfo(parameter.Type).Type;
-                if (paramTypeSymbol != null)
-                {
-                    CheckForUIElementType(context, paramTypeSymbol, parameter.Type.GetLocation(),
-                        "Presenter method parameter", className);
-                }
-            }
-        }
-
-        private bool IsPresenterClass(SyntaxNode node)
-        {
-            if (node is ClassDeclarationSyntax classDeclaration)
-            {
-                var className = classDeclaration.Identifier.Text;
-                return className.EndsWith("Presenter");
-            }
-            return false;
-        }
-
-        private void CheckForUIElementType(
-            SyntaxNodeAnalysisContext context,
-            ITypeSymbol typeSymbol,
-            Location location,
+        private void Check(
+            SymbolAnalysisContext context,
+            ITypeSymbol type,
             string memberType,
-            string containingTypeName)
+            INamedTypeSymbol containingType,
+            ISymbol reportOn = null)
         {
-            var typeName = typeSymbol.Name;
+            // Concrete views (MyForm : Form, IMyView) are reported by MVP007; don't double-report.
+            var uiType = MvpSymbols.FindWinFormsType(type, skipConcreteViews: true);
+            if (uiType == null)
+                return;
 
-            // Check if it's a UI element type
-            if (UIElementTypes.Contains(typeName))
-            {
-                // Allow System.Windows.Forms.Form and Control only in specific contexts
-                // (e.g., when casting View for window operations like Close)
-                if ((typeName == "Form" || typeName == "Control") &&
-                    typeSymbol.ContainingNamespace?.ToDisplayString() == "System.Windows.Forms")
-                {
-                    // Allow these only in local variables, not in members
-                    return;
-                }
+            // Report on the parameter itself when there is one, otherwise on the member identifier.
+            var location = (reportOn ?? context.Symbol).Locations.FirstOrDefault(l => l.IsInSource);
+            if (location == null)
+                return;
 
-                var diagnostic = Diagnostic.Create(
-                    DiagnosticDescriptors.MVPRule04NoUIElementTypes,
-                    location,
-                    memberType,
-                    containingTypeName,
-                    typeName);
-
-                context.ReportDiagnostic(diagnostic);
-            }
+            context.ReportDiagnostic(Diagnostic.Create(
+                DiagnosticDescriptors.MVPRule04NoUIElementTypes,
+                location,
+                memberType,
+                containingType.Name,
+                uiType.Name));
         }
     }
 }

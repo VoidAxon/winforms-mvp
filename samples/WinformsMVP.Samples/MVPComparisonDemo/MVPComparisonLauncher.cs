@@ -182,9 +182,9 @@ namespace WinformsMVP.Samples.MVPComparisonDemo
                 var presenter = new PassiveView.UserEditorPresenter();
                 var view = new PassiveView.UserEditorForm();
 
-                // Manual MVP wiring (in real apps, use WindowNavigator)
-                presenter.AttachView(view);
-                ((IInitializable)presenter).Initialize();
+                // Adopted hosting: Connect does attach + initialize + close wiring, so the
+                // presenter's RequestClose closes this form (in real apps, use WindowNavigator)
+                presenter.Connect(view);
 
                 view.ShowDialog(this);
             }
@@ -202,9 +202,9 @@ namespace WinformsMVP.Samples.MVPComparisonDemo
                 var presenter = new SupervisingController.UserEditorPresenter(messageService);
                 var view = new SupervisingController.UserEditorForm();
 
-                // Manual MVP wiring (in real apps, use WindowNavigator)
-                presenter.AttachView(view);
-                ((IInitializable)presenter).Initialize();
+                // Adopted hosting: Connect does attach + initialize + close wiring, so the
+                // presenter's RequestClose closes this form (in real apps, use WindowNavigator)
+                presenter.Connect(view);
 
                 view.ShowDialog(this);
             }

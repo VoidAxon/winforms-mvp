@@ -1,4 +1,5 @@
 using System;
+using WinformsMVP.Common;
 using WinformsMVP.MVP.Presenters;
 using WinformsMVP.MVP.ViewActions;
 using WinformsMVP.Services;
@@ -49,10 +50,7 @@ namespace WinformsMVP.Samples.NavigatorDemo
 
         private void OnClose()
         {
-            if (View is System.Windows.Forms.Form form)
-            {
-                form.Close();
-            }
+            RequestClose(InteractionStatus.Cancel);
         }
     }
 

@@ -49,24 +49,9 @@ namespace WinformsMVP.Analyzers
             if (classDeclaration.BaseList == null)
                 return false;
 
-            var semanticModel = context.SemanticModel;
-            var classSymbol = semanticModel.GetDeclaredSymbol(classDeclaration);
-
-            if (classSymbol == null)
-                return false;
-
-            // Check all base types recursively
-            var currentType = classSymbol.BaseType;
-            while (currentType != null)
-            {
-                var typeName = currentType.Name;
-                if (typeName.Contains("PresenterBase"))
-                    return true;
-
-                currentType = currentType.BaseType;
-            }
-
-            return false;
+            // Semantic check: derives (transitively) from WinformsMVP.MVP.Presenters.PresenterBase<TView>.
+            var classSymbol = context.SemanticModel.GetDeclaredSymbol(classDeclaration);
+            return MvpSymbols.IsPresenter(classSymbol);
         }
     }
 }

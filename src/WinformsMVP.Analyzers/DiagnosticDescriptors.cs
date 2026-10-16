@@ -34,14 +34,14 @@ namespace WinformsMVP.Analyzers
         public static readonly DiagnosticDescriptor MVPRule03NoUIInPresenter = new DiagnosticDescriptor(
             id: "MVP003",
             title: "Presenter should not create UI controls",
-            messageFormat: "Presenter '{0}' should not create UI control of type '{1}'. This violates separation of concerns.",
+            messageFormat: "Presenter '{0}' should not create WinForms type '{1}'. This violates separation of concerns.",
             category: Category,
             // Warning, not Error: the analyzer now ships inside the WinformsMVP package, so an
             // Error would break the build of any consumer the moment they install the framework.
             // Teams that want it enforced can raise it to error via .editorconfig.
             defaultSeverity: DiagnosticSeverity.Warning,
             isEnabledByDefault: true,
-            description: "Presenters must handle use-case logic only, not View logic. Creating UI controls is a View responsibility. This is Rule 3 of MVP design rules.");
+            description: "Presenters must handle use-case logic only, not View logic. Creating UI controls, forms or common dialogs (any System.Windows.Forms type) is a View responsibility; use a View member or a service such as IDialogProvider. This is Rule 3 of MVP design rules.");
 
         // Rule 4: No UI element types in View interfaces and Presenters
         public static readonly DiagnosticDescriptor MVPRule04NoUIElementTypes = new DiagnosticDescriptor(
@@ -52,7 +52,7 @@ namespace WinformsMVP.Analyzers
             // Warning, not Error: shipped inside the WinformsMVP package; see MVP003 note.
             defaultSeverity: DiagnosticSeverity.Warning,
             isEnabledByDefault: true,
-            description: "View interfaces and Presenters must never expose WinForms UI types (Button, TextBox, etc.) in properties, fields, parameters, or return types. This ensures proper separation of concerns and testability. This is Rule 4 of MVP design rules.");
+            description: "View interfaces and Presenters must never expose WinForms types (Button, TextBox, Form, Control, DialogResult, etc. — anything in System.Windows.Forms or derived from it) in properties, fields, events, parameters, or return types, including inside generics or arrays (List<Button>, Button[]). This ensures proper separation of concerns and testability. This is Rule 4 of MVP design rules.");
 
         // Rule 6: No return values from public Presenter methods
         public static readonly DiagnosticDescriptor MVPRule06NoReturnValues = new DiagnosticDescriptor(
@@ -94,5 +94,26 @@ namespace WinformsMVP.Analyzers
             defaultSeverity: DiagnosticSeverity.Warning,
             isEnabledByDefault: true,
             description: "View interface methods should use domain-specific names, not UI control type names (e.g., 'AddTaskGroup' not 'AddTreeViewNode'). This is Rule 13 of MVP design rules.");
+
+        // Rule 4 (code bodies): Presenter must not reference WinForms types at all
+        public static readonly DiagnosticDescriptor MVPRule14NoWinFormsReferenceInPresenter = new DiagnosticDescriptor(
+            id: "MVP014",
+            title: "Presenter should not reference WinForms types",
+            messageFormat: "Presenter '{0}' references WinForms type '{1}'. Use a View interface member or a service (IMessageService, IDialogProvider) instead.",
+            category: Category,
+            // Warning, not Error: shipped inside the WinformsMVP package; see MVP003 note.
+            defaultSeverity: DiagnosticSeverity.Warning,
+            isEnabledByDefault: true,
+            description: "Presenters must never reference System.Windows.Forms types: no MessageBox.Show, DialogResult, common dialogs, casts to Form/Control, or locals of control types. Go through the View interface or framework services (Messages, Dialogs, Files). This complements MVP003/MVP004 for code inside Presenter bodies (Rule 4 of MVP design rules).");
+
+        // Rule 17: Presenter should expose no public events
+        public static readonly DiagnosticDescriptor MVPRule16NoPublicPresenterEvents = new DiagnosticDescriptor(
+            id: "MVP016",
+            title: "Presenter should not declare public events",
+            messageFormat: "Presenter '{1}' declares public event '{0}'. Use RequestClose for results, or a Service / IEventAggregator for notifications.",
+            category: Category,
+            defaultSeverity: DiagnosticSeverity.Warning,
+            isEnabledByDefault: true,
+            description: "A Presenter is not a service and should expose zero public events. Return window results via the base RequestClose(...), and publish shared or cross-presenter notifications through a Service event or IEventAggregator. This is Rule 17 of MVP design rules.");
     }
 }

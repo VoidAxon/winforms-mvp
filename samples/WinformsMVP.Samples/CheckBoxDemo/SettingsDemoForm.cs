@@ -239,7 +239,15 @@ namespace WinformsMVP.Samples.CheckBoxDemo
             }
         }
 
-        public bool HasSettings => _hasSettings;
+        public bool HasSettings
+        {
+            get => _hasSettings;
+            set
+            {
+                _hasSettings = value;
+                SettingsChanged?.Invoke(this, EventArgs.Empty);
+            }
+        }
 
         public IViewActionBinder ActionBinder => _viewActionBinder;
 
@@ -293,12 +301,6 @@ namespace WinformsMVP.Samples.CheckBoxDemo
         #region Events
 
         public event EventHandler SettingsChanged;
-
-        internal void OnSettingsChanged()
-        {
-            _hasSettings = true;
-            SettingsChanged?.Invoke(this, EventArgs.Empty);
-        }
 
         #endregion
     }

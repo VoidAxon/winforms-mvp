@@ -90,10 +90,7 @@ namespace WinformsMVP.Samples.CheckBoxDemo
             var enabled = View.IsAutoSaveEnabled;
             View.UpdateStatus($"Auto-Save {(enabled ? "ENABLED" : "DISABLED")} (CheckedChanged triggered)");
 
-            if (View is SettingsDemoForm form)
-            {
-                form.OnSettingsChanged();
-            }
+            View.HasSettings = true;
 
             UpdateSettingsSummary();
 
@@ -106,10 +103,7 @@ namespace WinformsMVP.Samples.CheckBoxDemo
             var enabled = View.IsNotificationsEnabled;
             View.UpdateStatus($"Notifications {(enabled ? "ENABLED" : "DISABLED")} (CheckedChanged triggered)");
 
-            if (View is SettingsDemoForm form)
-            {
-                form.OnSettingsChanged();
-            }
+            View.HasSettings = true;
 
             UpdateSettingsSummary();
         }
@@ -122,10 +116,7 @@ namespace WinformsMVP.Samples.CheckBoxDemo
         {
             View.UpdateStatus("Light Theme selected (RadioButton CheckedChanged triggered)");
 
-            if (View is SettingsDemoForm form)
-            {
-                form.OnSettingsChanged();
-            }
+            View.HasSettings = true;
 
             UpdateSettingsSummary();
         }
@@ -134,10 +125,7 @@ namespace WinformsMVP.Samples.CheckBoxDemo
         {
             View.UpdateStatus("Dark Theme selected (RadioButton CheckedChanged triggered)");
 
-            if (View is SettingsDemoForm form)
-            {
-                form.OnSettingsChanged();
-            }
+            View.HasSettings = true;
 
             UpdateSettingsSummary();
         }
@@ -146,10 +134,7 @@ namespace WinformsMVP.Samples.CheckBoxDemo
         {
             View.UpdateStatus("Auto Theme selected (RadioButton CheckedChanged triggered)");
 
-            if (View is SettingsDemoForm form)
-            {
-                form.OnSettingsChanged();
-            }
+            View.HasSettings = true;
 
             UpdateSettingsSummary();
         }
@@ -182,13 +167,8 @@ namespace WinformsMVP.Samples.CheckBoxDemo
             View.IsNotificationsEnabled = true;
             View.SelectedTheme = "Light";
 
-            if (View is SettingsDemoForm form)
-            {
-                // Clear HasSettings flag - this will disable Apply/Reset buttons
-                typeof(SettingsDemoForm)
-                    .GetField("_hasSettings", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
-                    ?.SetValue(form, false);
-            }
+            // Clear HasSettings flag - this will disable Apply/Reset buttons
+            View.HasSettings = false;
 
             UpdateSettingsSummary();
             View.UpdateStatus("Settings reset to defaults.");
