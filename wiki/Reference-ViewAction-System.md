@@ -502,8 +502,10 @@ ViewAction の使い方には **2 つのパターン** があります。
 
 ### Explicit パターン
 
-View が `ActionRequest` イベントを明示的に発火し、Presenter が明示的に購読する形です。
-**ActionBinder プロパティは `null` を返す** ことで自動 Bind を無効化し、二重ディスパッチを防ぎます。
+View が `ActionRequest` イベントを明示的に発火し、Presenter が明示的に購読する形です。主に既存 Form の段階的な移行向けで、通常は Implicit パターンを使ってください。
+**ActionBinder プロパティは `null` を返し**、View 自身が `_binder.Bind()` (Dispatcher なし版) を呼びます。
+
+> **ルーティングは呼んだ `Bind` で決まります。** `Bind(dispatcher)` は常に Dispatcher へ派発し、その後で `ActionTriggered` を通知として発火します。`Bind()` は `ActionTriggered` を発火するだけです。`ActionTriggered` を購読しても派発の有無は変わりません (以前は購読者がいると派発をスキップしていたため、ステータスバー表示などの購読だけで全ボタンが無反応になっていました)。Implicit パターンの View で `ActionTriggered` を通知 (ログ・ステータス表示) に使うのは安全です。
 
 ```csharp
 // View 側
@@ -523,22 +525,24 @@ private void InitializeActionBindings()
 protected override void OnViewAttached()
 {
     View.ActionRequest += OnViewActionTriggered;   // ← 基底クラスのヘルパー
+    Disposable.Create(() => View.ActionRequest -= OnViewActionTriggered).DisposeWith(Disposables);
+
+    // Binder は Dispatcher に接続されていないため、ボタンの有効/無効は自動更新されない。
+    // 可否は意味のある View メンバー経由で伝える (Form 側が Enabled に反映する)。
+    View.SelectionChanged += OnSelectionChanged;
+    Disposable.Create(() => View.SelectionChanged -= OnSelectionChanged).DisposeWith(Disposables);
 }
 
-protected override void OnInitialize()
-{
-    View.SelectionChanged += (s, e) => Dispatcher.RaiseCanExecuteChanged();
-    View.DataChanged      += (s, e) => Dispatcher.RaiseCanExecuteChanged();
-}
+private void OnSelectionChanged(object sender, EventArgs e) => View.CanDelete = View.HasSelection;
 ```
 
 | 観点 | Explicit パターン |
 |------|---------------|
 | イベント購読が見える | ✅ F12 ナビ可能 |
 | ブレークポイント設定 | ✅ できる |
-| 自動 CanExecute 更新 | ❌ 自分で `RaiseCanExecuteChanged()` を呼ぶ |
+| 自動 CanExecute 更新 | ❌ コントロールの有効/無効は自動同期されない。`View.CanDelete` のような View メンバーで伝える (`RaiseCanExecuteChanged()` だけでは反映されない) |
 | コード量 | 多い |
-| 使いどころ | 動作を完全に追跡したい・複雑なルーティング・学習目的 |
+| 使いどころ | 既存 Form の段階的移行・動作を完全に追跡したい場合 |
 
 ### `OnViewActionTriggered` ヘルパー
 

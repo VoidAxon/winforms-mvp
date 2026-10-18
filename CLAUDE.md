@@ -144,7 +144,9 @@ Always-on guards: `default(ViewAction)` is rejected by `Register` / `Binder.Add`
 
 **Two handling patterns** (details in [wiki/Reference-ViewAction-System.md](wiki/Reference-ViewAction-System.md)):
 - **Implicit (recommended):** `ActionBinder` returns the binder; framework auto-binds and auto-updates `CanExecute`. Less code.
-- **Explicit:** `ActionBinder` returns `null` (prevents auto-binding/double-dispatch); View raises an `ActionRequest` event, Presenter subscribes with `View.ActionRequest += OnViewActionTriggered;` and manually calls `RaiseCanExecuteChanged()`.
+- **Explicit (mainly for migrating legacy Forms):** `ActionBinder` returns `null` and the View calls `_binder.Bind()` (event-only) itself, forwarding `ActionTriggered` to its `ActionRequest` event; Presenter subscribes with `View.ActionRequest += OnViewActionTriggered;`. Control Enabled state is not synced in this mode — express availability through semantic view members (e.g. `View.CanDelete`).
+
+Routing is decided by the `Bind` overload, never by listeners: `Bind(dispatcher)` always dispatches and then raises `ActionTriggered` as a notification (safe to use for status bars/logging); `Bind()` only raises `ActionTriggered`.
 
 **Middleware (advanced):** `Dispatcher.Use(...)` adds an opt-in onion pipeline (audit, perf, error dialogs). Global tier (registered `IDispatcherConfigurer` in the service provider) runs outermost; per-presenter tier in `RegisterViewActions` runs inside. Zero overhead until `Use(...)` is called. See the ViewAction wiki page and [samples/WinformsMVP.Samples/ViewActionMiddlewareExample.cs](samples/WinformsMVP.Samples/ViewActionMiddlewareExample.cs).
 

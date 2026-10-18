@@ -30,6 +30,8 @@
 - **`EventAggregator` の購読を強参照に** (BREAKING) — 購読は返された `IDisposable` トークンを Dispose するまでハンドラを保持する (弱参照・GC による自動解除・コンパイル済みデリゲートを廃止)。従来はローカル変数や `this` をキャプチャするラムダのハンドラが次の GC で黙って失効していたが、メソッドグループ・キャプチャするラムダ・キャプチャする `filter` のいずれでも動作する。推奨は `_events.Subscribe<T>(handler).DisposeWith(Disposables);`。Dispose しないトークンはハンドラ (とキャプチャした Presenter) を EventAggregator の生存期間中保持し続けるため注意。UI スレッドへのマーシャリング (構築時、無ければ購読時の `SynchronizationContext`)、キュー中に Dispose された購読への非配送、例外の分離、`ClearSubscriptions` は不変。
   - 新アナライザ **`MVP017`** — `IEventAggregator.Subscribe(...)` の戻り値を単独の式文で捨てると警告。明示的な `_ = ...`、変数/フィールドへの格納、`.DisposeWith(...)` などの連結、`using` は受理。
 
+- **`ViewActionBinder` のルーティングを `Bind` のオーバーロードで決定** (BREAKING) — 以前は `ActionTriggered` に購読者がいると `Bind(dispatcher)` が Dispatcher への派発をスキップしていた (ログやステータス表示の購読だけで全ボタンが無反応になる)。現在 `Bind(dispatcher)` は常に派発し、その後 `ActionTriggered` を通知として発火する (通知側の例外が派発を妨げない)。`Bind()` はイベントのみ。Explicit パターンは「`ActionBinder` が `null` を返し、View 自身が `Bind()` を呼ぶ」形のみ。**移行**: binder を返しつつ `ActionTriggered` を `ActionRequest` に転送していた View は二重実行になるため、転送をやめて Implicit にするか、`ActionBinder => null` + `_binder.Bind()` に変更する。
+
 ### Removed (削除)
 
 - **`WinformsMVP.Net40SmokeTest`** プロジェクト。
