@@ -1,5 +1,6 @@
 using System;
 using System.Windows.Forms;
+using WinformsMVP.Common;
 using WinformsMVP.Common.Events;
 using WinformsMVP.MVP.Views;
 using WinformsMVP.MVP.Presenters;
@@ -14,21 +15,33 @@ namespace WinformsMVP.Samples
     //
     // This example demonstrates the EXPLICIT event-based pattern for ViewActions.
     //
-    // Key difference from implicit pattern:
-    // - IMPLICIT: Framework auto-calls View.ActionBinder.Bind(_dispatcher) after RegisterViewActions()
-    // - EXPLICIT: View.ActionRequest += OnActionRequest - clear subscription you write yourself
+    // The recommended default is still the IMPLICIT pattern (see ViewActionExample.cs).
+    // The explicit pattern exists mainly for migrating legacy Forms that already raise
+    // their own events, or for teams that want every hop written out.
+    //
+    // How the two patterns differ:
+    // - IMPLICIT: ActionBinder returns the binder; the framework calls
+    //             View.ActionBinder.Bind(_dispatcher) after RegisterViewActions(), dispatches
+    //             directly and keeps control Enabled state in sync with CanExecute.
+    // - EXPLICIT: ActionBinder returns null (the framework binds nothing); the View calls
+    //             _binder.Bind() itself (event-only binding) and forwards ActionTriggered to its
+    //             own ActionRequest event; the Presenter writes View.ActionRequest += OnViewActionTriggered.
+    //
+    // Routing rule: which Bind overload runs decides the routing, never who listens.
+    //   Bind(dispatcher) always dispatches (ActionTriggered is then just a notification).
+    //   Bind()           only raises ActionTriggered.
+    // Returning the binder AND forwarding ActionTriggered to ActionRequest would dispatch twice.
+    //
+    // Trade-off: the binder is not connected to the dispatcher, so control Enabled state is
+    // NOT synced from CanExecute. Express availability through semantic view members the
+    // Presenter sets (here: bool CanDelete { set; }). Dispatcher CanExecute predicates still
+    // guard execution — a disabled action is never run.
     //
     // Benefits of explicit pattern:
     // ✅ Clear, visible event subscription code
     // ✅ F12 navigation works (jump to handler)
-    // ✅ IDE refactoring support (rename, find references)
     // ✅ Easy to debug (set breakpoint on event handler)
-    // ✅ Familiar pattern (standard .NET events)
-    //
-    // Use when:
-    // - You need explicit control flow visibility
-    // - Team prefers explicit over implicit
-    // - Complex scenarios with conditional routing
+    // ✅ Familiar pattern (standard .NET events) — close to what legacy Forms already do
 
     #region View Actions
 
@@ -46,7 +59,7 @@ namespace WinformsMVP.Samples
     /// <summary>
     /// View interface using explicit event-based pattern.
     /// Exposes ActionRequest event for explicit ViewAction routing to Presenter.
-    /// Automatic CanExecute UI updates work without manual state change events!
+    /// Action availability is pushed by the Presenter through semantic members (CanDelete).
     /// </summary>
     public interface IExplicitEventDemoView : IWindowView
     {
@@ -55,13 +68,18 @@ namespace WinformsMVP.Samples
         int ItemCount { get; set; }
         string StatusMessage { set; }
 
-        // State property for CanExecute
+        // Selection state
         bool HasSelection { get; }
+        string SelectedItem { get; }
+
+        // ✅ Semantic availability — the Form decides how to show it (here: button Enabled)
+        bool CanDelete { set; }
 
         // ✅ Explicit event for ViewAction handling
         event EventHandler<ActionRequestEventArgs> ActionRequest;
 
-        // ✅ No state change events needed! Automatic CanExecute updates now work in explicit pattern
+        // ✅ State change event — no binder sync in this pattern, so the Presenter listens itself
+        event EventHandler SelectionChanged;
 
         // Methods
         void ShowItems(string[] items);
@@ -76,15 +94,14 @@ namespace WinformsMVP.Samples
     {
         private ViewActionBinder _binder;
 
-        // ✅ Return binder to enable framework auto-binding and automatic CanExecute UI updates
-        // The framework will call Bind(_dispatcher) after RegisterViewActions()
-        // Mode detection prevents double-dispatch (skips callback when ActionTriggered has subscribers)
-        public IViewActionBinder ActionBinder => _binder;
+        // ✅ Return null: the framework must NOT call Bind(_dispatcher) — the actions already
+        // reach the Presenter through ActionRequest, so binding them would dispatch twice.
+        public IViewActionBinder ActionBinder => null;
 
         // ✅ Expose ActionRequest event (explicit pattern)
         public event EventHandler<ActionRequestEventArgs> ActionRequest;
 
-        // ✅ No state change events needed - automatic CanExecute updates work!
+        public event EventHandler SelectionChanged;
 
         // Form controls (designer-initialized)
         private TextBox _txtItemName;
@@ -131,8 +148,8 @@ namespace WinformsMVP.Samples
             this.Controls.Add(_btnDelete);
             this.Controls.Add(_btnRefresh);
 
-            // Track changes for CanExecute
-            _lstItems.SelectedIndexChanged += (s, e) => OnSelectionChanged();
+            // Tell the Presenter the selection changed; it decides what is available
+            _lstItems.SelectedIndexChanged += (s, e) => SelectionChanged?.Invoke(this, EventArgs.Empty);
         }
 
         private void InitializeActionBindings()
@@ -144,15 +161,12 @@ namespace WinformsMVP.Samples
             _binder.Add(ExplicitDemoActions.Delete, _btnDelete);
             _binder.Add(ExplicitDemoActions.Refresh, _btnRefresh);
 
-            // ✅ EXPLICIT PATTERN: Subscribe to ActionTriggered and forward to ActionRequest
-            _binder.ActionTriggered += (sender, e) =>
-            {
-                // Forward to public ActionRequest event
-                ActionRequest?.Invoke(this, e);
-            };
+            // ✅ EXPLICIT PATTERN: forward ActionTriggered to the public ActionRequest event
+            _binder.ActionTriggered += (sender, e) => ActionRequest?.Invoke(this, e);
 
-            // No need to call Bind() here - Framework will call View.ActionBinder.Bind(_dispatcher)
-            // automatically in RegisterViewActions(), which enables automatic CanExecute UI updates
+            // ✅ Event-only binding: controls raise ActionTriggered, nothing is dispatched here.
+            // The View calls Bind() itself because ActionBinder returns null.
+            _binder.Bind();
         }
 
         // IExplicitEventDemoView implementation
@@ -176,6 +190,13 @@ namespace WinformsMVP.Samples
 
         public bool HasSelection => _lstItems.SelectedIndex >= 0;
 
+        public string SelectedItem => _lstItems.SelectedItem as string;
+
+        public bool CanDelete
+        {
+            set => _btnDelete.Enabled = value;
+        }
+
         public void ShowItems(string[] items)
         {
             _lstItems.Items.Clear();
@@ -190,13 +211,6 @@ namespace WinformsMVP.Samples
             _txtItemName.Clear();
             _numItemCount.Value = 0;
         }
-
-        // Helper methods
-        private void OnSelectionChanged()
-        {
-            // ✅ No need to notify presenter - automatic CanExecute updates work!
-        }
-
     }
 
     #endregion
@@ -215,22 +229,20 @@ namespace WinformsMVP.Samples
 
         protected override void OnViewAttached()
         {
-            // ✅ SIMPLE EXPLICIT SUBSCRIPTION - Use base class helper method!
-            // OnViewActionTriggered is a built-in helper that forwards to Dispatcher
-            View.ActionRequest += OnViewActionTriggered;  // One line - super clean!
+            // ✅ EXPLICIT SUBSCRIPTION - OnViewActionTriggered is a built-in base helper that
+            // forwards the request (and its payload, if any) to Dispatcher
+            View.ActionRequest += OnViewActionTriggered;
+            Disposable.Create(() => View.ActionRequest -= OnViewActionTriggered).DisposeWith(Disposables);
 
-            // Load initial data
-            View.ShowItems(_items);
-            View.StatusMessage = "Ready";
+            View.SelectionChanged += OnSelectionChanged;
+            Disposable.Create(() => View.SelectionChanged -= OnSelectionChanged).DisposeWith(Disposables);
         }
 
         protected override void RegisterViewActions()
         {
-            // ✅ Register handlers; CanExecute drives Enabled where state matters
-            Dispatcher.Register(
-                ExplicitDemoActions.Save,
-                OnSave);
+            Dispatcher.Register(ExplicitDemoActions.Save, OnSave);
 
+            // canExecute still guards execution; it just doesn't drive Enabled in this pattern
             Dispatcher.Register(
                 ExplicitDemoActions.Delete,
                 OnDelete,
@@ -238,19 +250,28 @@ namespace WinformsMVP.Samples
 
             Dispatcher.Register(ExplicitDemoActions.Refresh, OnRefresh);
 
-            // ✅ Framework automatically calls View.ActionBinder.Bind(_dispatcher) here!
-            // Mode detection recognizes explicit pattern (ActionTriggered has subscribers)
-            // and prevents double-dispatch while enabling automatic CanExecute UI updates.
-            //
-            // Benefits: Automatic UI state updates without manual RaiseCanExecuteChanged() calls!
+            // ActionBinder is null, so the framework binds nothing here.
+            // Actions arrive via View.ActionRequest → OnViewActionTriggered → Dispatcher.
         }
 
-        // ✅ No OnInitialize() needed - automatic CanExecute updates work out of the box!
-        // Previously required manual subscriptions: View.SelectionChanged, View.DataChanged
-        // Now those are unnecessary - framework handles it automatically
+        protected override void OnInitialize()
+        {
+            // Load initial data
+            View.ShowItems(_items);
+            View.StatusMessage = "Ready";
+            UpdateActionAvailability();
+        }
 
-        // ✅ Note: No need for manual OnActionRequest handler!
-        // OnViewActionTriggered (base class method) handles routing to Dispatcher
+        private void OnSelectionChanged(object sender, EventArgs e)
+        {
+            UpdateActionAvailability();
+        }
+
+        // ✅ Explicit pattern: the Presenter pushes availability through a semantic view member
+        private void UpdateActionAvailability()
+        {
+            View.CanDelete = View.HasSelection;
+        }
 
         private void OnSave()
         {
@@ -261,14 +282,15 @@ namespace WinformsMVP.Samples
             View.ShowItems(_items);
             View.ClearForm();
             View.StatusMessage = $"Saved: {item}";
+            UpdateActionAvailability();
 
             _messageService.ShowInfo($"Item saved: {item}", "Success");
         }
 
         private void OnDelete()
         {
-            // Delete selected item
-            var index = Array.IndexOf(_items, "Item 1"); // Simplified
+            var selected = View.SelectedItem;
+            var index = Array.IndexOf(_items, selected);
             if (index >= 0)
             {
                 var newItems = new string[_items.Length - 1];
@@ -278,7 +300,8 @@ namespace WinformsMVP.Samples
             }
 
             View.ShowItems(_items);
-            View.StatusMessage = "Item deleted";
+            View.StatusMessage = $"Deleted: {selected}";
+            UpdateActionAvailability();
             _messageService.ShowInfo("Item deleted successfully.", "Success");
         }
 
@@ -286,6 +309,7 @@ namespace WinformsMVP.Samples
         {
             View.ShowItems(_items);
             View.StatusMessage = "Refreshed";
+            UpdateActionAvailability();
             _messageService.ShowInfo("Data refreshed.", "Info");
         }
     }
@@ -299,13 +323,10 @@ namespace WinformsMVP.Samples
      * IMPLICIT vs EXPLICIT Pattern Comparison
      * ========================================
      *
-     * IMPLICIT PATTERN (ActionBinder + Dispatcher):
-     * ----------------------------------------------
-     * // View Interface
-     * public interface IMyView : IWindowView
-     * {
-     *     ViewActionBinder ActionBinder { get; }  // Returns _binder instance
-     * }
+     * IMPLICIT PATTERN (recommended default):
+     * ---------------------------------------
+     * // View (IWindowView already declares IViewActionBinder ActionBinder { get; })
+     * public IViewActionBinder ActionBinder => _binder;   // framework binds it
      *
      * // Presenter
      * protected override void RegisterViewActions()
@@ -313,62 +334,58 @@ namespace WinformsMVP.Samples
      *     Dispatcher.Register(CommonActions.Delete, OnDelete,
      *         canExecute: () => View.HasSelection);
      *
-     *     // Framework auto-calls View.ActionBinder.Bind(_dispatcher) here!
+     *     // Framework auto-calls View.ActionBinder.Bind(_dispatcher) after this returns
      * }
      *
-     * ✅ Pros: Less code, automatic CanExecute UI updates, auto-binding by framework
-     * ❌ Cons: Implicit connection (framework magic), harder to debug event flow
+     * ✅ Pros: Less code, automatic CanExecute → Enabled sync, auto-binding by framework
+     * ❌ Cons: Implicit connection (framework magic)
      *
      *
-     * EXPLICIT PATTERN (ActionRequest Event + Automatic CanExecute):
-     * ---------------------------------------------------------------
+     * EXPLICIT PATTERN (mainly for migrating legacy Forms):
+     * -----------------------------------------------------
      * // View Interface
      * public interface IMyView : IWindowView
      * {
-     *     ViewActionBinder ActionBinder { get; }  // Returns _binder (enables auto CanExecute updates!)
      *     event EventHandler<ActionRequestEventArgs> ActionRequest;
-     *     // ✅ No state change events needed!
+     *     bool CanDelete { set; }              // semantic availability, set by the Presenter
+     *     event EventHandler SelectionChanged; // state the Presenter must react to
      * }
      *
      * // View Implementation
-     * public IViewActionBinder ActionBinder => _binder;  // Return binder for framework integration
+     * public IViewActionBinder ActionBinder => null;   // framework must NOT bind it
      * _binder.ActionTriggered += (s, e) => ActionRequest?.Invoke(this, e);
-     * // No manual Bind() call - framework handles it automatically!
+     * _binder.Bind();                                  // event-only binding, done by the View
      *
-     * // Presenter - Simple and clean!
+     * // Presenter
      * protected override void OnViewAttached()
      * {
-     *     View.ActionRequest += OnViewActionTriggered;  // ✅ Explicit event subscription
+     *     View.ActionRequest += OnViewActionTriggered;
+     *     Disposable.Create(() => View.ActionRequest -= OnViewActionTriggered).DisposeWith(Disposables);
      * }
-     *
-     * // ✅ No OnInitialize() needed - automatic CanExecute updates work!
      *
      * protected override void RegisterViewActions()
      * {
      *     Dispatcher.Register(CommonActions.Delete, OnDelete,
-     *         canExecute: () => View.HasSelection);
-     *
-     *     // Framework calls View.ActionBinder.Bind(_dispatcher) automatically
-     *     // Mode detection prevents double-dispatch while enabling automatic UI updates
+     *         canExecute: () => View.HasSelection);   // guards execution only
      * }
      *
-     * ✅ Pros: Explicit, debuggable, F12 navigation works, automatic CanExecute updates!
-     * ✅ Best of both worlds: Explicit event flow + Automatic UI updates
+     * private void UpdateActionAvailability() => View.CanDelete = View.HasSelection;
      *
+     * ✅ Pros: Explicit, debuggable, F12 navigation works, fits existing event-driven Forms
+     * ❌ Cons: No automatic Enabled sync — the Presenter pushes availability itself
+     *
+     *
+     * RULES:
+     * ------
+     * - Never return the binder from ActionBinder AND forward ActionTriggered to ActionRequest:
+     *   Bind(dispatcher) always dispatches, and ActionRequest → OnViewActionTriggered would
+     *   dispatch the same action a second time.
+     * - Subscribing to ActionTriggered never changes routing; only the Bind overload does.
      *
      * WHEN TO USE EACH:
      * -----------------
-     * Implicit: Simple CRUD, standard workflows, less code (no ActionRequest event)
-     * Explicit: Complex logic, debugging needs, team prefers explicit event subscriptions, learning
-     *
-     * KEY IMPROVEMENTS:
-     * -----------------
-     * ✅ Both patterns now get automatic CanExecute UI updates (buttons auto enable/disable)
-     * ✅ Explicit pattern no longer requires manual state change events
-     * ✅ Explicit pattern no longer requires manual RaiseCanExecuteChanged() calls
-     * ✅ Mode detection prevents double-dispatch automatically
-     * ✅ Simpler View interfaces (fewer events to define)
-     * ✅ Less boilerplate code in Presenter
+     * Implicit: New code — the default.
+     * Explicit: Migrating legacy Forms, or teams that require every event hop written out.
      */
 
     #endregion
