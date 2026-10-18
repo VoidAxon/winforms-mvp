@@ -150,7 +150,6 @@ namespace WinformsMVP.Samples.Tests.Common
             ui.RunAll();
 
             Assert.Equal(0, receiver.Received);
-            GC.KeepAlive(receiver);
         }
 
         [Fact]
@@ -167,7 +166,6 @@ namespace WinformsMVP.Samples.Tests.Common
             Assert.Equal(0, receiver.Received);   // marshalled, not run on the worker
             ui.RunAll();
             Assert.Equal(1, receiver.Received);
-            GC.KeepAlive(receiver);
         }
 
         [Fact]

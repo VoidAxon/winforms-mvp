@@ -115,5 +115,14 @@ namespace WinformsMVP.Analyzers
             defaultSeverity: DiagnosticSeverity.Warning,
             isEnabledByDefault: true,
             description: "A Presenter is not a service and should expose zero public events. Return window results via the base RequestClose(...), and publish shared or cross-presenter notifications through a Service event or IEventAggregator. This is Rule 17 of MVP design rules.");
+
+        public static readonly DiagnosticDescriptor MVPRule17UndisposedSubscription = new DiagnosticDescriptor(
+            id: "MVP017",
+            title: "Dispose the IEventAggregator subscription",
+            messageFormat: "The subscription returned by '{0}' is discarded, so it can never be disposed and keeps its handler alive. Register it with .DisposeWith(Disposables) or store and dispose it.",
+            category: Category,
+            defaultSeverity: DiagnosticSeverity.Warning,
+            isEnabledByDefault: true,
+            description: "IEventAggregator subscriptions are strong references that live until their token is disposed. Discarding the token from Subscribe leaks the handler and everything it captures (typically the presenter and its view) for the aggregator's lifetime. Assign it to an explicit discard (_ = ...) to state that the subscription is intentionally permanent.");
     }
 }

@@ -504,5 +504,57 @@ public class OrderPresenter : WindowPresenterBase<IOrderView>
 }
 public class EventsPresenter { public event EventHandler Changed; }"));
         }
+
+        // ------------------------------------------------------------------ MVP017
+
+        private const string EventUsings = Usings + "using WinformsMVP.Common.EventAggregator;\n";
+
+        [Fact]
+        public void MVP017_DiscardedSubscribe_Reports()
+        {
+            Assert.Equal(new[] { "MVP017:events.Subscribe<string>(OnText)" },
+                IdsWithText(EventUsings + @"
+public class Listener
+{
+    public Listener(IEventAggregator events) { events.Subscribe<string>(OnText); }
+    private void OnText(string s) { }
+}"));
+        }
+
+        [Fact]
+        public void MVP017_DiscardedSubscribeOnConcreteAggregator_Reports()
+        {
+            Assert.Single(Ids(EventUsings + @"
+public class Listener
+{
+    public Listener(EventAggregator events) { events.Subscribe<string>(s => { }); }
+}"));
+        }
+
+        [Fact]
+        public void MVP017_StoredOrChainedOrExplicitlyDiscarded_NoDiagnostic()
+        {
+            Assert.Empty(Ids(EventUsings + @"
+public static class Ext { public static void Keep(this IDisposable d) { } }
+public class Listener
+{
+    private IDisposable _token;
+    public Listener(IEventAggregator events)
+    {
+        _token = events.Subscribe<string>(s => { });
+        events.Subscribe<int>(i => { }).Keep();
+        _ = events.Subscribe<long>(l => { });
+        using (events.Subscribe<byte>(b => { })) { }
+    }
+}"));
+        }
+
+        [Fact]
+        public void MVP017_UnrelatedSubscribeMethod_NoDiagnostic()
+        {
+            Assert.Empty(Ids(Usings + @"
+public class Bus { public IDisposable Subscribe<T>(Action<T> a) => null; }
+public class Listener { public Listener(Bus bus) { bus.Subscribe<string>(s => { }); } }"));
+        }
     }
 }

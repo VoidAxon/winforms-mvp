@@ -40,6 +40,20 @@ namespace System.Windows.Forms
     public interface IMessageFilter { }
 }
 
+namespace WinformsMVP.Common.EventAggregator
+{
+    public interface IEventAggregator
+    {
+        System.IDisposable Subscribe<T>(System.Action<T> handler);
+        void Publish<T>(T message);
+    }
+    public class EventAggregator : IEventAggregator
+    {
+        public System.IDisposable Subscribe<T>(System.Action<T> handler) => null;
+        public void Publish<T>(T message) { }
+    }
+}
+
 namespace WinformsMVP.MVP.Views
 {
     public interface IViewBase { }

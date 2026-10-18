@@ -1,3 +1,7 @@
+// These tests exercise the aggregator itself: each test owns a short-lived aggregator, so its
+// subscriptions are released with it and the tokens are deliberately not kept.
+#pragma warning disable MVP017
+
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -237,39 +241,30 @@ namespace WinformsMVP.Samples.Tests.Common
 
         #endregion
 
-        #region Weak Reference Tests
+        #region Subscription Lifetime Tests
 
         [Fact]
-        public void Subscribe_SubscriberGarbageCollected_SubscriptionAutomaticallyRemoved()
+        public void Subscribe_CapturingLambda_SurvivesGarbageCollection()
         {
-            // Arrange
+            // A lambda that captures a local compiles to a closure object nothing else references.
+            // Subscriptions hold their handler strongly, so a GC must not end the subscription.
             var aggregator = new EventAggregator();
             int callCount = 0;
+            SubscribeWithClosure(aggregator, () => callCount++);
 
-            // Create subscriber in separate method to ensure it can be GC'd
-            CreateAndSubscribe(aggregator, () => callCount++);
-
-            // Act
-            aggregator.Publish(new TestMessage()); // Should invoke (subscriber still alive)
-            int countBeforeGC = callCount;
-
-            // Force garbage collection
             GC.Collect();
             GC.WaitForPendingFinalizers();
             GC.Collect();
 
-            aggregator.Publish(new TestMessage()); // Should not invoke (subscriber GC'd)
+            aggregator.Publish(new TestMessage());
 
-            // Assert
-            Assert.Equal(1, countBeforeGC);
-            Assert.Equal(1, callCount); // Count should not increase after GC
+            Assert.Equal(1, callCount);
         }
 
-        private void CreateAndSubscribe(IEventAggregator aggregator, Action callback)
+        private static IDisposable SubscribeWithClosure(IEventAggregator aggregator, Action callback)
         {
             var subscriber = new TestSubscriber(callback);
-            aggregator.Subscribe<TestMessage>(msg => subscriber.OnMessage(msg));
-            // subscriber goes out of scope here
+            return aggregator.Subscribe<TestMessage>(msg => subscriber.OnMessage(msg));
         }
 
         private class TestSubscriber
@@ -288,27 +283,31 @@ namespace WinformsMVP.Samples.Tests.Common
         }
 
         [Fact]
-        public void Subscribe_StaticMethod_DoesNotGetGarbageCollected()
+        public void Subscribe_DisposedToken_StopsDelivery()
         {
-            // Arrange
+            var aggregator = new EventAggregator();
+            int callCount = 0;
+            var token = SubscribeWithClosure(aggregator, () => callCount++);
+
+            aggregator.Publish(new TestMessage());
+            token.Dispose();
+            aggregator.Publish(new TestMessage());
+
+            Assert.Equal(1, callCount);
+        }
+
+        [Fact]
+        public void Subscribe_StaticMethod_IsDelivered()
+        {
             var aggregator = new EventAggregator();
             StaticTestHandler.CallCount = 0;
 
-            // Act
-            aggregator.Subscribe<TestMessage>(StaticTestHandler.Handle);
+            using (aggregator.Subscribe<TestMessage>(StaticTestHandler.Handle))
+            {
+                aggregator.Publish(new TestMessage());
+                aggregator.Publish(new TestMessage());
+            }
 
-            aggregator.Publish(new TestMessage());
-            int countBeforeGC = StaticTestHandler.CallCount;
-
-            // Force garbage collection
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
-            GC.Collect();
-
-            aggregator.Publish(new TestMessage());
-
-            // Assert - Static methods should not be GC'd
-            Assert.Equal(1, countBeforeGC);
             Assert.Equal(2, StaticTestHandler.CallCount);
         }
 
@@ -329,18 +328,12 @@ namespace WinformsMVP.Samples.Tests.Common
         [Fact]
         public void Publish_ConcurrentPublishing_AllMessagesProcessed()
         {
-            // Two collaborating fixes are needed to make this test deterministic:
-            //
-            // 1. EventAggregator captures SynchronizationContext.Current at construction time.
+            // EventAggregator captures SynchronizationContext.Current at construction time.
             //    Under xUnit the test thread can have a non-null SyncContext that does not
             //    synchronously drain posted callbacks, so subscriber dispatches from Task.Run
             //    threads end up queued but never run before the assertion. Construct the
             //    aggregator under a null SyncContext so all dispatches take the direct path.
-            //
-            // 2. Subscribe holds the subscriber's target via WeakReference only. The closure
-            //    display class is only reachable while the Action delegate itself stays alive,
-            //    so we keep `handler` in a local and GC.KeepAlive it at the end. Without this,
-            //    the subscription can be reaped mid-test and silently drop publishes.
+
             var prevSyncContext = SynchronizationContext.Current;
             SynchronizationContext.SetSynchronizationContext(null);
             try
@@ -376,7 +369,6 @@ namespace WinformsMVP.Samples.Tests.Common
                 Task.WaitAll(tasks);
 
                 Assert.Equal(threadCount * messagesPerThread, messageCount);
-                GC.KeepAlive(handler);
             }
             finally
             {
@@ -392,8 +384,6 @@ namespace WinformsMVP.Samples.Tests.Common
             const int subscriberCount = 100;
             var counters = new int[subscriberCount];
             var subscriptions = new IDisposable[subscriberCount];
-            // See Publish_ConcurrentPublishing_AllMessagesProcessed for the why: each
-            // handler must outlive its WeakSubscription, so we stash them all here.
             var handlers = new Action<TestMessage>[subscriberCount];
 
             // Act - Subscribe concurrently
@@ -421,7 +411,6 @@ namespace WinformsMVP.Samples.Tests.Common
             {
                 Assert.Equal(1, counters[i]);
             }
-            GC.KeepAlive(handlers);
         }
 
         [Fact]
@@ -624,43 +613,22 @@ namespace WinformsMVP.Samples.Tests.Common
         }
 
         [Fact]
-        public void StressTest_MemoryUsage_WeakReferencesPreventLeaks()
+        public void StressTest_SubscribeDisposeCycles_LeaveNoLiveSubscriptions()
         {
-            // Arrange
             var aggregator = new EventAggregator();
-            const int subscriptionCycles = 100;
+            int delivered = 0;
 
-            // Act - Create and abandon subscribers repeatedly
-            for (int cycle = 0; cycle < subscriptionCycles; cycle++)
+            for (int cycle = 0; cycle < 100; cycle++)
             {
+                var tokens = new List<IDisposable>();
                 for (int i = 0; i < 100; i++)
-                {
-                    var subscriber = new TestSubscriber(() => { });
-                    aggregator.Subscribe<TestMessage>(msg => subscriber.OnMessage(msg));
-                }
-
-                // Force GC every 10 cycles
-                if (cycle % 10 == 0)
-                {
-                    GC.Collect();
-                    GC.WaitForPendingFinalizers();
-                }
+                    tokens.Add(SubscribeWithClosure(aggregator, () => delivered++));
+                tokens.ForEach(t => t.Dispose());
             }
 
-            // Final GC
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
-            GC.Collect();
+            aggregator.Publish(new TestMessage());
 
-            // Publish to trigger cleanup of dead subscriptions
-            for (int i = 0; i < 10; i++)
-            {
-                aggregator.Publish(new TestMessage());
-            }
-
-            // Assert - Memory should be cleaned up (hard to assert directly, but test should not crash)
-            _output.WriteLine($"Completed {subscriptionCycles} subscription cycles without memory issues");
-            Assert.True(true, "Memory stress test completed");
+            Assert.Equal(0, delivered);
         }
 
         #endregion

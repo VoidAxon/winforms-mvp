@@ -1,40 +1,29 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Linq.Expressions;
-using System.Reflection;
 using System.Threading;
 using WinformsMVP.Logging;
 
 namespace WinformsMVP.Common.EventAggregator
 {
     /// <summary>
-    /// High-performance, thread-safe, and memory-friendly event aggregator.
+    /// Thread-safe publish/subscribe hub for cross-presenter messaging.
     ///
     /// <para><b>Core Features:</b></para>
     /// <list type="bullet">
-    ///   <item><b>Weak Reference Subscriptions:</b> Automatically cleans up when subscribers are GC'd, preventing memory leaks</item>
-    ///   <item><b>UI Thread Marshaling:</b> Automatically marshals messages from background threads to UI thread (required for WinForms)</item>
-    ///   <item><b>High Performance:</b> Uses expression tree compiled delegates to avoid reflection overhead (10-100x faster than reflection)</item>
-    ///   <item><b>Exception Isolation:</b> One subscriber's exception doesn't affect others</item>
-    ///   <item><b>Thread Safety:</b> Supports concurrent publishing and subscribing</item>
+    ///   <item><b>Explicit lifetime:</b> a subscription lives until its token is disposed — register it
+    ///   with <c>.DisposeWith(Disposables)</c> so it ends with the presenter. Any handler shape works
+    ///   (method group, capturing lambda); nothing is collected behind your back.</item>
+    ///   <item><b>UI Thread Marshaling:</b> messages published from a background thread are posted to the
+    ///   subscriber's UI thread (required for WinForms)</item>
+    ///   <item><b>Exception Isolation:</b> one subscriber's exception doesn't affect others</item>
+    ///   <item><b>Thread Safety:</b> supports concurrent publishing and subscribing</item>
     /// </list>
     ///
-    /// <para><b>⚠️ Weak Reference Considerations — pass an instance method, not a capturing lambda:</b></para>
     /// <para>
-    /// Subscriptions hold the handler's target via a weak reference. Pass an <b>instance method</b>
-    /// (e.g. <c>Subscribe&lt;T&gt;(OnProductAdded)</c>): the target is the Presenter itself, so the subscription
-    /// lives as long as the Presenter is referenced as a field — the recommended pattern.
-    /// </para>
-    /// <para>
-    /// Passing a lambda that captures <c>this</c> (e.g. <c>Subscribe&lt;T&gt;(msg =&gt; View.Update(msg))</c>) is a
-    /// silent trap: the handler's target is a compiler-generated closure object that nothing else strongly
-    /// references, so the next GC collects it and the subscription expires with no notification (the classic
-    /// WPF <c>WeakEventManager</c> pitfall). A <c>filter</c> predicate is fine as a lambda only when it
-    /// does not capture instance members. A filter that captures <c>this</c>
-    /// (e.g. <c>filter: msg =&gt; msg.Id == _myId</c>) creates a strong reference through the
-    /// subscription's internal <c>_filter</c> field, defeating weak-reference auto-cleanup;
-    /// always unsubscribe explicitly with <c>DisposeWith(Disposables)</c> in that case.
+    /// Subscriptions are strong references: a token that is never disposed keeps its handler (and
+    /// whatever the handler captures, typically the presenter) alive for the aggregator's lifetime.
+    /// Analyzer MVP017 warns when a <c>Subscribe</c> result is discarded.
     /// </para>
     ///
     /// <example>
@@ -42,53 +31,23 @@ namespace WinformsMVP.Common.EventAggregator
     /// <code>
     /// public class OrderSummaryPresenter : ControlPresenterBase&lt;IOrderSummaryView&gt;
     /// {
-    ///     private readonly IEventAggregator _eventAggregator;
-    ///     private IDisposable _subscription;
+    ///     private readonly IEventAggregator _events;
     ///
-    ///     public OrderSummaryPresenter(IEventAggregator eventAggregator)
-    ///     {
-    ///         _eventAggregator = eventAggregator;
-    ///     }
+    ///     public OrderSummaryPresenter(IEventAggregator events) { _events = events; }
     ///
     ///     protected override void OnViewAttached()
     ///     {
-    ///         // ✅ Presenter has strong reference, subscription stays alive
-    ///         _subscription = _eventAggregator.Subscribe&lt;ProductAddedMessage&gt;(OnProductAdded);
+    ///         _events.Subscribe&lt;ProductAddedMessage&gt;(OnProductAdded).DisposeWith(Disposables);
+    ///
+    ///         var productId = _targetProductId;            // capturing lambdas are fine
+    ///         _events.Subscribe&lt;ProductUpdatedMessage&gt;(
+    ///             msg =&gt; View.UpdateProduct(msg.Product),
+    ///             filter: msg =&gt; msg.Product.Id == productId).DisposeWith(Disposables);
     ///     }
     ///
-    ///     private void OnProductAdded(ProductAddedMessage msg)
-    ///     {
-    ///         // ✅ If message published from background thread, automatically marshaled to UI thread
-    ///         View.AddItem(msg.Product, msg.Quantity);
-    ///     }
-    ///
-    ///     protected override void Cleanup()
-    ///     {
-    ///         _subscription?.Dispose();  // Explicit cleanup (recommended)
-    ///     }
+    ///     // Runs on the UI thread even when the message was published from a worker.
+    ///     private void OnProductAdded(ProductAddedMessage msg) =&gt; View.AddItem(msg.Product, msg.Quantity);
     /// }
-    /// </code>
-    ///
-    /// <b>Background Thread Publishing (Automatic UI Thread Marshaling):</b>
-    /// <code>
-    /// Task.Run(() =>
-    /// {
-    ///     var data = LoadDataFromDatabase();
-    ///
-    ///     // ✅ Background thread publishes, subscribers execute on UI thread
-    ///     _eventAggregator.Publish(new DataLoadedMessage { Data = data });
-    /// });
-    /// </code>
-    ///
-    /// <b>Subscription with Filter (handler is an instance method; only the filter is a lambda):</b>
-    /// <code>
-    /// // Only receive messages for a specific product ID
-    /// _subscription = _eventAggregator.Subscribe&lt;ProductUpdatedMessage&gt;(
-    ///     OnProductUpdated,                                  // ✅ instance method — stays alive
-    ///     filter: msg => msg.Product.Id == _targetProductId  // ✅ lambda filter is fine
-    /// );
-    ///
-    /// private void OnProductUpdated(ProductUpdatedMessage msg) => View.UpdateProduct(msg.Product);
     /// </code>
     /// </example>
     /// </summary>
@@ -117,60 +76,29 @@ namespace WinformsMVP.Common.EventAggregator
         }
 
         /// <summary>
-        /// Creates an EventAggregator instance with a logger factory.
-        ///
-        /// <para>
-        /// Filter exceptions, handler exceptions, and UI-thread Post failures are reported through the
-        /// logger created from <paramref name="loggerFactory"/>. Passing <c>null</c> falls back to
-        /// <see cref="NullLoggerFactory.Instance"/>, preserving the existing silent behaviour.
-        /// </para>
+        /// Creates an EventAggregator instance with a logger factory, used to report handler and
+        /// filter exceptions (which are isolated and never propagate to the publisher).
         /// </summary>
-        /// <param name="loggerFactory">Logger factory used to create the aggregator's logger. May be null.</param>
         public EventAggregator(ILoggerFactory loggerFactory)
         {
             _context = SynchronizationContext.Current;
             _logger = (loggerFactory ?? NullLoggerFactory.Instance).CreateLogger(typeof(EventAggregator).FullName);
         }
 
-        /// <summary>
-        /// Logger used by subscriptions to report filter exceptions, handler exceptions, and Post failures.
-        /// </summary>
         internal ILogger Logger => _logger;
 
-        /// <summary>
-        /// Subscribe to messages of the specified type.
-        ///
-        /// <para>
-        /// Subscriptions use weak references; subscribers are automatically cleaned up when GC'd.
-        /// The returned IDisposable can be used to manually unsubscribe.
-        /// </para>
-        /// </summary>
-        /// <typeparam name="T">Message type</typeparam>
-        /// <param name="handler">Message handler (will execute on UI thread)</param>
-        /// <returns>Subscription token; Dispose to unsubscribe</returns>
+        /// <inheritdoc />
         public IDisposable Subscribe<T>(Action<T> handler)
         {
             return Subscribe(handler, null);
         }
 
-        /// <summary>
-        /// Subscribe to messages of the specified type with a filter.
-        ///
-        /// <para>
-        /// Subscriptions use weak references; subscribers are automatically cleaned up when GC'd.
-        /// The returned IDisposable can be used to manually unsubscribe.
-        /// </para>
-        /// </summary>
-        /// <typeparam name="T">Message type</typeparam>
-        /// <param name="handler">Message handler (will execute on UI thread)</param>
-        /// <param name="filter">Filter predicate (executes on publisher's thread)</param>
-        /// <returns>Subscription token; Dispose to unsubscribe</returns>
+        /// <inheritdoc />
         public IDisposable Subscribe<T>(Action<T> handler, Func<T, bool> filter)
         {
             if (handler == null) throw new ArgumentNullException(nameof(handler));
 
-            // Create weak reference subscription
-            var subscription = new WeakSubscription<T>(handler, filter, this,
+            var subscription = new Subscription<T>(handler, filter, this,
                 _context ?? SynchronizationContext.Current);
 
             lock (_lock)
@@ -188,15 +116,11 @@ namespace WinformsMVP.Common.EventAggregator
         }
 
         /// <summary>
-        /// Publish a message to all subscribers.
-        ///
-        /// <para>
-        /// Can be called from any thread.
-        /// </para>
+        /// Publishes a message to all subscribers of type <typeparamref name="T"/>.
         ///
         /// <para><b>Delivery semantics (important):</b></para>
         /// <list type="bullet">
-        ///   <item><b>Same thread as the captured context</b> (typically publishing from the UI thread):
+        ///   <item><b>Same thread as the subscriber's context</b> (typically publishing from the UI thread):
         ///   handlers run <b>synchronously</b> — they have all completed by the time <c>Publish</c> returns.</item>
         ///   <item><b>A different thread</b> (e.g. publishing from a background thread): each handler is
         ///   marshaled to the UI thread via <c>SynchronizationContext.Post</c> — <b>fire-and-forget</b>.
@@ -205,13 +129,8 @@ namespace WinformsMVP.Common.EventAggregator
         ///   handler has finished (or its side effects are visible) just because <c>Publish</c> has returned.</item>
         ///   <item>The target context is the one captured at construction or, failing that, the one current
         ///   when the handler subscribed. With neither, handlers run synchronously on the publishing thread.</item>
+        ///   <item>A subscription disposed after a message was posted to it does not receive that message.</item>
         /// </list>
-        ///
-        /// <para>
-        /// Dead subscriptions (subscribers already GC'd) are pruned lazily here, during publish. A message type
-        /// that is subscribed often but published rarely may retain already-collected entries until its next
-        /// publish; this is bounded and harmless. Dispose subscriptions explicitly for prompt removal.
-        /// </para>
         /// </summary>
         /// <typeparam name="T">Message type</typeparam>
         /// <param name="message">Message to publish</param>
@@ -221,7 +140,8 @@ namespace WinformsMVP.Common.EventAggregator
 
             List<Subscription> snapshot;
 
-            // 1. Get snapshot (lock held for minimal time)
+            // Snapshot under the lock; handlers run outside it to avoid deadlocks and to let them
+            // subscribe / unsubscribe freely.
             lock (_lock)
             {
                 if (!_subscriptions.TryGetValue(typeof(T), out var list) || list.Count == 0)
@@ -230,36 +150,8 @@ namespace WinformsMVP.Common.EventAggregator
                 snapshot = list.ToList();
             }
 
-            var deadSubscriptions = new List<Subscription>();
-
-            // 2. Execute handlers (outside lock to avoid deadlocks)
             foreach (var sub in snapshot)
-            {
-                // Invoke returns false if object has been GC'd
-                if (!sub.Invoke(message))
-                {
-                    deadSubscriptions.Add(sub);
-                }
-            }
-
-            // 3. Clean up GC'd subscriptions (lazy cleanup)
-            if (deadSubscriptions.Count > 0)
-            {
-                lock (_lock)
-                {
-                    if (_subscriptions.TryGetValue(typeof(T), out var list))
-                    {
-                        foreach (var dead in deadSubscriptions)
-                        {
-                            list.Remove(dead);
-                        }
-                        if (list.Count == 0)
-                        {
-                            _subscriptions.Remove(typeof(T));
-                        }
-                    }
-                }
-            }
+                sub.Deliver(message);
         }
 
         /// <summary>
@@ -285,8 +177,8 @@ namespace WinformsMVP.Common.EventAggregator
         /// Clear all subscriptions (mainly for testing scenarios).
         ///
         /// <para>
-        /// <b>Warning:</b> This method immediately clears all subscriptions and may cause unprocessed messages to be lost.
-        /// Production environments should rely on automatic weak reference cleanup.
+        /// <b>Warning:</b> This method immediately clears all subscriptions and may cause unprocessed
+        /// messages to be lost. Production code should dispose each subscription token instead.
         /// </para>
         /// </summary>
         public void ClearSubscriptions()
@@ -299,29 +191,23 @@ namespace WinformsMVP.Common.EventAggregator
 
         #region Internal Classes
 
-        /// <summary>
-        /// Subscription base class.
-        /// </summary>
         internal abstract class Subscription : IDisposable
         {
             protected readonly EventAggregator _parent;
-            public abstract Type MessageType { get; }
-
-            /// <summary>
-            /// Invoke the subscription handler.
-            /// </summary>
-            /// <returns>Returns false if subscriber is dead and needs cleanup</returns>
-            public abstract bool Invoke(object message);
-
-            protected Subscription(EventAggregator parent)
-            {
-                _parent = parent;
-            }
 
             // Set by Dispose; checked again inside a posted callback so a message queued before the
             // subscriber was disposed (e.g. its window closed) is not delivered to it afterwards.
             private volatile bool _disposed;
             protected bool IsDisposed => _disposed;
+
+            public abstract Type MessageType { get; }
+
+            public abstract void Deliver(object message);
+
+            protected Subscription(EventAggregator parent)
+            {
+                _parent = parent;
+            }
 
             public void Dispose()
             {
@@ -330,82 +216,40 @@ namespace WinformsMVP.Common.EventAggregator
             }
         }
 
-        /// <summary>
-        /// Weak reference subscription implementation.
-        ///
-        /// <para>
-        /// Uses weak references to hold subscribers, avoiding memory leaks.
-        /// Uses expression tree compiled delegates to avoid reflection overhead.
-        /// Supports automatic UI thread marshaling.
-        /// </para>
-        /// </summary>
-        internal class WeakSubscription<T> : Subscription
+        internal sealed class Subscription<T> : Subscription
         {
-            private readonly WeakReference _targetWeakReference;
+            private readonly Action<T> _handler;
             private readonly Func<T, bool> _filter;
             private readonly SynchronizationContext _syncContext;
 
-            // Optimization: Compiled strongly-typed delegate, replaces reflection Invoke
-            private readonly Action<object, T> _openHandler;
-
             public override Type MessageType => typeof(T);
 
-            public WeakSubscription(Action<T> handler, Func<T, bool> filter,
+            public Subscription(Action<T> handler, Func<T, bool> filter,
                 EventAggregator parent, SynchronizationContext context)
                 : base(parent)
             {
+                _handler = handler;
                 _filter = filter;
                 _syncContext = context;
-
-                if (handler.Target != null)
-                {
-                    // Instance method: Hold weak reference + compile open delegate
-                    _targetWeakReference = new WeakReference(handler.Target);
-                    _openHandler = CreateOpenDelegate(handler.Method);
-                }
-                else
-                {
-                    // Static method: No target object
-                    _targetWeakReference = null;
-                    _openHandler = (_, msg) => handler(msg);
-                }
             }
 
-            public override bool Invoke(object message)
+            public override void Deliver(object message)
             {
-                if (IsDisposed) return false;
+                if (IsDisposed || !(message is T typedMessage))
+                    return;
 
-                // 1. First liveness check
-                var target = _targetWeakReference?.Target;
-                if (_targetWeakReference != null && target == null)
-                {
-                    return false; // Object has been GC'd
-                }
-
-                if (message is not T typedMessage)
-                    return true;
-
-                // 2. Execute filter (note: executes on publisher's thread)
+                // Filter runs on the publisher's thread.
                 if (!ApplyFilter(typedMessage))
-                {
-                    return true; // Filtered out, consider successfully handled
-                }
+                    return;
 
-                // 3. Thread marshaling decision
                 if (_syncContext != null && _syncContext != SynchronizationContext.Current)
                 {
                     try
                     {
                         _syncContext.Post(_ =>
                         {
-                            // 4. Second liveness check (handles the subscription being disposed or
-                            //    the object dying while the message was queued)
                             if (IsDisposed) return;
-                            var currentTarget = _targetWeakReference?.Target;
-                            if (_targetWeakReference != null && currentTarget == null)
-                                return;
-
-                            SafeExecute(currentTarget, typedMessage);
+                            SafeExecute(typedMessage);
                         }, null);
                     }
                     catch (Exception ex)
@@ -418,11 +262,8 @@ namespace WinformsMVP.Common.EventAggregator
                 }
                 else
                 {
-                    // Already on correct thread, execute directly
-                    SafeExecute(target, typedMessage);
+                    SafeExecute(typedMessage);
                 }
-
-                return true;
             }
 
             private bool ApplyFilter(T message)
@@ -444,70 +285,20 @@ namespace WinformsMVP.Common.EventAggregator
                 }
             }
 
-            private void SafeExecute(object target, T message)
+            private void SafeExecute(T message)
             {
                 try
                 {
-                    _openHandler(target, message);
+                    _handler(message);
                 }
                 catch (Exception ex)
                 {
-                    // Exception isolation: Log but don't throw, preventing publish loop interruption.
+                    // Exception isolation: log but don't throw, preventing publish loop interruption.
                     _parent.Logger.LogError(
                         ex,
                         "EventAggregator: handler for message {MessageType} threw {ExceptionType}",
                         typeof(T).FullName,
                         ex.GetType().Name);
-                }
-            }
-
-            /// <summary>
-            /// Use expression trees to create high-performance open delegates, bypassing reflection overhead.
-            ///
-            /// <para>
-            /// Compiled delegates are 10-100x faster than MethodInfo.Invoke().
-            /// </para>
-            /// </summary>
-            private static Action<object, T> CreateOpenDelegate(MethodInfo method)
-            {
-                try
-                {
-                    // Dynamic methods or anonymous types may not have DeclaringType, fallback to reflection
-                    if (method.DeclaringType == null)
-                    {
-                        return (target, msg) => method.Invoke(target, new object[] { msg });
-                    }
-
-                    var targetParam = Expression.Parameter(typeof(object), "target");
-                    var messageParam = Expression.Parameter(typeof(T), "message");
-
-                    if (method.IsStatic)
-                    {
-                        // A static method with a Target is a delegate closed over its first argument
-                        // (an extension method such as presenter.OnSaved): Ext.Method((First)target, message).
-                        var firstParamType = method.GetParameters()[0].ParameterType;
-                        var staticCall = Expression.Call(method,
-                            Expression.Convert(targetParam, firstParamType), messageParam);
-                        return Expression.Lambda<Action<object, T>>(staticCall, targetParam, messageParam).Compile();
-                    }
-
-                    // (Type)target
-                    var targetCast = Expression.Convert(targetParam, method.DeclaringType);
-
-                    // ((Type)target).Method(message)
-                    var methodCall = Expression.Call(targetCast, method, messageParam);
-
-                    // (target, message) => ((Type)target).Method(message)
-                    return Expression.Lambda<Action<object, T>>(
-                        methodCall, targetParam, messageParam
-                    ).Compile();
-                }
-                catch (Exception)
-                {
-                    // Compilation failed (e.g., private method permission restrictions) fallback to reflection
-                    return method.IsStatic
-                        ? (Action<object, T>)((target, msg) => method.Invoke(null, new[] { target, msg }))
-                        : (target, msg) => method.Invoke(target, new object[] { msg });
                 }
             }
         }
