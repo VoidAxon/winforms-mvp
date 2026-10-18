@@ -55,8 +55,11 @@ jobs:
         shell: pwsh
         run: |
           dotnet pack src/WinformsMVP.Core/WinformsMVP.Core.csproj -c Release -p:Version=$env:VERSION -o artifacts
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           dotnet pack src/WinformsMVP/WinformsMVP.csproj -c Release -p:Version=$env:VERSION -o artifacts
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           dotnet pack src/WinformsMVP.DependencyInjection/WinformsMVP.DependencyInjection.csproj -c Release -p:Version=$env:VERSION -o artifacts
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Assert analyzer is bundled in the core package
         shell: pwsh
@@ -79,6 +82,7 @@ jobs:
         run: |
           Get-ChildItem artifacts/*.nupkg | ForEach-Object {
             dotnet nuget push $_.FullName --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" --api-key ${{ secrets.GITHUB_TOKEN }} --skip-duplicate
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
 
       - name: Create GitHub Release
