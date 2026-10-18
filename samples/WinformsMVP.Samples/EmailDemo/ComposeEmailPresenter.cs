@@ -1,5 +1,6 @@
 using System;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using WinformsMVP.Common;
 using WinformsMVP.MVP.Presenters;
 using WinformsMVP.MVP.ViewActions;
@@ -26,16 +27,20 @@ namespace WinformsMVP.Samples.EmailDemo
     /// <remarks>
     /// Demonstrates the canonical two-direction close pattern:
     /// <list type="bullet">
-    ///   <item><description><b>Push</b> (Presenter initiates close): <c>OnSend</c> and <c>OnDiscard</c>
+    ///   <item><description><b>Push</b> (Presenter initiates close): <c>OnSendAsync</c> and <c>OnDiscard</c>
     ///     call <c>RequestClose(...)</c> after finalizing dirty state.</description></item>
-    ///   <item><description><b>Pull</b> (external close — user clicks X): <see cref="CanClose"/> prompts
-    ///     the user to save / discard / cancel when there are unsaved changes.</description></item>
+    ///   <item><description><b>Pull</b> (external close — user clicks X): <see cref="CanCloseAsync"/> prompts
+    ///     the user to save / discard / cancel when there are unsaved changes, and awaits the save.</description></item>
     /// </list>
-    /// The single-source-of-truth principle: dirty data check lives only in <see cref="CanClose"/>.
-    /// Push-direction handlers (<c>OnSend</c>, <c>OnDiscard</c>) finalize the
+    /// The single-source-of-truth principle: dirty data check lives only in <see cref="CanCloseAsync"/>.
+    /// Push-direction handlers (<c>OnSendAsync</c>, <c>OnDiscard</c>) finalize the
     /// <see cref="ChangeTracker{T}"/> state before requesting close, so the
-    /// <see cref="CanClose"/> handler observes <c>IsChanged == false</c> and lets the close
+    /// <see cref="CanCloseAsync"/> handler observes <c>IsChanged == false</c> and lets the close
     /// proceed without prompting.
+    /// <para>
+    /// Send and SaveDraft are <c>async Task</c> handlers: while one runs the dispatcher disables
+    /// it and ignores repeated clicks, so no busy flag is needed for that.
+    /// </para>
     /// </remarks>
     public class ComposeEmailPresenter :
         WindowPresenterBase<IComposeEmailView, ComposeEmailParameters>
@@ -59,12 +64,12 @@ namespace WinformsMVP.Samples.EmailDemo
         protected override void RegisterViewActions()
         {
             // Send operation
-            Dispatcher.Register(ComposeEmailActions.Send, OnSend,
+            Dispatcher.Register(ComposeEmailActions.Send, OnSendAsync,
                 canExecute: () => !string.IsNullOrWhiteSpace(View.To) &&
                                   !string.IsNullOrWhiteSpace(View.Subject));
 
             // Save draft operation
-            Dispatcher.Register(ComposeEmailActions.SaveDraft, OnSaveDraft,
+            Dispatcher.Register(ComposeEmailActions.SaveDraft, OnSaveDraftAsync,
                 canExecute: () => _changeTracker?.IsChanged == true);
 
             // Discard operation
@@ -107,12 +112,14 @@ namespace WinformsMVP.Samples.EmailDemo
         /// <list type="bullet">
         ///   <item><description>Only normal user-driven closes are guarded; system shutdown /
         ///     task manager / parent-closing let the process exit without prompting.</description></item>
-        ///   <item><description>Push-direction closes (after <c>OnSend</c> / <c>OnDiscard</c>):
+        ///   <item><description>Push-direction closes (after <c>OnSendAsync</c> / <c>OnDiscard</c>):
         ///     <c>IsChanged</c> will be <c>false</c> here, so this handler allows the close.</description></item>
-        ///   <item><description>User clicked X with unsaved changes: prompt Yes/No/Cancel.</description></item>
+        ///   <item><description>User clicked X with unsaved changes: prompt Yes/No/Cancel. On Yes the
+        ///     draft save is awaited (the window stays open meanwhile); if it fails the close is
+        ///     blocked so the user does not lose the text.</description></item>
         /// </list>
         /// </remarks>
-        protected override bool CanClose(CloseReason reason)
+        protected override async Task<bool> CanCloseAsync(CloseReason reason)
         {
             if (reason != CloseReason.Normal) return true;
             if (_changeTracker == null || !_changeTracker.IsChanged) return true;
@@ -126,7 +133,7 @@ namespace WinformsMVP.Samples.EmailDemo
 
             if (result == ConfirmResult.Yes)
             {
-                OnSaveDraft();  // fire-and-forget like the original behavior
+                return await SaveDraftAsync();
             }
             // No: fall through; the close proceeds.
             return true;
@@ -158,7 +165,7 @@ namespace WinformsMVP.Samples.EmailDemo
 
         #region Action Handlers
 
-        private async void OnSend()
+        private async Task OnSendAsync()
         {
             // Validate input
             if (!ValidateInput(out string errorMessage))
@@ -187,6 +194,7 @@ namespace WinformsMVP.Samples.EmailDemo
             }
             catch (Exception ex)
             {
+                // A failed send is an expected error: tell the user (the window stays open).
                 Messages.ShowError($"Error sending email: {ex.Message}", "Error");
             }
             finally
@@ -196,21 +204,34 @@ namespace WinformsMVP.Samples.EmailDemo
             }
         }
 
-        private async void OnSaveDraft()
+        private async Task OnSaveDraftAsync()
+        {
+            if (await SaveDraftAsync())
+            {
+                Messages.ShowInfo("Draft saved.", "Success");
+            }
+        }
+
+        /// <summary>
+        /// Saves the current content as a draft. Shared by the SaveDraft action and the
+        /// close prompt. Returns false (after telling the user) when the save failed.
+        /// </summary>
+        private async Task<bool> SaveDraftAsync()
         {
             View.IsSaving = true;
 
             try
             {
                 var email = CreateEmailMessage();
-                int draftId = await _repository.SaveDraftAsync(email);
+                await _repository.SaveDraftAsync(email);
 
                 _changeTracker.AcceptChanges();  // Accept changes
-                Messages.ShowInfo("Draft saved.", "Success");
+                return true;
             }
             catch (Exception ex)
             {
                 Messages.ShowError($"Error saving draft: {ex.Message}", "Error");
+                return false;
             }
             finally
             {

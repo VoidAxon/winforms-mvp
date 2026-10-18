@@ -35,10 +35,5 @@ namespace WinformsMVP.Samples.AsyncDemo
         /// Gets or sets the elapsed time display.
         /// </summary>
         string ElapsedTime { get; set; }
-
-        /// <summary>
-        /// Gets whether an operation is currently running.
-        /// </summary>
-        bool IsOperationRunning { get; set; }
     }
 }

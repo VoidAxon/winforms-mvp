@@ -307,13 +307,6 @@ namespace WinformsMVP.Samples.AsyncDemo
             }
         }
 
-        private bool _isOperationRunning;
-        public bool IsOperationRunning
-        {
-            get => _isOperationRunning;
-            set => _isOperationRunning = value;
-        }
-
         #endregion
 
     }

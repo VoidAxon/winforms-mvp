@@ -11,14 +11,25 @@ namespace WinformsMVP.Samples.AsyncDemo
 {
     /// <summary>
     /// Demonstrates async/await patterns in MVP:
+    /// - Async action handlers (<c>async Task</c>, registered with <c>Dispatcher.Register</c>)
     /// - Long-running operations with progress tracking
-    /// - Cancellation support
-    /// - Error handling in async methods
-    /// - UI state management during async operations
+    /// - Cancellation: a user "Cancel" button linked with the token the framework passes in
+    ///   (cancelled when the window closes)
+    /// - Error handling in async handlers
     /// </summary>
+    /// <remarks>
+    /// The dispatcher disables a running async action by itself and ignores repeated triggers,
+    /// and it re-queries every CanExecute when an async action starts and when it finishes. The
+    /// <c>_isBusy</c> flag exists only because a running operation must also disable the OTHER
+    /// start buttons and enable Cancel — no manual <c>RaiseCanExecuteChanged()</c> is needed.
+    /// </remarks>
     public class AsyncDemoPresenter : WindowPresenterBase<IAsyncDemoView>
     {
+        // Linked with the handler's token: the Cancel button cancels it, and so does closing the window.
         private CancellationTokenSource _cancellationTokenSource;
+
+        // True while any start operation runs; disables the other start actions and enables Cancel.
+        private bool _isBusy;
 
         protected override void OnViewAttached()
         {
@@ -29,28 +40,28 @@ namespace WinformsMVP.Samples.AsyncDemo
         {
             Dispatcher.Register(
                 AsyncActions.StartSimpleOperation,
-                OnStartSimpleOperation,
-                canExecute: () => !View.IsOperationRunning);
+                OnStartSimpleOperationAsync,
+                canExecute: () => !_isBusy);
 
             Dispatcher.Register(
                 AsyncActions.StartLongOperation,
-                OnStartLongOperation,
-                canExecute: () => !View.IsOperationRunning);
+                OnStartLongOperationAsync,
+                canExecute: () => !_isBusy);
 
             Dispatcher.Register(
                 AsyncActions.StartWithProgress,
-                OnStartWithProgress,
-                canExecute: () => !View.IsOperationRunning);
+                OnStartWithProgressAsync,
+                canExecute: () => !_isBusy);
 
             Dispatcher.Register(
                 AsyncActions.StartWithError,
-                OnStartWithError,
-                canExecute: () => !View.IsOperationRunning);
+                OnStartWithErrorAsync,
+                canExecute: () => !_isBusy);
 
             Dispatcher.Register(
                 AsyncActions.Cancel,
                 OnCancel,
-                canExecute: () => View.IsOperationRunning);
+                canExecute: () => _isBusy);
 
             Dispatcher.Register(
                 AsyncActions.Clear,
@@ -64,21 +75,20 @@ namespace WinformsMVP.Samples.AsyncDemo
             View.StatusMessage = "Ready. Click any button to start an async operation.";
             View.ShowProgress = false;
             View.ProgressPercentage = 0;
-            View.IsOperationRunning = false;
         }
 
-        private async void OnStartSimpleOperation()
+        private async Task OnStartSimpleOperationAsync(CancellationToken cancellationToken)
         {
             View.StatusMessage = "Starting simple async operation...";
-            View.IsOperationRunning = true;
-            Dispatcher.RaiseCanExecuteChanged();
+            _isBusy = true;
 
             var stopwatch = Stopwatch.StartNew();
 
             try
             {
-                // Simulate async operation
-                await Task.Delay(2000);
+                // Simulate async operation. No catch: an unexpected failure propagates and the
+                // dispatcher logs it; closing the window cancels the delay silently.
+                await Task.Delay(2000, cancellationToken);
 
                 stopwatch.Stop();
                 View.StatusMessage = "Simple operation completed successfully!";
@@ -86,26 +96,18 @@ namespace WinformsMVP.Samples.AsyncDemo
 
                 Messages.ShowInfo("Simple async operation completed!", "Success");
             }
-            catch (Exception ex)
-            {
-                stopwatch.Stop();
-                View.StatusMessage = $"Error: {ex.Message}";
-                Messages.ShowError($"Operation failed: {ex.Message}", "Error");
-            }
             finally
             {
-                View.IsOperationRunning = false;
-                Dispatcher.RaiseCanExecuteChanged();
+                _isBusy = false;
             }
         }
 
-        private async void OnStartLongOperation()
+        private async Task OnStartLongOperationAsync(CancellationToken cancellationToken)
         {
             View.StatusMessage = "Starting long-running operation...";
-            View.IsOperationRunning = true;
-            Dispatcher.RaiseCanExecuteChanged();
+            _isBusy = true;
 
-            _cancellationTokenSource = new CancellationTokenSource();
+            _cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             var stopwatch = Stopwatch.StartNew();
 
             try
@@ -119,37 +121,31 @@ namespace WinformsMVP.Samples.AsyncDemo
 
                 Messages.ShowInfo($"Processed {results.Count} items successfully!", "Success");
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
+                // The user clicked Cancel. (If the window is closing instead, the exception
+                // propagates and the dispatcher ends the action silently.)
                 stopwatch.Stop();
                 View.StatusMessage = "Operation was cancelled by user.";
                 View.ElapsedTime = $"Elapsed: {stopwatch.Elapsed.TotalSeconds:F2}s";
                 Messages.ShowWarning("Operation was cancelled.", "Cancelled");
             }
-            catch (Exception ex)
-            {
-                stopwatch.Stop();
-                View.StatusMessage = $"Error: {ex.Message}";
-                Messages.ShowError($"Operation failed: {ex.Message}", "Error");
-            }
             finally
             {
-                View.IsOperationRunning = false;
-                _cancellationTokenSource?.Dispose();
+                _isBusy = false;
+                _cancellationTokenSource.Dispose();
                 _cancellationTokenSource = null;
-                Dispatcher.RaiseCanExecuteChanged();
             }
         }
 
-        private async void OnStartWithProgress()
+        private async Task OnStartWithProgressAsync(CancellationToken cancellationToken)
         {
             View.StatusMessage = "Starting operation with progress tracking...";
             View.ShowProgress = true;
             View.ProgressPercentage = 0;
-            View.IsOperationRunning = true;
-            Dispatcher.RaiseCanExecuteChanged();
+            _isBusy = true;
 
-            _cancellationTokenSource = new CancellationTokenSource();
+            _cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             var stopwatch = Stopwatch.StartNew();
 
             try
@@ -170,45 +166,40 @@ namespace WinformsMVP.Samples.AsyncDemo
 
                 Messages.ShowInfo($"Processed {results.Count} items successfully!", "Success");
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
+                // The user clicked Cancel (closing the window ends the action silently).
                 stopwatch.Stop();
                 View.StatusMessage = "Operation was cancelled by user.";
                 View.ElapsedTime = $"Elapsed: {stopwatch.Elapsed.TotalSeconds:F2}s";
                 Messages.ShowWarning("Operation was cancelled.", "Cancelled");
             }
-            catch (Exception ex)
-            {
-                stopwatch.Stop();
-                View.StatusMessage = $"Error: {ex.Message}";
-                Messages.ShowError($"Operation failed: {ex.Message}", "Error");
-            }
             finally
             {
                 View.ShowProgress = false;
-                View.IsOperationRunning = false;
-                _cancellationTokenSource?.Dispose();
+                _isBusy = false;
+                _cancellationTokenSource.Dispose();
                 _cancellationTokenSource = null;
-                Dispatcher.RaiseCanExecuteChanged();
             }
         }
 
-        private async void OnStartWithError()
+        private async Task OnStartWithErrorAsync(CancellationToken cancellationToken)
         {
             View.StatusMessage = "Starting operation that will fail...";
-            View.IsOperationRunning = true;
-            Dispatcher.RaiseCanExecuteChanged();
+            _isBusy = true;
 
             var stopwatch = Stopwatch.StartNew();
 
             try
             {
-                // Simulate operation that fails
-                await Task.Delay(1000);
-                throw new InvalidOperationException("This is a simulated error to demonstrate error handling!");
+                // Simulate an operation that fails
+                await SimulateFailingOperationAsync(cancellationToken);
             }
-            catch (Exception ex)
+            catch (InvalidOperationException ex)
             {
+                // An EXPECTED failure is caught here, where the presenter can tell the user about it.
+                // Anything else (or cancellation on window close) propagates: the dispatcher logs it
+                // and re-enables the action, so no catch-all is needed in the handler.
                 stopwatch.Stop();
                 View.StatusMessage = $"Error occurred: {ex.Message}";
                 View.ElapsedTime = $"Elapsed: {stopwatch.ElapsedMilliseconds}ms";
@@ -219,8 +210,7 @@ namespace WinformsMVP.Samples.AsyncDemo
             }
             finally
             {
-                View.IsOperationRunning = false;
-                Dispatcher.RaiseCanExecuteChanged();
+                _isBusy = false;
             }
         }
 
@@ -239,6 +229,12 @@ namespace WinformsMVP.Samples.AsyncDemo
             View.StatusMessage = "Results cleared. Ready for next operation.";
             View.ElapsedTime = string.Empty;
             View.ProgressPercentage = 0;
+        }
+
+        private static async Task SimulateFailingOperationAsync(CancellationToken cancellationToken)
+        {
+            await Task.Delay(1000, cancellationToken);
+            throw new InvalidOperationException("This is a simulated error to demonstrate error handling!");
         }
 
         private async Task<List<string>> PerformLongOperationAsync(CancellationToken cancellationToken)

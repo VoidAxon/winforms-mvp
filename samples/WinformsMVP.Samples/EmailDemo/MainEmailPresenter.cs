@@ -1,5 +1,7 @@
 using System;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using WinformsMVP.MVP.Presenters;
 using WinformsMVP.MVP.ViewActions;
 using WinformsMVP.Samples.EmailDemo.Models;
@@ -34,6 +36,11 @@ namespace WinformsMVP.Samples.EmailDemo
     /// Main email view Presenter
     /// Demonstrates complete usage of all MVP framework features
     /// </summary>
+    /// <remarks>
+    /// Repository-backed actions are <c>async Task</c> handlers: the dispatcher disables a running
+    /// action and ignores repeated clicks, and logs unexpected failures. The initial inbox load
+    /// runs in <see cref="OnInitializeAsync"/>, so the window shows immediately.
+    /// </remarks>
     public class MainEmailPresenter : WindowPresenterBase<IMainEmailView>
     {
         private readonly IEmailRepository _repository;
@@ -54,21 +61,21 @@ namespace WinformsMVP.Samples.EmailDemo
         protected override void RegisterViewActions()
         {
             // Email operations
-            Dispatcher.Register(EmailActions.Compose, OnCompose);
-            Dispatcher.Register(EmailActions.Reply, OnReply,
+            Dispatcher.Register(EmailActions.Compose, OnComposeAsync);
+            Dispatcher.Register(EmailActions.Reply, OnReplyAsync,
                 canExecute: () => View.HasSelection);
-            Dispatcher.Register(EmailActions.Forward, OnForward,
+            Dispatcher.Register(EmailActions.Forward, OnForwardAsync,
                 canExecute: () => View.HasSelection);
-            Dispatcher.Register(EmailActions.Delete, OnDelete,
+            Dispatcher.Register(EmailActions.Delete, OnDeleteAsync,
                 canExecute: () => View.HasSelection);
-            Dispatcher.Register(EmailActions.Refresh, OnRefresh);
+            Dispatcher.Register(EmailActions.Refresh, OnRefreshAsync);
 
             // Email status operations
-            Dispatcher.Register(EmailActions.MarkAsRead, OnMarkAsRead,
+            Dispatcher.Register(EmailActions.MarkAsRead, OnMarkAsReadAsync,
                 canExecute: () => View.HasSelection && View.SelectedEmail != null && !View.SelectedEmail.IsRead);
-            Dispatcher.Register(EmailActions.MarkAsUnread, OnMarkAsUnread,
+            Dispatcher.Register(EmailActions.MarkAsUnread, OnMarkAsUnreadAsync,
                 canExecute: () => View.HasSelection && View.SelectedEmail != null && View.SelectedEmail.IsRead);
-            Dispatcher.Register(EmailActions.ToggleStar, OnToggleStar,
+            Dispatcher.Register(EmailActions.ToggleStar, OnToggleStarAsync,
                 canExecute: () => View.HasSelection);
 
             // View operations
@@ -80,9 +87,14 @@ namespace WinformsMVP.Samples.EmailDemo
 
         protected override void OnInitialize()
         {
-            // Initial load of inbox
             View.CurrentFolder = EmailFolder.Inbox;
-            LoadEmailsAsync(_currentFolder);
+        }
+
+        protected override Task OnInitializeAsync(CancellationToken cancellationToken)
+        {
+            // Initial load of inbox — runs after OnInitialize without blocking the window;
+            // the token is cancelled if the window closes first.
+            return LoadEmailsAsync(_currentFolder, cancellationToken);
         }
 
         #region Event Handlers
@@ -100,7 +112,8 @@ namespace WinformsMVP.Samples.EmailDemo
                 // Automatically mark as read
                 if (!View.SelectedEmail.IsRead)
                 {
-                    _ = MarkEmailAsReadAsync(View.SelectedEmail.Id, true);  // Fire-and-forget
+                    // Fire-and-forget from an event handler: MarkEmailAsReadAsync handles its own errors.
+                    _ = MarkEmailAsReadAsync(View.SelectedEmail.Id, true);
                 }
             }
             else
@@ -113,14 +126,15 @@ namespace WinformsMVP.Samples.EmailDemo
         {
             _currentFolder = folder;
             View.CurrentFolder = folder;
-            LoadEmailsAsync(folder);
+            // Fire-and-forget from an event handler: LoadEmailsAsync handles its own errors.
+            _ = LoadEmailsAsync(folder, Lifetime);
         }
 
         #endregion
 
         #region Action Handlers
 
-        private void OnCompose()
+        private async Task OnComposeAsync()
         {
             var composePresenter = new ComposeEmailPresenter(_repository);
             var result = Navigator.ShowWindowAsModal<ComposeEmailPresenter, ComposeEmailParameters, bool>(
@@ -134,11 +148,11 @@ namespace WinformsMVP.Samples.EmailDemo
             {
                 // Email sent, refresh list
                 Messages.ShowInfo("Email sent successfully!", "Success");
-                LoadEmailsAsync(_currentFolder);
+                await LoadEmailsAsync(_currentFolder, Lifetime);
             }
         }
 
-        private void OnReply()
+        private async Task OnReplyAsync()
         {
             var originalEmail = View.SelectedEmail;
             if (originalEmail == null) return;
@@ -155,11 +169,11 @@ namespace WinformsMVP.Samples.EmailDemo
             if (result.IsOk && result.Value)
             {
                 Messages.ShowInfo("Reply sent successfully!", "Success");
-                LoadEmailsAsync(_currentFolder);
+                await LoadEmailsAsync(_currentFolder, Lifetime);
             }
         }
 
-        private void OnForward()
+        private async Task OnForwardAsync()
         {
             var originalEmail = View.SelectedEmail;
             if (originalEmail == null) return;
@@ -176,11 +190,11 @@ namespace WinformsMVP.Samples.EmailDemo
             if (result.IsOk && result.Value)
             {
                 Messages.ShowInfo("Email forwarded successfully!", "Success");
-                LoadEmailsAsync(_currentFolder);
+                await LoadEmailsAsync(_currentFolder, Lifetime);
             }
         }
 
-        private async void OnDelete()
+        private async Task OnDeleteAsync()
         {
             var email = View.SelectedEmail;
             if (email == null) return;
@@ -209,7 +223,7 @@ namespace WinformsMVP.Samples.EmailDemo
                 if (success)
                 {
                     Messages.ShowInfo("Email deleted.", "Success");
-                    LoadEmailsAsync(_currentFolder);
+                    await LoadEmailsAsync(_currentFolder, Lifetime);
                 }
                 else
                 {
@@ -226,12 +240,12 @@ namespace WinformsMVP.Samples.EmailDemo
             }
         }
 
-        private void OnRefresh()
+        private Task OnRefreshAsync(CancellationToken cancellationToken)
         {
-            LoadEmailsAsync(_currentFolder);
+            return LoadEmailsAsync(_currentFolder, cancellationToken);
         }
 
-        private async void OnMarkAsRead()
+        private async Task OnMarkAsReadAsync()
         {
             var email = View.SelectedEmail;
             if (email == null) return;
@@ -240,7 +254,7 @@ namespace WinformsMVP.Samples.EmailDemo
             Dispatcher.RaiseCanExecuteChanged();
         }
 
-        private async void OnMarkAsUnread()
+        private async Task OnMarkAsUnreadAsync()
         {
             var email = View.SelectedEmail;
             if (email == null) return;
@@ -249,7 +263,7 @@ namespace WinformsMVP.Samples.EmailDemo
             Dispatcher.RaiseCanExecuteChanged();
         }
 
-        private async void OnToggleStar()
+        private async Task OnToggleStarAsync()
         {
             var email = View.SelectedEmail;
             if (email == null) return;
@@ -259,7 +273,7 @@ namespace WinformsMVP.Samples.EmailDemo
             try
             {
                 await _repository.ToggleStarAsync(email.Id);
-                LoadEmailsAsync(_currentFolder);
+                await LoadEmailsAsync(_currentFolder, Lifetime);
             }
             catch (Exception ex)
             {
@@ -284,7 +298,11 @@ namespace WinformsMVP.Samples.EmailDemo
 
         #region Helper Methods
 
-        private async void LoadEmailsAsync(EmailFolder folder)
+        /// <summary>
+        /// Loads a folder into the view. Never faults: errors are shown to the user, and a load
+        /// cancelled because the window closed simply stops without touching the view.
+        /// </summary>
+        private async Task LoadEmailsAsync(EmailFolder folder, CancellationToken cancellationToken)
         {
             View.IsLoading = true;
             View.StatusMessage = "Loading emails...";
@@ -292,6 +310,8 @@ namespace WinformsMVP.Samples.EmailDemo
             try
             {
                 var emails = await _repository.GetEmailsByFolderAsync(folder);
+                if (cancellationToken.IsCancellationRequested) return;   // window closed meanwhile
+
                 var emailList = emails.ToList();
 
                 View.Emails = emailList;
@@ -314,12 +334,12 @@ namespace WinformsMVP.Samples.EmailDemo
             }
         }
 
-        private async System.Threading.Tasks.Task MarkEmailAsReadAsync(int emailId, bool isRead)
+        private async Task MarkEmailAsReadAsync(int emailId, bool isRead)
         {
             try
             {
                 await _repository.MarkAsReadAsync(emailId, isRead);
-                LoadEmailsAsync(_currentFolder);
+                await LoadEmailsAsync(_currentFolder, Lifetime);
             }
             catch (Exception ex)
             {

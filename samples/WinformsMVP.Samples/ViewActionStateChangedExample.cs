@@ -1,4 +1,6 @@
 using System;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using WinformsMVP.MVP.Views;
 using WinformsMVP.MVP.Presenters;
@@ -209,11 +211,19 @@ namespace WinformsMVP.Samples
     /// IMPORTANT:
     /// - Presenter has ZERO knowledge of Button, ProgressBar, or any UI elements
     /// - Uses BindActions() pattern for proper MVP separation
+    /// - The handler is an <c>async Task</c>: the dispatcher disables Start while it runs
+    ///   (repeated clicks are ignored) and re-queries every CanExecute when it starts and
+    ///   finishes, so no manual RaiseCanExecuteChanged() is needed around the await.
     /// </summary>
     public class AsyncOperationPresenter : WindowPresenterBase<IAsyncOperationView>
     {
         private readonly IMessageService _messageService;
+
+        // Needed only because a running Start must ENABLE another action (Cancel).
         private bool _isRunning;
+
+        // Linked with the handler's token: Cancel cancels it, and so does closing the window.
+        private CancellationTokenSource _operationCts;
 
         public AsyncOperationPresenter(IMessageService messageService)
         {
@@ -227,11 +237,10 @@ namespace WinformsMVP.Samples
 
         protected override void RegisterViewActions()
         {
-            // Start only enabled when not running
+            // Start: disabled automatically while it runs
             Dispatcher.Register(
                 AsyncOperationActions.StartOperation,
-                OnStartOperation,
-                canExecute: () => !_isRunning);
+                OnStartOperationAsync);
 
             // Cancel only enabled when running
             Dispatcher.Register(
@@ -247,41 +256,40 @@ namespace WinformsMVP.Samples
             _isRunning = false;
         }
 
-        private async void OnStartOperation()
+        private async Task OnStartOperationAsync(CancellationToken cancellationToken)
         {
-            // Start async operation
+            // Set before the first await: the dispatcher re-queries CanExecute right after the
+            // handler starts, which enables Cancel.
             _isRunning = true;
             View.IsOperationRunning = true;
-
-            // STATE-DRIVEN UPDATE:
-            // State changed (_isRunning = true), notify dispatcher
-            Dispatcher.RaiseCanExecuteChanged();
+            _operationCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
             try
             {
                 // Simulate async work
-                await System.Threading.Tasks.Task.Delay(3000);
+                await Task.Delay(3000, _operationCts.Token);
 
                 _messageService.ShowInfo("Operation completed");
             }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                // The user clicked Cancel (closing the window ends the action silently instead).
+                _messageService.ShowInfo("Operation cancelled");
+            }
             finally
             {
+                // Reset before the handler completes: the dispatcher re-queries CanExecute
+                // when it finishes, which disables Cancel again.
                 _isRunning = false;
                 View.IsOperationRunning = false;
-
-                // STATE-DRIVEN UPDATE:
-                // State changed back, notify dispatcher
-                Dispatcher.RaiseCanExecuteChanged();
+                _operationCts.Dispose();
+                _operationCts = null;
             }
         }
 
         private void OnCancelOperation()
         {
-            _isRunning = false;
-            View.IsOperationRunning = false;
-
-            // UI state automatically updates after action execution
-            _messageService.ShowInfo("Operation cancelled");
+            _operationCts?.Cancel();
         }
     }
 }
