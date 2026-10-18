@@ -28,5 +28,8 @@ namespace WinformsMVP.MVP.Presenters
 
         /// <summary>The attached view, or null.</summary>
         IViewBase AttachedView { get; }
+
+        /// <summary>Completes when <c>OnInitializeAsync</c> has finished (failures are logged, not faulted).</summary>
+        System.Threading.Tasks.Task InitializationTask { get; }
     }
 }

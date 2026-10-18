@@ -43,15 +43,20 @@ namespace WinformsMVP.Samples.Tests.Presenters
         }
 
         /// <summary>
-        /// Presenter whose Pull gate is asynchronous: it stores the <c>proceed</c> callback in
-        /// <see cref="Pending"/> instead of answering inline, so a test can drive the deferred
-        /// decision explicitly.
+        /// Presenter whose Pull gate is asynchronous: <c>CanCloseAsync</c> returns a pending task that
+        /// a test completes through <see cref="Pending"/>, driving the deferred decision explicitly.
         /// </summary>
         private sealed class AsyncPresenter : WindowPresenterBase<IFakeView>
         {
-            public Action<bool> Pending;
+            private System.Threading.Tasks.TaskCompletionSource<bool> _decision;
+            public Action<bool> Pending => ok => _decision.SetResult(ok);
             protected override void OnViewAttached() { }
-            protected override void CanClose(CloseReason reason, Action<bool> proceed) => Pending = proceed;
+            protected override System.Threading.Tasks.Task<bool> CanCloseAsync(CloseReason reason)
+            {
+                _decision = new System.Threading.Tasks.TaskCompletionSource<bool>(
+                    System.Threading.Tasks.TaskCreationOptions.RunContinuationsAsynchronously);
+                return _decision.Task;
+            }
         }
 
         /// <summary>
@@ -84,29 +89,29 @@ namespace WinformsMVP.Samples.Tests.Presenters
         #region Asynchronous Pull gate
 
         [Fact]
-        public void AsyncCanClose_DefersUntilProceed_ThenAllows()
+        public async System.Threading.Tasks.Task AsyncCanClose_DefersUntilProceed_ThenAllows()
         {
             var p = Attached<AsyncPresenter>(new FakeView());
-            bool? allow = null;
+            var answer = new System.Threading.Tasks.TaskCompletionSource<bool>();
 
-            ((ICloseParticipant)p).CanCloseGate(CloseReason.Normal, ok => allow = ok);
+            ((ICloseParticipant)p).CanCloseGate(CloseReason.Normal, ok => answer.TrySetResult(ok));
 
-            Assert.Null(allow);   // not answered yet — the gate deferred the decision
+            Assert.False(answer.Task.IsCompleted);   // not answered yet — the gate deferred the decision
             p.Pending(true);
-            Assert.True(allow);   // proceeds once the stored callback fires
+            Assert.True(await answer.Task);         // proceeds once the presenter's task completes
         }
 
         [Fact]
-        public void AsyncCanClose_DefersUntilProceed_ThenBlocks()
+        public async System.Threading.Tasks.Task AsyncCanClose_DefersUntilProceed_ThenBlocks()
         {
             var p = Attached<AsyncPresenter>(new FakeView());
-            bool? allow = null;
+            var answer = new System.Threading.Tasks.TaskCompletionSource<bool>();
 
-            ((ICloseParticipant)p).CanCloseGate(CloseReason.Normal, ok => allow = ok);
+            ((ICloseParticipant)p).CanCloseGate(CloseReason.Normal, ok => answer.TrySetResult(ok));
 
-            Assert.Null(allow);
+            Assert.False(answer.Task.IsCompleted);   // not answered yet — the gate deferred the decision
             p.Pending(false);
-            Assert.False(allow);  // blocks once the stored callback fires with false
+            Assert.False(await answer.Task);         // proceeds once the presenter's task completes
         }
 
         #endregion

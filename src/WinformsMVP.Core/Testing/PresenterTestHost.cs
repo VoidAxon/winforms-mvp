@@ -1,4 +1,5 @@
 using System;
+using System.Threading.Tasks;
 using WinformsMVP.Common;
 using WinformsMVP.MVP.Presenters;
 using WinformsMVP.MVP.Views;
@@ -87,6 +88,13 @@ namespace WinformsMVP.Testing
             }
         }
 
+        /// <summary>
+        /// Completes when the presenter's <c>OnInitializeAsync</c> has finished (failures are
+        /// logged by the presenter, not faulted). <c>await host.Initialized;</c> before asserting
+        /// on data loaded asynchronously.
+        /// </summary>
+        public Task Initialized => (_presenter as IViewAttachable)?.InitializationTask ?? Task.CompletedTask;
+
         /// <summary>True once the presenter called <c>RequestClose</c>.</summary>
         public bool CloseRequested => CloseCount > 0;
 
@@ -112,6 +120,21 @@ namespace WinformsMVP.Testing
             bool? decision = null;
             participant.CanCloseGate(reason, ok => decision = ok);
             return decision;
+        }
+
+        /// <summary>
+        /// Asks the presenter whether the window may close and awaits an asynchronous
+        /// <c>CanCloseAsync</c> answer.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">The presenter is not a window presenter.</exception>
+        public Task<bool> CanCloseAsync(CloseReason reason = CloseReason.Normal)
+        {
+            var participant = _presenter as ICloseParticipant
+                ?? throw new InvalidOperationException(
+                    _presenter.GetType().Name + " is not a window presenter; only window presenters have a close gate.");
+            var answer = new TaskCompletionSource<bool>();
+            participant.CanCloseGate(reason, ok => answer.TrySetResult(ok));
+            return answer.Task;
         }
 
         /// <summary>Disposes the presenter (runs <c>Cleanup</c> and releases <c>Disposables</c>).</summary>

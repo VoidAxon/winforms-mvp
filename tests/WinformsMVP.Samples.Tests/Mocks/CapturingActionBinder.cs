@@ -35,6 +35,13 @@ namespace WinformsMVP.Samples.Tests.Mocks
         /// <summary>Dispatches through the captured dispatcher — the same path a bound control uses.</summary>
         public void Dispatch(ViewAction action, object payload = null) => Captured().Dispatch(action, payload);
 
+        /// <summary>
+        /// Dispatches and returns a task that completes when the handler has finished — await it
+        /// for asynchronous handlers.
+        /// </summary>
+        public System.Threading.Tasks.Task DispatchAsync(ViewAction action, object payload = null)
+            => Captured().DispatchAsync(action, payload);
+
         /// <summary>Evaluates the action's CanExecute predicate through the captured dispatcher.</summary>
         public bool CanDispatch(ViewAction action) => Captured().CanDispatch(action);
 

@@ -25,7 +25,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
         {
             public bool Dirty;
             public bool CloseInInit;
-            public Action<Action<bool>> AsyncGate;
+            public System.Threading.Tasks.Task<bool> AsyncGate;
             public bool Disposed;
 
             protected override void OnViewAttached() { }
@@ -36,10 +36,8 @@ namespace WinformsMVP.Samples.Tests.Presenters
                 if (CloseInInit) RequestClose(InteractionStatus.Cancel);
             }
             protected override bool CanClose(CloseReason reason) => !Dirty || reason == CloseReason.SystemShutdown;
-            protected override void CanClose(CloseReason reason, Action<bool> proceed)
-            {
-                if (AsyncGate != null) AsyncGate(proceed); else base.CanClose(reason, proceed);
-            }
+            protected override System.Threading.Tasks.Task<bool> CanCloseAsync(CloseReason reason)
+                => AsyncGate ?? base.CanCloseAsync(reason);
             protected override void Cleanup() => Disposed = true;
         }
 
@@ -93,7 +91,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
         [Fact]
         public void CanClose_PendingAsyncAnswer_ReturnsNull()
         {
-            var host = PresenterTestHost.Start(new EditPresenter { AsyncGate = _ => { } }, new EditView());
+            var host = PresenterTestHost.Start(new EditPresenter { AsyncGate = new System.Threading.Tasks.TaskCompletionSource<bool>().Task }, new EditView());
             Assert.Null(host.CanClose());
         }
 

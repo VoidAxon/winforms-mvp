@@ -1,4 +1,6 @@
 using System;
+using System.Threading;
+using System.Threading.Tasks;
 using WinformsMVP.Common;
 using WinformsMVP.Logging;
 using WinformsMVP.Common.Events;
@@ -20,10 +22,21 @@ namespace WinformsMVP.MVP.Presenters
         private IServiceProvider _serviceProvider;
         private bool _initialized;
 
+        // Cancelled first thing in Dispose: ends asynchronous action handlers and
+        // OnInitializeAsync when the presenter (its window / control) goes away.
+        private readonly CancellationTokenSource _lifetime = new CancellationTokenSource();
+
         protected PresenterBase()
         {
-            _dispatcher = new ViewActionDispatcher();
+            _dispatcher = new ViewActionDispatcher { Lifetime = _lifetime.Token };
         }
+
+        /// <summary>
+        /// Cancelled when the presenter is disposed (its window closed / control disposed). Pass it
+        /// to asynchronous work that should stop with the presenter. Asynchronous action handlers
+        /// and <see cref="OnInitializeAsync"/> receive it automatically.
+        /// </summary>
+        protected CancellationToken Lifetime => _lifetime.Token;
 
         /// <summary>
         /// Overrides the service provider for this presenter (tests / scoped composition).
@@ -100,6 +113,7 @@ namespace WinformsMVP.MVP.Presenters
         void IViewAttachable.AttachView(IViewBase view) => SetView((TView)view);
         bool IViewAttachable.IsViewAttached => View != null;
         bool IViewAttachable.IsInitialized => _initialized;
+        Task IViewAttachable.InitializationTask => _initializationTask;
         IViewBase IViewAttachable.AttachedView => View;
 
         /// <summary>
@@ -153,7 +167,54 @@ namespace WinformsMVP.MVP.Presenters
                 actionable.ActionBinder?.Bind(_dispatcher);
 
             onInitialize();
+            _initializationTask = RunInitializeAsync();
         }
+
+        private Task _initializationTask = Task.CompletedTask;
+
+        /// <summary>
+        /// Asynchronous part of initialization (e.g. loading data), started right after
+        /// <c>OnInitialize</c>; the window is shown without waiting for it. The token is
+        /// <see cref="Lifetime"/>. A failure is logged — handle expected errors (show a message,
+        /// fill an error state) inside the override. Cancellation caused by the presenter being
+        /// disposed is silent.
+        /// </summary>
+        protected virtual Task OnInitializeAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+        private Task RunInitializeAsync()
+        {
+            Task pending;
+            try
+            {
+                pending = OnInitializeAsync(_lifetime.Token) ?? Task.CompletedTask;
+            }
+            catch (Exception ex)
+            {
+                LogInitializeFailure(ex);
+                return Task.CompletedTask;
+            }
+            if (pending.Status == TaskStatus.RanToCompletion) return pending;
+            return ObserveInitializeAsync(pending);
+        }
+
+        private async Task ObserveInitializeAsync(Task pending)
+        {
+            try
+            {
+                await pending;
+            }
+            catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
+            {
+                // The presenter went away while loading: nothing to report.
+            }
+            catch (Exception ex)
+            {
+                LogInitializeFailure(ex);
+            }
+        }
+
+        private void LogInitializeFailure(Exception ex)
+            => Logger.LogError(ex, "{Presenter}.OnInitializeAsync failed", GetType().Name);
 
         public Type ViewInterfaceType => typeof(TView);
 
@@ -254,6 +315,8 @@ namespace WinformsMVP.MVP.Presenters
             if (_isDisposed) return;
             // Mark first so a re-entrant Dispose (from inside Cleanup) is a no-op.
             _isDisposed = true;
+            try { _lifetime.Cancel(); }
+            catch (AggregateException ex) { Logger.LogError(ex, "A Lifetime cancellation callback threw"); }
             try
             {
                 // User teardown first (presenter state still intact), then the framework sweeps the

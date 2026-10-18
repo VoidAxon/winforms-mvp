@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Threading.Tasks;
+using WinformsMVP.Logging;
 using WinformsMVP.Common;
 using WinformsMVP.MVP.Views;
 
@@ -28,14 +30,15 @@ namespace WinformsMVP.MVP.Presenters
         protected virtual bool CanClose(CloseReason reason) => true;
 
         /// <summary>
-        /// Pull gate (asynchronous). Override when the decision needs a callback (async save /
-        /// server check). Call <paramref name="proceed"/>(true) to allow, (false) to block — from
-        /// inside a continuation, on any thread (the framework marshals back to the UI thread).
-        /// While an answer is pending, further close attempts are held off rather than asking
-        /// again. Default forwards to the synchronous <see cref="CanClose(CloseReason)"/>.
+        /// Pull gate (asynchronous). Override when the decision needs to await something (a save,
+        /// a server check, an async confirmation). Default returns the synchronous
+        /// <see cref="CanClose(CloseReason)"/>. While the task is pending the window stays open and
+        /// further close attempts are held off, except system shutdown / Task Manager closes. If
+        /// the task faults, the close is blocked (system-level closes are still allowed) and the
+        /// error is logged.
         /// </summary>
-        protected virtual void CanClose(CloseReason reason, Action<bool> proceed)
-            => proceed(CanClose(reason));
+        protected virtual Task<bool> CanCloseAsync(CloseReason reason)
+            => Task.FromResult(CanClose(reason));
 
         /// <summary>Push a close with no business result.</summary>
         protected void RequestClose(InteractionStatus status = InteractionStatus.Ok)
@@ -87,6 +90,28 @@ namespace WinformsMVP.MVP.Presenters
             }
         }
         void ICloseParticipant.CanCloseGate(CloseReason reason, Action<bool> proceed)
-            => CanClose(reason, proceed);
+        {
+            // A synchronous throw from CanCloseAsync itself propagates: the framework blocks the
+            // close and logs it. A faulted task is answered here, the same way, whenever it faults.
+            var decision = CanCloseAsync(reason) ?? Task.FromResult(true);
+            if (decision.IsCompleted)
+            {
+                proceed(Decide(decision, reason));
+                return;
+            }
+
+            // The framework marshals proceed back to the UI thread.
+            decision.ContinueWith(t => proceed(Decide(t, reason)), TaskScheduler.Default);
+        }
+
+        private bool Decide(Task<bool> completed, CloseReason reason)
+        {
+            if (completed.Status == TaskStatus.RanToCompletion)
+                return completed.Result;
+            if (completed.IsFaulted)
+                Logger.LogError(completed.Exception, "{Presenter}.CanCloseAsync failed; blocking the close", GetType().Name);
+            // Faulted or cancelled: block, but never a system-level close.
+            return reason == CloseReason.SystemShutdown || reason == CloseReason.TaskManager;
+        }
     }
 }

@@ -35,12 +35,22 @@ namespace WinformsMVP.MVP.ViewActions
         public Type ExpectedPayloadType { get; }
 
         /// <summary>
-        /// <c>true</c> once the registered handler has actually been invoked. Middleware
+        /// <c>true</c> once the registered handler has actually been invoked (for an asynchronous
+        /// handler: once it has started; see <see cref="Completion"/>). Middleware
         /// can inspect this in <c>finally</c> blocks to know whether the dispatch reached
         /// the terminal step (for example, whether to record an audit entry as "executed"
         /// vs "short-circuited").
         /// </summary>
         public bool HandlerExecuted { get; internal set; }
+
+        /// <summary>
+        /// For an asynchronous handler, the task that completes when the handler finishes; for a
+        /// synchronous handler, a completed task. Middleware runs around the handler's synchronous
+        /// part only — observe this to time or audit the whole asynchronous operation. A failure
+        /// after the first <c>await</c> is logged by the dispatcher, not surfaced through
+        /// <see cref="Exception"/> (middleware has already returned by then).
+        /// </summary>
+        public System.Threading.Tasks.Task Completion { get; internal set; } = System.Threading.Tasks.Task.CompletedTask;
 
         /// <summary>
         /// The exception thrown by the handler, if any. Set by the framework's built-in
@@ -52,12 +62,17 @@ namespace WinformsMVP.MVP.ViewActions
 
         internal IViewActionHandler Handler { get; }
 
+        /// <summary>The token passed to an asynchronous handler (cancelled when the owner is disposed).</summary>
+        public System.Threading.CancellationToken CancellationToken { get; }
+
         internal DispatchContext(
             ViewAction action,
             object payload,
             Type expectedPayloadType,
-            IViewActionHandler handler)
+            IViewActionHandler handler,
+            System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
+            CancellationToken = cancellationToken;
             Action = action;
             Payload = payload;
             ExpectedPayloadType = expectedPayloadType;
