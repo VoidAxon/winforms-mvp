@@ -50,12 +50,13 @@ namespace WinformsMVP.Common.Validation
         /// <inheritdoc />
         public void ShowErrors(IReadOnlyDictionary<string, IReadOnlyList<string>> errors, bool revealAll)
         {
-            // revealAll only goes back to false through ValidationState.Reset: start over.
-            if (_revealAll && !revealAll) _visited.Clear();
             _errors = errors ?? None;
             _revealAll = revealAll;
             Render();
         }
+
+        /// <inheritdoc />
+        public void Reset() => _visited.Clear();
 
         /// <summary>Shows <paramref name="message"/> on <paramref name="control"/>; an empty message clears it.</summary>
         protected abstract void SetControlError(Control control, string message);

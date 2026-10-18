@@ -30,6 +30,9 @@ namespace WinformsMVP.Common.Validation.Core
         /// <summary>Raised after the errors or <see cref="RevealAll"/> changed.</summary>
         public event EventHandler ErrorsChanged;
 
+        /// <summary>Raised by <see cref="Reset"/>, before <see cref="ErrorsChanged"/>, so displays forget visited fields.</summary>
+        public event EventHandler WasReset;
+
         /// <summary>True when any rule fails, whether or not the error is displayed yet.</summary>
         public bool HasErrors => _modelErrors.Count > 0 || _customErrors.Count > 0;
 
@@ -121,10 +124,11 @@ namespace WinformsMVP.Common.Validation.Core
         /// <summary>Clears all errors and goes back to showing only visited fields (e.g. after Reset / New).</summary>
         public void Reset()
         {
-            if (!HasErrors && !_revealAll) return;
+            // Always signalled, even when already clean: the display still has to forget visits.
             _modelErrors = new Dictionary<string, List<string>>();
             _customErrors.Clear();
             _revealAll = false;
+            WasReset?.Invoke(this, EventArgs.Empty);
             OnChanged();
         }
 

@@ -121,6 +121,9 @@ namespace WinformsMVP.Samples.Tests.Common
             public IReadOnlyDictionary<string, IReadOnlyList<string>> Errors;
             public bool RevealAll;
             public int Calls;
+            public int Resets;
+
+            public void Reset() => Resets++;
 
             public void ShowErrors(IReadOnlyDictionary<string, IReadOnlyList<string>> errors, bool revealAll)
             {
@@ -269,20 +272,40 @@ namespace WinformsMVP.Samples.Tests.Common
         }
 
         [Fact]
-        public void ErrorProvider_Reset_ForgetsVisitedFields()
+        public void ErrorProvider_Reset_ForgetsVisitedFields_EvenWithoutASubmit()
         {
             using (var provider = new ErrorProvider())
             using (var txtName = new TextBox())
             {
                 var display = new ErrorProviderDisplay(provider).Map(nameof(Customer.Name), txtName);
                 var errors = Errors((nameof(Customer.Name), "Name is required."));
-                Leave(txtName);
-                display.ShowErrors(errors, revealAll: true);
+                Leave(txtName);   // visited, no submit yet
 
-                display.ShowErrors(errors, revealAll: false);   // ValidationState.Reset, then a new error
+                display.Reset();  // "New record"
+                display.ShowErrors(errors, revealAll: false);
 
                 Assert.Equal("", provider.GetError(txtName));
             }
+        }
+
+        [Fact]
+        public void ValidationStateReset_ReachesTheViewDisplay_EvenWhenAlreadyClean()
+        {
+            var view = new CustomerView();
+            var presenter = new ResettingPresenter();
+            PresenterTestHost.Start(presenter, view);
+
+            view.Binder.Dispatch(New);
+
+            Assert.Equal(1, view.Display.Resets);
+        }
+
+        private static readonly ViewAction New = ViewAction.Create("ValidationDisplay.New");
+
+        private sealed class ResettingPresenter : WindowPresenterBase<ICustomerView>
+        {
+            protected override void OnViewAttached() { }
+            protected override void RegisterViewActions() => Dispatcher.Register(New, () => Validation.Reset());
         }
 
         [Fact]

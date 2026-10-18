@@ -16,5 +16,11 @@ namespace WinformsMVP.Common.Validation.Core
         /// only fields the user has already visited; when true (after a submit attempt) it shows all.
         /// </summary>
         void ShowErrors(IReadOnlyDictionary<string, IReadOnlyList<string>> errors, bool revealAll);
+
+        /// <summary>
+        /// Called by <see cref="ValidationState.Reset"/> (a new record / cleared form): forget which
+        /// fields the user has visited. <see cref="ShowErrors"/> follows with the cleared state.
+        /// </summary>
+        void Reset();
     }
 }

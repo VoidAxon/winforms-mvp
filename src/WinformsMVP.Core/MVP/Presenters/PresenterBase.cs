@@ -178,8 +178,14 @@ namespace WinformsMVP.MVP.Presenters
                 display?.ShowErrors(_validation.Errors, _validation.RevealAll);
                 _dispatcher.RaiseCanExecuteChanged();
             };
+            EventHandler onReset = (s, e) => display?.Reset();
             _validation.ErrorsChanged += onChanged;
-            Disposables.Add(Disposable.Create(() => _validation.ErrorsChanged -= onChanged));
+            _validation.WasReset += onReset;
+            Disposables.Add(Disposable.Create(() =>
+            {
+                _validation.ErrorsChanged -= onChanged;
+                _validation.WasReset -= onReset;
+            }));
             display?.ShowErrors(_validation.Errors, _validation.RevealAll);
         }
 
