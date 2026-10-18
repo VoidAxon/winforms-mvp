@@ -107,6 +107,28 @@ namespace WinformsMVP.Samples.Tests.ViewActions
         }
 
         [Fact]
+        public async Task MiddlewareThrowsAfterStartingAsyncHandler_HandlerIsStillTracked()
+        {
+            var dispatcher = new ViewActionDispatcher();
+            var gate = new TaskCompletionSource<bool>();
+            int runs = 0, executed = 0;
+            dispatcher.Register(Save, () => { runs++; return (Task)gate.Task; });
+            dispatcher.Use((ctx, next) => { next(ctx); throw new InvalidOperationException("audit failed"); });
+            dispatcher.ActionExecuted += (s, e) => executed++;
+
+            var dispatch = dispatcher.DispatchAsync(Save);
+            Assert.False(dispatch.IsCompleted);            // still awaiting the handler
+            dispatcher.Dispatch(Save);                     // repeat while running: ignored
+            Assert.Equal(1, runs);
+
+            gate.SetResult(true);
+            await dispatch;
+
+            Assert.True(dispatcher.CanDispatch(Save));
+            Assert.Equal(0, executed);                     // the dispatch failed overall
+        }
+
+        [Fact]
         public void SyncHandler_DispatchAsync_IsAlreadyComplete()
         {
             var dispatcher = new ViewActionDispatcher();

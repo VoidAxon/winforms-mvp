@@ -386,25 +386,31 @@ namespace WinformsMVP.MVP.ViewActions
         /// or one that already completed finishes inline; otherwise the action stays "running"
         /// (CanDispatch = false) until the task completes, on the dispatching thread's context.
         /// </summary>
-        private Task Complete(ViewAction actionKey, ActionHandlerEntry entry, Task pending, DispatchContext context)
+        /// <param name="succeeded">False when the dispatch already failed around a handler that did
+        /// start (a middleware threw after calling next): the handler is still tracked to its end,
+        /// but no ActionExecuted is raised.</param>
+        private Task Complete(ViewAction actionKey, ActionHandlerEntry entry, Task pending, DispatchContext context,
+            bool succeeded = true)
         {
             if (pending == null)
             {
-                ActionExecuted?.Invoke(this, new ActionExecutedEventArgs(actionKey));
+                if (succeeded) ActionExecuted?.Invoke(this, new ActionExecutedEventArgs(actionKey));
+                else CanExecuteChanged?.Invoke(this, EventArgs.Empty);
                 return Task.CompletedTask;
             }
 
             if (pending.IsCompleted)
             {
-                Finish(actionKey, entry, pending, context);
+                Finish(actionKey, entry, pending, context, succeeded);
                 return Task.CompletedTask;
             }
 
             CanExecuteChanged?.Invoke(this, EventArgs.Empty);   // the action is now running: disable it
-            return AwaitHandler(actionKey, entry, pending, context);
+            return AwaitHandler(actionKey, entry, pending, context, succeeded);
         }
 
-        private async Task AwaitHandler(ViewAction actionKey, ActionHandlerEntry entry, Task pending, DispatchContext context)
+        private async Task AwaitHandler(ViewAction actionKey, ActionHandlerEntry entry, Task pending, DispatchContext context,
+            bool succeeded)
         {
             try
             {
@@ -414,15 +420,21 @@ namespace WinformsMVP.MVP.ViewActions
             {
                 // Observed and reported in Finish.
             }
-            Finish(actionKey, entry, pending, context);
+            Finish(actionKey, entry, pending, context, succeeded);
         }
 
-        private void Finish(ViewAction actionKey, ActionHandlerEntry entry, Task completed, DispatchContext context)
+        private void Finish(ViewAction actionKey, ActionHandlerEntry entry, Task completed, DispatchContext context,
+            bool succeeded)
         {
             entry.IsRunning = false;
 
             if (completed.Status == TaskStatus.RanToCompletion)
             {
+                if (!succeeded)
+                {
+                    CanExecuteChanged?.Invoke(this, EventArgs.Empty);
+                    return;
+                }
                 ActionExecuted?.Invoke(this, new ActionExecutedEventArgs(actionKey));
                 return;
             }
@@ -481,6 +493,11 @@ namespace WinformsMVP.MVP.ViewActions
                 return Complete(actionKey, entry,
                     entry.Handler.IsAsync ? completion : null, context);
             }
+
+            // A middleware failed after an asynchronous handler started: keep tracking the handler
+            // (it is still running, must stay disabled, and its own failure must be observed).
+            if (context.HandlerExecuted && entry.Handler.IsAsync)
+                return Complete(actionKey, entry, context.Completion, context, succeeded: false);
 
             entry.IsRunning = false;
             if (context.Exception != null)
