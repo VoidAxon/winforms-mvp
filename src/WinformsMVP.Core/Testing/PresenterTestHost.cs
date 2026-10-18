@@ -59,17 +59,27 @@ namespace WinformsMVP.Testing
             if (presenter == null) throw new ArgumentNullException(nameof(presenter));
             if (view == null) throw new ArgumentNullException(nameof(view));
 
+            // A presenter that is already hosted is rejected before the dispose-on-failure guard:
+            // it may still be serving another view.
+            if (presenter is IViewAttachable attachable && attachable.IsViewAttached)
+                throw new InvalidOperationException(
+                    presenter.GetType().Name + " already has a view attached; start a new presenter instance.");
+
             var host = new PresenterTestHost(presenter);
-            presenter.AttachView(view);
-            // Bound before Initialize, as the framework does, so a RequestClose made in
-            // OnInitialize is recorded too.
-            (presenter as ICloseParticipant)?.BindCloseSink(new RecordingSink(host));
+            Run(presenter, () =>
+            {
+                presenter.AttachView(view);
+                // Bound before Initialize, as the framework does, so a RequestClose made in
+                // OnInitialize is recorded too.
+                (presenter as ICloseParticipant)?.BindCloseSink(new RecordingSink(host));
+            });
             return host;
         }
 
-        private static void Run(IPresenter presenter, Action initialize)
+        // A presenter whose attach/initialize failed can never run: dispose it and rethrow.
+        private static void Run(IPresenter presenter, Action step)
         {
-            try { initialize(); }
+            try { step(); }
             catch
             {
                 presenter.Dispose();

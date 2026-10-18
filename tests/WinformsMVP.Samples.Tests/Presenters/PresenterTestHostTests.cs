@@ -133,6 +133,31 @@ namespace WinformsMVP.Samples.Tests.Presenters
             protected override void Cleanup() => Disposed = true;
         }
 
+        private sealed class FailingAttachPresenter : ControlPresenterBase<IPanelView>
+        {
+            public bool Disposed;
+            protected override void OnViewAttached() => throw new InvalidOperationException("attach");
+            protected override void Cleanup() => Disposed = true;
+        }
+
+        [Fact]
+        public void Start_OnViewAttachedThrows_DisposesAndRethrows()
+        {
+            var presenter = new FailingAttachPresenter();
+            Assert.Throws<InvalidOperationException>(() => PresenterTestHost.Start(presenter, new PanelView()));
+            Assert.True(presenter.Disposed);
+        }
+
+        [Fact]
+        public void Start_AlreadyHostedPresenter_ThrowsWithoutDisposing()
+        {
+            var presenter = new EditPresenter();
+            PresenterTestHost.Start(presenter, new EditView());
+
+            Assert.Throws<InvalidOperationException>(() => PresenterTestHost.Start(presenter, new EditView()));
+            Assert.False(presenter.Disposed);
+        }
+
         [Fact]
         public void Start_InitializeThrows_DisposesAndRethrows()
         {
