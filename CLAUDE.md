@@ -252,7 +252,7 @@ Validate early; catch specific exceptions before generic ones; never silently sw
 
 ### Change tracking (`ChangeTracker<T>`)
 
-`where T : class`; `ICloneable` is optional. Snapshot resolution: `ICloneable.Clone()` → `ChangeTrackerDefaults.Cloner` (default reflection deep copy). Comparison: ctor `comparer` → `IEquatable<T>`/`Equals` → `ChangeTrackerDefaults.Comparer`. Plug a third-party deep-cloner once at startup via `ChangeTrackerDefaults.Cloner`.
+`where T : class`; `ICloneable` is optional. Snapshot resolution: `ICloneable.Clone()` → `ChangeTrackerDefaults.Cloner` (default reflection deep copy). Comparison: ctor `comparer` → `ChangeTrackerDefaults.Comparer` (default `ObjectComparer.ContentEquals`). `T`'s own `Equals`/`IEquatable` is deliberately ignored — entity equality is usually "same Id", which would hide edits and skip the save prompt; pass a comparer to opt in. `ContentEquals` trusts `Equals` only for value types and `System.*`/`Microsoft.*` types and compares application reference types field by field at every depth (`ObjectComparer.DeepEquals` still respects every `Equals`). Plug a third-party deep-cloner once at startup via `ChangeTrackerDefaults.Cloner`.
 
 Key API: `CurrentValue`, `IsChanged` (computed on each read — in-place edits through `CurrentValue` are seen), `AcceptChanges()`, `RejectChanges()`, `IsChangedChanged` event (raised outside the internal lock). Used in the window-closing dirty-check pattern. See [wiki/Reference-ChangeTracker.md](wiki/Reference-ChangeTracker.md).
 

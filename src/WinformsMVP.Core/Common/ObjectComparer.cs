@@ -7,9 +7,11 @@ using WinformsMVP.Common.Internal;
 namespace WinformsMVP.Common
 {
     /// <summary>
-    /// Pragmatic reflection-based deep comparison. Serves as the default implementation for
-    /// <see cref="ChangeTrackerDefaults"/> and can also be called directly.
-    /// Leaf nodes respect Equals/IEquatable; collections are compared structurally; cycle-safe.
+    /// Pragmatic reflection-based deep comparison; collections are compared structurally; cycle-safe.
+    /// <see cref="DeepEquals(object, object)"/> respects every type's Equals/IEquatable.
+    /// <see cref="ContentEquals(object, object)"/> — the <see cref="ChangeTrackerDefaults"/> default —
+    /// trusts Equals only where it means "same value", so identity-style entity equality
+    /// (e.g. "same Id") cannot hide an edit.
     /// </summary>
     public static class ObjectComparer
     {
@@ -17,10 +19,45 @@ namespace WinformsMVP.Common
 
         public static bool DeepEquals(object a, object b)
         {
-            return AreEqual(a, b, new HashSet<RefPair>());
+            return AreEqual(a, b, new Visited(contentMode: false));
         }
 
-        private static bool AreEqual(object a, object b, HashSet<RefPair> visited)
+        public static bool ContentEquals<T>(T a, T b) => ContentEquals((object)a, (object)b);
+
+        /// <summary>
+        /// Compares by content: a custom Equals/IEquatable is used only for value types and framework
+        /// (<c>System.*</c>) types. Application reference types — typically entities whose Equals
+        /// compares an Id — are compared field by field, at every depth, so changing
+        /// <c>Order.Customer.Name</c> is detected even when <c>Customer.Equals</c> compares Ids.
+        /// </summary>
+        public static bool ContentEquals(object a, object b)
+        {
+            return AreEqual(a, b, new Visited(contentMode: true));
+        }
+
+        // Cycle-detection set that also carries the comparison mode down the recursion.
+        private sealed class Visited : HashSet<RefPair>
+        {
+            public readonly bool ContentMode;
+            public Visited(bool contentMode) { ContentMode = contentMode; }
+            public Visited(Visited source) : base(source) { ContentMode = source.ContentMode; }
+        }
+
+        private static bool TrustsEquals(Type type, Visited visited)
+        {
+            if (DeepReflection.IsImmutable(type)) return true;
+            if (!DeepReflection.HasCustomEquals(type)) return false;
+            return !visited.ContentMode || type.IsValueType || IsFrameworkType(type);
+        }
+
+        private static bool IsFrameworkType(Type type)
+        {
+            var ns = type.Namespace;
+            return ns != null && (ns == "System" || ns.StartsWith("System.", StringComparison.Ordinal)
+                               || ns.StartsWith("Microsoft.", StringComparison.Ordinal));
+        }
+
+        private static bool AreEqual(object a, object b, Visited visited)
         {
             if (ReferenceEquals(a, b)) return true;
             if (a == null || b == null) return false;
@@ -28,7 +65,7 @@ namespace WinformsMVP.Common
             var type = a.GetType();
             if (type != b.GetType()) return false;
 
-            if (DeepReflection.IsImmutable(type) || DeepReflection.HasCustomEquals(type))
+            if (TrustsEquals(type, visited))
                 return a.Equals(b);
 
             if (a is Delegate) return true;   // ignore delegates / events
@@ -59,7 +96,7 @@ namespace WinformsMVP.Common
             return PocoEquals(a, b, type, visited);
         }
 
-        private static bool ArrayEquals(Array a, Array b, HashSet<RefPair> visited)
+        private static bool ArrayEquals(Array a, Array b, Visited visited)
         {
             if (a.Rank != b.Rank || a.Length != b.Length) return false;
             if (a.Rank != 1)
@@ -69,7 +106,7 @@ namespace WinformsMVP.Common
             return true;
         }
 
-        private static bool DictionaryEquals(IDictionary a, IDictionary b, HashSet<RefPair> visited)
+        private static bool DictionaryEquals(IDictionary a, IDictionary b, Visited visited)
         {
             if (a.Count != b.Count) return false;
             foreach (DictionaryEntry entry in a)
@@ -80,7 +117,7 @@ namespace WinformsMVP.Common
             return true;
         }
 
-        private static bool ListEquals(IList a, IList b, HashSet<RefPair> visited)
+        private static bool ListEquals(IList a, IList b, Visited visited)
         {
             if (a.Count != b.Count) return false;
             for (int i = 0; i < a.Count; i++)
@@ -89,7 +126,7 @@ namespace WinformsMVP.Common
         }
 
         // Ordered collections (Queue, Stack, LinkedList, ...): element-by-element in enumeration order.
-        private static bool SequenceEquals(IEnumerable a, IEnumerable b, HashSet<RefPair> visited)
+        private static bool SequenceEquals(IEnumerable a, IEnumerable b, Visited visited)
         {
             var ea = a.GetEnumerator();
             var eb = b.GetEnumerator();
@@ -106,13 +143,13 @@ namespace WinformsMVP.Common
         // Equals) use b's own comparer. Reference-identity elements would never match a deep copy
         // that way, so they are paired structurally — each element of a with a distinct, deeply
         // equal element of b (O(n²), fine for model-sized sets).
-        private static bool SetEquals(IEnumerable a, object b, Type elementType, HashSet<RefPair> visited)
+        private static bool SetEquals(IEnumerable a, object b, Type elementType, Visited visited)
         {
             var collectionType = typeof(ICollection<>).MakeGenericType(elementType);
             var count = collectionType.GetProperty("Count");
             if ((int)count.GetValue(a, null) != (int)count.GetValue(b, null)) return false;
 
-            if (!UsesReferenceIdentity(b, elementType))
+            if (!UsesReferenceIdentity(b, elementType, visited))
             {
                 var contains = collectionType.GetMethod("Contains");
                 foreach (var item in a)
@@ -128,7 +165,7 @@ namespace WinformsMVP.Common
                 for (int i = 0; i < unmatched.Count && match < 0; i++)
                 {
                     // A failed trial must not leave "assumed equal" pairs behind in `visited`.
-                    var trial = new HashSet<RefPair>(visited);
+                    var trial = new Visited(visited);
                     if (AreEqual(item, unmatched[i], trial))
                     {
                         match = i;
@@ -144,9 +181,9 @@ namespace WinformsMVP.Common
         // Membership is reference identity only when the set uses the default equality comparer
         // and the element type has no value equality of its own. An explicit comparer (e.g. a
         // case-insensitive name comparer) or a SortedSet's IComparer defines membership itself.
-        private static bool UsesReferenceIdentity(object set, Type elementType)
+        private static bool UsesReferenceIdentity(object set, Type elementType, Visited visited)
         {
-            if (DeepReflection.IsImmutable(elementType) || DeepReflection.HasCustomEquals(elementType))
+            if (TrustsEquals(elementType, visited))
                 return false;
             var comparer = set.GetType().GetProperty("Comparer")?.GetValue(set, null);
             if (comparer == null) return true;
@@ -155,7 +192,7 @@ namespace WinformsMVP.Common
             return Equals(comparer, defaultComparer);
         }
 
-        private static bool PocoEquals(object a, object b, Type type, HashSet<RefPair> visited)
+        private static bool PocoEquals(object a, object b, Type type, Visited visited)
         {
             foreach (var field in DeepReflection.GetFields(type))
             {

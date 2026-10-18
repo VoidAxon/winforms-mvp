@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using WinformsMVP.Common.Helpers;
 
 namespace WinformsMVP.Common
 {
@@ -17,9 +16,11 @@ namespace WinformsMVP.Common
     /// (default = built-in reflection deep copy in <see cref="ObjectCloner"/>).
     /// </para>
     /// <para>
-    /// Comparison resolution order: an explicit comparer argument wins; otherwise if T has value
-    /// equality (IEquatable&lt;T&gt;/IComparable&lt;T&gt;/Equals override) it is used; otherwise the
-    /// global <see cref="ChangeTrackerDefaults.Comparer"/> hook is used (default = reflection deep compare).
+    /// Comparison: an explicit comparer argument wins; otherwise the global
+    /// <see cref="ChangeTrackerDefaults.Comparer"/> hook is used (default =
+    /// <see cref="ObjectComparer.ContentEquals(object, object)"/>). T's own Equals/IEquatable is
+    /// deliberately not consulted: entity types commonly define equality as "same Id", which would
+    /// report an edited entity as unchanged and skip the save prompt. Pass a comparer to opt in.
     /// </para>
     /// <para>
     /// To plug in a third-party deep-copy library, set the hook once at startup, e.g.
@@ -89,9 +90,8 @@ namespace WinformsMVP.Common
         /// Initializes a ChangeTracker with the specified initial value.
         /// </summary>
         /// <param name="initialValue">The initial value to start tracking.</param>
-        /// <param name="comparer">Custom comparison function for values. If null, the comparer is resolved
-        /// from T: value equality (IEquatable&lt;T&gt;/IComparable&lt;T&gt;/Equals override) uses EqualityHelper,
-        /// otherwise the global ChangeTrackerDefaults.Comparer deep-compare hook is used.</param>
+        /// <param name="comparer">Custom comparison function for values. If null, the global
+        /// ChangeTrackerDefaults.Comparer content-compare hook is used.</param>
         /// <exception cref="ArgumentNullException">When initialValue is null.</exception>
         /// <remarks>
         /// The clone and comparer strategies are resolved once at construction time based on
@@ -266,23 +266,7 @@ namespace WinformsMVP.Common
             return v => (T)ChangeTrackerDefaults.Cloner(v);
         }
 
-        // Comparer resolution: if T has value equality (IEquatable/IComparable/Equals override), use EqualityHelper;
-        // otherwise fall back to the global deep-compare hook.
         private static Func<T, T, bool> BuildComparerFunc()
-        {
-            if (HasValueEquality(typeof(T)))
-                return EqualityHelper.Equals;
-            return (a, b) => ChangeTrackerDefaults.Comparer(a, b);
-        }
-
-        // Returns true if T has meaningful equality semantics: IEquatable<T>, IComparable<T>,
-        // or an Equals(object) override (not inherited from object/ValueType).
-        private static bool HasValueEquality(Type t)
-        {
-            if (typeof(IEquatable<T>).IsAssignableFrom(t)) return true;
-            if (typeof(IComparable<T>).IsAssignableFrom(t)) return true;
-            var m = t.GetMethod("Equals", new[] { typeof(object) });
-            return m != null && m.DeclaringType != typeof(object);
-        }
+            => (a, b) => ChangeTrackerDefaults.Comparer(a, b);
     }
 }

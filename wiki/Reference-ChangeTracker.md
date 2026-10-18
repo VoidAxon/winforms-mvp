@@ -30,7 +30,7 @@ public class ChangeTracker<T> where T : class
 
 - **`T : class`** — 参照型のみ対応
 - **`ICloneable` の実装は任意** — 推奨はされるが必須ではない。未実装でも動作する
-- **`IEquatable<T>` 等の実装も任意** — フォールバックでリフレクション深い比較に切り替わる
+- **`IEquatable<T>` / `Equals` は比較に使われない** — 既定は内容比較 (`ObjectComparer.ContentEquals`)。独自の等価性を使いたい場合は `comparer` を明示的に渡す
 
 ---
 
@@ -52,10 +52,18 @@ public class ChangeTracker<T> where T : class
 `IsChanged` 判定 (現在値とベースラインの比較) は以下の順で戦略を決定します。
 
 1. **コンストラクタに `comparer` を渡した** → それを使用
-2. **`T` が値等価性を持つ** (`IEquatable<T>` / `IComparable<T>` / `Equals` オーバーライド) → それを使用
-3. **いずれもない** → グローバルフック `ChangeTrackerDefaults.Comparer` (デフォルトはリフレクション深い比較)
+2. **渡していない** → グローバルフック `ChangeTrackerDefaults.Comparer` (デフォルトは内容比較 `ObjectComparer.ContentEquals`)
 
-> **動作変更の注意**: 旧バージョンでは `Equals` を override していないモデルは構築直後に `IsChanged == true` (参照比較によるバグ) でしたが、現在はリフレクション深い比較により正しく判定されます。`ICloneable` + `Equals` を実装済みのモデルは挙動不変です。
+`T` 自身の `IEquatable<T>` / `Equals` は **意図的に使いません**。エンティティは「Id が同じなら等しい」と `Equals` を定義することが多く、それを使うと内容を編集しても `IsChanged == false` となり、`CanClose` の保存確認が出ずにデータが失われるためです。
+
+`ContentEquals` は、値型とフレームワーク型 (`System.*` / `Microsoft.*`) の `Equals` だけを信頼し、アプリケーションの参照型はどの深さでもフィールド単位で比較します (`Order.Customer.Name` の変更も、`Customer.Equals` が Id 比較でも検出される)。参照型の要素を持つセットも同様に要素の内容で対応付けます。一方 `ObjectComparer.DeepEquals` は従来どおりすべての型の `Equals` を尊重します。
+
+```csharp
+new ChangeTracker<Order>(order);                         // 内容比較 (既定)
+new ChangeTracker<Order>(order, (a, b) => a.Equals(b));  // T の Equals を使いたい場合は明示
+```
+
+> **動作変更の注意**: 以前は `T` が `IEquatable<T>` / `IComparable<T>` / `Equals` オーバーライドを持つ場合それを使っていました。現在は `comparer` を渡さない限り内容比較です。`Equals` で一部フィールドを意図的に無視していたモデルは、同じ意味の `comparer` を渡してください。
 
 ---
 
