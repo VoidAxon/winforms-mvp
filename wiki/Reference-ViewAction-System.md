@@ -16,6 +16,7 @@ WPF の `ICommand` を WinForms 向けに持ち込んだものと考えるとほ
 - [CanExecute と自動 Enabled 制御](#canexecute-と自動-enabled-制御)
 - [パラメータ付きアクション](#パラメータ付きアクション)
 - [状態変化への対応](#状態変化への対応)
+- [非同期アクション](#非同期アクション)
 - [一括バインド (AddRange)](#一括バインド-addrange)
 - [対応するコントロール](#対応するコントロール)
 - [Implicit パターン vs Explicit パターン](#implicit-パターン-vs-explicit-パターン)
@@ -237,6 +238,7 @@ Dispatcher.Register(
 | トリガー | 動作 |
 |---------|------|
 | **任意のアクション実行直後** | 自動 (フレームワークが `ActionExecuted` 後に全 CanExecute を再評価) |
+| **非同期ハンドラの開始時・終了時** | 自動 (実行中のアクションは `CanDispatch == false`) |
 | **アクション実行を伴わない状態変化** | 手動 (`Dispatcher.RaiseCanExecuteChanged()` を呼ぶ) |
 
 詳細は [状態変化への対応](#状態変化への対応) を参照。
@@ -349,18 +351,9 @@ protected override void OnInitialize()
         Dispatcher.RaiseCanExecuteChanged();
     };
 }
-
-private async void OnStartBackgroundTask()
-{
-    _isRunning = true;
-    Dispatcher.RaiseCanExecuteChanged();   // タスク開始通知
-
-    await DoWorkAsync();
-
-    _isRunning = false;
-    Dispatcher.RaiseCanExecuteChanged();   // タスク完了通知
-}
 ```
+
+非同期ハンドラの開始・完了時の再評価はフレームワークが自動で行います ([非同期アクション](#非同期アクション) 参照)。
 
 ### WPF との対応
 
@@ -369,6 +362,72 @@ private async void OnStartBackgroundTask()
 | イベント名 | `CanExecuteChanged` | `CanExecuteChanged` |
 | 手動トリガー | `command.RaiseCanExecuteChanged()` | `dispatcher.RaiseCanExecuteChanged()` |
 | 自動トリガー | なし | `ActionExecuted` イベントで自動 (拡張機能) |
+
+---
+
+## 非同期アクション
+
+`Dispatcher.Register` には非同期ハンドラ用のオーバーロードがあります。`async` ラムダや `async Task` メソッドはこちらに束縛されるので、**`async void` ハンドラを書く必要はありません**。
+
+| オーバーロード | 用途 |
+|---|---|
+| `Register(key, Func<Task>)` | パラメータなし |
+| `Register(key, Func<CancellationToken, Task>)` | パラメータなし + トークン |
+| `Register<T>(key, Func<T, Task>)` | パラメータ付き |
+| `Register<T>(key, Func<T, CancellationToken, Task>)` | パラメータ付き + トークン |
+
+```csharp
+protected override void RegisterViewActions()
+{
+    Dispatcher.Register(CustomerActions.Refresh, OnRefreshAsync);
+    Dispatcher.Register(CustomerActions.Save, OnSaveAsync, canExecute: () => View.HasChanges);
+}
+
+private async Task OnRefreshAsync(CancellationToken ct)
+{
+    View.StatusMessage = "読み込み中...";
+    try
+    {
+        View.Customers = await _repository.GetAllAsync(ct);   // ct はウィンドウが閉じるとキャンセルされる
+        View.StatusMessage = "完了";
+    }
+    catch (IOException ex)
+    {
+        // 想定内のエラーはハンドラ内で捕まえてユーザーに伝える
+        Messages.ShowError($"読み込みに失敗しました: {ex.Message}");
+    }
+}
+```
+
+フレームワークが行うこと:
+
+- **実行中はアクションを無効化** — ハンドラの実行中は `CanDispatch` が `false` になり、バインド済みコントロールはグレーアウトします。連打などの重複トリガーは無視されます。開始時と終了時に全 `CanExecute` が再評価されるので、ビジーフラグや手動の `RaiseCanExecuteChanged()` は不要です (他のアクションも同時に止めたいときだけ、`canExecute` が参照するフラグを持ちます — `samples/.../AsyncDemo/AsyncDemoPresenter.cs` 参照)。
+- **完了時に `ActionExecuted`** — 同期ハンドラと同じく、ハンドラが正常に終わった時点で発火します。
+- **失敗はログ出力して再有効化** — `await` の後で起きた例外も含め、未処理の例外はログに出してアクションを再び有効にします。ユーザーに見せるべきエラーは、ハンドラ内で `try`/`catch` して `Messages` で伝えてください。
+- **破棄時のキャンセルは静か** — トークンは Presenter の `Lifetime` で、Presenter の破棄 (ウィンドウを閉じる) と同時にキャンセルされます。これによる `OperationCanceledException` はエラー扱いされません。ユーザーの「キャンセル」ボタンを実装する場合は `CancellationTokenSource.CreateLinkedTokenSource(ct)` でリンクします。
+
+### 完了を待つ: `DispatchAsync`
+
+`Dispatch` は非同期ハンドラの完了を待たずに戻ります。完了を待ちたい場合 (主にテスト、またはアクションの後に処理を続けたいコード) は `DispatchAsync` を使います。ハンドラの失敗は `Dispatch` と同様にログ出力されるだけで、返るタスクは fault しません。
+
+```csharp
+await Dispatcher.DispatchAsync(CustomerActions.Refresh);
+// テストではモック View の CapturingActionBinder から:
+await view.Binder.DispatchAsync(CustomerActions.Refresh);
+```
+
+### ミドルウェアとの関係
+
+ミドルウェアが包むのはハンドラの**同期部分 (最初の `await` まで)** だけです。非同期処理全体を計測・監査するには `ctx.Completion` (ハンドラのタスク。同期ハンドラでは完了済みタスク) を観察します。`ctx.CancellationToken` はハンドラに渡されたトークンです。`await` 後の失敗はミドルウェアがすでに戻った後なので、`ctx.Exception` ではなく Dispatcher のログで報告されます。非同期ハンドラを開始した後でミドルウェアが例外を投げた場合も、ハンドラは最後まで追跡され (完了までアクションは無効のまま)、`ActionExecuted` は発火しません。
+
+```csharp
+Dispatcher.Use((ctx, next) =>
+{
+    var sw = Stopwatch.StartNew();
+    next(ctx);
+    ctx.Completion.ContinueWith(_ => Logger.LogInformation("{Action}: {Ms}ms", ctx.Action, sw.ElapsedMilliseconds));
+});
+```
 
 ---
 
@@ -690,8 +749,10 @@ Dispatcher.Use((ctx, next) =>
 | `Action` | `ViewAction` | ディスパッチ中のアクション |
 | `Payload` | `object` | 読み取り専用 (型変換禁止) |
 | `ExpectedPayloadType` | `Type` | パラメータなしハンドラの場合は `null` |
-| `HandlerExecuted` | `bool` | 末端ハンドラが正常終了したときだけ `true` |
+| `HandlerExecuted` | `bool` | 末端ハンドラが呼ばれたとき `true` (非同期ハンドラは開始した時点) |
 | `Exception` | `Exception` | 安全網またはミドルウェアが捕捉した例外 |
+| `Completion` | `Task` | 非同期ハンドラのタスク (同期ハンドラでは完了済み)。非同期処理全体の計測・監査用 |
+| `CancellationToken` | `CancellationToken` | 非同期ハンドラに渡されたトークン (Presenter 破棄時にキャンセル) |
 
 `Items` 辞書のような汎用拡張はありません。状態を保持したいミドルウェアは、自分のフィールドに持たせてください。
 

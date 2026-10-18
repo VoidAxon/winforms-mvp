@@ -18,7 +18,7 @@ WinForms の `Form.FormClosing` は、ユーザーの X ボタン・システム
 
 | 方向 | 起点 | 仕組み | 典型的なトリガー |
 |------|------|--------|----------------|
-| **Pull** | フレームワーク | `protected virtual bool CanClose(CloseReason reason)` オーバーライド | X ボタン / Alt+F4 / シャットダウン |
+| **Pull** | フレームワーク | `protected virtual bool CanClose(CloseReason reason)` (非同期は `Task<bool> CanCloseAsync(CloseReason)`) オーバーライド | X ボタン / Alt+F4 / シャットダウン |
 | **Push** | Presenter | 基底の `RequestClose(result, status)` / `RequestClose(status)` メソッド | ユーザーが Save / Cancel / OK をクリック |
 
 両方のパスは WinForms の `FormClosed` に収束します。`ShowWindowAsModal` の呼び出し元は、どちらの方向でクローズが起きたかに関わらず、常に同じ `InteractionResult<TResult>` を受け取ります。WinForms の `FormCloseReason` からフレームワークの `CloseReason` へのマッピングは `CloseReasonMap` の中で 1 回だけ行われ、Presenter には絶対に漏れません。
@@ -50,12 +50,12 @@ User clicks X (or Alt+F4, system shutdown …)
 FormClosing fires
     ↓
 WindowLifecycleController.OnFormClosing
-    ├─ _suppressGate is false → calls ICloseParticipant.CanCloseGate(reason, proceed)
+    ├─ _suppressGate is false → calls ICloseParticipant.CanCloseGate(reason, ...)
     │       ↓
-    │   Presenter.CanClose(reason, proceed)   [your override]
-    │       ├─ return false → e.Cancel = true  (window stays open)
-    │       └─ return true  → e.Cancel = false
-    └─ (async path: proceed(true) from continuation → re-close with _suppressGate=true)
+    │   Presenter.CanCloseAsync(reason)   [your override; default → CanClose(reason)]
+    │       ├─ false → e.Cancel = true  (window stays open)
+    │       └─ true  → e.Cancel = false
+    └─ (async path: task still pending → e.Cancel = true; completes with true → re-close with _suppressGate=true)
           ↓
     FormClosed → Converge → InteractionResult(Cancel) to caller
 ```
@@ -64,7 +64,7 @@ WindowLifecycleController.OnFormClosing
 
 ## 単一正本の不変条件
 
-> **ダーティ状態のプロンプトは `CanClose` (Pull 方向) にのみ置く。**
+> **ダーティ状態のプロンプトは `CanClose` / `CanCloseAsync` (Pull 方向) にのみ置く。**
 
 Push ハンドラは `RequestClose` を呼ぶ **前に** ダーティフラグを確定させます (`AcceptChanges` / `RejectChanges`)。これにより、フレームワークが続けて実行する `CanClose` の呼び出しはクリーンな状態を見るため、再プロンプトは起きません。二重プロンプトの防止は構造的な保証であり、`AcceptChanges` と `RequestClose` の呼び出し順序には依存しません。
 
@@ -95,30 +95,36 @@ protected override bool CanClose(CloseReason reason)
 }
 ```
 
-### 非同期 Pull ゲート
+### 非同期 Pull ゲート — `CanCloseAsync`
 
-クローズ判断にコールバック (非同期保存、サーバーラウンドトリップ) が必要な場合は、2 引数の形式をオーバーライドします。`proceed(true)` で許可、`proceed(false)` でブロックします — 必要に応じてコンティニュエーションの中から呼んでも構いません。`Task` ではなく `Action<bool>` を使うのは、クローズ API を `Task` に依存させない設計のためです (`proceed` はどのスレッドから呼んでも構いません。フレームワークが UI スレッドへマーシャリングします):
+クローズ判断に `await` が必要な場合 (閉じる前の保存、サーバー確認、非同期の確認処理) は `CanCloseAsync` をオーバーライドします。`true` で許可、`false` でブロックです。既定の実装は同期版 `CanClose(reason)` の結果を返すので、同期版で足りる場合は従来どおり `CanClose` だけをオーバーライドしてください。
+
+> **BREAKING:** 以前のコールバック形式 `CanClose(CloseReason reason, Action<bool> proceed)` は削除されました。`proceed(x)` を呼んでいたコードは `CanCloseAsync` で `return x;` (必要なら `await` の後) に書き換えます。
 
 ```csharp
-protected override void CanClose(CloseReason reason, Action<bool> proceed)
+protected override async Task<bool> CanCloseAsync(CloseReason reason)
 {
-    if (reason == CloseReason.SystemShutdown || reason == CloseReason.TaskManager)
-    {
-        proceed(true);
-        return;
-    }
+    // Never block system-level shutdowns.
+    if (reason != CloseReason.Normal) return true;
+    if (!_changeTracker.IsChanged) return true;
 
-    // Default one-argument overload chains through here:
-    // proceed(CanClose(reason));
+    var answer = Messages.ConfirmYesNoCancel("Save changes as a draft?", "Unsaved Changes");
+    if (answer == ConfirmResult.Cancel) return false;
+    if (answer == ConfirmResult.No) return true;
 
-    // Async example — check with a server before closing:
-    CheckServerAsync(ok => proceed(ok));
+    // Yes: await the save. The window stays open meanwhile; a failed save blocks the close.
+    return await SaveDraftAsync();
 }
 ```
 
-フレームワーク内部の非同期処理: `proceed` が同期的に (つまり `CanCloseGate` が返る前に) 呼ばれた場合、答えは `e.Cancel` に直接適用されます。コンティニュエーションから (つまり `CanCloseGate` が返った後に) 呼ばれた場合、`proceed(true)` はゲートを抑制した再クローズをトリガーし、`proceed(false)` はウィンドウを開いたままにします (何もアクションは不要です)。
+フレームワークの扱い:
 
-判定待ち (`proceed` 未呼び出し) の間に来た再クローズ (X の連打など) は、もう一度 `CanClose` を尋ねずに保留 (キャンセル) されます。ただし `SystemShutdown` / `TaskManager` によるクローズは保留せずに通します。また、owner ウィンドウ・MDI 親・`Application.Exit` から来たクローズが非同期に許可された場合、フレームワークはそのクローズ (owner / MDI 親のクローズ、`Application.Exit`) を再発行するので、親側の終了も続行されます。
+- タスクが同期的に完了していれば (既定実装や、`await` に到達しなかった場合)、答えはそのまま `e.Cancel` に適用されます。
+- 未完了の間、ウィンドウは開いたままです。完了して `true` なら、フレームワークがゲートを抑制した再クローズを行います。`false` なら何もしません (ウィンドウは開いたまま)。
+- 判定待ちの間に来た再クローズ (X の連打など) は、もう一度尋ねずに保留 (キャンセル) されます。ただし `SystemShutdown` / `TaskManager` によるクローズは保留せずに通します。また、owner ウィンドウ・MDI 親・`Application.Exit` から来たクローズが非同期に許可された場合、フレームワークはそのクローズ (owner / MDI 親のクローズ、`Application.Exit`) を再発行するので、親側の終了も続行されます。
+- タスクが fault またはキャンセルされた場合はクローズをブロックしてエラーをログ出力します (`SystemShutdown` / `TaskManager` によるクローズは許可)。ユーザーに伝えるべき失敗は、オーバーライドの中で捕まえて `Messages` で表示し `false` を返してください。
+
+待機中にユーザーが編集を続けると、保存したスナップショットより新しい変更をクリーン扱いにしてしまう恐れがあります。保存中は View の入力をロックし、完了後に「スナップショット以降に変更がないこと」を確かめてから `AcceptChanges` してください (実例: `samples/.../EmailDemo/ComposeEmailPresenter.cs`、[HowTo シナリオ 6](HowTo-Handle-Window-Closing#シナリオ-6-非同期クローズ判断))。
 
 ---
 
@@ -260,7 +266,7 @@ private void OnEditUser()
 | ダーティチェックが 1 箇所に集中する | プロンプトは `CanClose` にのみ存在する |
 | Push クローズがダーティプロンプトを再発火させない | `_suppressGate` フラグは構造的であり、呼び出し順序の規約には依存しない |
 | Form はクローズコードをまったく書かない | `IWindowView` にクローズ関連のメンバーはない |
-| 両方向を独立してテストできる | `PresenterTestHost` で、Pull は `host.CanClose(reason)`、Push は `host.CloseStatus` / `CloseResult` で検証 |
+| 両方向を独立してテストできる | `PresenterTestHost` で、Pull は `host.CanClose(reason)` (非同期は `await host.CanCloseAsync(reason)`)、Push は `host.CloseStatus` / `CloseResult` で検証 |
 
 ---
 

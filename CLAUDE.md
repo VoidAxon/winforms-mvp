@@ -67,7 +67,7 @@ TextBox NameTextBox { get; }             bool HasSelection { get; }
 
 **4. Keep the Presenter's public surface minimal (Rules 16 & 17).** A Presenter is not a service.
 - `public`: constructor (DI) only. `AttachView` / `Initialize` are explicit `IViewAttacher<TView>` / `IInitializable` implementations, and `_dispatcher` / `_initialized` are private — derived presenters use the `Dispatcher` property.
-- `protected override`: lifecycle hooks (`OnInitialize`, `OnViewAttached`, `RegisterViewActions`, `Cleanup`) and close overrides (`CanClose`).
+- `protected override`: lifecycle hooks (`OnInitialize`, `OnInitializeAsync`, `OnViewAttached`, `RegisterViewActions`, `Cleanup`) and close overrides (`CanClose`, `CanCloseAsync`). `protected CancellationToken Lifetime` is cancelled when the presenter is disposed (window closed / control disposed) — pass it to async work that should stop with the presenter.
 - `private`: action handlers (`OnSave`), helpers.
 - A Presenter should expose **zero public events**. For cross-presenter notifications use a Service event or `IEventAggregator`. For push-direction close results, call the base `RequestClose(result, status)` / `RequestClose(status)` — no interface to implement, no extension method.
 
@@ -84,14 +84,17 @@ using (var host = PresenterTestHost.Start(new EditPresenter(repo), view))
     // (tests/.../Mocks/CapturingActionBinder.cs) that captures the dispatcher the framework binds,
     // so tests dispatch through the same channel a real Form's bound controls use:
     view.Binder.Dispatch(CommonActions.Save);                 // not presenter.OnSave()
+    await view.Binder.DispatchAsync(CommonActions.Load);      // async handler: awaits its completion
+    await host.Initialized;                                   // waits for OnInitializeAsync
 
     // Push result — recorded by the host:
     Assert.True(host.CloseRequested);                         // also CloseCount, CloseResult
     Assert.Equal(InteractionStatus.Ok, host.CloseStatus);
 
-    // Pull veto — runs the same gate as X / Alt+F4 (null while an async CanClose hasn't answered):
+    // Pull veto — runs the same gate as X / Alt+F4 (null while CanCloseAsync hasn't answered):
     Assert.False(host.CanClose());                            // CloseReason.Normal by default
     Assert.True(host.CanClose(CloseReason.SystemShutdown));
+    Assert.True(await host.CanCloseAsync());                  // awaits an async CanCloseAsync decision
 }   // Dispose disposes the presenter (Cleanup + Disposables)
 ```
 If initialization throws, `Start` disposes the presenter and rethrows. `host.CanClose` throws for control presenters (they have no close gate).
@@ -116,7 +119,7 @@ PresenterBase<TView>                       [base — do not inherit directly]
 - Parameterized presenters get runtime data through `IInitializable<TParam>.Initialize(param)` — **never** mix DI-resolved deps and runtime args in the constructor; use a Parameters class.
 - Misuse fails fast: `Initialize` without an attached view throws `InvalidOperationException`; attaching a second view throws; a control `Connect` that fails disposes the presenter.
 
-Lifecycle (Forms): create presenter → Navigator creates view → `AttachView` → `OnViewAttached` → `RegisterViewActions` → framework auto-binds `View.ActionBinder` → `OnInitialize` → window shown.
+Lifecycle (Forms): create presenter → Navigator creates view → `AttachView` → `OnViewAttached` → `RegisterViewActions` → framework auto-binds `View.ActionBinder` → `OnInitialize` → `OnInitializeAsync(Lifetime)` started (not awaited) → window shown. Override `protected virtual Task OnInitializeAsync(CancellationToken)` to load data without blocking the window; its failures are logged (handle expected errors inside with `Messages`), cancellation by disposal is silent.
 
 See [wiki/Reference-Presenter-Base-Classes.md](wiki/Reference-Presenter-Base-Classes.md).
 
@@ -136,7 +139,17 @@ protected override void RegisterViewActions()
     // Framework auto-calls View.ActionBinder?.Bind(Dispatcher) after this method returns.
 }
 ```
-Call `Dispatcher.RaiseCanExecuteChanged()` when state changes outside an action (selection, async completion).
+Call `Dispatcher.RaiseCanExecuteChanged()` when state changes outside an action (selection, input changes).
+
+**Async handlers:** `Register` has async overloads — `Func<Task>`, `Func<CancellationToken, Task>`, `Func<T, Task>`, `Func<T, CancellationToken, Task>` — so `async` lambdas / `async Task` methods bind to them (never write `async void` handlers):
+```csharp
+Dispatcher.Register(CommonActions.Refresh, async ct =>
+{
+    try { View.Items = await _repository.LoadAsync(ct); }
+    catch (IOException ex) { Messages.ShowError(ex.Message); }   // expected errors: handle here
+});
+```
+While it runs, the action reports `CanDispatch == false` (bound controls greyed) and repeated triggers are ignored — no busy flag or manual `RaiseCanExecuteChanged()` for that (only to disable *other* actions). `ActionExecuted` fires on completion. Unhandled failures (including after an `await`) are logged and the action is re-enabled. The token is `Lifetime` (cancelled when the window closes); that cancellation is silent. `Dispatcher.DispatchAsync(key[, payload])` returns a task that completes when the handler finishes (does not fault for handler failures) — mainly for tests (`view.Binder.DispatchAsync`).
 
 By default a dispatch to an unregistered key or with a mismatched payload is logged and ignored (graceful degradation). Set `Dispatcher.ValidationMode = DispatchValidationMode.Strict` — wire it by registering an `IDispatcherConfigurer` (e.g. `ActionDispatcherConfigurer`) in Debug builds — to make those wiring mistakes (forgotten `Register`, typo'd key, wrong payload type) throw instead, so they surface on first dispatch. Strict mode does not affect handler/`CanExecute` exceptions (always caught/logged) or disabled actions.
 
@@ -148,7 +161,7 @@ Always-on guards: `default(ViewAction)` is rejected by `Register` / `Binder.Add`
 
 Routing is decided by the `Bind` overload, never by listeners: `Bind(dispatcher)` always dispatches and then raises `ActionTriggered` as a notification (safe to use for status bars/logging); `Bind()` only raises `ActionTriggered`.
 
-**Middleware (advanced):** `Dispatcher.Use(...)` adds an opt-in onion pipeline (audit, perf, error dialogs). Global tier (registered `IDispatcherConfigurer` in the service provider) runs outermost; per-presenter tier in `RegisterViewActions` runs inside. Zero overhead until `Use(...)` is called. See the ViewAction wiki page and [samples/WinformsMVP.Samples/ViewActionMiddlewareExample.cs](samples/WinformsMVP.Samples/ViewActionMiddlewareExample.cs).
+**Middleware (advanced):** `Dispatcher.Use(...)` adds an opt-in onion pipeline (audit, perf, error dialogs). Global tier (registered `IDispatcherConfigurer` in the service provider) runs outermost; per-presenter tier in `RegisterViewActions` runs inside. Zero overhead until `Use(...)` is called. Middleware wraps only the synchronous part of an async handler: observe `ctx.Completion` (the handler task) to time/audit the whole operation, and `ctx.CancellationToken` is the handler's token. If a middleware throws after starting an async handler, the handler is still tracked to its end (action stays disabled until it finishes). See the ViewAction wiki page and [samples/WinformsMVP.Samples/ViewActionMiddlewareExample.cs](samples/WinformsMVP.Samples/ViewActionMiddlewareExample.cs).
 
 Samples: `ViewActionExample.cs` (implicit), `ViewActionExplicitEventExample.cs` (explicit), `ViewActionWithParametersExample.cs`, `ViewActionStateChangedExample.cs`, `CheckBoxDemo/`, `BulkBindingDemo/`.
 
@@ -177,16 +190,18 @@ Closing policy lives in the Presenter; Forms write zero closing code.
 | **Pull**  | Framework | `protected virtual bool CanClose(CloseReason reason)` override | X / Alt+F4 / shutdown |
 | **Push**  | Presenter | base `RequestClose(result, status)` / `RequestClose(status)` method (sink injected by framework) | user clicked Save/Cancel |
 
-**Pull (veto a close):** override `CanClose(CloseReason reason)` — return `false` to block, `true` to allow. The framework calls it via `ICloseParticipant.CanCloseGate` before the window closes. For decisions that need a callback (async save, server check), override the two-argument form instead:
+**Pull (veto a close):** override `CanClose(CloseReason reason)` — return `false` to block, `true` to allow. The framework calls it via `ICloseParticipant.CanCloseGate` before the window closes. For decisions that must await something (save before close, server check), override `CanCloseAsync` instead (it replaces the removed callback overload `CanClose(reason, Action<bool> proceed)`; its default returns the sync `CanClose(reason)`):
 ```csharp
-protected override void CanClose(CloseReason reason, Action<bool> proceed)
+protected override async Task<bool> CanCloseAsync(CloseReason reason)
 {
-    // Call proceed(true/false), possibly from a continuation.
-    // Action<bool> — never Task — keeps the API free of a Task dependency.
-    // proceed may be called from any thread; the framework marshals to the UI thread.
+    if (reason != CloseReason.Normal || !_tracker.IsChanged) return true;
+    var answer = Messages.ConfirmYesNoCancel("Save changes?");
+    if (answer == ConfirmResult.Cancel) return false;
+    if (answer == ConfirmResult.No) return true;
+    return await SaveAsync();   // lock input while saving; false (after telling the user) blocks the close
 }
 ```
-Never block `CloseReason.SystemShutdown` or `CloseReason.TaskManager` (return `true` immediately for those). While an async decision is pending, repeat close attempts are held off (not re-asked), but system shutdown / Task Manager closes go through; an async allow re-issues owner / MDI-parent / `Application.Exit` closes that were held.
+Never block `CloseReason.SystemShutdown` or `CloseReason.TaskManager` (return `true` immediately for those). While the task is pending the window stays open and repeat close attempts are held off (not re-asked), but system shutdown / Task Manager closes go through; an async allow re-issues owner / MDI-parent / `Application.Exit` closes that were held. A faulted or cancelled `CanCloseAsync` blocks the close (system-level closes still allowed) and is logged. See `samples/.../EmailDemo/ComposeEmailPresenter.cs`.
 
 **Push (actively close, optionally with result):** call the base `RequestClose(result, InteractionStatus.Ok)` — `TResult` is inferred from the argument, no interface to implement. For a cancel or no-result close: `RequestClose(InteractionStatus.Cancel)` (C# resolves to the no-result overload; a window whose result type is literally `InteractionStatus` would disambiguate with `RequestClose<InteractionStatus>(x)`). `RequestClose(message, InteractionStatus.Error)` / `RequestClose(exception, InteractionStatus.Error)` carry the message/exception into `InteractionResult.ErrorMessage`/`Exception`. A result of the wrong type, or no result when `TResult` is a non-nullable value type, yields `InteractionStatus.Error` (not `Ok(default)`). `RequestClose` called before the framework binds the sink is held and delivered on bind.
 

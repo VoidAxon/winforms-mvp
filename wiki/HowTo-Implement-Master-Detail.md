@@ -366,10 +366,14 @@ private void OnDeleteCustomer()
 
 ### async 化の例
 
+View イベントのハンドラは `async void` にせず、`async Task` メソッドを開始するだけにします。例外はすべてそのメソッド内で処理し、トークンには Presenter の `Lifetime` (ウィンドウを閉じるとキャンセル) を渡します。
+
 ```csharp
-private async void OnSelectedCustomerChanged(object sender, EventArgs e)
+private void OnSelectedCustomerChanged(object sender, EventArgs e)
+    => _ = LoadOrdersAsync(View.SelectedCustomer);   // 例外は LoadOrdersAsync 内で処理済み
+
+private async Task LoadOrdersAsync(Customer customer)
 {
-    var customer = View.SelectedCustomer;
     if (customer == null)
     {
         View.Orders = Array.Empty<Order>();
@@ -379,8 +383,14 @@ private async void OnSelectedCustomerChanged(object sender, EventArgs e)
     View.IsLoadingDetail = true;
     try
     {
-        View.Orders = await _orderRepo.GetByCustomerAsync(customer.Id);
-        View.TotalAmount = View.Orders.Sum(o => o.Amount);
+        var orders = await _orderRepo.GetByCustomerAsync(customer.Id, Lifetime);
+        if (View.SelectedCustomer != customer) return;   // 待っている間に選択が変わった: 古い結果は捨てる
+        View.Orders = orders;
+        View.TotalAmount = orders.Sum(o => o.Amount);
+    }
+    catch (OperationCanceledException) when (Lifetime.IsCancellationRequested)
+    {
+        // ウィンドウが閉じられた: 何もしない
     }
     catch (Exception ex)   // 実コードでは具体的な例外型 (DbException 等) を先に捕捉する
     {
@@ -388,7 +398,7 @@ private async void OnSelectedCustomerChanged(object sender, EventArgs e)
     }
     finally
     {
-        View.IsLoadingDetail = false;
+        if (!Lifetime.IsCancellationRequested) View.IsLoadingDetail = false;
     }
 }
 ```

@@ -22,6 +22,7 @@ WPF 風のコマンドバインドとサービス抽象 (`IMessageService` / `ID
 ## 主な特徴
 
 - 🎮 **ViewAction システム** — WPF の `ICommand` 相当を WinForms に。型安全なアクションキー、宣言的バインド、`CanExecute` による自動 Enabled 制御
+- ⏳ **async/await 対応** — `async Task` のアクションハンドラ (実行中は自動で無効化、失敗はログ)、ウィンドウを止めない `OnInitializeAsync`、閉じる前に保存を待てる `CanCloseAsync`、ウィンドウを閉じるとキャンセルされる `Lifetime` トークン
 - 🏗️ **クリーンな MVP 分離** — Presenter は WinForms 型を一切知らない。View インターフェイスにも `Button` / `TextBox` を露出させない
 - 🪟 **ウィンドウナビゲーション** — Modal / 非 Modal、パラメータ付き、Fluent API、基底 `RequestClose` による結果返却
 - 🔁 **二方向ウィンドウクローズモデル** — Push (Presenter 主導) と Pull (フレームワーク主導) を明確に分離。dirty 判定の単一情報源

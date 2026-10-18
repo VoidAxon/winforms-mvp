@@ -41,7 +41,7 @@
 
 ### CanClose
 
-`WindowPresenterBase` の `protected virtual bool CanClose(CloseReason reason)` override。Pull 方向のクローズゲート。`false` を返すとクローズをブロックする。非同期バリアント: `protected virtual void CanClose(CloseReason reason, Action<bool> proceed)`。
+`WindowPresenterBase` の `protected virtual bool CanClose(CloseReason reason)` override。Pull 方向のクローズゲート。`false` を返すとクローズをブロックする。非同期バリアント: `protected virtual Task<bool> CanCloseAsync(CloseReason reason)` (既定は `CanClose(reason)` を返す。旧コールバック形式 `CanClose(reason, Action<bool> proceed)` は削除済み)。
 
 詳細: [Window Closing Model](Concept-Window-Closing-Model)
 

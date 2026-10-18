@@ -277,16 +277,17 @@ private void OnSave()
 
 ### DB/ネットワーク操作
 
-エラーの種類別に分岐し、ユーザーに具体的な対処法を伝える。
+エラーの種類別に分岐し、ユーザーに具体的な対処法を伝える。ハンドラは `async Task` で書き、`Dispatcher.Register` の非同期オーバーロードに渡す (`async void` にしない)。
 
 ```csharp
-private async void OnRefreshData()
+// Dispatcher.Register(DataActions.Refresh, OnRefreshDataAsync);
+private async Task OnRefreshDataAsync(CancellationToken ct)
 {
     View.ShowLoadingIndicator(true);
 
     try
     {
-        var data = await _repository.GetDataAsync();
+        var data = await _repository.GetDataAsync(ct);
         View.Data = data;
     }
     catch (TimeoutException)
@@ -314,6 +315,7 @@ private async void OnRefreshData()
 - 具体的な例外を **先に** catch (`UnauthorizedAccessException` → `Exception`)
 - `finally` で UI 状態を必ず戻す (Loading インジケータ等)
 - ロギングで詳細を残す (ユーザーに見せるメッセージとは別)
+- ハンドラ内で捕まえなかった例外 (`await` の後のものも含む) は Dispatcher がログに出してアクションを再有効化するだけで、ユーザーには表示されない。ウィンドウを閉じたことによるキャンセル (`ct` = `Lifetime`) は静かに処理される
 
 ### ファイル操作
 
@@ -356,7 +358,7 @@ private void OnExport()
 ループ内のエラーは catch して継続、最後にサマリを表示。
 
 ```csharp
-private async void OnProcessBatch()
+private async Task OnProcessBatchAsync()
 {
     if (View.SelectedItems.Count == 0)
     {

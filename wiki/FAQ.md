@@ -57,7 +57,7 @@ A. いいえ。`MessageBox.Show()` は WinForms 型なので、[MVP の鉄則 2]
 
 ### Q. Presenter の中で `await` してもよいですか?
 
-A. はい。`async void` の ViewAction ハンドラがフレームワークでサポートされる標準パターンです。詳しくは [HowTo: 非同期処理を扱う](HowTo-Handle-Async-Operations) を参照。
+A. はい。ViewAction ハンドラを `async Task` で書いて `Dispatcher.Register` に渡すのが標準パターンです (`async void` にはしない)。実行中のアクションは自動で無効化され、失敗はログに出ます。初期ロードは `OnInitializeAsync`、閉じる前の保存は `CanCloseAsync` をオーバーライドします。詳しくは [HowTo: 非同期処理を扱う](HowTo-Handle-Async-Operations) を参照。
 
 ### Q. Presenter を `Dispose` するタイミングは?
 

@@ -21,6 +21,7 @@ Presenter は WinForms に依存しないため、**UI スレッド不要・実�
   - [ConfirmYesNo の分岐をテストする](#confirmyesno-の分岐をテストする)
   - [子ウィンドウの表示を検証する](#子ウィンドウの表示を検証する)
   - [ロギングを検証する](#ロギングを検証する)
+  - [非同期処理をテストする](#非同期処理をテストする)
 - [テストを駆動するときのルール](#テストを駆動するときのルール)
 - [ベストプラクティス](#ベストプラクティス)
 - [関連ページ](#関連ページ)
@@ -52,7 +53,7 @@ MockServices                    (モックサービスを束ね DefaultServicePr
 
 Mock<IXxxView>                  (View インターフェイス用のモック — CapturingActionBinder を公開する)
 CapturingActionBinder           (フレームワークが View に渡す dispatcher を捕捉。テストから Dispatch する入口)
-PresenterTestHost               (WinformsMVP.Testing — WinformsMVP.Core に同梱。モック View をアタッチして実際の初期化を走らせ、RequestClose を記録し、CanClose ゲートを駆動する)
+PresenterTestHost               (WinformsMVP.Testing — WinformsMVP.Core に同梱。モック View をアタッチして実際の初期化を走らせ、RequestClose を記録し、CanClose / CanCloseAsync ゲートを駆動する)
 業務依存 (IXxxRepository 等)     (Presenter のコンストラクタに注入。フレームワークサービスとは別経路)
 ```
 
@@ -120,6 +121,7 @@ public sealed class CapturingActionBinder : IViewActionBinder
     public void Bind(ViewActionDispatcher dispatcher) => Dispatcher = dispatcher;   // フレームワークが呼ぶ
 
     public void Dispatch(ViewAction action, object payload = null) => Dispatcher.Dispatch(action, payload);
+    public Task DispatchAsync(ViewAction action, object payload = null) => Dispatcher.DispatchAsync(action, payload);   // 非同期ハンドラの完了を待つ
     public bool CanDispatch(ViewAction action) => Dispatcher.CanDispatch(action);
 }
 ```
@@ -319,6 +321,48 @@ public void OnSave_LogsSuccess()
 
 同じ記録用ロガーのコピー&ペースト版と詳細は [Reference-Logging#テストでの利用](Reference-Logging#テストでの利用) を参照。
 
+### 非同期処理をテストする
+
+非同期アクションハンドラ、`OnInitializeAsync`、`CanCloseAsync` は、それぞれの完了を `await` してから検証します。`Task.Delay` で待つ必要はありません。xUnit のテストメソッドは `async Task` にします。
+
+```csharp
+[Fact]
+public async Task Refresh_LoadsCustomers()
+{
+    _repository.Customers = new[] { new Customer("A"), new Customer("B") };
+
+    // 非同期ハンドラ: Dispatch は完了を待たずに戻るので DispatchAsync を使う
+    await _view.Binder.DispatchAsync(CustomerActions.Refresh);
+
+    Assert.Equal(2, _view.Customers.Count);
+}
+
+[Fact]
+public async Task Start_LoadsDataInOnInitializeAsync()
+{
+    using (var host = PresenterTestHost.Start(new CustomerListPresenter(_repository), _view))
+    {
+        await host.Initialized;            // OnInitializeAsync の完了を待つ
+        Assert.Equal("完了", _view.StatusMessage);
+    }
+}
+
+[Fact]
+public async Task Close_WithUnsavedChanges_SavesBeforeClosing()
+{
+    _view.SimulateEdit("new value");
+    _platform.MessageService.ConfirmYesNoCancelResult = ConfirmResult.Yes;
+
+    bool allow = await _host.CanCloseAsync();   // CanCloseAsync の判定 (保存) を待つ
+
+    Assert.True(allow);
+}
+```
+
+- `DispatchAsync` / `Initialized` は、ハンドラや `OnInitializeAsync` が例外を投げても fault しません (本番と同じくログに出るだけ)。失敗時の振る舞いは、ハンドラ内で表示したメッセージ (`MockMessageService`) や View の状態で検証します。
+- 実行中のアクションは `CanDispatch == false` です。「実行中は無効」を検証するなら、完了しない `TaskCompletionSource` をモックリポジトリから返し、`_view.Binder.Dispatch(...)` の直後に `Assert.False(_view.Binder.CanDispatch(...))` とします。
+- 実例: `tests/WinformsMVP.Samples.Tests/Presenters/ComposeEmailPresenterTests.cs`、`MainEmailPresenterTests.cs`、`ViewActions/AsyncActionTests.cs`。
+
 ---
 
 ## テストを駆動するときのルール
@@ -341,9 +385,11 @@ view.Binder.Dispatch(StandardActions.Save);
 
 | メンバー | 用途 |
 |---|---|
-| `PresenterTestHost.Start(presenter, view)` / `Start(presenter, view, parameters)` | View をアタッチし、`RegisterViewActions` → binder 自動バインド → `OnInitialize` を実行。初期化が例外を投げた場合は Presenter を破棄して再スロー |
+| `PresenterTestHost.Start(presenter, view)` / `Start(presenter, view, parameters)` | View をアタッチし、`RegisterViewActions` → binder 自動バインド → `OnInitialize` を実行 (`OnInitializeAsync` は開始のみ)。初期化が例外を投げた場合は Presenter を破棄して再スロー |
 | `CloseRequested` / `CloseCount` / `CloseResult` / `CloseStatus` | Presenter が呼んだ `RequestClose` の記録 (Push 方向)。`OnInitialize` 中の呼び出しも記録される |
-| `CanClose(reason = CloseReason.Normal)` | X / Alt+F4 と同じ Pull ゲートを実行し `bool?` を返す。非同期 `CanClose` が未回答なら `null`。コントロール Presenter ではクローズゲートがないので `InvalidOperationException` |
+| `Initialized` | `OnInitializeAsync` の完了で完了する `Task`。`await host.Initialized;` してから非同期ロードの結果を検証する (失敗はログに出るだけで fault しない) |
+| `CanClose(reason = CloseReason.Normal)` | X / Alt+F4 と同じ Pull ゲートを実行し `bool?` を返す。`CanCloseAsync` が未回答なら `null`。コントロール Presenter ではクローズゲートがないので `InvalidOperationException` |
+| `CanCloseAsync(reason = CloseReason.Normal)` | 同じゲートを実行し、`CanCloseAsync` の判定を `await` できる `Task<bool>` を返す。コントロール Presenter では `InvalidOperationException` |
 | `Dispose()` | Presenter を破棄 (`Cleanup` と `Disposables` の解放) |
 
 ### ウィンドウクローズのテスト
@@ -384,7 +430,7 @@ public class UserEditorClosingTests
 }
 ```
 
-非同期の `CanClose(reason, proceed)` が `proceed` をまだ呼んでいない間、`host.CanClose()` は `null` を返します。
+`CanCloseAsync` のタスクが未完了の間、`host.CanClose()` は `null` を返します。判定を待つには `await host.CanCloseAsync()` を使います ([非同期処理をテストする](#非同期処理をテストする))。
 
 `private` だったメソッドを `internal` に変えてテストすると、CanExecute スキップ等の不具合が production で発覚するまで隠れます。
 
