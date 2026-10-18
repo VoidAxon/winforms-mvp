@@ -82,9 +82,13 @@ namespace WinformsMVP.Samples.Tests.Mocks
         /// <summary>
         /// Save draft
         /// </summary>
+        /// <summary>Runs while a draft is being saved (e.g. to simulate the user editing meanwhile).</summary>
+        public Action<EmailMessage> OnSaveDraft { get; set; }
+
         public Task<int> SaveDraftAsync(EmailMessage email)
         {
             MethodCalls.Add($"SaveDraftAsync({email?.Subject ?? "null"})");
+            OnSaveDraft?.Invoke(email);
 
             if (email != null)
             {

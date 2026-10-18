@@ -598,6 +598,21 @@ namespace WinformsMVP.Samples.Tests.Presenters
             Assert.Contains("SaveDraftAsync(Test)", _mockRepository.MethodCalls);
         }
 
+        [Fact]
+        public async Task Closing_UserSelectsYes_EditDuringSave_KeepsWindowOpenAndDirty()
+        {
+            _mockView.To = "test@example.com";
+            _mockView.Subject = "Test";
+            _mockView.SimulateEmailDataChange();
+            _mockServices.MessageService.ConfirmYesNoCancelResult = ConfirmResult.Yes;
+            _mockRepository.OnSaveDraft = _ => _mockView.Subject = "Edited while saving";
+
+            bool allow = await _host.CanCloseAsync();
+
+            Assert.False(allow);                       // the newer text was not saved: don't close
+            Assert.Contains("EnableInput = False", _mockView.MethodCalls);
+        }
+
         /// <summary>
         /// On <see cref="CloseReason.SystemShutdown"/>, the Presenter must NOT prompt the
         /// user — the process is exiting and there is no chance to recover.

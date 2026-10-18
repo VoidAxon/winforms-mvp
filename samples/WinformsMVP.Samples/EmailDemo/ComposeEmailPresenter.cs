@@ -218,14 +218,20 @@ namespace WinformsMVP.Samples.EmailDemo
         /// </summary>
         private async Task<bool> SaveDraftAsync()
         {
+            // Editing is locked while the save runs, so the snapshot being saved is what the user
+            // sees; otherwise edits made during the wait would be marked clean and lost on close.
             View.IsSaving = true;
+            View.EnableInput = false;
 
             try
             {
                 var email = CreateEmailMessage();
                 await _repository.SaveDraftAsync(email);
 
-                _changeTracker.AcceptChanges();  // Accept changes
+                // Accept only if nothing changed after the snapshot was taken.
+                if (email.To != View.To || email.Subject != View.Subject || email.Body != View.Body)
+                    return false;
+                _changeTracker.AcceptChanges();
                 return true;
             }
             catch (Exception ex)
@@ -236,6 +242,7 @@ namespace WinformsMVP.Samples.EmailDemo
             finally
             {
                 View.IsSaving = false;
+                View.EnableInput = true;
             }
         }
 
