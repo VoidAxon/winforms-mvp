@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using WinformsMVP.Common;
 using WinformsMVP.Logging;
 using WinformsMVP.Common.Events;
+using WinformsMVP.Common.Validation.Core;
 using WinformsMVP.MVP.Views;
 using WinformsMVP.MVP.ViewActions;
 using WinformsMVP.Services;
@@ -137,8 +138,49 @@ namespace WinformsMVP.MVP.Presenters
             //  - The Logger is wired so subsequent dispatch failures during user code can be
             //    reported through the presenter's logger.
             EnsureDispatcherConfigured();
+            ConnectValidation();
 
             OnViewAttached();
+        }
+
+        private ValidationState _validation;
+        private bool _validationConnected;
+
+        /// <summary>
+        /// The presenter's validation errors. Fill it with <c>Validation.Validate(model)</c> as the
+        /// user edits and <c>Validation.Check(model)</c> on submit; add business rules with
+        /// <c>SetError</c>. When the view implements <see cref="IValidatableView"/>, every change is
+        /// shown through its <see cref="IValidatableView.ValidationErrors"/> and action
+        /// availability (<c>canExecute</c>) is re-evaluated.
+        /// </summary>
+        protected ValidationState Validation
+        {
+            get
+            {
+                if (_validation == null)
+                {
+                    _validation = new ValidationState();
+                    ConnectValidation();
+                }
+                return _validation;
+            }
+        }
+
+        // Runs when the view is attached and when Validation is first used, whichever is later.
+        private void ConnectValidation()
+        {
+            if (_validationConnected || _validation == null || View == null) return;
+            _validationConnected = true;
+
+            var display = (View as IValidatableView)?.ValidationErrors;
+            EventHandler onChanged = (s, e) =>
+            {
+                display?.ShowErrors(_validation.Errors, _validation.RevealAll);
+                _dispatcher.RaiseCanExecuteChanged();
+            };
+            _validation.ErrorsChanged += onChanged;
+            Disposables.Add(Disposable.Create(() => _validation.ErrorsChanged -= onChanged));
+            display?.ShowErrors(_validation.Errors, _validation.RevealAll);
         }
 
         /// <summary>
