@@ -1,4 +1,5 @@
 using System;
+using WinformsMVP.MVP.Presenters;
 using System.Drawing;
 using System.Windows.Forms;
 using WinformsMVP.Samples.ToDoDemo;
@@ -75,8 +76,7 @@ namespace WinformsMVP.Samples
             var presenter = new ToDoDemoPresenter();
 
             // Attach view to presenter
-            presenter.AttachView(demoForm);
-            presenter.Initialize();
+            presenter.Connect(demoForm);  // attach + initialize + lifetime wiring
 
             // Show the demo
             demoForm.ShowDialog(this);

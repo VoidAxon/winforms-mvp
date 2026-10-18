@@ -6,6 +6,7 @@ using WinformsMVP.MVP.ViewActions;
 using WinformsMVP.Services;
 using WinformsMVP.Samples.Tests.Mocks;
 using WinformsMVP.Samples.Tests.TestHelpers;
+using WinformsMVP.Testing;
 using Xunit;
 
 namespace WinformsMVP.Samples.Tests.ViewActions
@@ -33,8 +34,7 @@ namespace WinformsMVP.Samples.Tests.ViewActions
                 .WithServiceProvider(platform.Provider);
 
             var view = new TestView();
-            presenter.AttachView(view);
-            presenter.Initialize();
+            PresenterTestHost.Start(presenter, view);
 
             view.Binder.Dispatch(SaveAction);
 
@@ -54,8 +54,7 @@ namespace WinformsMVP.Samples.Tests.ViewActions
                 .WithServiceProvider(platform.Provider);
 
             var view = new TestView();
-            presenter.AttachView(view);
-            presenter.Initialize();
+            PresenterTestHost.Start(presenter, view);
 
             view.Binder.Dispatch(SaveAction);
 
@@ -75,8 +74,7 @@ namespace WinformsMVP.Samples.Tests.ViewActions
                 .WithServiceProvider(platform.Provider);
 
             var view = new TestView();
-            presenter.AttachView(view);
-            presenter.Initialize();
+            PresenterTestHost.Start(presenter, view);
 
             view.Binder.Dispatch(SaveAction);
 
@@ -96,8 +94,7 @@ namespace WinformsMVP.Samples.Tests.ViewActions
                 .WithServiceProvider(platform.Provider);
 
             var view = new TestView();
-            presenter.AttachView(view);
-            presenter.Initialize();
+            PresenterTestHost.Start(presenter, view);
 
             // Dispatch many times — config should still only have fired once.
             for (int i = 0; i < 10; i++)
@@ -140,8 +137,8 @@ namespace WinformsMVP.Samples.Tests.ViewActions
             protected override void RegisterViewActions()
             {
                 // Local middleware - should be added AFTER global, ending up innermost.
-                _dispatcher.Use(new TraceMW("local", _trace));
-                _dispatcher.Register(SaveAction, () => _trace.Add("handler"));
+                Dispatcher.Use(new TraceMW("local", _trace));
+                Dispatcher.Register(SaveAction, () => _trace.Add("handler"));
             }
         }
 
@@ -154,7 +151,7 @@ namespace WinformsMVP.Samples.Tests.ViewActions
 
             protected override void RegisterViewActions()
             {
-                _dispatcher.Register(SaveAction, () => _trace.Add("handler"));
+                Dispatcher.Register(SaveAction, () => _trace.Add("handler"));
             }
         }
     }

@@ -50,21 +50,21 @@ namespace WinformsMVP.Samples.BulkBindingDemo
         protected override void RegisterViewActions()
         {
             // Question 1 actions
-            _dispatcher.Register(SurveyActions.Q1_StronglyDisagree, () => OnQ1Answer(0, "Strongly Disagree"));
-            _dispatcher.Register(SurveyActions.Q1_Disagree, () => OnQ1Answer(1, "Disagree"));
-            _dispatcher.Register(SurveyActions.Q1_Neutral, () => OnQ1Answer(2, "Neutral"));
-            _dispatcher.Register(SurveyActions.Q1_Agree, () => OnQ1Answer(3, "Agree"));
-            _dispatcher.Register(SurveyActions.Q1_StronglyAgree, () => OnQ1Answer(4, "Strongly Agree"));
+            Dispatcher.Register(SurveyActions.Q1_StronglyDisagree, () => OnQ1Answer(0, "Strongly Disagree"));
+            Dispatcher.Register(SurveyActions.Q1_Disagree, () => OnQ1Answer(1, "Disagree"));
+            Dispatcher.Register(SurveyActions.Q1_Neutral, () => OnQ1Answer(2, "Neutral"));
+            Dispatcher.Register(SurveyActions.Q1_Agree, () => OnQ1Answer(3, "Agree"));
+            Dispatcher.Register(SurveyActions.Q1_StronglyAgree, () => OnQ1Answer(4, "Strongly Agree"));
 
             // Question 2 actions
-            _dispatcher.Register(SurveyActions.Q2_StronglyDisagree, () => OnQ2Answer(0, "Strongly Disagree"));
-            _dispatcher.Register(SurveyActions.Q2_Disagree, () => OnQ2Answer(1, "Disagree"));
-            _dispatcher.Register(SurveyActions.Q2_Neutral, () => OnQ2Answer(2, "Neutral"));
-            _dispatcher.Register(SurveyActions.Q2_Agree, () => OnQ2Answer(3, "Agree"));
-            _dispatcher.Register(SurveyActions.Q2_StronglyAgree, () => OnQ2Answer(4, "Strongly Agree"));
+            Dispatcher.Register(SurveyActions.Q2_StronglyDisagree, () => OnQ2Answer(0, "Strongly Disagree"));
+            Dispatcher.Register(SurveyActions.Q2_Disagree, () => OnQ2Answer(1, "Disagree"));
+            Dispatcher.Register(SurveyActions.Q2_Neutral, () => OnQ2Answer(2, "Neutral"));
+            Dispatcher.Register(SurveyActions.Q2_Agree, () => OnQ2Answer(3, "Agree"));
+            Dispatcher.Register(SurveyActions.Q2_StronglyAgree, () => OnQ2Answer(4, "Strongly Agree"));
 
             // Submit action
-            _dispatcher.Register(SurveyActions.Submit, OnSubmit);
+            Dispatcher.Register(SurveyActions.Submit, OnSubmit);
 
             // Note: View.ActionBinder.Bind(_dispatcher) is now called automatically by the base class
         }

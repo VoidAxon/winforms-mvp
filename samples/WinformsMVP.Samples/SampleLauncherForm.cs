@@ -1,4 +1,5 @@
 using System;
+using WinformsMVP.MVP.Presenters;
 using System.Drawing;
 using System.Windows.Forms;
 using WinformsMVP.Samples.ToDoDemo;
@@ -241,8 +242,7 @@ namespace WinformsMVP.Samples
             var view = new ToDoDemoForm();
             var presenter = new ToDoDemoPresenter();  // Uses CommonServices.Default
 
-            presenter.AttachView(view);
-            presenter.Initialize();  // Must call Initialize!
+            presenter.Connect(view);  // attach + initialize + lifetime wiring
             view.Show();
 
             this.Hide();
@@ -254,8 +254,7 @@ namespace WinformsMVP.Samples
             var view = new SettingsDemoForm();
             var presenter = new SettingsDemoPresenter();
 
-            presenter.AttachView(view);
-            presenter.Initialize();  // Must call Initialize!
+            presenter.Connect(view);  // attach + initialize + lifetime wiring
             view.Show();
 
             this.Hide();
@@ -267,8 +266,7 @@ namespace WinformsMVP.Samples
             var view = new SurveyDemoForm();
             var presenter = new SurveyDemoPresenter();
 
-            presenter.AttachView(view);
-            presenter.Initialize();  // Must call Initialize!
+            presenter.Connect(view);  // attach + initialize + lifetime wiring
             view.Show();
 
             this.Hide();
@@ -280,8 +278,7 @@ namespace WinformsMVP.Samples
             var view = new ValueBindingForm();
             var presenter = new ValueBindingPresenter();
 
-            presenter.AttachView(view);
-            presenter.Initialize();
+            presenter.Connect(view);  // attach + initialize + lifetime wiring
             view.Show();
 
             this.Hide();
@@ -304,8 +301,7 @@ namespace WinformsMVP.Samples
             var view = new NavigatorDemoForm();
             var presenter = new NavigatorDemoPresenter();  // No constructor parameters needed!
 
-            presenter.AttachView(view);
-            presenter.Initialize();
+            presenter.Connect(view);  // attach + initialize + lifetime wiring
             view.Show();
 
             this.Hide();
@@ -326,8 +322,7 @@ namespace WinformsMVP.Samples
             var view = new ExecutionRequestDemoForm();
             var presenter = new ExecutionRequestDemoPresenter();
 
-            presenter.AttachView(view);
-            presenter.Initialize();
+            presenter.Connect(view);  // attach + initialize + lifetime wiring
             view.Show();
 
             this.Hide();
@@ -372,8 +367,7 @@ namespace WinformsMVP.Samples
             var view = new MainEmailForm();
             var presenter = new MainEmailPresenter(repository);
 
-            presenter.AttachView(view);
-            presenter.Initialize();
+            presenter.Connect(view);  // attach + initialize + lifetime wiring
             view.Show();
 
             this.Hide();
@@ -415,8 +409,7 @@ namespace WinformsMVP.Samples
             var view = new AnchoredMessageDemoForm();
             var presenter = new AnchoredMessageDemoPresenter();
 
-            presenter.AttachView(view);
-            presenter.Initialize();
+            presenter.Connect(view);  // attach + initialize + lifetime wiring
             view.Show();
 
             this.Hide();

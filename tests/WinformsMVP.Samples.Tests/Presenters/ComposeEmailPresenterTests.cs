@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using WinformsMVP.Testing;
 using Xunit;
 using WinformsMVP.Common;
 using WinformsMVP.MVP.Presenters;
@@ -31,18 +32,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
         private MockComposeEmailView _mockView;
         private MockEmailRepository _mockRepository;
         private ComposeEmailPresenter _presenter;
-        private RecordingSink _sink;
-
-        /// <summary>
-        /// Records every Push close the presenter routes through the framework sink.
-        /// </summary>
-        private sealed class RecordingSink : ICloseSink
-        {
-            public readonly List<(object result, InteractionStatus status)> Closed
-                = new List<(object, InteractionStatus)>();
-            public bool Any => Closed.Count > 0;
-            public void Close(object result, InteractionStatus status) => Closed.Add((result, status));
-        }
+        private PresenterTestHost _host;   // records every Push close (RequestClose)
 
         public ComposeEmailPresenterTests()
         {
@@ -66,12 +56,8 @@ namespace WinformsMVP.Samples.Tests.Presenters
             _mockView = new MockComposeEmailView();
 
             // 5. Attach view and initialize with default parameters (New mode)
-            _presenter.AttachView(_mockView);
-            _presenter.Initialize(new ComposeEmailParameters { Mode = ComposeMode.New });
+            _host = PresenterTestHost.Start(_presenter, _mockView, new ComposeEmailParameters { Mode = ComposeMode.New });
 
-            // 6. Bind a recording sink so Push closes (RequestClose) can be observed.
-            _sink = new RecordingSink();
-            ((ICloseParticipant)_presenter).BindCloseSink(_sink);
 
             // Clear initialization calls for clean test assertions
             _mockServices.Reset();
@@ -93,8 +79,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             var newView = new MockComposeEmailView();
 
             // Act
-            newPresenter.AttachView(newView);
-            newPresenter.Initialize(new ComposeEmailParameters { Mode = ComposeMode.New });
+            PresenterTestHost.Start(newPresenter, newView, new ComposeEmailParameters { Mode = ComposeMode.New });
 
             // Assert - all fields should be empty
             Assert.Contains("To = ", newView.MethodCalls);
@@ -125,8 +110,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             var newView = new MockComposeEmailView();
 
             // Act
-            newPresenter.AttachView(newView);
-            newPresenter.Initialize(new ComposeEmailParameters
+            PresenterTestHost.Start(newPresenter, newView, new ComposeEmailParameters
             {
                 Mode = ComposeMode.Reply,
                 OriginalEmail = originalEmail
@@ -159,8 +143,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             var newView = new MockComposeEmailView();
 
             // Act
-            newPresenter.AttachView(newView);
-            newPresenter.Initialize(new ComposeEmailParameters
+            PresenterTestHost.Start(newPresenter, newView, new ComposeEmailParameters
             {
                 Mode = ComposeMode.Forward,
                 OriginalEmail = originalEmail
@@ -193,8 +176,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             var newView = new MockComposeEmailView();
 
             // Act
-            newPresenter.AttachView(newView);
-            newPresenter.Initialize(new ComposeEmailParameters
+            PresenterTestHost.Start(newPresenter, newView, new ComposeEmailParameters
             {
                 Mode = ComposeMode.Forward,
                 OriginalEmail = originalEmail  // Required for Forward mode
@@ -290,7 +272,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
 
             // Assert
             Assert.Contains("SendEmailAsync(Test Email)", _mockRepository.MethodCalls);
-            Assert.True(_sink.Any);  // Window should close on successful send
+            Assert.True(_host.CloseRequested);  // Window should close on successful send
         }
 
         /// <summary>
@@ -498,9 +480,9 @@ namespace WinformsMVP.Samples.Tests.Presenters
             _mockView.Binder.Dispatch(ComposeEmailActions.Discard);
 
             // Assert - close should be pushed with Cancel status and no result (discard = cancel, no payload).
-            Assert.Single(_sink.Closed);
-            Assert.Null(_sink.Closed[0].result);
-            Assert.Equal(InteractionStatus.Cancel, _sink.Closed[0].status);
+            Assert.Equal(1, _host.CloseCount);
+            Assert.Null(_host.CloseResult);
+            Assert.Equal(InteractionStatus.Cancel, _host.CloseStatus);
         }
 
         /// <summary>
@@ -519,7 +501,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
 
             // Assert - should show confirmation dialog and push the close.
             Assert.True(_mockServices.MessageService.ConfirmDialogShown);
-            Assert.True(_sink.Any);
+            Assert.True(_host.CloseRequested);
         }
 
         #endregion
@@ -534,9 +516,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
         /// </summary>
         private bool RunCanClose(CloseReason reason = CloseReason.Normal)
         {
-            bool allow = false;
-            ((ICloseParticipant)_presenter).CanCloseGate(reason, ok => allow = ok);
-            return allow;
+            return _host.CanClose(reason) == true;
         }
 
         /// <summary>
@@ -685,7 +665,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             bool allow = RunCanClose();
 
             // Assert
-            Assert.True(_sink.Any);
+            Assert.True(_host.CloseRequested);
             Assert.False(_mockServices.MessageService.ConfirmDialogShown);
             Assert.True(allow);
         }
@@ -712,7 +692,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
 
             // Assert — the gate should NOT add any new prompts (the dirty state was
             // already finalized by OnDiscard's RejectChanges).
-            Assert.True(_sink.Any);
+            Assert.True(_host.CloseRequested);
             Assert.True(initialCalls == afterClosingCalls,
                 $"CanClose gate added {afterClosingCalls - initialCalls} extra call(s). " +
                 $"All calls: [{callsDump}]");
@@ -845,7 +825,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
 
             // Assert - verify complete workflow
             Assert.Contains("SendEmailAsync(Important Message)", _mockRepository.MethodCalls);
-            Assert.True(_sink.Any);
+            Assert.True(_host.CloseRequested);
             // Note: IsDirty is cleared via ChangeTracker.AcceptChanges() which triggers IsChangedChanged event
             // The actual dirty flag is managed internally by ChangeTracker
         }
@@ -904,8 +884,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             var replyView = new MockComposeEmailView();
 
             // Act
-            replyPresenter.AttachView(replyView);
-            replyPresenter.Initialize(new ComposeEmailParameters
+            PresenterTestHost.Start(replyPresenter, replyView, new ComposeEmailParameters
             {
                 Mode = ComposeMode.Reply,
                 OriginalEmail = originalEmail

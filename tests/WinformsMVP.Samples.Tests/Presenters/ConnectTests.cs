@@ -31,7 +31,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             var p = new FakePresenter();
             Assert.False(((IViewAttachable)p).IsViewAttached);
 
-            p.AttachView(new FakeView());
+            ((IViewAttacher<IFakeView>)p).AttachView(new FakeView());
 
             Assert.True(((IViewAttachable)p).IsViewAttached);
         }
@@ -67,8 +67,9 @@ namespace WinformsMVP.Samples.Tests.Presenters
         {
             var form = new FakeWindowForm();
             var presenter = new ResultPresenter();
-            presenter.AttachView(form);
-            presenter.Initialize();
+            // Drives the framework contract directly (no recording sink), as the hosts do.
+            ((IViewAttacher<IFakeView>)presenter).AttachView(form);
+            ((IInitializable)presenter).Initialize();
             presenter.Initialized = false;
 
             presenter.Connect<IFakeView, string>(form, _ => { });

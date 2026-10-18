@@ -73,8 +73,9 @@ namespace WinformsMVP.Samples.Tests.Presenters
         private static T Attached<T>(FakeView view) where T : WindowPresenterBase<IFakeView>, new()
         {
             var p = new T();
-            p.AttachView(view);
-            p.Initialize();
+            // Drives the framework contract directly (no recording sink), as the hosts do.
+            ((IViewAttacher<IFakeView>)p).AttachView(view);
+            ((IInitializable)p).Initialize();
             return p;
         }
 

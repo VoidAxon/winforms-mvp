@@ -1,4 +1,5 @@
 using System;
+using WinformsMVP.Testing;
 using Xunit;
 using WinformsMVP.Samples.ToDoDemo;
 using WinformsMVP.Samples.Tests.Mocks;
@@ -40,8 +41,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             _mockView = new MockToDoView();
 
             // 4. Attach view and initialize
-            _presenter.AttachView(_mockView);
-            _presenter.Initialize();
+            PresenterTestHost.Start(_presenter, _mockView);
 
             // Clear initialization call records (as needed)
             _mockServices.Reset();

@@ -81,22 +81,22 @@ namespace WinformsMVP.Samples
         protected override void RegisterViewActions()
         {
             // AddRow is always enabled
-            _dispatcher.Register(DataGridActions.AddRow, OnAddRow);
+            Dispatcher.Register(DataGridActions.AddRow, OnAddRow);
 
             // EditRow only enabled when exactly one row is selected
-            _dispatcher.Register(
+            Dispatcher.Register(
                 DataGridActions.EditRow,
                 OnEditRow,
                 canExecute: () => View.SelectedRowCount == 1);
 
             // DeleteRow only enabled when at least one row is selected
-            _dispatcher.Register(
+            Dispatcher.Register(
                 DataGridActions.DeleteRow,
                 OnDeleteRow,
                 canExecute: () => View.HasSelectedRow);
 
             // ExportData only enabled when there is data
-            _dispatcher.Register(
+            Dispatcher.Register(
                 DataGridActions.ExportData,
                 OnExportData,
                 canExecute: () => View.HasData);
@@ -121,13 +121,13 @@ namespace WinformsMVP.Samples
             {
                 // User selected/deselected rows - notify dispatcher
                 // This is similar to WPF's ICommand.RaiseCanExecuteChanged()
-                _dispatcher.RaiseCanExecuteChanged();
+                Dispatcher.RaiseCanExecuteChanged();
             };
 
             View.DataChanged += (sender, e) =>
             {
                 // Data changed externally - notify dispatcher
-                _dispatcher.RaiseCanExecuteChanged();
+                Dispatcher.RaiseCanExecuteChanged();
             };
         }
 
@@ -228,13 +228,13 @@ namespace WinformsMVP.Samples
         protected override void RegisterViewActions()
         {
             // Start only enabled when not running
-            _dispatcher.Register(
+            Dispatcher.Register(
                 AsyncOperationActions.StartOperation,
                 OnStartOperation,
                 canExecute: () => !_isRunning);
 
             // Cancel only enabled when running
-            _dispatcher.Register(
+            Dispatcher.Register(
                 AsyncOperationActions.CancelOperation,
                 OnCancelOperation,
                 canExecute: () => _isRunning);
@@ -255,7 +255,7 @@ namespace WinformsMVP.Samples
 
             // STATE-DRIVEN UPDATE:
             // State changed (_isRunning = true), notify dispatcher
-            _dispatcher.RaiseCanExecuteChanged();
+            Dispatcher.RaiseCanExecuteChanged();
 
             try
             {
@@ -271,7 +271,7 @@ namespace WinformsMVP.Samples
 
                 // STATE-DRIVEN UPDATE:
                 // State changed back, notify dispatcher
-                _dispatcher.RaiseCanExecuteChanged();
+                Dispatcher.RaiseCanExecuteChanged();
             }
         }
 

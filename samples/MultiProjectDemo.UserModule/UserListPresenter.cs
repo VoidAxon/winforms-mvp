@@ -28,20 +28,20 @@ namespace MultiProjectDemo.UserModule
 
         protected override void OnInitialize()
         {
-            View.SelectionChanged += (s, e) => _dispatcher.RaiseCanExecuteChanged();
+            View.SelectionChanged += (s, e) => Dispatcher.RaiseCanExecuteChanged();
             ReloadList();
         }
 
         protected override void RegisterViewActions()
         {
-            _dispatcher.Register(UserListActions.Add, OnAdd);
+            Dispatcher.Register(UserListActions.Add, OnAdd);
 
-            _dispatcher.Register(
+            Dispatcher.Register(
                 UserListActions.Edit,
                 OnEdit,
                 canExecute: () => View.HasSelection);
 
-            _dispatcher.Register(UserListActions.Refresh, ReloadList);
+            Dispatcher.Register(UserListActions.Refresh, ReloadList);
         }
 
         private void ReloadList()

@@ -15,10 +15,10 @@ namespace WinformsMVP.MVP.Presenters
     public abstract class PresenterBase<TView> : IPresenter, IViewAttachable, IPresenterResourceOwner where TView : IViewBase
     {
         protected TView View { get; private set; }
-        protected readonly ViewActionDispatcher _dispatcher;
+        private readonly ViewActionDispatcher _dispatcher;
 
         private IServiceProvider _serviceProvider;
-        protected bool _initialized = false;
+        private bool _initialized;
 
         protected PresenterBase()
         {
@@ -122,8 +122,6 @@ namespace WinformsMVP.MVP.Presenters
             //    to the end of the list, ending up innermost.
             //  - The Logger is wired so subsequent dispatch failures during user code can be
             //    reported through the presenter's logger.
-            // Sample presenters access the underlying _dispatcher field directly (rather than
-            // the Dispatcher property), so we cannot rely on the property getter to lazy-init.
             EnsureDispatcherConfigured();
 
             OnViewAttached();

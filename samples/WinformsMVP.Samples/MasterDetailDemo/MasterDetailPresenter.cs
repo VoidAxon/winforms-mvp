@@ -24,36 +24,36 @@ namespace WinformsMVP.Samples.MasterDetailDemo
 
         protected override void RegisterViewActions()
         {
-            _dispatcher.Register(
+            Dispatcher.Register(
                 MasterDetailActions.AddCustomer,
                 OnAddCustomer);
 
-            _dispatcher.Register(
+            Dispatcher.Register(
                 MasterDetailActions.EditCustomer,
                 OnEditCustomer,
                 canExecute: () => View.HasSelectedCustomer);
 
-            _dispatcher.Register(
+            Dispatcher.Register(
                 MasterDetailActions.DeleteCustomer,
                 OnDeleteCustomer,
                 canExecute: () => View.HasSelectedCustomer);
 
-            _dispatcher.Register(
+            Dispatcher.Register(
                 MasterDetailActions.AddOrder,
                 OnAddOrder,
                 canExecute: () => View.HasSelectedCustomer);
 
-            _dispatcher.Register(
+            Dispatcher.Register(
                 MasterDetailActions.EditOrder,
                 OnEditOrder,
                 canExecute: () => View.HasSelectedOrder);
 
-            _dispatcher.Register(
+            Dispatcher.Register(
                 MasterDetailActions.DeleteOrder,
                 OnDeleteOrder,
                 canExecute: () => View.HasSelectedOrder);
 
-            _dispatcher.Register(
+            Dispatcher.Register(
                 MasterDetailActions.Refresh,
                 OnRefresh);
 
@@ -82,13 +82,13 @@ namespace WinformsMVP.Samples.MasterDetailDemo
             }
 
             // Notify that CanExecute state may have changed
-            _dispatcher.RaiseCanExecuteChanged();
+            Dispatcher.RaiseCanExecuteChanged();
         }
 
         private void OnOrderSelectionChanged(object sender, EventArgs e)
         {
             // Update UI state when detail selection changes
-            _dispatcher.RaiseCanExecuteChanged();
+            Dispatcher.RaiseCanExecuteChanged();
         }
 
         private void CalculateAndDisplayTotal(IEnumerable<OrderModel> orders)

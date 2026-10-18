@@ -56,13 +56,13 @@ namespace WinformsMVP.Samples.MVPComparisonDemo.SupervisingController
         protected override void RegisterViewActions()
         {
             // Register actions with CanExecute predicates
-            _dispatcher.Register(
+            Dispatcher.Register(
                 UserEditorActions.Save,
                 OnSave,
                 canExecute: () => View.Model != null && View.Model.IsValid);
 
-            _dispatcher.Register(UserEditorActions.Reset, OnReset);
-            _dispatcher.Register(UserEditorActions.Close, OnClose);
+            Dispatcher.Register(UserEditorActions.Reset, OnReset);
+            Dispatcher.Register(UserEditorActions.Close, OnClose);
 
             // Note: View.ActionBinder.Bind(_dispatcher) is now called automatically by the base class
         }
@@ -83,7 +83,7 @@ namespace WinformsMVP.Samples.MVPComparisonDemo.SupervisingController
             model.PropertyChanged += (s, e) =>
             {
                 // When model properties change, update action availability
-                _dispatcher.RaiseCanExecuteChanged();
+                Dispatcher.RaiseCanExecuteChanged();
             };
 
             // Set the model - View will automatically bind to it

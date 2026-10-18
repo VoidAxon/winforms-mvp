@@ -27,32 +27,32 @@ namespace WinformsMVP.Samples.AsyncDemo
 
         protected override void RegisterViewActions()
         {
-            _dispatcher.Register(
+            Dispatcher.Register(
                 AsyncActions.StartSimpleOperation,
                 OnStartSimpleOperation,
                 canExecute: () => !View.IsOperationRunning);
 
-            _dispatcher.Register(
+            Dispatcher.Register(
                 AsyncActions.StartLongOperation,
                 OnStartLongOperation,
                 canExecute: () => !View.IsOperationRunning);
 
-            _dispatcher.Register(
+            Dispatcher.Register(
                 AsyncActions.StartWithProgress,
                 OnStartWithProgress,
                 canExecute: () => !View.IsOperationRunning);
 
-            _dispatcher.Register(
+            Dispatcher.Register(
                 AsyncActions.StartWithError,
                 OnStartWithError,
                 canExecute: () => !View.IsOperationRunning);
 
-            _dispatcher.Register(
+            Dispatcher.Register(
                 AsyncActions.Cancel,
                 OnCancel,
                 canExecute: () => View.IsOperationRunning);
 
-            _dispatcher.Register(
+            Dispatcher.Register(
                 AsyncActions.Clear,
                 OnClear);
 
@@ -71,7 +71,7 @@ namespace WinformsMVP.Samples.AsyncDemo
         {
             View.StatusMessage = "Starting simple async operation...";
             View.IsOperationRunning = true;
-            _dispatcher.RaiseCanExecuteChanged();
+            Dispatcher.RaiseCanExecuteChanged();
 
             var stopwatch = Stopwatch.StartNew();
 
@@ -95,7 +95,7 @@ namespace WinformsMVP.Samples.AsyncDemo
             finally
             {
                 View.IsOperationRunning = false;
-                _dispatcher.RaiseCanExecuteChanged();
+                Dispatcher.RaiseCanExecuteChanged();
             }
         }
 
@@ -103,7 +103,7 @@ namespace WinformsMVP.Samples.AsyncDemo
         {
             View.StatusMessage = "Starting long-running operation...";
             View.IsOperationRunning = true;
-            _dispatcher.RaiseCanExecuteChanged();
+            Dispatcher.RaiseCanExecuteChanged();
 
             _cancellationTokenSource = new CancellationTokenSource();
             var stopwatch = Stopwatch.StartNew();
@@ -137,7 +137,7 @@ namespace WinformsMVP.Samples.AsyncDemo
                 View.IsOperationRunning = false;
                 _cancellationTokenSource?.Dispose();
                 _cancellationTokenSource = null;
-                _dispatcher.RaiseCanExecuteChanged();
+                Dispatcher.RaiseCanExecuteChanged();
             }
         }
 
@@ -147,7 +147,7 @@ namespace WinformsMVP.Samples.AsyncDemo
             View.ShowProgress = true;
             View.ProgressPercentage = 0;
             View.IsOperationRunning = true;
-            _dispatcher.RaiseCanExecuteChanged();
+            Dispatcher.RaiseCanExecuteChanged();
 
             _cancellationTokenSource = new CancellationTokenSource();
             var stopwatch = Stopwatch.StartNew();
@@ -189,7 +189,7 @@ namespace WinformsMVP.Samples.AsyncDemo
                 View.IsOperationRunning = false;
                 _cancellationTokenSource?.Dispose();
                 _cancellationTokenSource = null;
-                _dispatcher.RaiseCanExecuteChanged();
+                Dispatcher.RaiseCanExecuteChanged();
             }
         }
 
@@ -197,7 +197,7 @@ namespace WinformsMVP.Samples.AsyncDemo
         {
             View.StatusMessage = "Starting operation that will fail...";
             View.IsOperationRunning = true;
-            _dispatcher.RaiseCanExecuteChanged();
+            Dispatcher.RaiseCanExecuteChanged();
 
             var stopwatch = Stopwatch.StartNew();
 
@@ -220,7 +220,7 @@ namespace WinformsMVP.Samples.AsyncDemo
             finally
             {
                 View.IsOperationRunning = false;
-                _dispatcher.RaiseCanExecuteChanged();
+                Dispatcher.RaiseCanExecuteChanged();
             }
         }
 

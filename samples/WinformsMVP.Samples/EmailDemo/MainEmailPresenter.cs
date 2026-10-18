@@ -54,25 +54,25 @@ namespace WinformsMVP.Samples.EmailDemo
         protected override void RegisterViewActions()
         {
             // Email operations
-            _dispatcher.Register(EmailActions.Compose, OnCompose);
-            _dispatcher.Register(EmailActions.Reply, OnReply,
+            Dispatcher.Register(EmailActions.Compose, OnCompose);
+            Dispatcher.Register(EmailActions.Reply, OnReply,
                 canExecute: () => View.HasSelection);
-            _dispatcher.Register(EmailActions.Forward, OnForward,
+            Dispatcher.Register(EmailActions.Forward, OnForward,
                 canExecute: () => View.HasSelection);
-            _dispatcher.Register(EmailActions.Delete, OnDelete,
+            Dispatcher.Register(EmailActions.Delete, OnDelete,
                 canExecute: () => View.HasSelection);
-            _dispatcher.Register(EmailActions.Refresh, OnRefresh);
+            Dispatcher.Register(EmailActions.Refresh, OnRefresh);
 
             // Email status operations
-            _dispatcher.Register(EmailActions.MarkAsRead, OnMarkAsRead,
+            Dispatcher.Register(EmailActions.MarkAsRead, OnMarkAsRead,
                 canExecute: () => View.HasSelection && View.SelectedEmail != null && !View.SelectedEmail.IsRead);
-            _dispatcher.Register(EmailActions.MarkAsUnread, OnMarkAsUnread,
+            Dispatcher.Register(EmailActions.MarkAsUnread, OnMarkAsUnread,
                 canExecute: () => View.HasSelection && View.SelectedEmail != null && View.SelectedEmail.IsRead);
-            _dispatcher.Register(EmailActions.ToggleStar, OnToggleStar,
+            Dispatcher.Register(EmailActions.ToggleStar, OnToggleStar,
                 canExecute: () => View.HasSelection);
 
             // View operations
-            _dispatcher.Register(EmailActions.OpenEmail, OnOpenEmail,
+            Dispatcher.Register(EmailActions.OpenEmail, OnOpenEmail,
                 canExecute: () => View.HasSelection);
 
             // Note: View.ActionBinder.Bind(_dispatcher) is now called automatically by the base class
@@ -90,7 +90,7 @@ namespace WinformsMVP.Samples.EmailDemo
         private void OnEmailSelectionChanged(object sender, EventArgs e)
         {
             // Update CanExecute status
-            _dispatcher.RaiseCanExecuteChanged();
+            Dispatcher.RaiseCanExecuteChanged();
 
             // Show email preview
             if (View.HasSelection && View.SelectedEmail != null)
@@ -237,7 +237,7 @@ namespace WinformsMVP.Samples.EmailDemo
             if (email == null) return;
 
             await MarkEmailAsReadAsync(email.Id, true);
-            _dispatcher.RaiseCanExecuteChanged();
+            Dispatcher.RaiseCanExecuteChanged();
         }
 
         private async void OnMarkAsUnread()
@@ -246,7 +246,7 @@ namespace WinformsMVP.Samples.EmailDemo
             if (email == null) return;
 
             await MarkEmailAsReadAsync(email.Id, false);
-            _dispatcher.RaiseCanExecuteChanged();
+            Dispatcher.RaiseCanExecuteChanged();
         }
 
         private async void OnToggleStar()

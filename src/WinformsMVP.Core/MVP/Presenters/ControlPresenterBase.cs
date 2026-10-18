@@ -10,7 +10,7 @@ namespace WinformsMVP.MVP.Presenters
     /// <remarks>
     /// Construction is two-phase, identical in shape to <see cref="WindowPresenterBase{TView}"/>:
     /// the constructor takes only the presenter's own dependencies, then the view is supplied via
-    /// <see cref="AttachView"/> and initialization runs via <see cref="Initialize"/>. The
+    /// <c>AttachView</c> and initialization runs via <c>Initialize</c>. The
     /// <c>Connect</c> extension (see <see cref="ControlPresenterConnectExtensions"/>) drives that
     /// sequence and wires lifecycle teardown. This keeps the presenter free of any
     /// <c>System.Windows.Forms</c> dependency, and — because <c>Initialize</c> runs after the
@@ -31,7 +31,7 @@ namespace WinformsMVP.MVP.Presenters
         /// <summary>
         /// Attaches the view to this presenter. Called by the <c>Connect</c> extension.
         /// </summary>
-        public void AttachView(TView view)
+        void IViewAttacher<TView>.AttachView(TView view)
         {
             SetView(view);
         }
@@ -40,7 +40,7 @@ namespace WinformsMVP.MVP.Presenters
         /// Initializes the presenter. Called after the view is attached.
         /// At this point the View property and all derived fields are guaranteed to be set.
         /// </summary>
-        public void Initialize() => InitializeCore(RegisterViewActions, OnInitialize);
+        void IInitializable.Initialize() => InitializeCore(RegisterViewActions, OnInitialize);
 
         /// <summary>
         /// Override to register view actions (UI event bindings).

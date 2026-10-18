@@ -26,7 +26,7 @@ namespace WinformsMVP.MVP.Presenters
         /// </summary>
         public static void Connect<TView>(this WindowPresenterBase<TView> presenter,
             TView view, Action<InteractionResult> onClosed = null) where TView : IWindowView
-            => ConnectCore(presenter, view, () => presenter.Initialize(),
+            => ConnectCore(presenter, view, () => ((IInitializable)presenter).Initialize(),
                 (res, status) => onClosed?.Invoke(CloseResults.Build(res, status)), disposeForm: true);
 
         /// <summary>
@@ -35,7 +35,7 @@ namespace WinformsMVP.MVP.Presenters
         /// </summary>
         public static void Connect<TView, TResult>(this WindowPresenterBase<TView> presenter,
             TView view, Action<InteractionResult<TResult>> onClosed) where TView : IWindowView
-            => ConnectCore(presenter, view, () => presenter.Initialize(),
+            => ConnectCore(presenter, view, () => ((IInitializable)presenter).Initialize(),
                 (res, status) => onClosed?.Invoke(CloseResults.Build<TResult>(res, status)), disposeForm: true);
 
         /// <summary>
@@ -44,7 +44,7 @@ namespace WinformsMVP.MVP.Presenters
         /// </summary>
         public static void Connect<TView, TParam>(this WindowPresenterBase<TView, TParam> presenter,
             TView view, TParam param, Action<InteractionResult> onClosed = null) where TView : IWindowView
-            => ConnectCore(presenter, view, () => presenter.Initialize(param),
+            => ConnectCore(presenter, view, () => ((IInitializable<TParam>)presenter).Initialize(param),
                 (res, status) => onClosed?.Invoke(CloseResults.Build(res, status)), disposeForm: true);
 
         /// <summary>
@@ -53,7 +53,7 @@ namespace WinformsMVP.MVP.Presenters
         /// </summary>
         public static void Connect<TView, TParam, TResult>(this WindowPresenterBase<TView, TParam> presenter,
             TView view, TParam param, Action<InteractionResult<TResult>> onClosed) where TView : IWindowView
-            => ConnectCore(presenter, view, () => presenter.Initialize(param),
+            => ConnectCore(presenter, view, () => ((IInitializable<TParam>)presenter).Initialize(param),
                 (res, status) => onClosed?.Invoke(CloseResults.Build<TResult>(res, status)), disposeForm: true);
 
         private static void ConnectCore(object presenter, IWindowView view,

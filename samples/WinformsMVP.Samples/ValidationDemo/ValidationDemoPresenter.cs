@@ -36,16 +36,16 @@ namespace WinformsMVP.Samples.ValidationDemo
 
         protected override void RegisterViewActions()
         {
-            _dispatcher.Register(
+            Dispatcher.Register(
                 ValidationActions.Submit,
                 OnSubmit,
                 canExecute: () => !View.HasValidationErrors);
 
-            _dispatcher.Register(
+            Dispatcher.Register(
                 ValidationActions.Reset,
                 OnReset);
 
-            _dispatcher.Register(
+            Dispatcher.Register(
                 ValidationActions.ValidateAll,
                 OnValidateAll);
 
@@ -93,7 +93,7 @@ namespace WinformsMVP.Samples.ValidationDemo
             _fieldErrors.Clear();
             View.ClearAllErrors();
 
-            _dispatcher.RaiseCanExecuteChanged();
+            Dispatcher.RaiseCanExecuteChanged();
         }
 
         private void OnValidateAll()
@@ -124,7 +124,7 @@ namespace WinformsMVP.Samples.ValidationDemo
             ValidateAge();
             ValidatePhoneNumber();
 
-            _dispatcher.RaiseCanExecuteChanged();
+            Dispatcher.RaiseCanExecuteChanged();
 
             return !_fieldErrors.Any();
         }
@@ -341,7 +341,7 @@ namespace WinformsMVP.Samples.ValidationDemo
                 View.ClearFieldError(fieldName);
             }
 
-            _dispatcher.RaiseCanExecuteChanged();
+            Dispatcher.RaiseCanExecuteChanged();
         }
 
         private IEnumerable<string> GetAllErrors()

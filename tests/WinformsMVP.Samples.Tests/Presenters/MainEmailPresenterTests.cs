@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using WinformsMVP.Testing;
 using Xunit;
 using WinformsMVP.Samples.EmailDemo;
 using WinformsMVP.Samples.EmailDemo.Models;
@@ -48,8 +49,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             _mockView = new MockMainEmailView();
 
             // 5. Attach view and initialize
-            _presenter.AttachView(_mockView);
-            _presenter.Initialize();
+            PresenterTestHost.Start(_presenter, _mockView);
 
             // NOTE: Do NOT clear method calls here - initialization tests need them!
             // Individual tests should clear if needed before their Act phase

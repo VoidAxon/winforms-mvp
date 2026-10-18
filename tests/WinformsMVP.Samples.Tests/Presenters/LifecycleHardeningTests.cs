@@ -271,7 +271,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
         {
             var presenter = new ScriptedPresenter();
 
-            var ex = Assert.Throws<InvalidOperationException>(() => presenter.Initialize());
+            var ex = Assert.Throws<InvalidOperationException>(() => ((IInitializable)presenter).Initialize());
             Assert.Contains("no view attached", ex.Message);
         }
 
@@ -279,9 +279,9 @@ namespace WinformsMVP.Samples.Tests.Presenters
         public void AttachView_Twice_Throws()
         {
             var presenter = new ScriptedPresenter();
-            presenter.AttachView(new NonFormView());
+            ((IViewAttacher<IHardView>)presenter).AttachView(new NonFormView());
 
-            Assert.Throws<InvalidOperationException>(() => presenter.AttachView(new NonFormView()));
+            Assert.Throws<InvalidOperationException>(() => ((IViewAttacher<IHardView>)presenter).AttachView(new NonFormView()));
         }
 
         [Fact]
@@ -311,8 +311,9 @@ namespace WinformsMVP.Samples.Tests.Presenters
         public void RequestClose_BeforeSinkBound_IsDeliveredOnBind()
         {
             var presenter = new ScriptedPresenter { OnInit = p => p.Close("early", InteractionStatus.Ok) };
-            presenter.AttachView(new NonFormView());
-            presenter.Initialize();
+            // Drives the framework contract directly (no recording sink), as the hosts do.
+            ((IViewAttacher<IHardView>)presenter).AttachView(new NonFormView());
+            ((IInitializable)presenter).Initialize();
 
             var sink = new RecordingSink();
             ((ICloseParticipant)presenter).BindCloseSink(sink);
@@ -330,7 +331,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
         {
             var presenter = new ScriptedPresenter();
             var form = new HardForm();
-            presenter.AttachView(form);
+            ((IViewAttacher<IHardView>)presenter).AttachView(form);
 
             presenter.Connect(form);
 
@@ -342,7 +343,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
         public void Connect_ToDifferentViewThanAttached_Throws()
         {
             var presenter = new ScriptedPresenter();
-            presenter.AttachView(new HardForm());
+            ((IViewAttacher<IHardView>)presenter).AttachView(new HardForm());
 
             using (var other = new HardForm())
                 Assert.Throws<InvalidOperationException>(() => presenter.Connect(other));
@@ -353,8 +354,9 @@ namespace WinformsMVP.Samples.Tests.Presenters
         {
             var presenter = new ScriptedPresenter { OnInit = p => p.Close("done", InteractionStatus.Ok) };
             var form = new HardForm();
-            presenter.AttachView(form);
-            presenter.Initialize();   // close requested here, before any sink exists
+            // Drives the framework contract directly (no recording sink), as the hosts do.
+            ((IViewAttacher<IHardView>)presenter).AttachView(form);
+            ((IInitializable)presenter).Initialize();
 
             InteractionResult<string> closed = null;
             presenter.Connect<IHardView, string>(form, r => closed = r);

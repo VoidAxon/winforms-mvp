@@ -5,7 +5,7 @@
         void Initialize();
     }
 
-    public interface IInitializable<TParam>
+    public interface IInitializable<in TParam>
     {
         void Initialize(TParam param);
     }

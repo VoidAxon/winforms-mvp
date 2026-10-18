@@ -113,34 +113,34 @@ namespace WinformsMVP.Samples
             // controls based on these predicates
 
             // Save is always enabled
-            _dispatcher.Register(
+            Dispatcher.Register(
                 CommonActions.Save,
                 OnSave);
 
             // Cancel is always enabled
-            _dispatcher.Register(
+            Dispatcher.Register(
                 CommonActions.Cancel,
                 OnCancel);
 
             // Delete is only enabled when a user is selected
-            _dispatcher.Register(
+            Dispatcher.Register(
                 CommonActions.Delete,
                 OnDelete,
                 canExecute: () => View.HasSelectedUser);
 
             // Add user is always enabled
-            _dispatcher.Register(
+            Dispatcher.Register(
                 UserEditorActions.AddUser,
                 OnAddUser);
 
             // Edit user is only enabled when a user is selected
-            _dispatcher.Register(
+            Dispatcher.Register(
                 UserEditorActions.EditUser,
                 OnEditUser,
                 canExecute: () => View.HasSelectedUser);
 
             // Change password is only enabled when a user is selected
-            _dispatcher.Register(
+            Dispatcher.Register(
                 UserEditorActions.ChangePassword,
                 OnChangePassword,
                 canExecute: () => View.HasSelectedUser);

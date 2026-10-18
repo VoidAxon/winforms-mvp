@@ -59,16 +59,16 @@ namespace WinformsMVP.Samples.EmailDemo
         protected override void RegisterViewActions()
         {
             // Send operation
-            _dispatcher.Register(ComposeEmailActions.Send, OnSend,
+            Dispatcher.Register(ComposeEmailActions.Send, OnSend,
                 canExecute: () => !string.IsNullOrWhiteSpace(View.To) &&
                                   !string.IsNullOrWhiteSpace(View.Subject));
 
             // Save draft operation
-            _dispatcher.Register(ComposeEmailActions.SaveDraft, OnSaveDraft,
+            Dispatcher.Register(ComposeEmailActions.SaveDraft, OnSaveDraft,
                 canExecute: () => _changeTracker?.IsChanged == true);
 
             // Discard operation
-            _dispatcher.Register(ComposeEmailActions.Discard, OnDiscard);
+            Dispatcher.Register(ComposeEmailActions.Discard, OnDiscard);
 
             // Note: View.ActionBinder.Bind(_dispatcher) is now called automatically by the base class
         }
@@ -94,7 +94,7 @@ namespace WinformsMVP.Samples.EmailDemo
             _changeTracker.IsChangedChanged += (s, e) =>
             {
                 View.IsDirty = _changeTracker.IsChanged;
-                _dispatcher.RaiseCanExecuteChanged();
+                Dispatcher.RaiseCanExecuteChanged();
             };
         }
 
@@ -151,7 +151,7 @@ namespace WinformsMVP.Samples.EmailDemo
             _changeTracker.UpdateCurrentValue(currentEmail);
 
             // Trigger CanExecute update for Send and SaveDraft actions
-            _dispatcher.RaiseCanExecuteChanged();
+            Dispatcher.RaiseCanExecuteChanged();
         }
 
         #endregion

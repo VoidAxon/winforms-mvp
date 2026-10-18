@@ -20,8 +20,8 @@ namespace WinformsMVP.Samples.NavigatorDemo
 
         protected override void RegisterViewActions()
         {
-            _dispatcher.Register(NonModalWindowActions.Increment, OnIncrement);
-            _dispatcher.Register(NonModalWindowActions.Close, OnClose);
+            Dispatcher.Register(NonModalWindowActions.Increment, OnIncrement);
+            Dispatcher.Register(NonModalWindowActions.Close, OnClose);
 
             // Note: View.ActionBinder.Bind(_dispatcher) is now called automatically by the base class
         }

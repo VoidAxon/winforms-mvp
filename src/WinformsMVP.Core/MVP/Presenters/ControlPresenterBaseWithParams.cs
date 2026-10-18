@@ -10,7 +10,7 @@ namespace WinformsMVP.MVP.Presenters
     /// <remarks>
     /// Two-phase construction, identical in shape to <see cref="WindowPresenterBase{TView, TParam}"/>:
     /// the constructor takes only the presenter's own dependencies; the view and parameters are supplied
-    /// via <see cref="AttachView"/> + <see cref="Initialize(TParam)"/>, driven by the parameterized
+    /// via <c>AttachView</c> + <c>Initialize(TParam)</c>, driven by the parameterized
     /// <c>Connect</c> overload. No <c>System.Windows.Forms</c> dependency, and no constructor-ordering trap.
     /// </remarks>
     /// <typeparam name="TView">The view interface type, must implement IViewBase</typeparam>
@@ -23,7 +23,7 @@ namespace WinformsMVP.MVP.Presenters
     {
         /// <summary>
         /// Gets the initialization parameters passed to this presenter.
-        /// Available after <see cref="Initialize(TParam)"/> is called.
+        /// Available once the presenter has been initialized.
         /// </summary>
         protected TParam Parameters { get; private set; }
 
@@ -34,7 +34,7 @@ namespace WinformsMVP.MVP.Presenters
         /// <summary>
         /// Attaches the view to this presenter. Called by the <c>Connect</c> extension.
         /// </summary>
-        public void AttachView(TView view)
+        void IViewAttacher<TView>.AttachView(TView view)
         {
             SetView(view);
         }
@@ -44,7 +44,7 @@ namespace WinformsMVP.MVP.Presenters
         /// At this point the View property, Parameters, and all derived fields are guaranteed to be set.
         /// </summary>
         /// <param name="parameters">Initialization parameters</param>
-        public void Initialize(TParam parameters)
+        void IInitializable<TParam>.Initialize(TParam parameters)
             => InitializeCore(() => { Parameters = parameters; RegisterViewActions(); },
                               () => OnInitialize(parameters));
 

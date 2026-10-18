@@ -30,7 +30,7 @@ namespace WinformsMVP.MVP.Presenters
         /// <summary>
         /// Attaches the view to this presenter. Called by WindowNavigator.
         /// </summary>
-        public void AttachView(TView view)
+        void IViewAttacher<TView>.AttachView(TView view)
         {
             SetView(view);
         }
@@ -39,7 +39,7 @@ namespace WinformsMVP.MVP.Presenters
         /// Initializes the presenter with parameters. Called by WindowNavigator after the view is attached.
         /// </summary>
         /// <param name="parameters">Initialization parameters</param>
-        public void Initialize(TParam parameters)
+        void IInitializable<TParam>.Initialize(TParam parameters)
             => InitializeCore(() => { Parameters = parameters; RegisterViewActions(); },
                               () => OnInitialize(parameters));
 

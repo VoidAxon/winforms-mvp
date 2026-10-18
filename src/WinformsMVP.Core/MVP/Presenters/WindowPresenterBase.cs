@@ -23,7 +23,7 @@ namespace WinformsMVP.MVP.Presenters
         /// <summary>
         /// Attaches the view to this presenter. Called by WindowNavigator.
         /// </summary>
-        public void AttachView(TView view)
+        void IViewAttacher<TView>.AttachView(TView view)
         {
             SetView(view);
         }
@@ -31,7 +31,7 @@ namespace WinformsMVP.MVP.Presenters
         /// <summary>
         /// Initializes the presenter. Called by WindowNavigator after the view is attached.
         /// </summary>
-        public void Initialize() => InitializeCore(RegisterViewActions, OnInitialize);
+        void IInitializable.Initialize() => InitializeCore(RegisterViewActions, OnInitialize);
 
         /// <summary>
         /// Override to register view actions (UI event bindings).

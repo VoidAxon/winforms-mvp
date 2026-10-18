@@ -86,16 +86,16 @@ namespace WinformsMVP.Samples
         protected override void RegisterViewActions()
         {
             // Register handlers for all operations
-            _dispatcher.Register(ComplexDataGridActions.Add, OnAdd);
-            _dispatcher.Register(ComplexDataGridActions.Edit, OnEdit);
-            _dispatcher.Register(ComplexDataGridActions.Delete, OnDelete, canExecute: () => HasSelection());
-            _dispatcher.Register(ComplexDataGridActions.Refresh, OnRefresh);
-            _dispatcher.Register(ComplexDataGridActions.Export, OnExport);
-            _dispatcher.Register(ComplexDataGridActions.Import, OnImport);
-            _dispatcher.Register(ComplexDataGridActions.Print, OnPrint);
-            _dispatcher.Register(ComplexDataGridActions.Filter, OnFilter);
-            _dispatcher.Register(ComplexDataGridActions.Sort, OnSort);
-            _dispatcher.Register(ComplexDataGridActions.Search, OnSearch);
+            Dispatcher.Register(ComplexDataGridActions.Add, OnAdd);
+            Dispatcher.Register(ComplexDataGridActions.Edit, OnEdit);
+            Dispatcher.Register(ComplexDataGridActions.Delete, OnDelete, canExecute: () => HasSelection());
+            Dispatcher.Register(ComplexDataGridActions.Refresh, OnRefresh);
+            Dispatcher.Register(ComplexDataGridActions.Export, OnExport);
+            Dispatcher.Register(ComplexDataGridActions.Import, OnImport);
+            Dispatcher.Register(ComplexDataGridActions.Print, OnPrint);
+            Dispatcher.Register(ComplexDataGridActions.Filter, OnFilter);
+            Dispatcher.Register(ComplexDataGridActions.Sort, OnSort);
+            Dispatcher.Register(ComplexDataGridActions.Search, OnSearch);
 
             // Note: View.ActionBinder.Bind(_dispatcher) is now called automatically by the base class
         }
@@ -229,11 +229,11 @@ namespace WinformsMVP.Samples
         protected override void RegisterViewActions()
         {
             // Register operations with parameters
-            _dispatcher.Register<string>(
+            Dispatcher.Register<string>(
                 SearchActions.SearchByKeyword,
                 OnSearchByKeyword);
 
-            _dispatcher.Register<string>(
+            Dispatcher.Register<string>(
                 SearchActions.FilterByCategory,
                 OnFilterByCategory);
 

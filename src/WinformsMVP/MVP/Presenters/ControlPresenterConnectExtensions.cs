@@ -30,8 +30,8 @@ namespace WinformsMVP.MVP.Presenters
             var controller = new ControlLifecycleController(view, presenter);
             Run(presenter, () =>
             {
-                presenter.AttachView(view);
-                presenter.Initialize();
+                ((IViewAttacher<TView>)presenter).AttachView(view);
+                ((IInitializable)presenter).Initialize();
             });
             controller.WireControlEvents();   // teardown bridge wired after Initialize
         }
@@ -48,8 +48,8 @@ namespace WinformsMVP.MVP.Presenters
             var controller = new ControlLifecycleController(view, presenter);
             Run(presenter, () =>
             {
-                presenter.AttachView(view);
-                presenter.Initialize(param);
+                ((IViewAttacher<TView>)presenter).AttachView(view);
+                ((IInitializable<TParam>)presenter).Initialize(param);
             });
             controller.WireControlEvents();
         }

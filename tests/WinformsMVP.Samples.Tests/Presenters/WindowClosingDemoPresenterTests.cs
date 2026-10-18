@@ -7,6 +7,7 @@ using WinformsMVP.MVP.ViewActions;
 using WinformsMVP.Samples.Tests.Mocks;
 using WinformsMVP.Samples.Tests.TestHelpers;
 using WinformsMVP.Samples.WindowClosingDemo;
+using WinformsMVP.Testing;
 using Xunit;
 
 namespace WinformsMVP.Samples.Tests.Presenters
@@ -47,34 +48,24 @@ namespace WinformsMVP.Samples.Tests.Presenters
             }
         }
 
-        private sealed class RecordingSink : ICloseSink
-        {
-            public readonly List<(object result, InteractionStatus status)> Closed
-                = new List<(object, InteractionStatus)>();
-            public void Close(object result, InteractionStatus status) => Closed.Add((result, status));
-        }
 
         private readonly MockServices _platform = new MockServices();
         private readonly MockView _view = new MockView();
         private readonly WindowClosingDemoPresenter _presenter;
-        private readonly RecordingSink _sink = new RecordingSink();
+        private PresenterTestHost _host;
 
         public WindowClosingDemoPresenterTests()
         {
             _presenter = new WindowClosingDemoPresenter()
                 .WithServiceProvider(_platform.Provider);
 
-            _presenter.AttachView(_view);
-            _presenter.Initialize();
-            ((ICloseParticipant)_presenter).BindCloseSink(_sink);
+            _host = PresenterTestHost.Start(_presenter, _view);
         }
 
         /// <summary>Drive the Pull gate for <paramref name="reason"/> and return whether it allowed the close.</summary>
         private bool RunCanClose(CloseReason reason = CloseReason.Normal)
         {
-            bool allow = false;
-            ((ICloseParticipant)_presenter).CanCloseGate(reason, ok => allow = ok);
-            return allow;
+            return _host.CanClose(reason) == true;
         }
 
         #endregion
@@ -137,9 +128,9 @@ namespace WinformsMVP.Samples.Tests.Presenters
 
             _view.Binder.Dispatch(WindowClosingDemoActions.Save);
 
-            Assert.Single(_sink.Closed);
-            Assert.Equal("hello", _sink.Closed[0].result);
-            Assert.Equal(InteractionStatus.Ok, _sink.Closed[0].status);
+            Assert.Equal(1, _host.CloseCount);
+            Assert.Equal("hello", _host.CloseResult);
+            Assert.Equal(InteractionStatus.Ok, _host.CloseStatus);
         }
 
         [Fact]
@@ -149,8 +140,8 @@ namespace WinformsMVP.Samples.Tests.Presenters
 
             _view.Binder.Dispatch(WindowClosingDemoActions.Cancel);
 
-            Assert.Single(_sink.Closed);
-            Assert.Equal(InteractionStatus.Cancel, _sink.Closed[0].status);
+            Assert.Equal(1, _host.CloseCount);
+            Assert.Equal(InteractionStatus.Cancel, _host.CloseStatus);
         }
 
         // ─── Push then Pull (single-source-of-truth invariant) ───────────────────────

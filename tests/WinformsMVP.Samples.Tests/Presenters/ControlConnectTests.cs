@@ -2,6 +2,7 @@ using System;
 using System.Windows.Forms;
 using WinformsMVP.MVP.Presenters;
 using WinformsMVP.MVP.Views;
+using WinformsMVP.Testing;
 using Xunit;
 
 namespace WinformsMVP.Samples.Tests.Presenters
@@ -66,9 +67,9 @@ namespace WinformsMVP.Samples.Tests.Presenters
         public void OnInitialize_SeesConstructorInjectedDependency()
         {
             var presenter = new DepUsingPresenter(new FakeDependency());
-            presenter.AttachView(new NonControlView());
+            ((IViewAttacher<IFakeControlView>)presenter).AttachView(new NonControlView());
 
-            presenter.Initialize();
+            ((IInitializable)presenter).Initialize();
 
             Assert.Equal("ready", presenter.Observed);
         }
@@ -77,10 +78,9 @@ namespace WinformsMVP.Samples.Tests.Presenters
         public void Initialize_Twice_Throws()
         {
             var presenter = new DepUsingPresenter(new FakeDependency());
-            presenter.AttachView(new NonControlView());
-            presenter.Initialize();
+            PresenterTestHost.Start(presenter, new NonControlView());
 
-            Assert.Throws<InvalidOperationException>(() => presenter.Initialize());
+            Assert.Throws<InvalidOperationException>(() => ((IInitializable)presenter).Initialize());
         }
 
         [Fact]
