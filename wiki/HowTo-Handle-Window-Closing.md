@@ -305,9 +305,23 @@ form.Show();
 
 ## テストパターン
 
+テストでは `PresenterTestHost` (`WinformsMVP.Testing`、`WinformsMVP.Core` に同梱) で Presenter をモック View にホストします。`Start` は本番と同じ初期化を実行し、`RequestClose` を記録し (Push)、`CanClose(reason)` で Pull ゲートを駆動します。Form も `InternalsVisibleTo` も不要です:
+
+```csharp
+private readonly MockServices _platform = new MockServices();
+private readonly MockView _view = new MockView();
+private readonly PresenterTestHost _host;
+
+public WindowClosingDemoPresenterTests()
+{
+    var presenter = new WindowClosingDemoPresenter().WithServiceProvider(_platform.Provider);
+    _host = PresenterTestHost.Start(presenter, _view);   // アタッチ + 初期化 + RequestClose の記録
+}
+```
+
 ### Pull 方向 — `CanClose` をテストする
 
-`ICloseParticipant.CanCloseGate` 経由で Pull ゲートに到達します (内部 API。テストプロジェクトは `InternalsVisibleTo` でアクセスできます):
+`host.CanClose(reason)` は X / Alt+F4 と同じゲートを通り、`bool?` を返します (非同期 `CanClose` が未回答なら `null`):
 
 ```csharp
 [Fact]
@@ -316,10 +330,7 @@ public void CanClose_WithUnsavedChanges_UserDeclines_BlocksClose()
     _view.SimulateEdit("new value");
     _platform.MessageService.ConfirmYesNoResult = false;   // user keeps editing
 
-    bool? allow = null;
-    ((ICloseParticipant)_presenter).CanCloseGate(CloseReason.Normal, ok => allow = ok);
-
-    Assert.False(allow);
+    Assert.False(_host.CanClose());                         // CloseReason.Normal
     Assert.True(_platform.MessageService.ConfirmDialogShown);
 }
 
@@ -328,50 +339,33 @@ public void CanClose_SystemShutdown_DoesNotPrompt()
 {
     _view.SimulateEdit("new value");
 
-    bool? allow = null;
-    ((ICloseParticipant)_presenter).CanCloseGate(CloseReason.SystemShutdown, ok => allow = ok);
-
-    Assert.True(allow);
+    Assert.True(_host.CanClose(CloseReason.SystemShutdown));
     Assert.False(_platform.MessageService.ConfirmDialogShown);
 }
 ```
 
 ### Push 方向 — `RequestClose` をテストする
 
-テストの前に記録用の `ICloseSink` を束縛してからアクションを Dispatch します:
+アクションを Dispatch し、ホストが記録した結果とステータスを検証します:
 
 ```csharp
-private sealed class RecordingSink : ICloseSink
-{
-    public readonly List<(object result, InteractionStatus status)> Closed
-        = new List<(object, InteractionStatus)>();
-    public void Close(object result, InteractionStatus status)
-        => Closed.Add((result, status));
-}
-
 [Fact]
 public void Save_PushesResultWithOkStatus()
 {
-    var sink = new RecordingSink();
-    ((ICloseParticipant)_presenter).BindCloseSink(sink);
-
     _view.SimulateEdit("hello");
     _view.Binder.Dispatch(WindowClosingDemoActions.Save);
 
-    Assert.Single(sink.Closed);
-    Assert.Equal("hello", sink.Closed[0].result);
-    Assert.Equal(InteractionStatus.Ok, sink.Closed[0].status);
+    Assert.Equal(1, _host.CloseCount);
+    Assert.Equal("hello", _host.CloseResult);
+    Assert.Equal(InteractionStatus.Ok, _host.CloseStatus);
 }
 
 [Fact]
 public void Cancel_PushesCancelStatus()
 {
-    var sink = new RecordingSink();
-    ((ICloseParticipant)_presenter).BindCloseSink(sink);
-
     _view.Binder.Dispatch(WindowClosingDemoActions.Cancel);
 
-    Assert.Equal(InteractionStatus.Cancel, sink.Closed[0].status);
+    Assert.Equal(InteractionStatus.Cancel, _host.CloseStatus);
 }
 ```
 
@@ -383,22 +377,16 @@ Push (Save) の後に続く `CanClose` 呼び出しが再プロンプトを出�
 [Fact]
 public void Save_ThenCanClose_DoesNotPrompt()
 {
-    var sink = new RecordingSink();
-    ((ICloseParticipant)_presenter).BindCloseSink(sink);
-
     _view.SimulateEdit("hello");
     _view.Binder.Dispatch(WindowClosingDemoActions.Save);
 
     // Simulate the framework re-running the Pull gate after the Push close.
-    bool? allow = null;
-    ((ICloseParticipant)_presenter).CanCloseGate(CloseReason.Normal, ok => allow = ok);
-
-    Assert.True(allow);
+    Assert.True(_host.CanClose());
     Assert.False(_platform.MessageService.ConfirmDialogShown);
 }
 ```
 
-完全なテスト例: `tests/WinformsMVP.Samples.Tests/Presenters/CanCloseTests.cs` および `WindowClosingDemoPresenterTests.cs`。
+完全なテスト例: `tests/WinformsMVP.Samples.Tests/Presenters/WindowClosingDemoPresenterTests.cs` および `PresenterTestHostTests.cs`。
 テスト駆動の完全なガイド: [HowTo: Presenter をテストする](HowTo-Test-A-Presenter)。
 
 ---

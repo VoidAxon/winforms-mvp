@@ -22,6 +22,11 @@
 - **`MessageFormatter` が `{@Name}` / `{$Name}` を受理** し、同じ名前の繰り返しは同じ引数を再利用 (従来は全引数が落ちていた)。
 
 - **`ChangeTracker` の既定比較を内容比較に** (BREAKING) — `comparer` を渡さない場合、`T` の `IEquatable<T>` / `IComparable<T>` / `Equals` は使わず `ChangeTrackerDefaults.Comparer` (既定は新しい `ObjectComparer.ContentEquals`) で比較する。「Id が同じなら等しい」エンティティで編集が検出されず保存確認が出ない問題を解消 (ネストしたエンティティ・セット内の要素も同様)。`ContentEquals` は値型と `System.*` / `Microsoft.*` 型の `Equals` のみ信頼する。`DeepEquals` の挙動は不変。`T` の等価性を使いたい場合は `comparer` を明示する。
+- **Presenter のライフサイクルと内部状態を非公開に、テスト用 `PresenterTestHost` を追加** (BREAKING) — Presenter の公開面はコンストラクタのみ (MVP ルール 16/17)。
+  - `PresenterBase._dispatcher` / `_initialized` は `private`。派生 Presenter は `Dispatcher` プロパティを使う (ロガー / グローバルミドルウェアの構成も保証される)。
+  - `AttachView` / `Initialize` は 4 つの Presenter 基底すべてで `IViewAttacher<TView>` / `IInitializable` / `IInitializable<in TParam>` の明示的インターフェイス実装になり、`presenter.AttachView(view)` / `presenter.Initialize()` はコンパイルできない。本番は `WindowNavigator` (Managed) か `presenter.Connect(view[, param])` (Adopted — Form/コントロールと一緒に Presenter も破棄) でホストする。`IInitializable<in TParam>` は反変。
+  - 新 API `WinformsMVP.Testing.PresenterTestHost` (`WinformsMVP.Core`) — `PresenterTestHost.Start(presenter, mockView[, parameters])` は任意のモック View をアタッチ (Form 不要) して実際の初期化 (`RegisterViewActions`・binder 自動バインド・`OnInitialize`) を実行し、`RequestClose` を記録 (`CloseRequested` / `CloseCount` / `CloseResult` / `CloseStatus`)、`CanClose(reason = CloseReason.Normal)` でクローズゲートを駆動 (`bool?`。非同期 `CanClose` が未回答なら `null`、コントロール Presenter では例外)、`Dispose()` で Presenter を破棄。初期化が例外を投げた場合は Presenter を破棄して再スロー。
+  - テストの推奨パターンを `((ICloseParticipant)presenter).CanCloseGate(...)` + 自作 `RecordingSink` の `BindCloseSink` から `PresenterTestHost` に置き換え (`ICloseParticipant` は internal のまま、フレームワーク内部テスト専用)。アクションの Dispatch は従来どおりモック View の `CapturingActionBinder` 経由 (`view.Binder.Dispatch(...)`)。
 
 ### Removed (削除)
 
@@ -79,8 +84,6 @@
 - **`ControlLifecycleController`** (内部) を追加 — Control 系の唯一の `view is Control` 境界。`Disposed` を購読して Presenter をテアダウンする。Window 側の `WindowLifecycleController` と対称で、Presenter 基底から `System.Windows.Forms` 依存を排除。
 - **`WindowCloseController` を `WindowLifecycleController` にリネーム** — `ControlLifecycleController` との命名対称性のため。内部クラスのため公開 API 影響なし。
 
-- **`ChangeTracker` の既定比較を内容比較に** (BREAKING) — `comparer` を渡さない場合、`T` の `IEquatable<T>` / `IComparable<T>` / `Equals` は使わず `ChangeTrackerDefaults.Comparer` (既定は新しい `ObjectComparer.ContentEquals`) で比較する。「Id が同じなら等しい」エンティティで編集が検出されず保存確認が出ない問題を解消 (ネストしたエンティティ・セット内の要素も同様)。`ContentEquals` は値型と `System.*` / `Microsoft.*` 型の `Equals` のみ信頼する。`DeepEquals` の挙動は不変。`T` の等価性を使いたい場合は `comparer` を明示する。
-
 ### Removed (削除)
 
 - **`IMessageService` の位置指定オーバーロードを削除** (BREAKING) — `ShowInfoAt` / `ShowWarningAt` / `ShowErrorAt` / `ConfirmYesNoAt` / `ConfirmOkCancelAt` / `ConfirmYesNoCancelAt`。位置指定は View の関心事なので、View コードから `AnchoredMessageBox` / `AnchoredToast` を呼ぶ。
@@ -106,8 +109,6 @@
 - `ChangeTracker<T>` を `where T : class` に緩和し、`ICloneable` 実装を任意化
 - 比較・複製の戦略をフック化 (`ChangeTrackerDefaults.Cloner` / `Comparer`)
 - 既定の比較器を per-closed-T でキャッシュ
-
-- **`ChangeTracker` の既定比較を内容比較に** (BREAKING) — `comparer` を渡さない場合、`T` の `IEquatable<T>` / `IComparable<T>` / `Equals` は使わず `ChangeTrackerDefaults.Comparer` (既定は新しい `ObjectComparer.ContentEquals`) で比較する。「Id が同じなら等しい」エンティティで編集が検出されず保存確認が出ない問題を解消 (ネストしたエンティティ・セット内の要素も同様)。`ContentEquals` は値型と `System.*` / `Microsoft.*` 型の `Equals` のみ信頼する。`DeepEquals` の挙動は不変。`T` の等価性を使いたい場合は `comparer` を明示する。
 
 ### Removed (削除)
 

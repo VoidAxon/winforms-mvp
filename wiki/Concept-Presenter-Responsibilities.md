@@ -223,7 +223,7 @@ WinForms の Presenter が特に肥大化しやすいのは、この 3 つが一
 
 ## public 面の最小化とライフサイクル
 
-Presenter の `public` 面は、既定で **コンストラクタ / `Initialize` / `Dispose`** だけに保ちます。その他は原則 `private`。
+Presenter の `public` 面は、既定で **コンストラクタ / `Initialize` / `Dispose`** だけに保ちます。その他は原則 `private`。(本フレームワークではさらに一歩進めて、`AttachView` / `Initialize` を明示的インターフェイス実装にしているため、Presenter の型としての公開面はコンストラクタと `Dispose` だけです。ホスト側 — `WindowNavigator` / `Connect` / テストの `PresenterTestHost` — がインターフェイス経由で呼びます。)
 
 これは「`public` メソッドを 1 つも許さない」という意味ではなく、**「Presenter を、外部から命令的に突けるサービスにしない」** という意味です。Presenter は一度組み立て (構築 + `Initialize` で購読)、以降はイベントに応答して自律的に動き、破棄時 (`Dispose`) に購読を解除する — そういうスタイルへの約束です。
 

@@ -260,7 +260,7 @@ private void OnEditUser()
 | ダーティチェックが 1 箇所に集中する | プロンプトは `CanClose` にのみ存在する |
 | Push クローズがダーティプロンプトを再発火させない | `_suppressGate` フラグは構造的であり、呼び出し順序の規約には依存しない |
 | Form はクローズコードをまったく書かない | `IWindowView` にクローズ関連のメンバーはない |
-| 両方向を独立してテストできる | Pull は `ICloseParticipant.CanCloseGate` 経由、Push は記録用 `ICloseSink` を束縛 |
+| 両方向を独立してテストできる | `PresenterTestHost` で、Pull は `host.CanClose(reason)`、Push は `host.CloseStatus` / `CloseResult` で検証 |
 
 ---
 

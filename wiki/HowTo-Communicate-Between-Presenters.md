@@ -471,8 +471,7 @@ public class MyForm : Form, IMyView
 > | 例 | 種別 | 可否 |
 > |---|---|---|
 > | `private MyPresenter _presenter;` | フィールド保持 | ✅ |
-> | `_presenter.AttachView(this);` | ライフサイクル | ✅ |
-> | `_presenter.Initialize();` | ライフサイクル | ✅ |
+> | `_presenter.Connect(this);` | ライフサイクル (アタッチ + 初期化 + 破棄の連動) | ✅ |
 > | `_presenter.Dispose();` | ライフサイクル | ✅ |
 >
 > 規則が真に禁じているのは **View から Presenter の業務メソッド (use-case メソッド) を能動的に呼ぶ** ことです:

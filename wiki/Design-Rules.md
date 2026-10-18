@@ -433,7 +433,7 @@ View.DisplayOrders(orders);
 
 ## Rule 16: Presenter メソッドの可視性
 
-> **Presenter を、外部から命令的に突けるサービスにしない。公開面の既定はコンストラクタ・`Initialize`・`Dispose` のみ。ViewAction の handler / helper は必ず `private`。**
+> **Presenter を、外部から命令的に突けるサービスにしない。公開面の既定はコンストラクタ・`Dispose` のみ (`AttachView` / `Initialize` は明示的インターフェイス実装で、`WindowNavigator` / `Connect` / テストの `PresenterTestHost` が呼ぶ)。ViewAction の handler / helper は必ず `private`。**
 
 「公開メンバーの白名単」ではなく **1 つの不変量** (*Presenter のユースケース行動は正当な通路 = ViewAction + ライフサイクル (構築 / `Initialize` / `Dispose`) からのみ駆動される*) で、**入站と出站で非対称に**適用します:
 
@@ -525,7 +525,7 @@ public class GoodPresenter : WindowPresenterBase<IMyView>
 ### Form (View 実装)
 - [ ] `XxxForm` または `XxxControl` という命名 (Rule 1)
 - [ ] 内部コントロールは `private` (Rule 9)
-- [ ] Presenter の業務メソッドを呼ばない (Rule 6) ※ 参照保持・AttachView/Initialize/Dispose 等のライフサイクル呼び出しは可
+- [ ] Presenter の業務メソッドを呼ばない (Rule 6) ※ 参照保持・Connect/Dispose 等のライフサイクル呼び出しは可
 - [ ] `InitializeActionBindings()` は UI バインドだけ (業務ロジック禁止)
 
 ### Presenter

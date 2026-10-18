@@ -66,29 +66,35 @@ TextBox NameTextBox { get; }             bool HasSelection { get; }
 **3. Presenter does use-case logic only, not view logic.** Presenter owns the business workflow (validate → save → notify); the View decides *how* to display things. All data lives in the Model, not just in UI controls.
 
 **4. Keep the Presenter's public surface minimal (Rules 16 & 17).** A Presenter is not a service.
-- `public`: constructor (DI) only.
+- `public`: constructor (DI) only. `AttachView` / `Initialize` are explicit `IViewAttacher<TView>` / `IInitializable` implementations, and `_dispatcher` / `_initialized` are private — derived presenters use the `Dispatcher` property.
 - `protected override`: lifecycle hooks (`OnInitialize`, `OnViewAttached`, `RegisterViewActions`, `Cleanup`) and close overrides (`CanClose`).
 - `private`: action handlers (`OnSave`), helpers.
 - A Presenter should expose **zero public events**. For cross-presenter notifications use a Service event or `IEventAggregator`. For push-direction close results, call the base `RequestClose(result, status)` / `RequestClose(status)` — no interface to implement, no extension method.
 
 Subscriptions registered via `.DisposeWith(Disposables)` (event tokens, `Cascade.Bind` unsubscribers, `Disposable.Create(() => view.Event -= handler)` wrappers) are released automatically after `Cleanup()`; presenters normally need no `Cleanup` override for unsubscription.
 
-**Testing rule:** never widen visibility for tests. Drive the Presenter through its real entry points so the same `CanExecute` / close logic runs:
+**Testing rule:** never widen visibility for tests. Drive the Presenter through its real entry points so the same `CanExecute` / close logic runs. `AttachView` / `Initialize` are explicit interface implementations (not callable as `presenter.Initialize()`); tests host the presenter with `WinformsMVP.Testing.PresenterTestHost` (in `WinformsMVP.Core`):
 ```csharp
-// Action dispatch — Dispatcher stays protected; nothing is exposed for testing.
-// The mock view exposes a CapturingActionBinder (tests/.../Mocks/CapturingActionBinder.cs)
-// that captures the dispatcher the framework hands to View.ActionBinder during Initialize,
-// so tests dispatch through the same channel a real Form's bound controls use:
-view.Binder.Dispatch(CommonActions.Save);                     // not presenter.OnSave()
+var view = new MockEditView();   // any IViewBase/IWindowView mock — no Form needed
+// Attaches the view, runs the real init (RegisterViewActions, binder auto-bind, OnInitialize)
+// and records RequestClose. Overload: Start(presenter, view, parameters).
+using (var host = PresenterTestHost.Start(new EditPresenter(repo), view))
+{
+    // Action dispatch — Dispatcher stays protected; the mock view exposes a CapturingActionBinder
+    // (tests/.../Mocks/CapturingActionBinder.cs) that captures the dispatcher the framework binds,
+    // so tests dispatch through the same channel a real Form's bound controls use:
+    view.Binder.Dispatch(CommonActions.Save);                 // not presenter.OnSave()
 
-// Pull veto — ICloseParticipant is internal; tests get access via InternalsVisibleTo:
-((ICloseParticipant)presenter).CanCloseGate(CloseReason.Normal, ok => allow = ok);
+    // Push result — recorded by the host:
+    Assert.True(host.CloseRequested);                         // also CloseCount, CloseResult
+    Assert.Equal(InteractionStatus.Ok, host.CloseStatus);
 
-// Push result — inject a recording sink before Initialize:
-var sink = new RecordingSink(); // implements ICloseSink
-((ICloseParticipant)presenter).BindCloseSink(sink);
-// ... dispatch Save action, then assert sink.Closed
+    // Pull veto — runs the same gate as X / Alt+F4 (null while an async CanClose hasn't answered):
+    Assert.False(host.CanClose());                            // CloseReason.Normal by default
+    Assert.True(host.CanClose(CloseReason.SystemShutdown));
+}   // Dispose disposes the presenter (Cleanup + Disposables)
 ```
+If initialization throws, `Start` disposes the presenter and rethrows. `host.CanClose` throws for control presenters (they have no close gate).
 
 The framework enforces these rules at compile time via Roslyn analyzers in [src/WinformsMVP.Analyzers/](src/WinformsMVP.Analyzers/).
 
@@ -127,7 +133,7 @@ The Presenter registers handlers; it never references controls:
 protected override void RegisterViewActions()
 {
     Dispatcher.Register(CommonActions.Delete, OnDelete, canExecute: () => View.HasSelection);
-    // Framework auto-calls View.ActionBinder?.Bind(_dispatcher) after this method returns.
+    // Framework auto-calls View.ActionBinder?.Bind(Dispatcher) after this method returns.
 }
 ```
 Call `Dispatcher.RaiseCanExecuteChanged()` when state changes outside an action (selection, async completion).

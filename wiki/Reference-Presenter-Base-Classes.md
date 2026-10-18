@@ -280,7 +280,7 @@ protected override void OnViewAttached()
 
 | メソッドの種類 | 可視性 |
 |--------------|------|
-| コンストラクタ / `Initialize` / `Dispose` | `public` (既定の公開面) |
+| コンストラクタ / `Dispose` | `public` (既定の公開面)。`AttachView` / `Initialize` は `IViewAttacher<TView>` / `IInitializable` の明示的インターフェイス実装で、`presenter.Initialize()` とは書けない — 本番は `WindowNavigator` / `Connect`、テストは `PresenterTestHost` 経由 |
 | 親→子の狭いコマンド | 既定 `internal` (同一アセンブリ)。縫い目が要るときだけ公開コマンドインターフェイス — 接口は強制しない |
 | ライフサイクルフック (`OnInitialize`、`OnViewAttached`、`RegisterViewActions`、`Cleanup`) | `protected override` |
 | クローズゲート (`CanClose(CloseReason)` / `CanClose(CloseReason, Action<bool>)`) | `protected override` |
@@ -341,16 +341,17 @@ Presenter を **本物のエントリーポイントから** 駆動してくだ�
 // ❌ Wrong:   presenter.OnSave();
 // ✅ Right:   view.Binder.Dispatch(StandardActions.Save);
 
-// Pull ゲート (CanClose) のテスト — ICloseParticipant は internal、InternalsVisibleTo で到達
-bool? allow = null;
-((ICloseParticipant)presenter).CanCloseGate(CloseReason.Normal, ok => allow = ok);
-Assert.False(allow);
+// Presenter のホスト — AttachView / Initialize は明示的インターフェイス実装なので直接は呼べない。
+// PresenterTestHost (WinformsMVP.Testing) がモック View をアタッチして実際の初期化を走らせる
+using (var host = PresenterTestHost.Start(presenter, view))
+{
+    // Push (RequestClose) のテスト — ホストが記録する
+    view.Binder.Dispatch(StandardActions.Save);
+    Assert.Equal(InteractionStatus.Ok, host.CloseStatus);
 
-// Push (RequestClose) のテスト — recording sink を注入
-var sink = new RecordingSink();   // ICloseSink を実装する小さなテスト用クラス
-((ICloseParticipant)presenter).BindCloseSink(sink);
-view.Binder.Dispatch(StandardActions.Save);
-Assert.Equal(InteractionStatus.Ok, sink.Closed[0].status);
+    // Pull ゲート (CanClose) のテスト — X / Alt+F4 と同じゲート (非同期で未回答なら null)
+    Assert.False(host.CanClose(CloseReason.Normal));
+}
 ```
 
 `OnSave` を `private` から `internal` / `public` に格上げしてテストすると、production が通らない経路がテストで通ってしまい、CanExecute 判定をスキップする等の不具合を見逃します。

@@ -305,8 +305,7 @@ public void Test_MyPresenter()
     // SetServiceProvider で差し替える (InternalsVisibleTo が必要)
     var presenter = new MyPresenter();   // ServiceLocator.Current (NullLoggerFactory) を使用
 
-    presenter.AttachView(mockView);
-    presenter.Initialize();
+    PresenterTestHost.Start(presenter, mockView);   // アタッチ + 実際の初期化
 
     // Logger 呼び出しはコンパイル・実行されるが出力なし — オーバーヘッドゼロ
 }
@@ -343,8 +342,7 @@ public void OnSave_ShouldLogSuccess()
     // SetServiceProvider は internal — InternalsVisibleTo か dynamic 経由で呼ぶ。
     // 詳細は Platform Services の「モックでのテスト」を参照。
     ((dynamic)presenter).SetServiceProvider(sp);
-    presenter.AttachView(mockView);
-    presenter.Initialize();
+    PresenterTestHost.Start(presenter, mockView);
 
     mockView.Binder.Dispatch(StandardActions.Save);
 

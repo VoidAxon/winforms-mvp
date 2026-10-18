@@ -392,7 +392,7 @@ ServiceLocator.Configure(reg =>
 
 **原因**: `SetServiceProvider` を `Initialize()` の **後** に呼んでいる。
 
-**対処**: `SetServiceProvider` は **`Initialize()` より前**に呼ぶ。制約はそれだけで、`AttachView` との前後は問わない (下の例では `AttachView` より前に呼んでいる)。
+**対処**: `SetServiceProvider` は **`PresenterTestHost.Start(...)` (アタッチ + 初期化) より前**に呼ぶ。
 
 ```csharp
 var sp = new DefaultServiceProvider();
@@ -401,8 +401,7 @@ sp.RegisterInstance<IMessageService>(mockMessages);
 var presenter = new MyPresenter();
 ((dynamic)presenter).SetServiceProvider(sp);   // 先 (InternalsVisibleTo または dynamic 経由)
 
-presenter.AttachView(mockView);
-presenter.Initialize();   // 後
+PresenterTestHost.Start(presenter, mockView);   // 後 (アタッチ + 初期化)
 ```
 
 ### `private OnSave()` をテストから呼べない

@@ -357,10 +357,9 @@ public void ProductSelector_PublishesMessage_OrderSummaryReceives()
     var productSelectorPresenter = new ProductSelectorPresenter(eventAggregator);
     var orderSummaryPresenter = new OrderSummaryPresenter(eventAggregator);
 
-    productSelectorPresenter.AttachView(productSelectorView);
-    productSelectorPresenter.Initialize();
-    orderSummaryPresenter.AttachView(orderSummaryView);
-    orderSummaryPresenter.Initialize();
+    // PresenterTestHost (WinformsMVP.Testing) が View のアタッチと初期化を行う
+    PresenterTestHost.Start(productSelectorPresenter, productSelectorView);
+    PresenterTestHost.Start(orderSummaryPresenter, orderSummaryView);
 
     // Act
     productSelectorPresenter.AddToOrder();   // ProductAddedMessage を発行

@@ -138,6 +138,7 @@ namespace MyFirstMvpApp
 ```csharp
 using System;
 using System.Windows.Forms;
+using WinformsMVP.MVP.Presenters;   // Connect 拡張メソッド
 
 namespace MyFirstMvpApp
 {
@@ -152,8 +153,8 @@ namespace MyFirstMvpApp
             var view = new MainForm();
             var presenter = new MainPresenter();
 
-            presenter.AttachView(view);
-            presenter.Initialize();
+            // アタッチ + 初期化 + Form と一緒に Presenter を破棄 (Adopted ホスティング)
+            presenter.Connect(view);
 
             Application.Run(view);
         }

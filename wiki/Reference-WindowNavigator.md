@@ -366,11 +366,10 @@ public void OnCompose_OpensComposeWindow()
 
     var presenter = new MainEmailPresenter(mockRepository)
         .WithServiceProvider(mockServices.Provider);
-    presenter.AttachView(mockView);
-    presenter.Initialize();
+    PresenterTestHost.Start(presenter, mockView);   // アタッチ + 実際の初期化
 
     // Act — 実際のエントリポイント (Dispatch) で駆動する
-    presenter.Dispatch(EmailActions.Compose);
+    mockView.Binder.Dispatch(EmailActions.Compose);
 
     // Assert — モーダルが 1 回開かれ、正しいパラメータが渡されたか
     Assert.Single(mockServices.WindowNavigator.ShowModalCalls);

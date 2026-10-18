@@ -486,8 +486,8 @@ public class ToDoPresenterTests
         _view = new MockToDoView();
         _presenter = new ToDoPresenter().WithServiceProvider(_mockServices.Provider);
 
-        _presenter.AttachView(_view);
-        _presenter.Initialize();
+        // View のアタッチ + 実際の初期化 (WinformsMVP.Testing.PresenterTestHost)
+        PresenterTestHost.Start(_presenter, _view);
 
         _mockServices.Reset();
     }

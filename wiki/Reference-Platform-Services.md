@@ -441,8 +441,7 @@ public void OnSave_ShowsSuccessMessage()
     var presenter = new MyPresenter();
     ((IServiceProviderAware)presenter).SetServiceProvider(sp);   // InternalsVisibleTo が必要
 
-    presenter.AttachView(mockView);
-    presenter.Initialize();
+    PresenterTestHost.Start(presenter, mockView);   // アタッチ + 実際の初期化
     mockView.Binder.Dispatch(StandardActions.Save);
 
     Assert.True(mockMessages.InfoMessageShown);
