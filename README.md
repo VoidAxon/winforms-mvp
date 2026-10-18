@@ -28,7 +28,7 @@ WPF 風のコマンドバインドとサービス抽象 (`IMessageService` / `ID
 - 🚀 **サービス抽象化レイヤー** — `IMessageService` / `IDialogProvider` / `IFileService` で `MessageBox.Show()` から脱却。完全モック可能
 - 📊 **構造化ロギング** — `Microsoft.Extensions.Logging` 互換 API の自社抽象。BCL のみ依存 (`WinformsMVP.Core`)
 - 🔄 **ChangeTracker** — 編集/キャンセル用の堅牢な変更追跡。`IRevertibleChangeTracking` 実装、深いコピー対応
-- 📡 **EventAggregator** — 弱参照ベースの pub/sub。UI スレッドへの自動マーシャリング、コンパイル済みデリゲートで高速
+- 📡 **EventAggregator** — Presenter 横断の pub/sub。購読は返されたトークンを Dispose するまで有効 (`.DisposeWith(Disposables)`)、UI スレッドへの自動マーシャリング、アナライザ MVP017 がトークンの破棄忘れを検出
 - 🎨 **柔軟な DI** — Service Locator / Constructor Injection / Hybrid の 3 パターンに対応。`Microsoft.Extensions.DependencyInjection` 連携用の `WinformsMVP.DependencyInjection` パッケージも同梱
 - 🧪 **テストファースト設計** — Presenter は UI スレッド不要で単体テスト可能
 

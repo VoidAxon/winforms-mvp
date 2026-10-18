@@ -1,6 +1,6 @@
 # EventAggregator
 
-`EventAggregator` (`WinformsMVP.Common.EventAggregator.EventAggregator`) は、**Presenter 間の疎結合な pub/sub** のための高性能・スレッドセーフなメッセージング機構です。
+`EventAggregator` (`WinformsMVP.Common.EventAggregator.EventAggregator`) は、**Presenter 間の疎結合な pub/sub** のためのスレッドセーフなメッセージング機構です。
 複数の Presenter が同じイベントに反応する必要があるが、互いに直接参照を持たせたくない場面で使います。
 
 > **位置づけ**: 親子の Presenter 間や、同一機能内の通信には **使うべきではありません**。それらは直接メソッド呼び出しや共有 Service で扱います。EventAggregator は「直接の関係を持たない複数 Presenter が共通の出来事に反応する」場合の専用ツールです。
@@ -16,6 +16,7 @@
 - [バックグラウンドスレッドからの発行](#バックグラウンドスレッドからの発行)
 - [リクエスト/レスポンスパターン](#リクエストレスポンスパターン)
 - [EventAggregator と他の選択肢](#eventaggregator-と他の選択肢)
+- [購読の生存期間](#購読の生存期間)
 - [ベストプラクティス](#ベストプラクティス)
 - [パフォーマンス特性](#パフォーマンス特性)
 - [テスト](#テスト)
@@ -27,9 +28,8 @@
 
 | 特徴 | 説明 |
 |------|----|
-| **弱参照購読** | 購読者が GC されたら自動的にクリーンアップ。メモリリーク防止 |
+| **明示的な生存期間** | 購読は返された `IDisposable` トークンを Dispose するまで有効 (強参照)。ハンドラの形 (メソッドグループ・キャプチャするラムダ) を問わない |
 | **UI スレッド整列** | バックグラウンドスレッドからの発行を自動的に UI スレッドへマーシャル (WinForms で重要) |
-| **高性能** | Expression Tree でコンパイルしたデリゲートを使用 (リフレクションの 10〜100 倍) |
 | **例外の分離** | 1 つの購読者の例外が他の購読者に波及しない |
 | **スレッドセーフ** | 並行発行・並行購読をサポート |
 | **フィルタ付き購読** | 条件にマッチするメッセージだけ受信できる |
@@ -112,6 +112,11 @@ public class OrderSummaryPresenter : ControlPresenterBase<IOrderSummaryView>
 ### Step 4: Presenter B — メッセージを発行
 
 ```csharp
+public static class ProductActions
+{
+    public static readonly ViewAction AddToOrder = ViewAction.Create("Product.AddToOrder");
+}
+
 public class ProductSelectorPresenter : ControlPresenterBase<IProductSelectorView>
 {
     private readonly IEventAggregator _eventAggregator;
@@ -119,6 +124,11 @@ public class ProductSelectorPresenter : ControlPresenterBase<IProductSelectorVie
     public ProductSelectorPresenter(IEventAggregator eventAggregator)
     {
         _eventAggregator = eventAggregator;
+    }
+
+    protected override void RegisterViewActions()
+    {
+        Dispatcher.Register(ProductActions.AddToOrder, OnAddToOrder);
     }
 
     private void OnAddToOrder()
@@ -142,18 +152,20 @@ public class ProductSelectorPresenter : ControlPresenterBase<IProductSelectorVie
 
 条件にマッチするメッセージだけを受信できます。
 
-ハンドラはインスタンスメソッドで渡します（理由は[ベストプラクティス](#ベストプラクティス)を参照）。`filter` はその場で評価される軽量な述語なのでラムダで構いません。
+ハンドラ・`filter` ともにメソッドグループでもキャプチャするラムダでも構いません。
 
 ```csharp
 // 高優先度の商品だけ受信
-_subscription = _eventAggregator.Subscribe<ProductAddedMessage>(
-    OnHighPriorityProductAdded,
-    filter: msg => msg.Product.Priority > 5);
+_eventAggregator.Subscribe<ProductAddedMessage>(
+        OnHighPriorityProductAdded,
+        filter: msg => msg.Product.Priority > 5)
+    .DisposeWith(Disposables);
 
 // 特定の顧客のメッセージだけ受信
-_subscription = _eventAggregator.Subscribe<OrderPlacedMessage>(
-    OnOrderPlaced,
-    filter: msg => msg.CustomerId == _currentCustomerId);
+_eventAggregator.Subscribe<OrderPlacedMessage>(
+        OnOrderPlaced,
+        filter: msg => msg.CustomerId == _currentCustomerId)
+    .DisposeWith(Disposables);
 ```
 
 ---
@@ -171,7 +183,7 @@ Task.Run(() =>
 });
 
 // 購読者 — UI スレッド上で実行される
-_subscription = _eventAggregator.Subscribe<DataLoadedMessage>(OnDataLoaded);
+_eventAggregator.Subscribe<DataLoadedMessage>(OnDataLoaded).DisposeWith(Disposables);
 
 private void OnDataLoaded(DataLoadedMessage msg)
 {
@@ -205,7 +217,7 @@ private List<OrderItem> GetCurrentOrderSnapshot()
 }
 
 // 購読側 (応答者)
-_subscription = _eventAggregator.Subscribe<GetOrderSnapshotRequest>(OnGetOrderSnapshot);
+_eventAggregator.Subscribe<GetOrderSnapshotRequest>(OnGetOrderSnapshot).DisposeWith(Disposables);
 
 private void OnGetOrderSnapshot(GetOrderSnapshotRequest request)
 {
@@ -245,6 +257,47 @@ _eventAggregator.Publish(new ProductAddedNotification(...));
 
 ---
 
+## 購読の生存期間
+
+`Subscribe` は購読トークン (`IDisposable`) を返します。EventAggregator は購読を **強参照** で保持し、**トークンを Dispose するまで** ハンドラ (とそれがキャプチャするオブジェクト) を生かし続けます。GC による自動解除はありません。
+
+- ハンドラの形は自由 — インスタンスメソッド、`this` やローカル変数をキャプチャするラムダ、キャプチャする `filter`、いずれも GC で失効しない
+- Dispose すると以後は配送されない (UI スレッドへポスト済みで未実行のメッセージも配送されない)
+- **トークンを Dispose しなければ**、ハンドラとそれがキャプチャする Presenter は EventAggregator の生存期間中ずっと残る (= 閉じたウィンドウの Presenter がメッセージを受け続けるリーク)
+
+推奨パターンは、作成行でトークンを Presenter の `Disposables` バッグに登録することです。Presenter の Dispose 時 (`Cleanup()` の後) にフレームワークが自動解除します。
+
+```csharp
+protected override void OnViewAttached()
+{
+    var customerId = View.CustomerId;
+
+    // ✅ キャプチャするラムダでも問題ない — 生存期間はトークンで決まる
+    _eventAggregator.Subscribe<OrderPlacedMessage>(
+            msg => View.ShowOrder(msg.OrderId),
+            filter: msg => msg.CustomerId == customerId)
+        .DisposeWith(Disposables);
+}
+
+// ❌ トークンを捨てている — 二度と解除できない (MVP017 警告)
+_eventAggregator.Subscribe<OrderPlacedMessage>(OnOrderPlaced);
+```
+
+### アナライザ MVP017
+
+`IEventAggregator.Subscribe(...)` の戻り値を単独の式文として捨てると、アナライザ **`MVP017`** が警告します。次の書き方は受理されます:
+
+| 書き方 | 用途 |
+|------|----|
+| `.DisposeWith(Disposables)` を連結 | 推奨 |
+| フィールド/変数に格納 (`_subscription = ...`) | 手動管理 (`Cleanup()` で `Dispose`) |
+| `using (events.Subscribe(...)) { ... }` / `using var` | スコープ限定の購読 |
+| `_ = events.Subscribe(...)` | アプリ全体の生存期間で意図的に解除しない場合 (明示的な破棄) |
+
+詳細は [Design Rules — 自動検証](Design-Rules#自動検証-roslyn-analyzer) を参照。
+
+---
+
 ## ベストプラクティス
 
 ### 1. EventAggregator はアプリで 1 つ作り、UI スレッドで購読する
@@ -264,31 +317,11 @@ var eventAggregator = new EventAggregator();   // ✅ SynchronizationContext が
 _eventAggregator.Subscribe<OrderShipped>(OnShipped).DisposeWith(Disposables);
 ```
 
-弱参照によって最終的には自動でクリーンアップされますが、明示的に外す方が即座に効果があります。
+購読は Dispose されるまで解除されません ([購読の生存期間](#購読の生存期間))。
 バッグを使わず手で管理する場合は `Cleanup()` で `_subscription?.Dispose()` しても同じです
 (詳細は [購読ライフサイクルの管理](HowTo-Manage-Presenter-Subscriptions))。
 
-### 3. ハンドラはインスタンスメソッドで渡す（キャプチャするラムダを渡さない）
-
-> **⚠️ 重要 — 静かに失効する落とし穴**
->
-> 購読は**弱参照**でハンドラの対象オブジェクトを保持します。`OnProductAdded` のような**インスタンスメソッド**を渡せば、対象は Presenter 自身であり、Presenter がフィールドとして生きている限り購読も生きます（推奨パターン）。
->
-> 一方、`this` をキャプチャするラムダ（例: `msg => View.Update(msg)`）を渡すと、ハンドラの対象はコンパイラが生成した**クロージャオブジェクト**になります。このクロージャを強参照しているのはどこにもなく、戻り値の `IDisposable` も弱参照しか持ちません。その結果、**次の GC でクロージャが回収され、購読が何の通知もなく失効します**（WPF の `WeakEventManager` で知られる古典的な罠）。
-
-```csharp
-// ✅ Good — インスタンスメソッド。対象は Presenter なので生き続ける
-_subscription = _eventAggregator.Subscribe<ProductAddedMessage>(OnProductAdded);
-
-private void OnProductAdded(ProductAddedMessage msg) => View.AddItem(msg.Product, msg.Quantity);
-
-// ❌ Bad — this をキャプチャするラムダ。クロージャは GC され購読が静かに失効する
-_eventAggregator.Subscribe<ProductAddedMessage>(msg => View.AddItem(msg.Product, msg.Quantity));
-```
-
-`filter` 述語はメッセージ受信のたびに同期評価されるだけで保持対象にはならないため、ラムダで問題ありません。
-
-### 4. 強い型のメッセージクラスを使う
+### 3. 強い型のメッセージクラスを使う
 
 ```csharp
 // ✅ Good — 専用のメッセージ型
@@ -298,7 +331,7 @@ public class ProductAddedMessage { ... }
 _eventAggregator.Publish(new Dictionary<string, object> { ... });
 ```
 
-### 5. メッセージの命名規約
+### 4. メッセージの命名規約
 
 | 種類 | サフィックス | 例 |
 |------|-----------|----|
@@ -307,7 +340,7 @@ _eventAggregator.Publish(new Dictionary<string, object> { ... });
 | データ通知 | `Message` または `Loaded` | `DataLoadedMessage` |
 | 要求/問い合わせ | `Request` | `GetOrderSnapshotRequest` |
 
-### 6. メッセージは不変にする
+### 5. メッセージは不変にする
 
 ```csharp
 public class ProductAddedMessage
@@ -319,7 +352,7 @@ public class ProductAddedMessage
 
 C# 8.0 以下なら `get; private set;` か `readonly` フィールドを使います。
 
-### 7. 過度に使わない
+### 6. 過度に使わない
 
 EventAggregator は間接層を追加するため、必要な場面でだけ使います。
 
@@ -339,7 +372,7 @@ EventAggregator は間接層を追加するため、必要な場面でだけ使�
 | 100,000 メッセージ発行 (購読者 1 つ) | 約 16 ms |
 | スループット | 50,000 メッセージ/秒以上 |
 | スレッドセーフ性 | 並行 Subscribe/Publish サポート |
-| メモリ管理 | 弱参照でリーク防止、GC 時に自動クリーンアップ |
+| メモリ管理 | 購読はトークンの Dispose まで強参照で保持 (Dispose 忘れはリーク) |
 
 ---
 
@@ -361,8 +394,10 @@ public void ProductSelector_PublishesMessage_OrderSummaryReceives()
     PresenterTestHost.Start(productSelectorPresenter, productSelectorView);
     PresenterTestHost.Start(orderSummaryPresenter, orderSummaryView);
 
-    // Act
-    productSelectorPresenter.AddToOrder();   // ProductAddedMessage を発行
+    // Act — モック View の CapturingActionBinder 経由で実際のアクションを Dispatch
+    productSelectorView.SelectedProduct = new Product { Name = "Laptop" };
+    productSelectorView.Quantity = 1;
+    productSelectorView.Binder.Dispatch(ProductActions.AddToOrder);   // ProductAddedMessage を発行
 
     // Assert
     Assert.Equal(1, orderSummaryView.Items.Count);

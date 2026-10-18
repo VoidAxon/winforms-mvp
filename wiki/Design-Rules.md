@@ -500,6 +500,7 @@ public class GoodPresenter : WindowPresenterBase<IMyView>
 | `MVP013` | インターフェイスメソッド名に UI コントロール型を入れない | [Rule 14](#rule-14-インターフェイスに-ui-コントロール名を入れない) |
 | `MVP014` | Presenter のコードで WinForms 型を参照しない (`MessageBox.Show`、`DialogResult`、`(Form)View`、`typeof(Form)` など) | [Rule 4](#rule-4-view-インターフェイスと-presenter-に-ui-型を入れない) |
 | `MVP016` | Presenter に public イベントを宣言しない | [Rule 17](#rule-17-presenter-イベントの可視性) |
+| `MVP017` | `IEventAggregator.Subscribe` の戻り値 (購読トークン) を捨てない | [EventAggregator — 購読の生存期間](Reference-EventAggregator#購読の生存期間) |
 
 > Presenter / View インターフェイスの判定は名前ではなく型で行います: Presenter は `WinformsMVP.MVP.Presenters.PresenterBase<T>` の派生クラス、View インターフェイスは `WinformsMVP.MVP.Views.IViewBase` の派生インターフェイス、UI 型は `System.Windows.Forms` 名前空間の型 (およびその派生) です。
 

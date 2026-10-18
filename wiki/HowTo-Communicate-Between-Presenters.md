@@ -177,7 +177,7 @@ public class UserListPresenter : WindowPresenterBase<IUserListView>
 {
     protected override void OnViewAttached()
     {
-        // ハンドラはインスタンスメソッドで渡す（this をキャプチャするラムダは弱参照下で静かに失効する）
+        // 購読はトークンを Dispose するまで有効 (ラムダでも可)。
         // 解除は Disposables バッグに登録するだけ — Cleanup の override は不要
         _eventAggregator.Subscribe<UserLoggedOutNotification>(OnUserLoggedOut)
             .DisposeWith(Disposables);
@@ -195,7 +195,7 @@ public class UserListPresenter : WindowPresenterBase<IUserListView>
 
 - ✅ Presenter 間の結合ゼロ
 - ✅ UI スレッドへの自動マーシャリング (バックグラウンドから発行可能)
-- ✅ 弱参照で自動クリーンアップ
+- ✅ `.DisposeWith(Disposables)` で Presenter と一緒に自動解除 (トークンを捨てると MVP017 警告)
 - ❌ 「誰がそれに反応するか」が見えにくい
 - ❌ デバッグでフロー追跡が大変
 - ❌ ステート管理には不向き

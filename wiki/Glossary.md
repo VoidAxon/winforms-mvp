@@ -79,7 +79,7 @@ UserControl 系の View を扱う Presenter 基底クラス。`ControlPresenterB
 
 ### EventAggregator
 
-`EventAggregator` クラス。Presenter 間の疎結合な pub/sub。弱参照 + UI スレッド自動マーシャリング付き。
+`EventAggregator` クラス。Presenter 間の疎結合な pub/sub。購読は返されたトークンを Dispose するまで有効。UI スレッド自動マーシャリング付き。
 
 詳細: [EventAggregator](Reference-EventAggregator)
 

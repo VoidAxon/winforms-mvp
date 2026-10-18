@@ -52,7 +52,7 @@ WinForms アプリケーションのための **Model-View-Presenter** フレー
 - [Logging](Reference-Logging) — 自社抽象 (外部依存ゼロ)、M.E.L. 連携
 - [ChangeTracker](Reference-ChangeTracker) — 編集/キャンセル、深いコピー、フック差し込み
 - [レート制限 (Debounce / Throttle)](Reference-RateLimiting) — 高頻度イベントの間引き、UI 非依存、`Flush` / 確定的破棄
-- [EventAggregator](Reference-EventAggregator) — 弱参照 pub/sub、UI スレッド自動マーシャリング
+- [EventAggregator](Reference-EventAggregator) — トークンで生存期間を管理する pub/sub、UI スレッド自動マーシャリング
 - [Dependency Injection](Reference-DependencyInjection) — 3 つの DI パターン、複数プロジェクト構成
 
 ---

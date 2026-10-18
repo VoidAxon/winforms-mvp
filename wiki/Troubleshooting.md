@@ -291,9 +291,9 @@ public object Clone()
    _subscription.Dispose();   // ← 解除されている
    ```
 
-2. 購読者の参照が GC で消えている (弱参照)
+2. Presenter (と `Disposables` バッグ) がすでに Dispose されている
 
-   Presenter インスタンスへの強い参照がどこかに残っているか確認する。
+   `.DisposeWith(Disposables)` で登録した購読は Presenter の Dispose 時に解除される。発行時点で購読側の Presenter がまだ生きているか確認する。(購読は強参照なので GC で消えることはない)
 
 3. メッセージ型が異なる
 
