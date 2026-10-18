@@ -297,6 +297,29 @@ namespace WinformsMVP.Samples.Tests.Common
         }
 
         [Fact]
+        public void DisposedToken_DoesNotKeepTheSubscriberAlive()
+        {
+            var aggregator = new EventAggregator();
+            var (token, subscriberRef) = SubscribeAndForget(aggregator);
+
+            token.Dispose();   // the caller keeps the disposed token
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+
+            Assert.False(subscriberRef.IsAlive);
+            GC.KeepAlive(token);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private static (IDisposable, WeakReference) SubscribeAndForget(IEventAggregator aggregator)
+        {
+            var subscriber = new TestSubscriber(() => { });
+            var token = aggregator.Subscribe<TestMessage>(subscriber.OnMessage);
+            return (token, new WeakReference(subscriber));
+        }
+
+        [Fact]
         public void Subscribe_StaticMethod_IsDelivered()
         {
             var aggregator = new EventAggregator();

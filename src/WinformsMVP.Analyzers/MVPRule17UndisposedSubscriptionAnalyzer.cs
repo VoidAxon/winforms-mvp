@@ -31,7 +31,8 @@ namespace WinformsMVP.Analyzers
         private static void AnalyzeStatement(SyntaxNodeAnalysisContext context)
         {
             var statement = (ExpressionStatementSyntax)context.Node;
-            if (!(statement.Expression is InvocationExpressionSyntax invocation))
+            var invocation = DiscardedInvocation(statement.Expression);
+            if (invocation == null)
                 return;
 
             var method = context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol as IMethodSymbol;
@@ -42,6 +43,14 @@ namespace WinformsMVP.Analyzers
                 DiagnosticDescriptors.MVPRule17UndisposedSubscription,
                 invocation.GetLocation(),
                 method.ContainingType.Name + ".Subscribe"));
+        }
+
+        // `events.Subscribe(...)` or `events?.Subscribe(...)` used as a whole statement.
+        private static InvocationExpressionSyntax DiscardedInvocation(ExpressionSyntax expression)
+        {
+            while (expression is ConditionalAccessExpressionSyntax conditional)
+                expression = conditional.WhenNotNull;
+            return expression as InvocationExpressionSyntax;
         }
 
         private static bool IsEventAggregatorSubscribe(IMethodSymbol method)

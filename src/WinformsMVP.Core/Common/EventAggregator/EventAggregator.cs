@@ -213,13 +213,17 @@ namespace WinformsMVP.Common.EventAggregator
             {
                 _disposed = true;
                 _parent.Unsubscribe(this);
+                ReleaseHandler();
             }
+
+            // A caller may keep the disposed token around; it must not keep the subscriber alive.
+            protected abstract void ReleaseHandler();
         }
 
         internal sealed class Subscription<T> : Subscription
         {
-            private readonly Action<T> _handler;
-            private readonly Func<T, bool> _filter;
+            private Action<T> _handler;      // cleared on Dispose
+            private Func<T, bool> _filter;   // cleared on Dispose
             private readonly SynchronizationContext _syncContext;
 
             public override Type MessageType => typeof(T);
@@ -231,6 +235,12 @@ namespace WinformsMVP.Common.EventAggregator
                 _handler = handler;
                 _filter = filter;
                 _syncContext = context;
+            }
+
+            protected override void ReleaseHandler()
+            {
+                Volatile.Write(ref _handler, null);
+                Volatile.Write(ref _filter, null);
             }
 
             public override void Deliver(object message)
@@ -268,10 +278,11 @@ namespace WinformsMVP.Common.EventAggregator
 
             private bool ApplyFilter(T message)
             {
-                if (_filter == null) return true;
+                var filter = Volatile.Read(ref _filter);
+                if (filter == null) return !IsDisposed;
                 try
                 {
-                    return _filter(message);
+                    return filter(message);
                 }
                 catch (Exception ex)
                 {
@@ -287,9 +298,11 @@ namespace WinformsMVP.Common.EventAggregator
 
             private void SafeExecute(T message)
             {
+                var handler = Volatile.Read(ref _handler);
+                if (handler == null) return;   // disposed concurrently
                 try
                 {
-                    _handler(message);
+                    handler(message);
                 }
                 catch (Exception ex)
                 {

@@ -532,6 +532,16 @@ public class Listener
         }
 
         [Fact]
+        public void MVP017_DiscardedConditionalSubscribe_Reports()
+        {
+            Assert.Single(Ids(EventUsings + @"
+public class Listener
+{
+    public Listener(IEventAggregator events) { events?.Subscribe<string>(s => { }); }
+}"));
+        }
+
+        [Fact]
         public void MVP017_StoredOrChainedOrExplicitlyDiscarded_NoDiagnostic()
         {
             Assert.Empty(Ids(EventUsings + @"
