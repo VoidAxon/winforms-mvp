@@ -297,6 +297,8 @@ Use for cross-presenter/cross-module events. Do **not** use for parent-child coo
 
 ## Releasing
 
+Every push to `master` and every pull request runs `.github/workflows/ci.yml` (Windows: build + both test projects).
+
 Releases are **tag-driven**. Pushing a tag matching `v*` triggers `.github/workflows/release.yml`, which builds, runs the test suite (gate), packs the three shippable packages (`WinformsMVP.Core`, `WinformsMVP`, `WinformsMVP.DependencyInjection`), asserts the analyzer is bundled in `WinformsMVP.Core`, publishes to **GitHub Packages**, and creates a **GitHub Release** with the `.nupkg` files attached.
 
 ```bash
