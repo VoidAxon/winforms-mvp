@@ -185,6 +185,10 @@ namespace WinformsMVP.Common
         {
             if (TrustsEquals(elementType, visited))
                 return false;
+            // Content mode: an element whose content changed is an edit, whatever the set's own
+            // membership comparer (often "same Id") says.
+            if (visited.ContentMode)
+                return true;
             var comparer = set.GetType().GetProperty("Comparer")?.GetValue(set, null);
             if (comparer == null) return true;
             var defaultComparer = typeof(EqualityComparer<>).MakeGenericType(elementType)

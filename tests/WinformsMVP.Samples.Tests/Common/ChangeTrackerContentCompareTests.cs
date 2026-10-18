@@ -71,6 +71,26 @@ namespace WinformsMVP.Samples.Tests.Common
             Assert.True(tracker.IsChanged);
         }
 
+        private sealed class IdComparer : IEqualityComparer<Customer>
+        {
+            public bool Equals(Customer x, Customer y) => x?.Id == y?.Id;
+            public int GetHashCode(Customer c) => c.Id;
+        }
+
+        [Fact]
+        public void EditingAnEntityInsideASetWithAnIdComparer_IsDetected()
+        {
+            var order = NewOrder();
+            order.Watchers = new HashSet<Customer>(new IdComparer()) { new Customer { Id = 9, Name = "Carol" } };
+            var tracker = new ChangeTracker<Order>(order);
+            Assert.False(tracker.IsChanged);
+
+            foreach (var watcher in tracker.CurrentValue.Watchers) watcher.Name = "Dave";
+
+            Assert.True(tracker.IsChanged);
+            Assert.True(ObjectComparer.DeepEquals(order.Watchers, tracker.CurrentValue.Watchers)); // membership only
+        }
+
         [Fact]
         public void UntouchedEntity_IsNotChanged()
         {
