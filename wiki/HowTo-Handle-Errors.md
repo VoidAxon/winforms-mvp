@@ -298,6 +298,10 @@ private async Task OnRefreshDataAsync(CancellationToken ct)
     {
         Messages.ShowError("You don't have permission to access this data.", "Access Denied");
     }
+    catch (OperationCanceledException) when (ct.IsCancellationRequested)
+    {
+        throw;   // ウィンドウが閉じられた: ディスパッチャが黙って処理する (エラー表示しない)
+    }
     catch (Exception ex)
     {
         Messages.ShowError($"Failed to load data: {ex.Message}", "Error");
