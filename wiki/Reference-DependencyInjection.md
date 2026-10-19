@@ -308,6 +308,28 @@ internal static class Program
 }
 ```
 
+### フレームワークのカスタマイズ (`AddWinformsMVP(viewRegistry, mvp => ...)`)
+
+ダイアログの見た目・トーストの既定値・変更追跡エンジン・ロギング・グローバルミドルウェアなどは、
+`AddWinformsMVP` の第 3 引数で設定します。`MvpApplication.Configure(framework: ...)` (M.E.DI なし) と
+**同じビルダー (`WinformsMvpBuilder`)・同じ既定値** です。
+
+```csharp
+services.AddWinformsMVP(viewRegistry, mvp =>
+{
+    mvp.Messages.UseDialogs(new CompanyStyleDialogBackend());
+    mvp.Toasts.Duration = 4500;
+    mvp.ChangeTracking.UseComparer(new CompareNetObjectsComparer());
+    mvp.Actions.StrictValidation();
+});
+```
+
+- フレームワークの登録はすべて `TryAdd` です。`AddWinformsMVP` の**前**にホストが登録したサービスは `mvp.` の選択より優先され、**後**に登録したものは M.E.DI の「最後の登録が勝つ」規則で優先されます。つまり直接登録 > `mvp.` の選択 > 組み込み既定値。
+- ホストが直接登録したオプションオブジェクト (例 `ToastHostOptions`) は `mvp.` で組み立てたものを丸ごと置き換えます (値のマージはしません)。
+- `IEventAggregator` やトーストサービスなどはシングルトンとして登録され、コンテナの破棄時に破棄されます。
+
+`mvp.` で設定できる項目の一覧は [HowTo: フレームワークをカスタマイズする](HowTo-Customize-Framework) を参照してください。
+
 ### `MainForm` でのコンテナ利用
 
 ```csharp
@@ -539,11 +561,25 @@ internal static class Program
 }
 ```
 
-> ⚠️ **`AsFrameworkLoggerFactory()` はフレームワーク同梱のメソッドではありません。** コアパッケージは `Microsoft.Extensions.Logging` に依存しない設計なので、`WinformsMVP.DependencyInjection` もログ用アダプタを含みません (依存は `Microsoft.Extensions.DependencyInjection.Abstractions` のみ)。M.E.L. の `ILoggerFactory` を框架の `WinformsMVP.Logging.ILoggerFactory` に橋渡しするには、~30 行のアダプタを自分で書きます (全ターゲットで利用可)。実装例は `samples/MultiProjectDemo.Shell/Logging/MicrosoftLoggingExtensions.cs` と [Logging リファレンス](Reference-Logging) を参照。ログが不要なら `NullLoggerFactory` が自動で使われます。
+> ⚠️ **`AsFrameworkLoggerFactory()` はフレームワーク同梱のメソッドではありません。** コアパッケージは `Microsoft.Extensions.Logging` に依存しない設計なので、`WinformsMVP.DependencyInjection` もログ用アダプタを含みません (依存は `Microsoft.Extensions.DependencyInjection.Abstractions` のみ)。M.E.L. の `ILoggerFactory` を框架の `WinformsMVP.Logging.ILoggerFactory` に橋渡しするには、~30 行のアダプタを自分で書きます (全ターゲットで利用可)。実装例は `samples/MultiProjectDemo.Shell/Logging/MicrosoftLoggingExtensions.cs` と [Logging リファレンス](Reference-Logging) を参照。ログが不要なら `NullLoggerFactory` が自動で使われます。直接登録の代わりに `services.AddWinformsMVP(viewRegistry, mvp => mvp.Logging.Use(loggerFactory.AsFrameworkLoggerFactory()))` と書くこともできます。
 
 ### グローバル Dispatcher ミドルウェアの設定 (`IDispatcherConfigurer`)
 
 サービスプロバイダに **`IDispatcherConfigurer`** を登録すると、すべての Presenter の `ViewActionDispatcher` に対して共通のミドルウェアを設定できます。`ActionDispatcherConfigurer` を使うとクラスなしで記述できます。
+
+起動時の設定ブロックでは `mvp.Actions.Configure(...)` が 1 つの `IDispatcherConfigurer` として登録されます (推奨):
+
+```csharp
+// M.E.DI なし
+MvpApplication.Configure(framework: mvp => mvp.Actions
+    .Configure(d => d.Use(new AuditMiddleware(auditSink, () => CurrentUser.Name)))
+    .StrictValidation());   // Debug ビルドで配線ミスを例外にしたい場合
+
+// M.E.DI
+services.AddWinformsMVP(viewRegistry, mvp => mvp.Actions.Configure(d => d.Use(...)));
+```
+
+`IDispatcherConfigurer` を直接登録することもできます:
 
 ```csharp
 // ServiceLocator.Configure を使う場合 (M.E.DI なし)
@@ -593,6 +629,17 @@ internal static class Program
 }
 ```
 
+フレームワーク自体も調整する場合は、`ServiceLocator.Configure` の代わりに `MvpApplication.Configure` を使うと
+フレームワークの設定と業務サービスの登録を 1 回の呼び出しにまとめられます (`services:` で直接登録したものが `framework:` の選択より優先)。
+
+```csharp
+MvpApplication.Configure(
+    framework: mvp => mvp.Messages.DefaultCaption = "Contoso CRM",
+    services: reg => reg.RegisterInstance<IViewMappingRegister>(viewRegistry));
+```
+
+`ServiceLocator.Configure` / `MvpApplication.Configure` で作ったプロバイダはフレームワークの所有で、置き換えや `ServiceLocator.Reset()` の際に破棄されます (自分のファクトリが生成したシングルトンを破棄し、`RegisterInstance` したインスタンスは破棄しません)。`ServiceLocator.Current` に代入したプロバイダ (例 `UseWinformsMVP()`) は破棄されません。
+
 ---
 
 ## よくある誤解
@@ -618,6 +665,7 @@ internal static class Program
 ## 関連ページ
 
 - [Platform Services](Reference-Platform-Services) — Presenter 便利プロパティが解決するサービス群
+- [HowTo: フレームワークをカスタマイズする](HowTo-Customize-Framework) — `mvp.` で設定できる項目と優先順位
 - [WindowNavigator](Reference-WindowNavigator) — `IPresenterFactory` と Navigator パラメータの分離
 - [ViewMappingRegister](Reference-ViewMappingRegister) — View 解決層の詳細
 - [HowTo: 従来の WinForms から移行する](HowTo-Migrate-From-Legacy-WinForms) — 段階的なリファクタリング

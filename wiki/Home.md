@@ -47,11 +47,11 @@ WinForms アプリケーションのための **Model-View-Presenter** フレー
 - [ViewAction システム](Reference-ViewAction-System) — Dispatcher / Binder / Middleware の完全リファレンス
 - [WindowNavigator](Reference-WindowNavigator) — Modal / 非 Modal、Fluent API、`RequestClose` による結果返却
 - [ViewMappingRegister](Reference-ViewMappingRegister) — View 自動登録、Factory パターン
-- [Platform Services](Reference-Platform-Services) — `IMessageService` / `IDialogProvider` / `IFileService`
-- [トースト通知](Reference-Toast-Notifications) — 隅に積み上がるトースト、`ToastOptions` / `ToastDefaults`、`AnchoredToast`
+- [Platform Services](Reference-Platform-Services) — `IMessageService` / `IToastService` / `IDialogProvider` / `IFileService`
+- [トースト通知](Reference-Toast-Notifications) — 隅に積み上がるトースト、`IToastService` / `IWinFormsToastService`、`ToastOptions` / `mvp.Toasts`、`AnchoredToast`
 - [Data Binding 拡張メソッド](Reference-Data-Binding) — View 側で UI コントロールをモデルに紐付ける拡張メソッド群
 - [Logging](Reference-Logging) — 自社抽象 (外部依存ゼロ)、M.E.L. 連携
-- [ChangeTracker](Reference-ChangeTracker) — 編集/キャンセル、深いコピー、フック差し込み
+- [ChangeTracker](Reference-ChangeTracker) — 編集/キャンセル、深いコピー、`TrackChanges` とエンジン/型別ポリシーの差し込み
 - [レート制限 (Debounce / Throttle)](Reference-RateLimiting) — 高頻度イベントの間引き、UI 非依存、`Flush` / 確定的破棄
 - [EventAggregator](Reference-EventAggregator) — トークンで生存期間を管理する pub/sub、UI スレッド自動マーシャリング
 - [Dependency Injection](Reference-DependencyInjection) — 3 つの DI パターン、複数プロジェクト構成
@@ -71,6 +71,7 @@ WinForms アプリケーションのための **Model-View-Presenter** フレー
 - [Presenter の購読ライフサイクルを管理する](HowTo-Manage-Presenter-Subscriptions) — `Disposables` バッグ、`DisposeWith`、自動解放
 - [従来の WinForms から移行する](HowTo-Migrate-From-Legacy-WinForms) — 段階的なリファクタリング
 - [エラー処理戦略](HowTo-Handle-Errors) — `IMessageService` / `InteractionResult<T>` / グローバルハンドラ
+- [フレームワークをカスタマイズする](HowTo-Customize-Framework) — 起動時の 1 回の呼び出し (`MvpApplication.Configure` / `AddWinformsMVP`) でダイアログ・トースト・変更追跡などを設定
 - [リリースする](HowTo-Release) — タグ駆動で GitHub Packages へ発行 + GitHub Release 作成
 
 ---

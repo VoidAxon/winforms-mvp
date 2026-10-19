@@ -26,15 +26,17 @@ Presenter は `MessageBox.Show()` や `new OpenFileDialog()` を直接呼びま�
 
 ## 全体構成
 
-サービスはすべて `ServiceLocator.Current` (`IServiceProvider`) から解決されます。デフォルトでは `DefaultServiceProvider` がフレームワーク組み込みサービスをプリシードしており、アプリ起動時に `ServiceLocator.Configure(...)` か `ServiceLocator.Current` への代入で差し替えられます。
+サービスはすべて `ServiceLocator.Current` (`IServiceProvider`) から解決されます。デフォルトでは `DefaultServiceProvider` がフレームワーク組み込みサービスをプリシードしており、アプリ起動時に `MvpApplication.Configure(...)` (推奨) / `ServiceLocator.Configure(...)` / `ServiceLocator.Current` への代入で差し替えられます ([サービスの構成](#サービスの構成-servicelocator) 参照)。
 
 | サービス | インターフェイス | 用途 |
 |---------|---------------|----|
 | メッセージ | `IMessageService` | 情報・警告・エラー・確認ダイアログ |
+| トースト | `IToastService` | 隅に積み上がる非ブロッキング通知 (詳細は [トースト通知](Reference-Toast-Notifications)) |
 | システムダイアログ | `IDialogProvider` | OpenFile / SaveFile / FolderBrowser 等 |
 | ファイル I/O | `IFileService` | `ReadAllText` / `WriteAllText` 等 |
 | ロギング | `ILogger` / `ILoggerFactory` | 構造化ロギング (詳細は [Logging](Reference-Logging)) |
 | ウィンドウナビゲーション | `IWindowNavigator` | Modal / Non-Modal ウィンドウ表示 (詳細は [WindowNavigator](Reference-WindowNavigator)) |
+| イベント集約 | `IEventAggregator` | Presenter 間の Pub/Sub。シングルトンとして既定登録 (詳細は [EventAggregator](Reference-EventAggregator)) |
 
 ---
 
@@ -54,28 +56,28 @@ public interface IMessageService
 
     // 確認 (戻り値は bool または列挙)
     bool ConfirmYesNo(string text, string caption = "");
+    bool ConfirmOkCancel(string text, string caption = "");
     ConfirmResult ConfirmYesNoCancel(string text, string caption = "");
-
-    // 非ブロッキング通知 (duration はミリ秒、type に既定値はない)
-    // 隅に積み上がるトースト。詳細は「トースト通知」リファレンスを参照。
-    void ShowToast(string text, ToastType type, int duration = 3000);
 }
-
-// WinformsMVP パッケージの拡張メソッド (MessageServiceToastExtensions)
-// 外観の個別指定 (位置=画面の隅・サイズ・フォント・表示時間)。既定値は ToastDefaults。
-public static void ShowToast(this IMessageService messages, string text, ToastType type, ToastOptions options);
 ```
 
-> `ToastOptions` は `Font` やレンダラーなど WinForms 型を含むため、`IMessageService` (WinformsMVP.Core) には置かず `WinformsMVP` パッケージの拡張メソッドになっています。`WinformsMVP` を参照していれば呼び出し側のコードは `messages.ShowToast(text, type, options)` のまま変わりません。組み込みの `MessageService` 以外の実装には `options.Duration` だけが渡されます。`ShowToast` はワーカースレッドから呼んでも安全です (UI スレッドへマーシャリング)。
-
-> トーストの積み上げ挙動・`ToastOptions` / `ToastDefaults` / `AnchoredToast` の詳細は
+> **トーストは `IMessageService` ではなく `IToastService`** です。Presenter からは `Toasts` プロパティで
+> `Toasts.Show(text, type[, duration])` を呼びます (`duration` が null なら設定された既定値)。
+> ワーカースレッドから呼んでも UI スレッドで表示されます。1 回ごとの外観指定 (`ToastOptions`) や
+> 座標指定は View 用の `IWinFormsToastService` / `AnchoredToast` で行います。詳細は
 > [トースト通知](Reference-Toast-Notifications) を参照してください。
+
+> **見た目の差し替え:** ダイアログの見た目を決めるのは `IMessageDialogBackend` の 1 か所だけです。
+> 組み込みの `MessageService` (Presenter の `Messages`) と `AnchoredMessageBox` はどちらもこれを通ります。
+> 既定はネイティブ MessageBox を使う `NativeMessageDialogBackend` です。社内標準のダイアログにしたい場合は
+> 起動時に `mvp.Messages.UseDialogs(new MyDialogBackend())` を指定します。caption を省略したときのタイトルは
+> `mvp.Messages.DefaultCaption` (既定 `"System"`) です。
 
 > **位置 (Point) 指定の対話は Presenter の責務ではありません。** 画面座標を知っているのは
 > View だけなので、`IMessageService` には `Point` を取るメソッドを置きません。特定座標に
 > 出したい場合は **View 層ユーティリティ**を使います:
 > - `AnchoredMessageBox.ShowInfo/ShowWarning/ShowError/ConfirmYesNo(text, Point, caption)`
->   — ネイティブ MessageBox を指定座標に表示 (画面外なら自動で引き戻す)。
+>   — MessageBox を指定座標に表示 (画面外なら自動で引き戻す。見た目は `IMessageDialogBackend` に従う)。
 > - `AnchoredToast.Show(text, type, Point, options)` — 単一のトーストを指定座標に表示。
 >
 > いずれも `Application.OpenForms` には現れません。Presenter からは呼ばず、Form /
@@ -232,6 +234,10 @@ public class OpenFileDialogOptions
 }
 ```
 
+呼び出しごとに指定しなかったタイトル・フィルタ・エラーメッセージの既定値は、起動時に `mvp.Dialogs`
+(`OpenFileDialogTitle` / `SaveFileDialogTitle` / `DefaultFileFilter` / `FolderBrowserDescription` /
+`FileOpenErrorMessage` など。`DialogProviderOptions` として登録) で設定します。呼び出しごとの値 (例 `OpenFileDialogOptions.Title`) が優先されます。
+
 ---
 
 ## `IFileService` — ファイル I/O
@@ -373,10 +379,13 @@ else
 | プロパティ | 型 | 用途 |
 |----------|----|----|
 | `Messages` | `IMessageService` | メッセージダイアログ |
+| `Toasts` | `IToastService` | トースト通知 |
 | `Dialogs` | `IDialogProvider` | システムダイアログ |
 | `Files` | `IFileService` | ファイル I/O |
 | `Logger` | `ILogger` | ロギング |
 | `Navigator` | `IWindowNavigator` | ウィンドウ表示 |
+
+変更追跡には `TrackChanges(value)` (起動時の `mvp.ChangeTracking` 設定を反映した `ChangeTracker<T>` を作る) も使えます。詳細は [ChangeTracker](Reference-ChangeTracker)。
 
 業務固有のサービス (`IUserRepository`、`IOrderService` 等) は通常通り **コンストラクタ注入** で受け取ります。DI パターンの選び分けは [Dependency Injection](Reference-DependencyInjection) を参照。
 
@@ -390,11 +399,37 @@ else
 
 ```csharp
 // 設定不要 — ServiceLocator.Current は初回アクセス時に自動的に DefaultServiceProvider を生成する。
-// Messages / Dialogs / Files は標準実装、View マッピングは空、ロギングは NullLoggerFactory。
-// WinForms 系の組み込み (MessageService / DialogProvider / WindowNavigator / ViewMappingRegister) は
+// Messages / Toasts / Dialogs / Files は標準実装、View マッピングは空、ロギングは NullLoggerFactory。
+// WinForms 系の組み込み (MessageService / トースト / DialogProvider / WindowNavigator / ViewMappingRegister) は
 // 実行時に WinformsMVP アセンブリの内部フックから登録される。WinformsMVP.Core だけを配置した場合
-// (Presenter 単体テストなど) は FileService と NullLoggerFactory のみ。
+// (Presenter 単体テストなど) は FileService・NullLoggerFactory・EventAggregator・組み込みの変更追跡エンジンのみ。
 ```
+
+### フレームワークをカスタマイズする (`MvpApplication.Configure`)
+
+フレームワークの調整 (ダイアログの見た目、トーストの既定値、変更追跡エンジン、ロギング、ディスパッチャーのミドルウェアなど) と業務サービスの登録は、起動時の 1 回の呼び出しにまとめます。
+
+```csharp
+MvpApplication.Configure(
+    framework: mvp =>
+    {
+        mvp.Messages.UseDialogs(new CompanyStyleDialogBackend());
+        mvp.Messages.DefaultCaption = "Contoso CRM";
+        mvp.Toasts.Duration = 4500;
+        mvp.Dialogs.DefaultFileFilter = "CSV (*.csv)|*.csv|All Files (*.*)|*.*";
+        mvp.Logging.Use(new DebugLoggerFactory());
+    },
+    services: reg =>
+    {
+        reg.RegisterInstance<IViewMappingRegister>(register);
+        BillingModule.Register(reg);
+    });
+```
+
+`mvp.` のグループは `Messages` / `Toasts` / `Dialogs` / `ChangeTracking` / `Events` / `Logging` / `Actions` です。
+優先順位は **`services:` で直接登録したサービス > `mvp.` での選択 > 組み込みの既定値**。直接登録したオプションオブジェクト
+(例 `ToastHostOptions`) は `mvp.` で組み立てたものを丸ごと置き換えます (値のマージはしません)。
+詳細は [HowTo: フレームワークをカスタマイズする](HowTo-Customize-Framework) を参照してください。
 
 ### View マッピングを上書きする
 
@@ -409,11 +444,18 @@ ServiceLocator.Configure(reg =>
 });
 ```
 
+`ServiceLocator.Configure(reg => ...)` は `framework:` ブロックを持たない低レベルの入口として引き続き使えます (組み込み登録の後に `reg` の登録が後勝ちで上書き)。
+
+> **破棄:** `DefaultServiceProvider` は `IDisposable` で、自分のファクトリが生成したシングルトン (例 `EventAggregator`、トーストサービス) を破棄します。`RegisterInstance` で渡したインスタンスは破棄しません。`ServiceLocator` は自分が組み立てたプロバイダ (遅延生成の既定、`Configure` / `MvpApplication.Configure` で作ったもの) を、置き換えや `Reset()` のときに破棄します。`ServiceLocator.Current` に代入したプロバイダは代入側の所有で、破棄されません。
+
 ### M.E.DI コンテナ統合
 
 ```csharp
 // AddWinformsMVP → BuildServiceProvider → UseWinformsMVP の順で設定する
-services.AddWinformsMVP(viewRegistry);
+services.AddWinformsMVP(viewRegistry, mvp =>
+{
+    mvp.Toasts.Duration = 4500;   // MvpApplication.Configure の framework: と同じビルダー
+});
 var provider = services.BuildServiceProvider();
 provider.UseWinformsMVP();   // ServiceLocator.Current = provider
 ```
@@ -469,5 +511,7 @@ public void OnSave_ShowsSuccessMessage()
 - [Logging](Reference-Logging) — `ILogger` の詳細
 - [WindowNavigator](Reference-WindowNavigator) — `IWindowNavigator` の詳細
 - [Dependency Injection](Reference-DependencyInjection) — DI 連携・モジュール化された構成
+- [HowTo: フレームワークをカスタマイズする](HowTo-Customize-Framework) — `mvp.` で差し替えられるものの一覧
+- [トースト通知](Reference-Toast-Notifications) — `IToastService` / `IWinFormsToastService` / `AnchoredToast`
 - [HowTo: Presenter をテストする](HowTo-Test-A-Presenter) — Mock サービスの使い方
 - [HowTo: エラー処理戦略](HowTo-Handle-Errors) — `IMessageService` と `InteractionResult<T>` の組み合わせ

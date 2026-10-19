@@ -29,19 +29,42 @@ public class ChangeTracker<T> where T : class
 ```
 
 - **`T : class`** — 参照型のみ対応
-- **`ICloneable` の実装は任意** — 推奨はされるが必須ではない。未実装でも動作する
+- **`ICloneable` は使われない** — .NET の `Clone()` は浅いコピーでもよい契約のため、実装していても参照しない。検証済みの深い `Clone()` を使いたい場合は `ChangeTrackingPolicy<T>` で明示する
 - **`IEquatable<T>` / `Equals` は比較に使われない** — 既定は内容比較 (`ObjectComparer.ContentEquals`)。独自の等価性を使いたい場合は `comparer` を明示的に渡す
+
+### コンストラクタと `TrackChanges`
+
+複製・比較の戦略 (`ChangeTrackingPolicy<T>`) は**生成時に固定**され、以後グローバルな設定は読みません。
+
+```csharp
+new ChangeTracker<T>(value);                               // 組み込みエンジン (リフレクション深いコピー + 内容比較)
+new ChangeTracker<T>(value, Func<T, T, bool> comparer);    // 比較だけ指定 (複製は組み込み)
+new ChangeTracker<T>(value, IEqualityComparer<T> comparer);
+new ChangeTracker<T>(value, ChangeTrackingPolicy<T> policy); // 複製と比較を明示
+```
+
+Presenter の中では `TrackChanges(value)` を優先してください。起動時の `mvp.ChangeTracking` の設定
+(型ごとのポリシー、差し替えたエンジン) を反映した tracker を返します。`new ChangeTracker<T>(...)` は
+コンストラクタに渡したもの (または組み込みエンジン) しか使いません。
+
+```csharp
+_tracker = TrackChanges(order);                      // 設定を反映 (推奨)
+_tracker = TrackChanges(order, policy);              // ポリシーを明示 (設定は見ない)
+_tracker = TrackChanges(order, (a, b) => a.SameEditableContent(b)); // 比較だけ指定。複製は設定に従う
+```
 
 ---
 
 ## スナップショット (複製) の解決順序
 
-ベースラインを保存するために `T` のコピーを作る必要があります。`ChangeTracker<T>` は以下の順で複製戦略を決定します。
+ベースラインを保存するために `T` のコピーを作る必要があります。`TrackChanges(value)` は以下の順で複製戦略を決定します。
 
-1. **`T` が `ICloneable` を実装** → その `Clone()` を使用 (高速パス、推奨)
-2. **未実装** → グローバルフック `ChangeTrackerDefaults.Cloner` を使用 (デフォルトは組み込みリフレクション深いコピー `ObjectCloner`)
+1. **`T` ちょうどに登録された `ChangeTrackingPolicy<T>`** (`mvp.ChangeTracking.For<T>(policy)`) → その `Clone`
+2. **登録された `IObjectCloner`** (`mvp.ChangeTracking.UseCloner(...)`) → その `DeepClone`
+3. **どちらも無い** → 組み込みのリフレクション深いコピー (`BuiltInObjectCloner`)
 
-リフレクション深いコピーは正確だが速度面では `ICloneable` 実装に劣ります。性能が重要なら `ICloneable` を実装してください。
+`new ChangeTracker<T>(value)` は常に 3 (またはコンストラクタで渡したポリシー) を使います。
+リフレクション深いコピーは正確ですが速度面では手書きのコピーに劣ります。性能が重要なら検証済みの深いコピーをポリシーで登録してください。
 
 > 組み込みの `ObjectCloner` / 深い比較は、`HashSet` / `SortedSet` / `Queue` / `Stack` / `LinkedList` / `ReadOnlyCollection` を要素単位で扱います (セットの比較子やスタックの順序は維持)。`Type` / `MemberInfo` / `Uri` / `Version` は不変として扱いコピーせずに共有します。コレクションを通る循環参照はコピー側に解決されます (コンストラクタでしか要素を受け取れないコレクションを通る循環のみ `NotSupportedException`)。参照同一性の要素を持つセットは要素の深い等価性で対応付けて比較するため、未変更のディープコピーと等しく判定され、構築直後に dirty になることはありません。
 
@@ -51,8 +74,10 @@ public class ChangeTracker<T> where T : class
 
 `IsChanged` 判定 (現在値とベースラインの比較) は以下の順で戦略を決定します。
 
-1. **コンストラクタに `comparer` を渡した** → それを使用
-2. **渡していない** → グローバルフック `ChangeTrackerDefaults.Comparer` (デフォルトは内容比較 `ObjectComparer.ContentEquals`)
+1. **コンストラクタ / `TrackChanges` に `comparer` かポリシーを渡した** → それを使用
+2. **(`TrackChanges` のみ) `T` ちょうどに登録された `ChangeTrackingPolicy<T>`** → その `ContentEquals`
+3. **(`TrackChanges` のみ) 登録された `IObjectContentComparer`** (`mvp.ChangeTracking.UseComparer(...)`) → それを使用
+4. **いずれも無い** → 組み込みの内容比較 (`BuiltInObjectContentComparer` = `ObjectComparer.ContentEquals`)
 
 `T` 自身の `IEquatable<T>` / `Equals` は **意図的に使いません**。エンティティは「Id が同じなら等しい」と `Equals` を定義することが多く、それを使うと内容を編集しても `IsChanged == false` となり、`CanClose` の保存確認が出ずにデータが失われるためです。
 
@@ -69,17 +94,42 @@ new ChangeTracker<Order>(order, (a, b) => a.Equals(b));  // T の Equals を使�
 
 ## 第三者ライブラリの差し込み
 
-アプリ起動時に 1 回だけ、グローバルフックを差し替えることで複製・比較戦略を上書きできます。
+アプリ起動時の `mvp.ChangeTracking` で、複製・比較エンジンと型ごとのポリシーを設定できます
+(`TrackChanges` で作った tracker に効きます)。第三者ライブラリは `IObjectCloner` /
+`IObjectContentComparer` を実装する数行のアダプタで差し込みます。
 
 ```csharp
-// 例: Force.DeepCloner を使う
-ChangeTrackerDefaults.Cloner = obj => obj.DeepClone();
+// 例: Force.DeepCloner を使うアダプタ
+public sealed class DeepClonerAdapter : IObjectCloner
+{
+    public object DeepClone(object value) => value?.DeepClone();
+}
 
-// 例: 自前の高速比較器を使う
-ChangeTrackerDefaults.Comparer = new MyFastComparer();
+// 例: CompareNETObjects を使うアダプタ
+public sealed class CompareNetObjectsComparer : IObjectContentComparer
+{
+    public bool ContentEquals(object a, object b) => new CompareLogic().Compare(a, b).AreEqual;
+}
+
+MvpApplication.Configure(framework: mvp =>
+{
+    mvp.ChangeTracking.UseCloner(new DeepClonerAdapter());
+    mvp.ChangeTracking.UseComparer(new CompareNetObjectsComparer());
+
+    // 1 つの型だけ: 検証済みの深い Clone() と、監査用タイムスタンプを無視する比較
+    mvp.ChangeTracking.For(new ChangeTrackingPolicy<Order>(
+        o => (Order)o.Clone(),
+        (a, b) => a.SameEditableContent(b)));
+});
 ```
 
+- エンジンはアプリ全体で 1 インスタンスを共有するため、スレッドセーフに実装してください。
+  `IObjectCloner` のコピーは元と状態を共有せず内容的に等しいこと、未対応のグラフは部分コピーではなく例外で失敗することが契約です。
+- `For<T>` は `T` **ちょうど**の型にだけ効きます (基底型・派生型には効きません)。
+- M.E.DI では `AddWinformsMVP(viewRegistry, mvp => ...)` に同じ設定を書きます。
+
 通常はデフォルト (リフレクション深い処理) で十分ですが、ホットパスでパフォーマンスが問題になる場合に検討してください。
+設定入口の全体は [フレームワークをカスタマイズする](HowTo-Customize-Framework) を参照してください。
 
 ---
 
@@ -93,7 +143,7 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView>
     protected override void OnInitialize()
     {
         var user = LoadUser(userId);
-        _changeTracker = new ChangeTracker<UserModel>(user);   // ベースラインのスナップショット
+        _changeTracker = TrackChanges(user);                    // ベースラインのスナップショット
         View.ShowUser(user);                                    // データは View が保持・編集する
     }
 
@@ -147,7 +197,17 @@ user.Address.City = "Osaka";
 bool changed = tracker.IsChangedWith(user);   // 浅いコピーだと false(期待: true)
 ```
 
-### 正しい `Clone()` の実装
+### 自前の深いコピーを使う場合
+
+既定のリフレクション深いコピーではこの罠は**自動的に回避されます**。手書きの `Clone()` を使う場合は、
+それが深いコピーであることを確かめたうえで `ChangeTrackingPolicy<T>` として渡します
+(`ICloneable` を実装しているだけでは使われません)。
+
+```csharp
+mvp.ChangeTracking.For(new ChangeTrackingPolicy<UserModel>(
+    u => (UserModel)u.Clone(),
+    (a, b) => ObjectComparer.ContentEquals(a, b)));
+```
 
 ```csharp
 public class UserModel : ICloneable
@@ -192,7 +252,7 @@ public void Clone_CreatesIndependentCopy()
 }
 ```
 
-リフレクション深いコピー (`ICloneable` 未実装時のフォールバック) を使う場合、上記の罠は **自動的に回避されます** が、パフォーマンスは劣ります。
+既定のリフレクション深いコピーは上記の罠を **自動的に回避します** が、パフォーマンスは手書きのコピーに劣ります。
 
 ---
 
