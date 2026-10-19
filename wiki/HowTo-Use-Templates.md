@@ -169,7 +169,12 @@ dotnet new winformsmvp-tests -n MyApp.Tests [--framework net10.0-windows|net472]
 
 ## Designer と WFO1000
 
-.NET 9 以降の WinForms アナライザー **WFO1000** は、Form / UserControl の public プロパティに `DesignerSerializationVisibility` の指定を求めます。View インターフェイスを実装するプロパティはまさにこれに当たり、指定が無いと Designer が View のデータを `.Designer.cs` にシリアル化してしまうことがあります (ビルドでも警告)。
+.NET 9 以降の WinForms アナライザー **WFO1000** は、Form / UserControl の書き込み可能な public プロパティに `DesignerSerializationVisibility` などの指定を求め、無ければ**既定でビルドエラー**にします (Designer を使うかどうかに関係なく)。View インターフェイスを実装するプロパティはまさにこれに当たります。
+
+- **Form** では実害はほぼありません (Designer は Form の基底クラスをインスタンス化するため、Form 自身が宣言したプロパティはシリアル化されない)。
+- **UserControl** を別の Form に置くと、その Form の Designer が UserControl の読み取り可能な public プロパティを `.Designer.cs` に書き出します。こちらは属性が実際に効きます。
+
+どちらにしてもエラーは解消する必要があります (既定の重大度が Error のため、アナライザーの DiagnosticSuppressor では抑止できません)。
 
 ```csharp
 // View のデータであって Designer のプロパティではない: .Designer.cs に書き出させない
@@ -181,7 +186,7 @@ public string Title
 }
 ```
 
-テンプレートが生成する Form / UserControl はすでにこの属性を付けています。View インターフェイスにプロパティを足したら、実装側にも同じ属性を付けてください。
+テンプレートが生成する Form / UserControl はすでにこの属性を付けています。手書きの場合は、Visual Studio で WFO1000 の 1 件に `Ctrl+.` →「DesignerSerializationVisibility を追加」→「プロジェクト内のすべて修正」を選ぶと、WinForms 標準のコード修正で一括付与できます。属性を書きたくない場合は、View のプロパティを明示的なインターフェイス実装 (`string IOrderView.Title { get; set; }`) にすると WFO1000 の対象外になります。
 
 ---
 

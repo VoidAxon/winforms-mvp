@@ -314,7 +314,7 @@ namespace MyTodoApp
 }
 ```
 
-> **ポイント (Designer を使う場合):** この例はコードだけで UI を組み立てていますが、Visual Studio の Designer で編集する Form (.NET 9 以降) では、View インターフェイスを実装する public プロパティ (`Items` / `SelectedItem` / `NewTaskTitle` など) に `[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]` を付けてください。付けないと WinForms アナライザー **WFO1000** が警告し、Designer が View のデータを `.Designer.cs` に書き出すことがあります。`dotnet new mvp-window` が生成する Form は付与済みです ([HowTo: テンプレートを使う](HowTo-Use-Templates#designer-と-wfo1000))。
+> **ポイント (Designer を使う場合):** この例はコードだけで UI を組み立てていますが、.NET 9 以降では、View インターフェイスを実装する public プロパティ (`Items` / `SelectedItem` / `NewTaskTitle` など) に `[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]` を付けてください。付けないと WinForms アナライザー **WFO1000** が既定でビルドエラーにします (`Ctrl+.` →「プロジェクト内のすべて修正」で一括付与可)。`dotnet new mvp-window` が生成する Form は付与済みです ([HowTo: テンプレートを使う](HowTo-Use-Templates#designer-と-wfo1000))。
 
 ---
 

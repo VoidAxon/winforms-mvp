@@ -149,7 +149,7 @@ namespace MyFirstMvpApp
 - `_welcomeLabel` は `private`。Presenter からは見えない。
 - `WelcomeMessage` プロパティ越しに `Label.Text` を読み書きする。
 - Form は UI の詳細 (フォント、レイアウト、コントロールの種類) をすべて自分の中に閉じ込める。
-- **Designer を使う Form (.NET 9 以降) では**、View インターフェイスを実装する public プロパティに `[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]` (`System.ComponentModel`) を付ける。付けないと WinForms アナライザー **WFO1000** が警告し、Designer が View のデータを `.Designer.cs` に書き出すことがある。テンプレートが生成する Form は付与済み ([詳細](HowTo-Use-Templates#designer-と-wfo1000))。
+- **.NET 9 以降では**、View インターフェイスを実装する Form / UserControl の public プロパティに `[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]` (`System.ComponentModel`) を付ける。付けないと WinForms アナライザー **WFO1000** が既定でビルドエラーにする。Visual Studio で 1 件に `Ctrl+.` →「DesignerSerializationVisibility を追加」→「プロジェクト内のすべて修正」で一括付与できる。テンプレートが生成する Form は付与済み ([詳細](HowTo-Use-Templates#designer-と-wfo1000))。
 
 ### 2.4 エントリーポイント
 
