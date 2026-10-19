@@ -105,6 +105,48 @@ namespace WinformsMVP.MVP.Presenters
         }
 
         /// <summary>
+        /// Creates a <see cref="WinformsMVP.Common.ChangeTracker{T}"/> for <paramref name="value"/>
+        /// using this application's configuration: a <see cref="WinformsMVP.Common.ChangeTrackingPolicy{T}"/>
+        /// registered for exactly <typeparamref name="T"/> if there is one, otherwise the registered
+        /// <see cref="WinformsMVP.Common.IObjectCloner"/> / <see cref="WinformsMVP.Common.IObjectContentComparer"/>
+        /// (built-in engines when none are registered). The choice is fixed when the tracker is created.
+        /// </summary>
+        protected WinformsMVP.Common.ChangeTracker<T> TrackChanges<T>(T value) where T : class
+            => new WinformsMVP.Common.ChangeTracker<T>(value, ResolveTrackingPolicy<T>());
+
+        /// <summary>
+        /// Creates a <see cref="WinformsMVP.Common.ChangeTracker{T}"/> with an explicit
+        /// <paramref name="policy"/>; nothing is resolved from the service provider.
+        /// </summary>
+        protected WinformsMVP.Common.ChangeTracker<T> TrackChanges<T>(T value, WinformsMVP.Common.ChangeTrackingPolicy<T> policy) where T : class
+            => new WinformsMVP.Common.ChangeTracker<T>(value, policy);
+
+        /// <summary>
+        /// Creates a <see cref="WinformsMVP.Common.ChangeTracker{T}"/> that compares with
+        /// <paramref name="comparer"/>; snapshots use the configured cloning (the registered policy's
+        /// Clone for <typeparamref name="T"/>, else the registered <see cref="WinformsMVP.Common.IObjectCloner"/>).
+        /// </summary>
+        protected WinformsMVP.Common.ChangeTracker<T> TrackChanges<T>(T value, Func<T, T, bool> comparer) where T : class
+        {
+            if (comparer == null) throw new ArgumentNullException(nameof(comparer));
+            return new WinformsMVP.Common.ChangeTracker<T>(
+                value, new WinformsMVP.Common.ChangeTrackingPolicy<T>(ResolveTrackingPolicy<T>().Clone, comparer));
+        }
+
+        private WinformsMVP.Common.ChangeTrackingPolicy<T> ResolveTrackingPolicy<T>() where T : class
+        {
+            var registered = Services.GetService(typeof(WinformsMVP.Common.ChangeTrackingPolicy<T>))
+                as WinformsMVP.Common.ChangeTrackingPolicy<T>;
+            if (registered != null) return registered;
+
+            var cloner = Services.Resolve<WinformsMVP.Common.IObjectCloner>()
+                ?? WinformsMVP.Common.BuiltInObjectCloner.Instance;
+            var comparer = Services.Resolve<WinformsMVP.Common.IObjectContentComparer>()
+                ?? WinformsMVP.Common.BuiltInObjectContentComparer.Instance;
+            return WinformsMVP.Common.ChangeTrackingPolicy<T>.From(cloner, comparer);
+        }
+
+        /// <summary>
         /// Non-generic attach entry used by WindowNavigator (see <see cref="IViewAttachable"/>).
         /// Casts the framework-supplied view to <typeparamref name="TView"/> and routes through
         /// the same <see cref="SetView"/> path as the typed <see cref="IViewAttacher{TView}"/>.

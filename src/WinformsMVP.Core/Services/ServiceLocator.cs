@@ -116,6 +116,8 @@ namespace WinformsMVP.Services
         {
             provider.RegisterInstance<IFileService>(new FileService());
             provider.RegisterInstance<ILoggerFactory>(NullLoggerFactory.Instance);
+            provider.RegisterInstance<WinformsMVP.Common.IObjectCloner>(WinformsMVP.Common.BuiltInObjectCloner.Instance);
+            provider.RegisterInstance<WinformsMVP.Common.IObjectContentComparer>(WinformsMVP.Common.BuiltInObjectContentComparer.Instance);
             PlatformRegistration.Value?.Invoke(provider);
         }
 

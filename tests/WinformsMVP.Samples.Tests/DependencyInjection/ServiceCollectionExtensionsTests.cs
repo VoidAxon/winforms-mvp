@@ -69,6 +69,18 @@ namespace WinformsMVP.Samples.Tests.DependencyInjection
         }
 
         [Fact]
+        public void AddWinformsMVP_RegistersChangeTrackingEngines()
+        {
+            var services = new ServiceCollection();
+            services.AddWinformsMVP(new ViewMappingRegister());
+
+            var provider = services.BuildServiceProvider();
+
+            Assert.Same(WinformsMVP.Common.BuiltInObjectCloner.Instance, provider.GetService<WinformsMVP.Common.IObjectCloner>());
+            Assert.Same(WinformsMVP.Common.BuiltInObjectContentComparer.Instance, provider.GetService<WinformsMVP.Common.IObjectContentComparer>());
+        }
+
+        [Fact]
         public void AddWinformsMVP_RegistersViewMappingRegister_AsSpecifiedInstance()
         {
             // The very same instance must be retrievable — that's how WindowNavigator

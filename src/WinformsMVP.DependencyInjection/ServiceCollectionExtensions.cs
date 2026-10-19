@@ -53,6 +53,8 @@ namespace WinformsMVP.DependencyInjection
             services.TryAddSingleton<IWinFormsDialogProvider>(sp => sp.GetRequiredService<DialogProvider>());
             services.TryAddSingleton<IFileService, FileService>();
             services.TryAddSingleton<ILoggerFactory>(NullLoggerFactory.Instance);
+            services.TryAddSingleton<WinformsMVP.Common.IObjectCloner>(WinformsMVP.Common.BuiltInObjectCloner.Instance);
+            services.TryAddSingleton<WinformsMVP.Common.IObjectContentComparer>(WinformsMVP.Common.BuiltInObjectContentComparer.Instance);
             services.TryAddSingleton<IWindowNavigator>(sp =>
                 new WindowNavigator(
                     sp.GetRequiredService<IViewMappingRegister>().WithServiceProvider(sp)));
