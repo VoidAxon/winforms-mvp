@@ -22,11 +22,13 @@ namespace WinformsMVP.Services
             public object Instance;
             public Func<IServiceProvider, object> Factory;
             public bool HasInstance;
-            public bool IsRegisteredInstance;
         }
 
         private readonly Dictionary<Type, Entry> _entries = new Dictionary<Type, Entry>();
         private readonly List<object> _created = new List<object>();   // factory results, creation order
+        // Every instance ever passed to RegisterInstance/Register — kept even after the registration
+        // is replaced, so an alias factory that handed one back can never get it disposed.
+        private readonly HashSet<object> _callerOwned = new HashSet<object>(DeepReflection.ReferenceEqualityComparer.Instance);
         private readonly object _lock = new object();
         private bool _disposed;
 
@@ -39,7 +41,8 @@ namespace WinformsMVP.Services
         {
             lock (_lock)
             {
-                _entries[typeof(TService)] = new Entry { Instance = instance, HasInstance = true, IsRegisteredInstance = true };
+                _entries[typeof(TService)] = new Entry { Instance = instance, HasInstance = true };
+                if (instance != null) _callerOwned.Add(instance);
             }
         }
 
@@ -49,7 +52,8 @@ namespace WinformsMVP.Services
             if (serviceType == null) throw new ArgumentNullException(nameof(serviceType));
             lock (_lock)
             {
-                _entries[serviceType] = new Entry { Instance = instance, HasInstance = true, IsRegisteredInstance = true };
+                _entries[serviceType] = new Entry { Instance = instance, HasInstance = true };
+                if (instance != null) _callerOwned.Add(instance);
             }
         }
 
@@ -115,25 +119,29 @@ namespace WinformsMVP.Services
                 if (_disposed) return;
                 _disposed = true;
 
-                var owned = new HashSet<object>(DeepReflection.ReferenceEqualityComparer.Instance);
-                foreach (var entry in _entries.Values)
-                {
-                    if (entry.IsRegisteredInstance && entry.Instance != null) owned.Add(entry.Instance);
-                }
-
                 var seen = new HashSet<object>(DeepReflection.ReferenceEqualityComparer.Instance);
                 for (int i = _created.Count - 1; i >= 0; i--)
                 {
                     var created = _created[i];
                     var disposable = created as IDisposable;
-                    if (disposable != null && !owned.Contains(created) && seen.Add(created))
+                    if (disposable != null && !_callerOwned.Contains(created) && seen.Add(created))
                         toDispose.Add(disposable);
                 }
                 _created.Clear();
             }
 
             // Outside the lock: a Dispose that touches the provider must not deadlock or recurse into it.
-            foreach (var disposable in toDispose) disposable.Dispose();
+            // Every singleton is disposed even if an earlier one throws; failures are rethrown after
+            // the sweep (same policy as CompositeDisposable).
+            List<Exception> errors = null;
+            foreach (var disposable in toDispose)
+            {
+                try { disposable.Dispose(); }
+                catch (Exception ex) { (errors ?? (errors = new List<Exception>())).Add(ex); }
+            }
+            if (errors == null) return;
+            if (errors.Count == 1) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(errors[0]).Throw();
+            throw new AggregateException("One or more singletons threw during DefaultServiceProvider.Dispose.", errors);
         }
     }
 }

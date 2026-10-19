@@ -197,6 +197,42 @@ namespace WinformsMVP.Samples.Tests.Services
         }
 
         [Fact]
+        public void Dispose_DoesNotDisposeCallerInstance_AfterItsRegistrationWasReplaced()
+        {
+            var sp = new DefaultServiceProvider();
+            var callerOwned = new DisposableProbe();
+            sp.RegisterInstance<IDisposableProbe>(callerOwned);
+            sp.RegisterFactory<object>(p => p.GetService(typeof(IDisposableProbe)));   // alias
+            sp.Resolve<object>();
+            sp.RegisterInstance<IDisposableProbe>(new DisposableProbe());              // replaced
+
+            sp.Dispose();
+
+            Assert.False(callerOwned.Disposed);
+        }
+
+        private sealed class ThrowingDisposable : IDisposable
+        {
+            public void Dispose() => throw new InvalidOperationException("boom");
+        }
+
+        [Fact]
+        public void Dispose_DisposesEverySingleton_EvenWhenOneThrows_ThenRethrows()
+        {
+            var sp = new DefaultServiceProvider();
+            var probe = new DisposableProbe();
+            sp.RegisterFactory<IDisposableProbe>(_ => probe);
+            sp.RegisterFactory<IDisposable>(_ => new ThrowingDisposable());
+            sp.Resolve<IDisposableProbe>();
+            sp.Resolve<IDisposable>();   // created last, so disposed first
+
+            var ex = Assert.Throws<InvalidOperationException>(() => sp.Dispose());
+
+            Assert.Equal("boom", ex.Message);
+            Assert.True(probe.Disposed);
+        }
+
+        [Fact]
         public void GetService_AfterDispose_Throws()
         {
             var sp = new DefaultServiceProvider();
