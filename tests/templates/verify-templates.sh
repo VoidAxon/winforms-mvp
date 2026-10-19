@@ -15,6 +15,8 @@ WORK="$(mktemp -d)"
 VERSION="0.0.0-templatetest"
 FEED="$WORK/feed"
 HIVE="$WORK/hive"
+# nuget.config is read by dotnet itself: give it a native path (Git Bash on Windows uses /tmp/...).
+FEED_NATIVE="$(cygpath -w "$FEED" 2>/dev/null || echo "$FEED")"
 [ "${KEEP:-0}" = "1" ] && echo "Keeping $WORK" || trap 'rm -rf "$WORK"' EXIT
 
 echo "== Packing into $FEED"
@@ -35,7 +37,7 @@ for framework in net10.0-windows net472; do
 <configuration>
   <packageSources>
     <clear />
-    <add key="local" value="$FEED" />
+    <add key="local" value="$FEED_NATIVE" />
     <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
   </packageSources>
 </configuration>
