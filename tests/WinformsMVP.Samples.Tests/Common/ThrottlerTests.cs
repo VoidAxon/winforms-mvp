@@ -183,16 +183,31 @@ namespace WinformsMVP.Samples.Tests.Common
             int max = 0;
             var maxGate = new object();
 
-            using (var t = new Throttler(
-                TimeSpan.FromMilliseconds(5),
-                () =>
-                {
-                    int c = Interlocked.Increment(ref concurrent);
-                    lock (maxGate) { if (c > max) max = c; }
-                    Thread.Sleep(20);
-                    Interlocked.Decrement(ref concurrent);
-                },
-                synchronizationContext: null))
+            // A null argument means "capture SynchronizationContext.Current", and xUnit installs its
+            // own context on the test thread (posting there can starve on a busy CI machine), so
+            // construct with no current context to get the context-free behavior this test is about.
+            Throttler throttler;
+            var previous = SynchronizationContext.Current;
+            SynchronizationContext.SetSynchronizationContext(null);
+            try
+            {
+                throttler = new Throttler(
+                    TimeSpan.FromMilliseconds(5),
+                    () =>
+                    {
+                        int c = Interlocked.Increment(ref concurrent);
+                        lock (maxGate) { if (c > max) max = c; }
+                        Thread.Sleep(20);
+                        Interlocked.Decrement(ref concurrent);
+                    },
+                    synchronizationContext: null);
+            }
+            finally
+            {
+                SynchronizationContext.SetSynchronizationContext(previous);
+            }
+
+            using (var t = throttler)
             {
                 var threads = new List<Thread>();
                 for (int i = 0; i < 4; i++)
