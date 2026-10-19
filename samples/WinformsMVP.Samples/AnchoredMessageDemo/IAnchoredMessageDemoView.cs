@@ -17,7 +17,7 @@ namespace WinformsMVP.Samples.AnchoredMessageDemo
 
     /// <summary>
     /// View for the anchored-message demo, showing the division of labor for user feedback:
-    /// most feedback goes through <c>Messages</c> (corner toast / centered dialogs — always
+    /// most feedback goes through <c>Toasts</c> / <c>Messages</c> (corner toast / centered dialogs — always
     /// correct, regardless of how the action was triggered); when the feedback position carries
     /// meaning, the view exposes a small <b>semantic method</b> and its implementation picks the
     /// anchor (using the <c>AnchoredToast</c> / <c>AnchoredMessageBox</c> view-layer utilities).

@@ -1,7 +1,7 @@
 using WinformsMVP.Common;
 using WinformsMVP.MVP.Presenters;
 
-namespace MvpApp
+namespace MyMvpApp
 {
     /// <summary>
     /// The main window's use cases. A presenter never touches WinForms types: it talks to the

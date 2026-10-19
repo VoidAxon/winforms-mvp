@@ -1,4 +1,4 @@
-namespace MvpApp
+namespace MyMvpApp
 {
     partial class MainForm
     {
@@ -58,7 +58,7 @@ namespace MvpApp
             this.Controls.Add(this.btnSayHello);
             this.Name = "MainForm";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            this.Text = "MvpApp";
+            this.Text = "MyMvpApp";
             this.ResumeLayout(false);
             this.PerformLayout();
         }

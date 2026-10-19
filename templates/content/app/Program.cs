@@ -1,10 +1,11 @@
 using System;
 using System.Windows.Forms;
+using WinformsMVP;
 using WinformsMVP.MVP.Presenters;
 using WinformsMVP.Services;
 using WinformsMVP.Services.Implementations;
 
-namespace MvpApp
+namespace MyMvpApp
 {
     internal static class Program
     {
@@ -17,12 +18,20 @@ namespace MvpApp
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
 
-            // Framework services (messages, dialogs, navigator, ...) are registered by default.
-            // Register your business services here; presenters get them through their constructors.
-            ServiceLocator.Configure(services =>
-            {
-                // services.RegisterInstance<IOrderRepository>(new SqlOrderRepository(connectionString));
-            });
+            // One startup call: framework customization, then your business services.
+            // Every framework service (messages, toasts, dialogs, navigator, ...) has a default.
+            MvpApplication.Configure(
+                framework: mvp =>
+                {
+                    // Type "mvp." to see what can be replaced, e.g.:
+                    // mvp.Messages.DefaultCaption = "MyMvpApp";
+                    // mvp.Toasts.Duration = 4000;
+                },
+                services: services =>
+                {
+                    // Presenters get these through their constructors.
+                    // services.RegisterInstance<IOrderRepository>(new SqlOrderRepository(connectionString));
+                });
 
             // Maps every view interface in this assembly to its Form, so Navigator can create windows.
             ServiceLocator.Current.Resolve<IViewMappingRegister>()
