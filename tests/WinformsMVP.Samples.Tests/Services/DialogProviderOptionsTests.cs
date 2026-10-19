@@ -45,7 +45,7 @@ namespace WinformsMVP.Samples.Tests.Services
         }
 
         [Fact]
-        public void Defaults_MatchPreviousDialogDefaults()
+        public void Defaults_MatchThePreviousBuiltInValues()
         {
             var d = new DialogProviderOptions();
             Assert.Equal("Open File", d.OpenFileDialogTitle);
