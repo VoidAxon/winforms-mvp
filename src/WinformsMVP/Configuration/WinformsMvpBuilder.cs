@@ -101,7 +101,7 @@ namespace WinformsMVP.Configuration
             Put(FrameworkRegistration.ForFactory(typeof(WinFormsToastService), sp => new WinFormsToastService(
                 sp.ResolveRequired<ToastHostOptions>(), sp.Resolve<ToastRenderer>(), sp.Resolve<ILoggerFactory>())));
             Put(FrameworkRegistration.ForFactory(typeof(IWinFormsToastService), sp => sp.ResolveRequired<WinFormsToastService>()));
-            Put(FrameworkRegistration.ForFactory(typeof(IToastService), sp => sp.ResolveRequired<IWinFormsToastService>()));
+            Put(FrameworkRegistration.ForFactory(typeof(IToastService), sp => new ToastServiceForwarder(sp.ResolveRequired<IWinFormsToastService>())));
 
             Put(FrameworkRegistration.ForInstance(typeof(DialogProviderOptions), Dialogs.Options.Copy()));
             Put(FrameworkRegistration.ForFactory(typeof(DialogProvider), sp => new DialogProvider(sp.ResolveRequired<DialogProviderOptions>())));
@@ -118,13 +118,6 @@ namespace WinformsMVP.Configuration
             if (configurer != null) Put(FrameworkRegistration.ForInstance(typeof(IDispatcherConfigurer), configurer));
 
             foreach (var choice in _choices) Put(choice);
-
-            // A replacement toast service passed as an instance belongs to the caller. Register it
-            // under IToastService as that same instance too: an alias factory would make M.E.DI treat
-            // it as container-created and dispose it, depending on which interface was resolved.
-            var toasts = byType[typeof(IWinFormsToastService)];
-            if (toasts.Factory == null)
-                Put(FrameworkRegistration.ForInstance(typeof(IToastService), toasts.Instance));
 
             var result = new List<FrameworkRegistration>(order.Count);
             foreach (var type in order) result.Add(byType[type]);

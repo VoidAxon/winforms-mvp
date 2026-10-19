@@ -5,9 +5,9 @@ namespace WinformsMVP.Services
 {
     /// <summary>
     /// The WinForms toast service: <see cref="IToastService"/> plus the per-call appearance and
-    /// anchored variants that take GDI+ types, for view code. The default registration resolves
-    /// <see cref="IToastService"/> and this interface to the same instance, so presenter and view
-    /// toasts share one stack. Replace this interface (<c>mvp.Toasts.Use(...)</c>) to replace both.
+    /// anchored variants that take GDI+ types, for view code. The default <see cref="IToastService"/>
+    /// registration forwards to whichever instance is registered under this interface, so
+    /// presenter and view toasts share one stack. Replace this interface (<c>mvp.Toasts.Use(...)</c>) to replace both.
     /// </summary>
     public interface IWinFormsToastService : IToastService
     {

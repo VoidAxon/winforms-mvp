@@ -187,7 +187,21 @@ namespace WinformsMVP.Samples.Tests.Services
             var sp = MvpApplication.Configure(framework: mvp => mvp.Toasts.Use(mine));
 
             Assert.Same(mine, sp.Resolve<IWinFormsToastService>());
-            Assert.Same(mine, sp.Resolve<IToastService>());
+            Assert.Same(mine, ((ToastServiceForwarder)sp.Resolve<IToastService>()).Target);
+        }
+
+        [Fact]
+        public void DirectToastRegistration_ReachesPresentersToo()
+        {
+            var a = new WinFormsToastService(new ToastHostOptions());
+            var b = new WinFormsToastService(new ToastHostOptions());
+
+            var sp = MvpApplication.Configure(
+                framework: mvp => mvp.Toasts.Use(a),
+                services: reg => reg.RegisterInstance<IWinFormsToastService>(b));
+
+            Assert.Same(b, sp.Resolve<IWinFormsToastService>());
+            Assert.Same(b, ((ToastServiceForwarder)sp.Resolve<IToastService>()).Target);
         }
 
         [Fact]
@@ -296,7 +310,7 @@ namespace WinformsMVP.Samples.Tests.Services
             services.AddWinformsMVP(new ViewMappingRegister(), mvp => mvp.Toasts.Use(mine));
             var provider = services.BuildServiceProvider();
 
-            Assert.Same(mine, provider.GetService<IToastService>());
+            Assert.Same(mine, ((ToastServiceForwarder)provider.GetService<IToastService>()).Target);
             provider.Dispose();
 
             Assert.False(mine.Disposed);   // the caller passed it in, so the caller owns it

@@ -94,15 +94,16 @@ namespace WinformsMVP.Samples.Tests.DependencyInjection
         }
 
         [Fact]
-        public void AddWinformsMVP_ToastServices_AreSameInstance()
+        public void AddWinformsMVP_IToastService_ForwardsToTheWinFormsToastService()
         {
             var services = new ServiceCollection();
             services.AddWinformsMVP(new ViewMappingRegister());
 
             var provider = services.BuildServiceProvider();
 
-            Assert.IsType<WinFormsToastService>(provider.GetService<IToastService>());
-            Assert.Same(provider.GetService<IToastService>(), provider.GetService<IWinFormsToastService>());
+            Assert.IsType<WinFormsToastService>(provider.GetService<IWinFormsToastService>());
+            var forwarder = Assert.IsType<ToastServiceForwarder>(provider.GetService<IToastService>());
+            Assert.Same(provider.GetService<IWinFormsToastService>(), forwarder.Target);
         }
 
         [Fact]

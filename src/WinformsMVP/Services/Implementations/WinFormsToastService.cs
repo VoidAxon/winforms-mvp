@@ -9,7 +9,8 @@ namespace WinformsMVP.Services.Implementations
 {
     /// <summary>
     /// The default toast service: corner-stacked and anchored toasts drawn as layered popups.
-    /// Registered as both <see cref="IToastService"/> and <see cref="IWinFormsToastService"/>.
+    /// Registered as <see cref="IWinFormsToastService"/>; the <see cref="IToastService"/> registration
+    /// forwards to it.
     /// </summary>
     /// <remarks>
     /// <para>
