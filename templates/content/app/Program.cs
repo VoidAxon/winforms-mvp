@@ -11,9 +11,9 @@ namespace MvpApp
         [STAThread]
         private static void Main()
         {
-#if NET
+//#if (Framework == "net10.0-windows")
             Application.SetHighDpiMode(HighDpiMode.SystemAware);
-#endif
+//#endif
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
 

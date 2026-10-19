@@ -62,6 +62,12 @@ NUGET
   grep -q "^namespace DemoApp$" "$dir/DemoApp/CustomerPanelPresenter.cs"
   grep -q "^namespace DemoApp.Dialogs$" "$dir/DemoApp/Dialogs/ConfirmPresenter.cs"
   grep -q "WindowPresenterBase<IOrderEditView, int>" "$dir/DemoApp/OrderEditPresenter.cs"
+  # Program.cs: high-DPI setup only where the API exists.
+  if [ "$framework" = "net472" ]; then
+    ! grep -q "SetHighDpiMode" "$dir/DemoApp/Program.cs"
+  else
+    grep -q "SetHighDpiMode" "$dir/DemoApp/Program.cs"
+  fi
   [ -f "$dir/DemoApp/OrderEditModel.cs" ] && [ ! -f "$dir/DemoApp/AboutModel.cs" ]
 
   # -warnaserror: generated code must compile without warnings, MVP analyzer rules included.
