@@ -120,6 +120,29 @@ namespace WinformsMVP.Samples.Tests.Services
         }
     }
 
+    public class NativeMessageDialogBackendMappingTests
+    {
+        [Fact]
+        public void CancelTryContinue_RoundTripsThroughTheRequestEnums()
+        {
+#if NETFRAMEWORK
+            // .NET Framework's MessageBox has no CancelTryContinue: the native backend refuses it
+            // instead of silently showing a different button set.
+            Assert.Throws<NotSupportedException>(() =>
+                NativeMessageDialogBackend.ToWinForms(MessageDialogButtons.CancelTryContinue));
+#else
+            Assert.Equal(MessageDialogButtons.CancelTryContinue,
+                NativeMessageDialogBackend.FromWinForms(System.Windows.Forms.MessageBoxButtons.CancelTryContinue));
+            Assert.Equal(System.Windows.Forms.MessageBoxButtons.CancelTryContinue,
+                NativeMessageDialogBackend.ToWinForms(MessageDialogButtons.CancelTryContinue));
+            Assert.Equal(MessageDialogResult.TryAgain, NativeMessageDialogBackend.FromWinForms(System.Windows.Forms.DialogResult.TryAgain));
+            Assert.Equal(MessageDialogResult.Continue, NativeMessageDialogBackend.FromWinForms(System.Windows.Forms.DialogResult.Continue));
+            Assert.Equal(System.Windows.Forms.DialogResult.TryAgain, NativeMessageDialogBackend.ToWinForms(MessageDialogResult.TryAgain));
+            Assert.Equal(System.Windows.Forms.DialogResult.Continue, NativeMessageDialogBackend.ToWinForms(MessageDialogResult.Continue));
+#endif
+        }
+    }
+
     [Collection("ServiceLocator")]
     public class AnchoredMessageBoxRoutingTests : IDisposable
     {

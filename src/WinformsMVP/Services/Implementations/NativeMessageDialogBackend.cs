@@ -35,6 +35,12 @@ namespace WinformsMVP.Services.Implementations
                 case MessageDialogButtons.YesNoCancel: return MessageBoxButtons.YesNoCancel;
                 case MessageDialogButtons.RetryCancel: return MessageBoxButtons.RetryCancel;
                 case MessageDialogButtons.AbortRetryIgnore: return MessageBoxButtons.AbortRetryIgnore;
+                case MessageDialogButtons.CancelTryContinue:
+#if NETFRAMEWORK
+                    throw new NotSupportedException("MessageDialogButtons.CancelTryContinue needs .NET Core 3.0 or later.");
+#else
+                    return MessageBoxButtons.CancelTryContinue;
+#endif
                 default: return MessageBoxButtons.OK;
             }
         }
@@ -48,6 +54,9 @@ namespace WinformsMVP.Services.Implementations
                 case MessageBoxButtons.YesNoCancel: return MessageDialogButtons.YesNoCancel;
                 case MessageBoxButtons.RetryCancel: return MessageDialogButtons.RetryCancel;
                 case MessageBoxButtons.AbortRetryIgnore: return MessageDialogButtons.AbortRetryIgnore;
+#if !NETFRAMEWORK
+                case MessageBoxButtons.CancelTryContinue: return MessageDialogButtons.CancelTryContinue;
+#endif
                 default: return MessageDialogButtons.Ok;
             }
         }
@@ -89,6 +98,10 @@ namespace WinformsMVP.Services.Implementations
                 case DialogResult.Retry: return MessageDialogResult.Retry;
                 case DialogResult.Abort: return MessageDialogResult.Abort;
                 case DialogResult.Ignore: return MessageDialogResult.Ignore;
+#if !NETFRAMEWORK
+                case DialogResult.TryAgain: return MessageDialogResult.TryAgain;
+                case DialogResult.Continue: return MessageDialogResult.Continue;
+#endif
                 default: return MessageDialogResult.None;
             }
         }
@@ -104,6 +117,10 @@ namespace WinformsMVP.Services.Implementations
                 case MessageDialogResult.Retry: return DialogResult.Retry;
                 case MessageDialogResult.Abort: return DialogResult.Abort;
                 case MessageDialogResult.Ignore: return DialogResult.Ignore;
+#if !NETFRAMEWORK
+                case MessageDialogResult.TryAgain: return DialogResult.TryAgain;
+                case MessageDialogResult.Continue: return DialogResult.Continue;
+#endif
                 default: return DialogResult.None;
             }
         }

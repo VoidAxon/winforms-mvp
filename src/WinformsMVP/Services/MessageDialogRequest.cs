@@ -3,14 +3,17 @@ using System.Windows.Forms;
 
 namespace WinformsMVP.Services
 {
-    /// <summary>Which buttons a message box offers.</summary>
-    public enum MessageDialogButtons { Ok, OkCancel, YesNo, YesNoCancel, RetryCancel, AbortRetryIgnore }
+    /// <summary>
+    /// Which buttons a message box offers. <see cref="CancelTryContinue"/> needs .NET Core 3.0+;
+    /// the native backend rejects it on .NET Framework.
+    /// </summary>
+    public enum MessageDialogButtons { Ok, OkCancel, YesNo, YesNoCancel, RetryCancel, AbortRetryIgnore, CancelTryContinue }
 
     /// <summary>The icon (and system sound) of a message box.</summary>
     public enum MessageDialogIcon { None, Information, Warning, Error, Question }
 
     /// <summary>The button the user chose; <see cref="None"/> when the box closed without one.</summary>
-    public enum MessageDialogResult { None, Ok, Cancel, Yes, No, Retry, Abort, Ignore }
+    public enum MessageDialogResult { None, Ok, Cancel, Yes, No, Retry, Abort, Ignore, TryAgain, Continue }
 
     /// <summary>
     /// One message box for an <see cref="IMessageDialogBackend"/> to show. Built by
