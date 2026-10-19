@@ -135,5 +135,96 @@ namespace WinformsMVP.Samples.Tests.Services
             foreach (var r in results)
                 Assert.Same(first, r);             // all callers got the same singleton
         }
-    }
+    
+        public interface IDisposableProbe { bool Disposed { get; } }
+        internal sealed class DisposableProbe : IDisposableProbe, IDisposable
+        {
+            public bool Disposed { get; private set; }
+            public int DisposeCount { get; private set; }
+            public void Dispose() { Disposed = true; DisposeCount++; }
+        }
+
+        [Fact]
+        public void Dispose_DisposesFactoryCreatedSingletons()
+        {
+            var sp = new DefaultServiceProvider();
+            var probe = new DisposableProbe();
+            sp.RegisterFactory<IDisposableProbe>(_ => probe);
+            sp.Resolve<IDisposableProbe>();
+
+            sp.Dispose();
+
+            Assert.True(probe.Disposed);
+        }
+
+        [Fact]
+        public void Dispose_DoesNotDisposeRegisteredInstances()
+        {
+            var sp = new DefaultServiceProvider();
+            var probe = new DisposableProbe();
+            sp.RegisterInstance<IDisposableProbe>(probe);
+            sp.Resolve<IDisposableProbe>();
+
+            sp.Dispose();
+
+            Assert.False(probe.Disposed);   // the caller owns what it passed in
+        }
+
+        [Fact]
+        public void Dispose_SkipsFactoriesNeverResolved()
+        {
+            var sp = new DefaultServiceProvider();
+            int calls = 0;
+            sp.RegisterFactory<IDisposableProbe>(_ => { calls++; return new DisposableProbe(); });
+
+            sp.Dispose();
+
+            Assert.Equal(0, calls);
+        }
+
+        [Fact]
+        public void Dispose_IsIdempotent()
+        {
+            var sp = new DefaultServiceProvider();
+            var probe = new DisposableProbe();
+            sp.RegisterFactory<IDisposableProbe>(_ => probe);
+            sp.Resolve<IDisposableProbe>();
+
+            sp.Dispose();
+            sp.Dispose();
+
+            Assert.Equal(1, probe.DisposeCount);
+        }
+
+        [Fact]
+        public void GetService_AfterDispose_Throws()
+        {
+            var sp = new DefaultServiceProvider();
+            sp.Dispose();
+
+            Assert.Throws<ObjectDisposedException>(() => sp.GetService(typeof(IFoo)));
+        }
+
+        [Fact]
+        public void NonGenericRegister_ResolvesByType()
+        {
+            var sp = new DefaultServiceProvider();
+            var foo = new Foo();
+            sp.Register(typeof(IFoo), foo);
+
+            Assert.Same(foo, sp.GetService(typeof(IFoo)));
+        }
+
+        [Fact]
+        public void NonGenericRegisterFactory_IsLazySingleton()
+        {
+            var sp = new DefaultServiceProvider();
+            int calls = 0;
+            sp.RegisterFactory(typeof(IFoo), _ => { calls++; return new Foo(); });
+
+            Assert.Equal(0, calls);
+            Assert.Same(sp.GetService(typeof(IFoo)), sp.GetService(typeof(IFoo)));
+            Assert.Equal(1, calls);
+        }
+}
 }
