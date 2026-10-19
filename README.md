@@ -141,7 +141,7 @@ navigator.ShowWindow(new UserEditorPresenter());
 新規アプリはテンプレートから始めるのがおすすめです。テンプレートパッケージも同じ方法 (GitHub Packages フィード、またはダウンロードした `.nupkg`) で入手できます:
 
 ```bash
-dotnet new install WinformsMVP.Templates                              # フィード経由 (nuget.config に設定済みのソース)
+dotnet new install WinformsMVP.Templates::<version>                   # フィード経由。プレビュー期間中はバージョン指定が必須 (例: ::1.0.0-preview.1)
 dotnet new install C:\path\to\folder\WinformsMVP.Templates.<version>.nupkg   # ローカルの .nupkg から
 ```
 

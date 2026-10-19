@@ -31,11 +31,13 @@
 テンプレートパッケージは他のパッケージと同じく **GitHub Packages** (または Releases の `.nupkg`) で配布しています。入手方法は [README のインストール節](https://github.com/VoidAxon/winforms-mvp#インストール) を参照してください。
 
 ```bash
-# フィード経由 (GitHub Packages を nuget.config に設定済みの場合)
-dotnet new install WinformsMVP.Templates
+# フィード経由 (GitHub Packages を nuget.config に設定済みの場合)。
+# プレビュー版しか公開されていない間は、バージョン指定が必要です
+# (バージョンなしの install は正式版だけを探すため見つかりません)。
+dotnet new install WinformsMVP.Templates::<version>        # 例: ::1.0.0-preview.1
 
-# バージョンを指定する場合
-dotnet new install WinformsMVP.Templates::1.0.0-preview.1
+# 正式版の公開後は最新版をそのままインストールできます
+dotnet new install WinformsMVP.Templates
 
 # ダウンロードした / ローカルでパックした .nupkg から
 dotnet new install C:\path\to\WinformsMVP.Templates.1.0.0-preview.1.nupkg

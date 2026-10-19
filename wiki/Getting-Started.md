@@ -21,7 +21,7 @@
 新しいアプリを作るなら、`dotnet new` テンプレートが最短です。サービス登録・View 登録・メインウィンドウ (View インターフェイス + Actions + Presenter + Form) が揃った、警告ゼロでビルドできるプロジェクトが生成されます。
 
 ```bash
-dotnet new install WinformsMVP.Templates   # 初回のみ (入手方法は README のインストール節)
+dotnet new install WinformsMVP.Templates::<version>   # 初回のみ。プレビュー期間中はバージョン指定が必須 (入手方法は README のインストール節)
 dotnet new winformsmvp -n MyApp
 cd MyApp && dotnet run
 dotnet new mvp-window -n OrderEdit         # ウィンドウを追加

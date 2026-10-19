@@ -146,7 +146,7 @@ GitHub Packages は public リポジトリでも **NuGet の復元に認証が�
   `nuget.config` にソースと資格情報を設定して `dotnet add package WinformsMVP --prerelease`。
 - **方法B — Releases から手動ダウンロード（認証不要）**：Release ページから `.nupkg` を落とし、
   ローカルフォルダをソースに登録してインストール（`WinformsMVP` は `WinformsMVP.Core` に依存するので両方の `.nupkg` を置く）。
-- **テンプレート**：`dotnet new install WinformsMVP.Templates`（フィード経由）または
+- **テンプレート**：`dotnet new install WinformsMVP.Templates::<version>`（フィード経由。プレビュー版はバージョン指定が必須）または
   `dotnet new install <path>/WinformsMVP.Templates.<version>.nupkg`（ダウンロードした `.nupkg`）。
   詳細は [テンプレートを使う](HowTo-Use-Templates)。
 
