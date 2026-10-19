@@ -1,4 +1,5 @@
 using WinformsMVP.Common;
+using WinformsMVP.Common.EventAggregator;
 using WinformsMVP.Services;
 using Xunit;
 
@@ -16,6 +17,25 @@ namespace WinformsMVP.Samples.Tests.Services
         {
             Assert.Same(BuiltInObjectCloner.Instance, ServiceLocator.Current.Resolve<IObjectCloner>());
             Assert.Same(BuiltInObjectContentComparer.Instance, ServiceLocator.Current.Resolve<IObjectContentComparer>());
+        }
+
+        [Fact]
+        public void Default_ResolvesSingletonEventAggregator()
+        {
+            var first = ServiceLocator.Current.Resolve<IEventAggregator>();
+
+            Assert.IsType<EventAggregator>(first);
+            Assert.Same(first, ServiceLocator.Current.Resolve<IEventAggregator>());
+        }
+
+        [Fact]
+        public void Reset_DisposesTheDefaultEventAggregator()
+        {
+            var aggregator = (EventAggregator)ServiceLocator.Current.Resolve<IEventAggregator>();
+
+            ServiceLocator.Reset();
+
+            Assert.Throws<System.ObjectDisposedException>(() => aggregator.Subscribe<string>(_ => { }));
         }
     }
 }

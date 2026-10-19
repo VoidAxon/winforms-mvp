@@ -146,26 +146,82 @@ namespace WinformsMVP.Samples.Tests.Common
             Assert.Equal(1, callCount); // Only first publish should invoke handler
         }
 
-        [Fact]
-        public void ClearSubscriptions_RemovesAllSubscribers()
+        // Queues posted callbacks until Pump() — lets a test hold a delivery in flight.
+        private sealed class ManualContext : SynchronizationContext
         {
-            // Arrange
+            private readonly System.Collections.Generic.Queue<(SendOrPostCallback, object)> _queue =
+                new System.Collections.Generic.Queue<(SendOrPostCallback, object)>();
+            public int Posted;
+            public override void Post(SendOrPostCallback d, object state) { Posted++; _queue.Enqueue((d, state)); }
+            public void Pump() { while (_queue.Count > 0) { var (d, st) = _queue.Dequeue(); d(st); } }
+        }
+
+        private static T OnThreadWithContext<T>(SynchronizationContext context, Func<T> body)
+        {
+            T result = default(T);
+            var thread = new Thread(() =>
+            {
+                SynchronizationContext.SetSynchronizationContext(context);
+                result = body();
+            });
+            thread.Start();
+            thread.Join();
+            return result;
+        }
+
+        [Fact]
+        public void Dispose_ClearsSubscriptions_AndRejectsNew()
+        {
             var aggregator = new EventAggregator();
             int callCount = 0;
-
-            aggregator.Subscribe<TestMessage>(msg => callCount++);
             aggregator.Subscribe<TestMessage>(msg => callCount++);
 
-            // Act
-            aggregator.Publish(new TestMessage());
-            int countAfterFirstPublish = callCount;
-
-            aggregator.ClearSubscriptions();
+            aggregator.Dispose();
             aggregator.Publish(new TestMessage());
 
-            // Assert
-            Assert.Equal(2, countAfterFirstPublish);
-            Assert.Equal(2, callCount); // Should stay at 2, no additional calls
+            Assert.Equal(0, callCount);
+            Assert.Throws<ObjectDisposedException>(() => aggregator.Subscribe<TestMessage>(msg => { }));
+        }
+
+        [Fact]
+        public void Dispose_IsIdempotent()
+        {
+            var aggregator = new EventAggregator();
+            aggregator.Dispose();
+            aggregator.Dispose();
+        }
+
+        [Fact]
+        public void Dispose_DropsQueuedDeliveries()
+        {
+            var aggregator = new EventAggregator();
+            var ui = new ManualContext();
+            int callCount = 0;
+            OnThreadWithContext(ui, () => aggregator.Subscribe<TestMessage>(msg => callCount++));
+
+            aggregator.Publish(new TestMessage());   // test thread has no context -> posted to ui
+            Assert.Equal(1, ui.Posted);
+            aggregator.Dispose();
+            ui.Pump();
+
+            Assert.Equal(0, callCount);
+        }
+
+        [Fact]
+        public void Subscribe_CapturesSubscriberContext_NotConstructorContext()
+        {
+            var constructionContext = new ManualContext();
+            var aggregator = OnThreadWithContext(constructionContext, () => new EventAggregator());
+            var subscriberContext = new ManualContext();
+            int callCount = 0;
+            OnThreadWithContext(subscriberContext, () => aggregator.Subscribe<TestMessage>(msg => callCount++));
+
+            aggregator.Publish(new TestMessage());
+
+            Assert.Equal(0, constructionContext.Posted);
+            Assert.Equal(1, subscriberContext.Posted);
+            subscriberContext.Pump();
+            Assert.Equal(1, callCount);
         }
 
         #endregion
@@ -619,11 +675,8 @@ namespace WinformsMVP.Samples.Tests.Common
                         aggregator.Publish(new TestMessage { Value = i });
                         break;
 
-                    case 2: // Clear (occasionally)
-                        if (random.Next(10) == 0)
-                        {
-                            aggregator.ClearSubscriptions();
-                        }
+                    case 2: // Subscribe and unsubscribe immediately
+                        aggregator.Subscribe<TestMessage>(msg => { }).Dispose();
                         break;
                 }
             })).ToArray();

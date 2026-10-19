@@ -118,6 +118,8 @@ namespace WinformsMVP.Services
             provider.RegisterInstance<ILoggerFactory>(NullLoggerFactory.Instance);
             provider.RegisterInstance<WinformsMVP.Common.IObjectCloner>(WinformsMVP.Common.BuiltInObjectCloner.Instance);
             provider.RegisterInstance<WinformsMVP.Common.IObjectContentComparer>(WinformsMVP.Common.BuiltInObjectContentComparer.Instance);
+            provider.RegisterFactory<WinformsMVP.Common.EventAggregator.IEventAggregator>(sp =>
+                new WinformsMVP.Common.EventAggregator.EventAggregator(sp.ResolveRequired<ILoggerFactory>()));
             PlatformRegistration.Value?.Invoke(provider);
         }
 

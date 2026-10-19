@@ -55,6 +55,8 @@ namespace WinformsMVP.DependencyInjection
             services.TryAddSingleton<ILoggerFactory>(NullLoggerFactory.Instance);
             services.TryAddSingleton<WinformsMVP.Common.IObjectCloner>(WinformsMVP.Common.BuiltInObjectCloner.Instance);
             services.TryAddSingleton<WinformsMVP.Common.IObjectContentComparer>(WinformsMVP.Common.BuiltInObjectContentComparer.Instance);
+            services.TryAddSingleton<WinformsMVP.Common.EventAggregator.IEventAggregator>(sp =>
+                new WinformsMVP.Common.EventAggregator.EventAggregator(sp.GetRequiredService<ILoggerFactory>()));
             services.TryAddSingleton<IWindowNavigator>(sp =>
                 new WindowNavigator(
                     sp.GetRequiredService<IViewMappingRegister>().WithServiceProvider(sp)));

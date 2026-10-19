@@ -51,25 +51,19 @@ namespace WinformsMVP.Common.EventAggregator
     /// </code>
     /// </example>
     /// </summary>
-    public class EventAggregator : IEventAggregator
+    public class EventAggregator : IEventAggregator, IDisposable
     {
         private readonly object _lock = new object();
         private readonly Dictionary<Type, List<Subscription>> _subscriptions =
             new Dictionary<Type, List<Subscription>>();
 
-        // Capture synchronization context at construction time (usually UI thread)
-        private readonly SynchronizationContext _context;
         private readonly ILogger _logger;
+        private volatile bool _disposed;
 
         /// <summary>
-        /// Creates an EventAggregator instance.
-        ///
-        /// <para>
-        /// Captures <see cref="SynchronizationContext.Current"/> if one is installed. In
-        /// <c>Program.Main()</c> there is usually none yet (WinForms installs it when the first
-        /// Control is created); in that case each subscription captures the context of the thread
-        /// that calls <c>Subscribe</c> — normally a presenter on the UI thread.
-        /// </para>
+        /// Creates an EventAggregator instance. It can be created on any thread: each subscription
+        /// captures the <see cref="SynchronizationContext"/> of the thread that calls
+        /// <c>Subscribe</c> — normally a presenter on the UI thread.
         /// </summary>
         public EventAggregator() : this(null)
         {
@@ -81,7 +75,6 @@ namespace WinformsMVP.Common.EventAggregator
         /// </summary>
         public EventAggregator(ILoggerFactory loggerFactory)
         {
-            _context = SynchronizationContext.Current;
             _logger = (loggerFactory ?? NullLoggerFactory.Instance).CreateLogger(typeof(EventAggregator).FullName);
         }
 
@@ -97,12 +90,17 @@ namespace WinformsMVP.Common.EventAggregator
         public IDisposable Subscribe<T>(Action<T> handler, Func<T, bool> filter)
         {
             if (handler == null) throw new ArgumentNullException(nameof(handler));
+            if (_disposed) throw new ObjectDisposedException(nameof(EventAggregator));
 
-            var subscription = new Subscription<T>(handler, filter, this,
-                _context ?? SynchronizationContext.Current);
+            var subscription = new Subscription<T>(handler, filter, this, SynchronizationContext.Current);
 
             lock (_lock)
             {
+                if (_disposed)
+                {
+                    subscription.Dispose();
+                    throw new ObjectDisposedException(nameof(EventAggregator));
+                }
                 var messageType = typeof(T);
                 if (!_subscriptions.TryGetValue(messageType, out var list))
                 {
@@ -127,8 +125,8 @@ namespace WinformsMVP.Common.EventAggregator
         ///   <c>Publish</c> returns immediately and the handlers run later, asynchronously, with no ordering
         ///   guarantee relative to the publisher. There is no synchronous <c>Send</c> option. Do not assume a
         ///   handler has finished (or its side effects are visible) just because <c>Publish</c> has returned.</item>
-        ///   <item>The target context is the one captured at construction or, failing that, the one current
-        ///   when the handler subscribed. With neither, handlers run synchronously on the publishing thread.</item>
+        ///   <item>The target context is the one current when the handler subscribed. With none, handlers
+        ///   run synchronously on the publishing thread.</item>
         ///   <item>A subscription disposed after a message was posted to it does not receive that message.</item>
         /// </list>
         /// </summary>
@@ -144,6 +142,7 @@ namespace WinformsMVP.Common.EventAggregator
             // subscribe / unsubscribe freely.
             lock (_lock)
             {
+                if (_disposed) return;
                 if (!_subscriptions.TryGetValue(typeof(T), out var list) || list.Count == 0)
                     return;
 
@@ -174,19 +173,23 @@ namespace WinformsMVP.Common.EventAggregator
         }
 
         /// <summary>
-        /// Clear all subscriptions (mainly for testing scenarios).
-        ///
-        /// <para>
-        /// <b>Warning:</b> This method immediately clears all subscriptions and may cause unprocessed
-        /// messages to be lost. Production code should dispose each subscription token instead.
-        /// </para>
+        /// Shuts the aggregator down: every subscription is disposed (queued deliveries are
+        /// dropped, handlers released), later <see cref="Publish{T}"/> calls deliver nothing, and
+        /// <see cref="Subscribe{T}(Action{T}, Func{T, bool})"/> throws <see cref="ObjectDisposedException"/>.
+        /// The service provider that created the aggregator calls this when it is disposed.
+        /// Idempotent.
         /// </summary>
-        public void ClearSubscriptions()
+        public void Dispose()
         {
+            List<Subscription> all;
             lock (_lock)
             {
+                if (_disposed) return;
+                _disposed = true;
+                all = _subscriptions.Values.SelectMany(l => l).ToList();
                 _subscriptions.Clear();
             }
+            foreach (var subscription in all) subscription.Dispose();
         }
 
         #region Internal Classes

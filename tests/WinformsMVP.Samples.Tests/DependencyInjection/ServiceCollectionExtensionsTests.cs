@@ -81,6 +81,19 @@ namespace WinformsMVP.Samples.Tests.DependencyInjection
         }
 
         [Fact]
+        public void AddWinformsMVP_RegistersSingletonEventAggregator()
+        {
+            var services = new ServiceCollection();
+            services.AddWinformsMVP(new ViewMappingRegister());
+
+            var provider = services.BuildServiceProvider();
+            var first = provider.GetService<WinformsMVP.Common.EventAggregator.IEventAggregator>();
+
+            Assert.IsType<WinformsMVP.Common.EventAggregator.EventAggregator>(first);
+            Assert.Same(first, provider.GetService<WinformsMVP.Common.EventAggregator.IEventAggregator>());
+        }
+
+        [Fact]
         public void AddWinformsMVP_RegistersViewMappingRegister_AsSpecifiedInstance()
         {
             // The very same instance must be retrievable — that's how WindowNavigator

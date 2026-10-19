@@ -532,6 +532,23 @@ public class Listener
         }
 
         [Fact]
+        public void MVP017_FiresForCustomIEventAggregatorImplementation()
+        {
+            // A replacement aggregator registered through mvp.Events.Use(...) is still a strong-reference bus.
+            Assert.Single(Ids(EventUsings + @"
+public class MyBus : IEventAggregator
+{
+    public IDisposable Subscribe<T>(Action<T> handler) => null;
+    public IDisposable Subscribe<T>(Action<T> handler, Func<T, bool> filter) => null;
+    public void Publish<T>(T message) { }
+}
+public class Listener
+{
+    public Listener(MyBus events) { events.Subscribe<string>(s => { }); }
+}"));
+        }
+
+        [Fact]
         public void MVP017_DiscardedConditionalSubscribe_Reports()
         {
             Assert.Single(Ids(EventUsings + @"
