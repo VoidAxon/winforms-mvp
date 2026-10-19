@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using WinformsMVP;
 
 namespace WinformsMVP.Samples
 {
@@ -16,7 +17,7 @@ namespace WinformsMVP.Samples
         {
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
-            Application.Run(new SampleLauncherForm());
+            MvpApplication.Run(new SampleLauncherForm());
         }
     }
 }

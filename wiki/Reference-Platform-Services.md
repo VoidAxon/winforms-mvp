@@ -446,7 +446,7 @@ ServiceLocator.Configure(reg =>
 
 `ServiceLocator.Configure(reg => ...)` は `framework:` ブロックを持たない低レベルの入口として引き続き使えます (組み込み登録の後に `reg` の登録が後勝ちで上書き)。
 
-> **破棄:** `DefaultServiceProvider` は `IDisposable` で、自分のファクトリが生成したシングルトン (例 `EventAggregator`、トーストサービス) を破棄します。`RegisterInstance` で渡したインスタンスは破棄しません。`ServiceLocator` は自分が組み立てたプロバイダ (遅延生成の既定、`Configure` / `MvpApplication.Configure` で作ったもの) を、置き換えや `Reset()` のときに破棄します。`ServiceLocator.Current` に代入したプロバイダは代入側の所有で、破棄されません。
+> **破棄:** `DefaultServiceProvider` は `IDisposable` で、自分のファクトリが生成したシングルトン (例 `EventAggregator`、トーストサービス) を破棄します。`RegisterInstance` で渡したインスタンスは破棄しません。`ServiceLocator` は自分が組み立てたプロバイダ (遅延生成の既定、`Configure` / `MvpApplication.Configure` で作ったもの) を、置き換えや `Reset()` のときに破棄します。`ServiceLocator.Current` に代入したプロバイダは代入側の所有で、破棄されません。アプリ終了時の破棄は `MvpApplication.Run(mainForm)` (メインフォームが閉じたら `Shutdown()`) か `MvpApplication.Shutdown()` で行います。
 
 ### M.E.DI コンテナ統合
 

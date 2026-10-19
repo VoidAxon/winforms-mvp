@@ -85,7 +85,7 @@ var presenter = new OrderSummaryPresenter(events);
 
 - 各購読は **`Subscribe` を呼んだ時点のスレッドの `SynchronizationContext`** をキャプチャします
   (通常は UI スレッド上の Presenter)。アグリゲーター自体はどのスレッドで生成されても構いません。
-- `EventAggregator` は `IDisposable` で、生成したサービスプロバイダが破棄時に Dispose します
+- `EventAggregator` は `IDisposable` で、生成したサービスプロバイダが破棄時に Dispose します (アプリ終了時は `MvpApplication.Run(mainForm)` / `MvpApplication.Shutdown()`、M.E.DI ではコンテナの `Dispose`)
   (全購読を解除し、以後の `Publish` は何も配送せず、`Subscribe` は `ObjectDisposedException`)。
 - 独自の実装に差し替える場合は起動時に `mvp.Events.Use(...)` を指定します
   ([フレームワークをカスタマイズする](HowTo-Customize-Framework))。

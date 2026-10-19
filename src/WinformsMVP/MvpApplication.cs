@@ -1,4 +1,5 @@
 using System;
+using System.Windows.Forms;
 using WinformsMVP.Configuration;
 using WinformsMVP.Services;
 
@@ -21,6 +22,7 @@ namespace WinformsMVP
     ///     {
     ///         BillingModule.Register(reg);
     ///     });
+    /// MvpApplication.Run(mainForm);   // Application.Run, then Shutdown()
     /// </code>
     /// </example>
     public static class MvpApplication
@@ -52,5 +54,30 @@ namespace WinformsMVP
             ServiceLocator.Install(provider, owned: true);
             return provider;
         }
+
+        /// <summary>
+        /// Runs the message loop for <paramref name="mainForm"/> (<see cref="Application.Run(Form)"/>)
+        /// and calls <see cref="Shutdown"/> when it ends, so the framework's services (toast
+        /// service, event aggregator, your factory-created singletons) are disposed at exit.
+        /// </summary>
+        public static void Run(Form mainForm)
+        {
+            if (mainForm == null) throw new ArgumentNullException(nameof(mainForm));
+            try
+            {
+                Application.Run(mainForm);
+            }
+            finally
+            {
+                Shutdown();
+            }
+        }
+
+        /// <summary>
+        /// Disposes the provider installed by <see cref="Configure"/> (or the lazily created default)
+        /// and clears <see cref="ServiceLocator.Current"/>. A provider you assigned yourself (e.g. an
+        /// M.E.DI container via <c>UseWinformsMVP</c>) is left alone — dispose it where you built it.
+        /// </summary>
+        public static void Shutdown() => ServiceLocator.Install(null, owned: false);
     }
 }

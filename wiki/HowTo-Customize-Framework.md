@@ -177,7 +177,7 @@ mvp.ChangeTracking.For(new ChangeTrackingPolicy<Order>(
 - **`ICloneable` は自動では使われません**: .NET の `Clone()` は浅いコピーでもよいことになっているため、変更を見逃すおそれがあります。深いコピーだと確認できている `Clone()` を使いたい場合は、上の型ごとのポリシーで明示してください。
 - **トースト**: `Toasts.Show` はどのスレッドから呼んでも UI スレッドで表示されます。UI スレッドがまだない (メッセージループ開始前) または終了後の呼び出しは、ログに警告を出して無視されます。
 - **`IToastService` だけを直接登録した場合**: 置き換わるのは Presenter の `Toasts` だけで、View 側 (`IWinFormsToastService`、`AnchoredToast`) は組み込みのままです。両方を置き換えるには `mvp.Toasts.Use(...)` か `IWinFormsToastService` を登録してください。
-- **破棄**: コンテナが自分で作ったサービス (トーストサービス、イベントアグリゲーターなど) はコンテナの破棄時に破棄されます。`UseXxx(instance)` や `RegisterInstance` で渡したインスタンスは呼び出し側の所有で、フレームワークは破棄しません。
+- **破棄**: コンテナが自分で作ったサービス (トーストサービス、イベントアグリゲーターなど) はコンテナの破棄時に破棄されます。`Application.Run(mainForm)` の代わりに `MvpApplication.Run(mainForm)` を使うと、メインフォームが閉じたときに `MvpApplication.Configure` で作ったコンテナが破棄されます (自分で終了処理を書く場合は `MvpApplication.Shutdown()`)。M.E.DI のコンテナは作った側で `Dispose` してください。`UseXxx(instance)` や `RegisterInstance` で渡したインスタンスは呼び出し側の所有で、フレームワークは破棄しません。
 
 ---
 

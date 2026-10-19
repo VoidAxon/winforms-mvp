@@ -326,7 +326,7 @@ services.AddWinformsMVP(viewRegistry, mvp =>
 
 - フレームワークの登録はすべて `TryAdd` です。`AddWinformsMVP` の**前**にホストが登録したサービスは `mvp.` の選択より優先され、**後**に登録したものは M.E.DI の「最後の登録が勝つ」規則で優先されます。つまり直接登録 > `mvp.` の選択 > 組み込み既定値。
 - ホストが直接登録したオプションオブジェクト (例 `ToastHostOptions`) は `mvp.` で組み立てたものを丸ごと置き換えます (値のマージはしません)。
-- `IEventAggregator` やトーストサービスなどはシングルトンとして登録され、コンテナの破棄時に破棄されます。
+- `IEventAggregator` やトーストサービスなどはシングルトンとして登録され、コンテナの破棄時に破棄されます (アプリ終了時に `provider.Dispose()` を呼んでください。`MvpApplication.Shutdown()` は代入されたコンテナを破棄しません)。
 
 `mvp.` で設定できる項目の一覧は [HowTo: フレームワークをカスタマイズする](HowTo-Customize-Framework) を参照してください。
 

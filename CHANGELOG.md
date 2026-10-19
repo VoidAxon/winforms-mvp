@@ -65,7 +65,7 @@
 ### Removed (削除)
 
 - **`ChangeTrackerDefaults` / `ToastDefaults` / `DialogDefaults`** (BREAKING) — 実行中に書き換えられる静的設定を廃止。起動時の `mvp.ChangeTracking` / `mvp.Toasts` / `mvp.Messages` + `mvp.Dialogs` に移行。
-- **`IEventAggregator.ClearSubscriptions()`** (BREAKING) — テストはインスタンスを個別に作る。アプリ終了時はプロバイダが `EventAggregator` を破棄する。
+- **`IEventAggregator.ClearSubscriptions()`** (BREAKING) — テストはインスタンスを個別に作る。アプリ終了時は `MvpApplication.Run(mainForm)` (または `MvpApplication.Shutdown()`) がプロバイダごと `EventAggregator` を破棄する。
 - **`MessageServiceToastExtensions`** — `IWinFormsToastService.Show(text, type, options)` を使う。
 - **`DialogDefaults.FolderBrowserDialogTitle`** — どこからも使われていなかった (フォルダダイアログにタイトルはない)。
 - **`WinformsMVP.Net40SmokeTest`** プロジェクト。

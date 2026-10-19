@@ -329,3 +329,60 @@ namespace WinformsMVP.Samples.Tests.Services
         }
     }
 }
+
+namespace WinformsMVP.Samples.Tests.Services
+{
+    [Xunit.Collection("ServiceLocator")]
+    public class MvpApplicationShutdownTests : System.IDisposable
+    {
+        public MvpApplicationShutdownTests() => ServiceLocator.Reset();
+        public void Dispose() => ServiceLocator.Reset();
+
+        [Xunit.Fact]
+        public void Shutdown_DisposesTheConfiguredRoot()
+        {
+            var sp = MvpApplication.Configure();
+            var events = sp.Resolve<WinformsMVP.Common.EventAggregator.IEventAggregator>();
+
+            MvpApplication.Shutdown();
+
+            Xunit.Assert.Throws<System.ObjectDisposedException>(() => events.Subscribe<string>(_ => { }));
+        }
+
+        [Xunit.Fact]
+        public void Shutdown_DoesNotDisposeAnAssignedProvider()
+        {
+            var mine = new DefaultServiceProvider();
+            ServiceLocator.Current = mine;
+
+            MvpApplication.Shutdown();
+
+            Xunit.Assert.Null(mine.Resolve<string>());   // still usable: an assigned provider belongs to its owner
+        }
+
+        [Xunit.Fact]
+        public void Run_DisposesTheRootWhenTheMainFormCloses()
+        {
+            System.Exception failure = null;
+            var thread = new System.Threading.Thread(() =>
+            {
+                try
+                {
+                    var sp = MvpApplication.Configure();
+                    var events = sp.Resolve<WinformsMVP.Common.EventAggregator.IEventAggregator>();
+                    var form = new System.Windows.Forms.Form { ShowInTaskbar = false, Opacity = 0 };
+                    form.Shown += (s, e) => form.BeginInvoke((System.Action)form.Close);
+
+                    MvpApplication.Run(form);
+
+                    Xunit.Assert.Throws<System.ObjectDisposedException>(() => events.Subscribe<string>(_ => { }));
+                }
+                catch (System.Exception ex) { failure = ex; }
+            });
+            thread.SetApartmentState(System.Threading.ApartmentState.STA);
+            thread.Start();
+            Xunit.Assert.True(thread.Join(System.TimeSpan.FromSeconds(30)), "UI thread timed out");
+            if (failure != null) throw new System.Exception("UI thread failed", failure);
+        }
+    }
+}

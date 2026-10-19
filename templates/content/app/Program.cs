@@ -41,7 +41,7 @@ namespace MyMvpApp
             // every other window is opened from a presenter through Navigator.
             var mainForm = new MainForm();
             new MainPresenter().Connect(mainForm);
-            Application.Run(mainForm);
+            MvpApplication.Run(mainForm);   // disposes the framework services when the main form closes
         }
     }
 }
