@@ -15,6 +15,9 @@ WORK="$(mktemp -d)"
 VERSION="0.0.0-templatetest"
 FEED="$WORK/feed"
 HIVE="$WORK/hive"
+# Private package cache: every run packs the same version, and a shared ~/.nuget/packages would
+# keep serving the package from an earlier run.
+export NUGET_PACKAGES="$WORK/packages"
 # nuget.config is read by dotnet itself: give it a native path (Git Bash on Windows uses /tmp/...).
 FEED_NATIVE="$(cygpath -w "$FEED" 2>/dev/null || echo "$FEED")"
 [ "${KEEP:-0}" = "1" ] && echo "Keeping $WORK" || trap 'rm -rf "$WORK"' EXIT
