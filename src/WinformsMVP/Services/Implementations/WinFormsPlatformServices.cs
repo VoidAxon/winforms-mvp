@@ -9,9 +9,11 @@ namespace WinformsMVP.Services.Implementations
     {
         internal static void Register(IServiceRegistry registry)
         {
-            var dialogs = new DialogProvider();
             registry.RegisterInstance<IViewMappingRegister>(new ViewMappingRegister());
-            registry.RegisterInstance<IMessageService>(new MessageService());
+            registry.RegisterInstance(new MessageDialogOptions());
+            registry.RegisterInstance<IMessageDialogBackend>(new NativeMessageDialogBackend());
+            registry.RegisterFactory<IMessageService>(sp => new MessageService(
+                sp.ResolveRequired<IMessageDialogBackend>(), sp.ResolveRequired<MessageDialogOptions>()));
             registry.RegisterInstance(new ToastHostOptions());
             registry.RegisterFactory(sp => new WinFormsToastService(
                 sp.ResolveRequired<ToastHostOptions>(),
@@ -19,8 +21,10 @@ namespace WinformsMVP.Services.Implementations
                 sp.Resolve<WinformsMVP.Logging.ILoggerFactory>()));
             registry.RegisterFactory<IWinFormsToastService>(sp => sp.ResolveRequired<WinFormsToastService>());
             registry.RegisterFactory<IToastService>(sp => sp.ResolveRequired<IWinFormsToastService>());
-            registry.RegisterInstance<IDialogProvider>(dialogs);
-            registry.RegisterInstance<IWinFormsDialogProvider>(dialogs);
+            registry.RegisterInstance(new DialogProviderOptions());
+            registry.RegisterFactory(sp => new DialogProvider(sp.ResolveRequired<DialogProviderOptions>()));
+            registry.RegisterFactory<IDialogProvider>(sp => sp.ResolveRequired<DialogProvider>());
+            registry.RegisterFactory<IWinFormsDialogProvider>(sp => sp.ResolveRequired<DialogProvider>());
             registry.RegisterFactory<IWindowNavigator>(sp =>
                 new WindowNavigator(sp.Resolve<IViewMappingRegister>().WithServiceProvider(sp)));
         }

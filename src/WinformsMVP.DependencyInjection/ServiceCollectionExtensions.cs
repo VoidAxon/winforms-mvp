@@ -46,7 +46,10 @@ namespace WinformsMVP.DependencyInjection
             services.TryAddSingleton<IPresenterFactory, ServiceProviderPresenterFactory>();
 
             // Framework built-ins — host may register its own before calling AddWinformsMVP.
-            services.TryAddSingleton<IMessageService, MessageService>();
+            services.TryAddSingleton(new MessageDialogOptions());
+            services.TryAddSingleton<IMessageDialogBackend, NativeMessageDialogBackend>();
+            services.TryAddSingleton<IMessageService>(sp => new MessageService(
+                sp.GetRequiredService<IMessageDialogBackend>(), sp.GetRequiredService<MessageDialogOptions>()));
             services.TryAddSingleton(new ToastHostOptions());
             services.TryAddSingleton(sp => new WinFormsToastService(
                 sp.GetRequiredService<ToastHostOptions>(),
@@ -55,7 +58,8 @@ namespace WinformsMVP.DependencyInjection
             services.TryAddSingleton<IWinFormsToastService>(sp => sp.GetRequiredService<WinFormsToastService>());
             services.TryAddSingleton<IToastService>(sp => sp.GetRequiredService<IWinFormsToastService>());
             // One DialogProvider serves both interfaces, as in the ServiceLocator defaults.
-            services.TryAddSingleton<DialogProvider>();
+            services.TryAddSingleton(new DialogProviderOptions());
+            services.TryAddSingleton(sp => new DialogProvider(sp.GetRequiredService<DialogProviderOptions>()));
             services.TryAddSingleton<IDialogProvider>(sp => sp.GetRequiredService<DialogProvider>());
             services.TryAddSingleton<IWinFormsDialogProvider>(sp => sp.GetRequiredService<DialogProvider>());
             services.TryAddSingleton<IFileService, FileService>();

@@ -37,7 +37,7 @@
         public bool CreatePrompt { get; set; } = false;
 
         /// <summary>
-        /// Title (normally not required; if null, DialogDefaults.SaveFileDialogTitle is used)
+        /// Title (normally not required; if null, the provider's configured title (mvp.Dialogs) is used)
         /// </summary>
         public string Title { get; set; }
     }
