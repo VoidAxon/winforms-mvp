@@ -139,9 +139,10 @@ namespace WinformsMVP.Samples.Tests.Common
         public void EventAggregator_DisposedWhileMessageQueued_IsNotDelivered()
         {
             var ui = new QueueingContext();
-            var aggregator = WithContext(ui, () => new EventAggregator());
+            var aggregator = new EventAggregator();
             var receiver = new Receiver();
-            var token = aggregator.Subscribe<string>(receiver.On);
+            // Each subscription delivers on the context current when it subscribes (the UI thread).
+            var token = WithContext(ui, () => aggregator.Subscribe<string>(receiver.On));
 
             WithContext<object>(null, () => { aggregator.Publish("from worker"); return null; });
             Assert.Single(ui.Posted);
