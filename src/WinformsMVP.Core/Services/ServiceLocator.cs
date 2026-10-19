@@ -112,7 +112,7 @@ namespace WinformsMVP.Services
         /// <c>IDispatcherConfigurer</c> is intentionally NOT registered by default
         /// (null =&gt; no global configuration).
         /// </summary>
-        private static void RegisterBuiltIns(DefaultServiceProvider provider)
+        internal static void RegisterBuiltIns(DefaultServiceProvider provider)
         {
             provider.RegisterInstance<IFileService>(new FileService());
             provider.RegisterInstance<ILoggerFactory>(NullLoggerFactory.Instance);

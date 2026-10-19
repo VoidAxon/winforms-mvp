@@ -1,6 +1,7 @@
 using System;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using WinformsMVP.Configuration;
 using WinformsMVP.Logging;
 using WinformsMVP.Services;
 using WinformsMVP.Services.Implementations;
@@ -37,6 +38,23 @@ namespace WinformsMVP.DependencyInjection
         public static IServiceCollection AddWinformsMVP(
             this IServiceCollection services,
             IViewMappingRegister viewMappingRegister)
+            => AddWinformsMVP(services, viewMappingRegister, configure: null);
+
+        /// <summary>
+        /// Registers the framework's services like <see cref="AddWinformsMVP(IServiceCollection, IViewMappingRegister)"/>,
+        /// customized by <paramref name="configure"/> — the same <see cref="WinformsMvpBuilder"/> that
+        /// <c>MvpApplication.Configure(framework: ...)</c> takes, with the same defaults.
+        /// </summary>
+        /// <remarks>
+        /// Every framework registration uses <c>TryAdd</c>: a service the host registered before this
+        /// call wins over the builder; one registered after it wins by M.E.DI's last-registration rule.
+        /// A host-registered options object (e.g. <see cref="ToastHostOptions"/>) replaces the
+        /// builder's as a whole.
+        /// </remarks>
+        public static IServiceCollection AddWinformsMVP(
+            this IServiceCollection services,
+            IViewMappingRegister viewMappingRegister,
+            Action<WinformsMvpBuilder> configure)
         {
             if (services == null) throw new ArgumentNullException(nameof(services));
             if (viewMappingRegister == null) throw new ArgumentNullException(nameof(viewMappingRegister));
@@ -45,29 +63,17 @@ namespace WinformsMVP.DependencyInjection
             services.TryAddSingleton(viewMappingRegister);
             services.TryAddSingleton<IPresenterFactory, ServiceProviderPresenterFactory>();
 
-            // Framework built-ins — host may register its own before calling AddWinformsMVP.
-            services.TryAddSingleton(new MessageDialogOptions());
-            services.TryAddSingleton<IMessageDialogBackend, NativeMessageDialogBackend>();
-            services.TryAddSingleton<IMessageService>(sp => new MessageService(
-                sp.GetRequiredService<IMessageDialogBackend>(), sp.GetRequiredService<MessageDialogOptions>()));
-            services.TryAddSingleton(new ToastHostOptions());
-            services.TryAddSingleton(sp => new WinFormsToastService(
-                sp.GetRequiredService<ToastHostOptions>(),
-                sp.GetService<WinformsMVP.Common.ToastRenderer>(),
-                sp.GetService<ILoggerFactory>()));
-            services.TryAddSingleton<IWinFormsToastService>(sp => sp.GetRequiredService<WinFormsToastService>());
-            services.TryAddSingleton<IToastService>(sp => sp.GetRequiredService<IWinFormsToastService>());
-            // One DialogProvider serves both interfaces, as in the ServiceLocator defaults.
-            services.TryAddSingleton(new DialogProviderOptions());
-            services.TryAddSingleton(sp => new DialogProvider(sp.GetRequiredService<DialogProviderOptions>()));
-            services.TryAddSingleton<IDialogProvider>(sp => sp.GetRequiredService<DialogProvider>());
-            services.TryAddSingleton<IWinFormsDialogProvider>(sp => sp.GetRequiredService<DialogProvider>());
+            // Framework built-ins with the builder's choices applied — shared with MvpApplication.Configure.
+            var builder = new WinformsMvpBuilder();
+            configure?.Invoke(builder);
+            foreach (var r in builder.BuildRegistrations())
+            {
+                services.TryAdd(r.Factory != null
+                    ? ServiceDescriptor.Singleton(r.ServiceType, r.Factory)
+                    : ServiceDescriptor.Singleton(r.ServiceType, r.Instance));
+            }
+
             services.TryAddSingleton<IFileService, FileService>();
-            services.TryAddSingleton<ILoggerFactory>(NullLoggerFactory.Instance);
-            services.TryAddSingleton<WinformsMVP.Common.IObjectCloner>(WinformsMVP.Common.BuiltInObjectCloner.Instance);
-            services.TryAddSingleton<WinformsMVP.Common.IObjectContentComparer>(WinformsMVP.Common.BuiltInObjectContentComparer.Instance);
-            services.TryAddSingleton<WinformsMVP.Common.EventAggregator.IEventAggregator>(sp =>
-                new WinformsMVP.Common.EventAggregator.EventAggregator(sp.GetRequiredService<ILoggerFactory>()));
             services.TryAddSingleton<IWindowNavigator>(sp =>
                 new WindowNavigator(
                     sp.GetRequiredService<IViewMappingRegister>().WithServiceProvider(sp)));

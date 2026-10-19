@@ -29,6 +29,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="WinformsMVP.Samples.Tests" />
+    <InternalsVisibleTo Include="WinformsMVP.DependencyInjection" />
   </ItemGroup>
 
   <!-- Pack the repo-root README into the package (referenced by PackageReadmeFile in Directory.Build.props). -->

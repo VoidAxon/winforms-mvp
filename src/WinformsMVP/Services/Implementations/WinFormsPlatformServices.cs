@@ -10,23 +10,12 @@ namespace WinformsMVP.Services.Implementations
         internal static void Register(IServiceRegistry registry)
         {
             registry.RegisterInstance<IViewMappingRegister>(new ViewMappingRegister());
-            registry.RegisterInstance(new MessageDialogOptions());
-            registry.RegisterInstance<IMessageDialogBackend>(new NativeMessageDialogBackend());
-            registry.RegisterFactory<IMessageService>(sp => new MessageService(
-                sp.ResolveRequired<IMessageDialogBackend>(), sp.ResolveRequired<MessageDialogOptions>()));
-            registry.RegisterInstance(new ToastHostOptions());
-            registry.RegisterFactory(sp => new WinFormsToastService(
-                sp.ResolveRequired<ToastHostOptions>(),
-                sp.Resolve<WinformsMVP.Common.ToastRenderer>(),
-                sp.Resolve<WinformsMVP.Logging.ILoggerFactory>()));
-            registry.RegisterFactory<IWinFormsToastService>(sp => sp.ResolveRequired<WinFormsToastService>());
-            registry.RegisterFactory<IToastService>(sp => sp.ResolveRequired<IWinFormsToastService>());
-            registry.RegisterInstance(new DialogProviderOptions());
-            registry.RegisterFactory(sp => new DialogProvider(sp.ResolveRequired<DialogProviderOptions>()));
-            registry.RegisterFactory<IDialogProvider>(sp => sp.ResolveRequired<DialogProvider>());
-            registry.RegisterFactory<IWinFormsDialogProvider>(sp => sp.ResolveRequired<DialogProvider>());
             registry.RegisterFactory<IWindowNavigator>(sp =>
                 new WindowNavigator(sp.Resolve<IViewMappingRegister>().WithServiceProvider(sp)));
+
+            // Messages, toasts, dialogs, change tracking, events, logging: the builder's defaults,
+            // the same list AddWinformsMVP and MvpApplication.Configure start from.
+            new WinformsMVP.Configuration.WinformsMvpBuilder().Apply((DefaultServiceProvider)registry);
         }
     }
 }
