@@ -1,6 +1,6 @@
 # HowTo: リリースする（GitHub Releases + GitHub Packages）
 
-このページは、`WinformsMVP` / `WinformsMVP.DependencyInjection` の NuGet パッケージを
+このページは、`WinformsMVP.Core` / `WinformsMVP` / `WinformsMVP.DependencyInjection` / `WinformsMVP.Templates` の NuGet パッケージを
 **GitHub Packages** に発行し、`.nupkg` を **GitHub Release** に添付するまでの、
 メンテナ向けの完全な手順です。仕組みの説明・初回セットアップ・利用者側の使い方・
 トラブルシュート・後片付けまで含みます。
@@ -45,15 +45,17 @@ git push origin v1.0.0
 
 `.github/workflows/release.yml` の各ステップ（`windows-latest` 上で実行）：
 
-1. **Checkout / Setup .NET SDK** — リポジトリ取得と SDK 準備。
+1. **Checkout / Setup .NET SDK** — リポジトリ取得と .NET 10 SDK の準備。
 2. **Derive version from tag** — `github.ref_name` から先頭 `v` を除去して `VERSION` を作り、
    ハイフンの有無で `IS_PRERELEASE` を決めます。
 3. **Restore / Build (Release)** — `-p:Version=$VERSION` 付きでソリューションをビルド。
 4. **Test (gate)** — テストスイートを実行。**1 件でも失敗するとリリースは中断します。**
-5. **Pack** — `WinformsMVP` と `WinformsMVP.DependencyInjection` を同じ `-p:Version` でパック。
-   DI パッケージはコアを ProjectReference 参照しているため、**同一バージョンのコアへの依存**が
-   自動的に記録されます。
-6. **Assert analyzer is bundled** — コアパッケージ内に
+5. **Pack** — `WinformsMVP.Core` / `WinformsMVP` / `WinformsMVP.DependencyInjection` / `WinformsMVP.Templates` の 4 つを
+   同じ `-p:Version` でパック (テンプレートパッケージ `templates/WinformsMVP.Templates.csproj` は `dotnet new` 用の
+   テンプレート型パッケージで、生成されるプロジェクトは既定で最新の `WinformsMVP` (`*-*`) を参照します)。
+   `WinformsMVP` は `WinformsMVP.Core` を、DI パッケージは `WinformsMVP` を
+   ProjectReference 参照しているため、**同一バージョンへの依存**が自動的に記録されます。
+6. **Assert analyzer is bundled** — `WinformsMVP.Core` パッケージ内に
    `analyzers/dotnet/cs/WinformsMVP.Analyzers.dll` が含まれているかを検証し、
    無ければジョブを失敗させます（後述の「アナライザー同梱」を守るガード）。
 7. **Push to GitHub Packages** — `dotnet nuget push` で各 `.nupkg` を発行。
@@ -62,29 +64,33 @@ git push origin v1.0.0
 
 ### なぜ `windows-latest` なのか
 
-コアは `net40;net48` をターゲットにし、WinForms に依存します。これらは
-.NET Framework の MSBuild が必要で、Linux ランナーではビルドできません。
+`WinformsMVP` / `WinformsMVP.DependencyInjection` は `net472;net10.0-windows` をターゲットにし、
+テストプロジェクトは `net48` の WinForms テストです。**テストの実行**に .NET Framework ランタイムが
+必要なため、ゲートを含むジョブ全体を Windows ランナーで走らせます。
 
-### なぜ net40 がランナーでビルドできるのか
+### ビルド自体は非 Windows でも可能
 
-GitHub ランナーには net40 のターゲティングパックが入っていません。そこでコアの
-`.csproj` は `Microsoft.NETFramework.ReferenceAssemblies.net40`（ビルド専用、
-`PrivateAssets="all"`）を参照しています。これが net40 の参照アセンブリ（WinForms 含む）を
-供給するため、ターゲティングパック無しでもコンパイルできます。`PrivateAssets="all"` により
-このパッケージは利用者への依存として流れません。
+`Directory.Build.props` の `EnableWindowsTargeting=true` により、`*-windows` TFM は Linux / macOS の
+.NET SDK でもビルドできます（`net472` の参照アセンブリは SDK が NuGet から取得します）。
+`net10.0-windows` のビルドには **.NET 10 SDK** が必要で、ワークフローも `dotnet-version: '10.0.x'` を使います。
+`net40` のサポートは終了したため、以前の `Microsoft.NETFramework.ReferenceAssemblies.net40` による回避策は不要になりました。
 
 ### アナライザーの同梱（最重要の注意点）
 
-MVP 設計ルールの Roslyn アナライザーは**コアパッケージに同梱**されており、
+MVP 設計ルールの Roslyn アナライザーは**コアパッケージ（`WinformsMVP.Core`）に同梱**されており、
 単独パッケージとしては発行しません（`WinformsMVP.Analyzers` は `IsPackable=false`）。
 
 `IsPackable=false` は「このプロジェクトは単独でパッケージを出さない」という意味であって、
 **その成果物が自動的にコアパッケージへ入るわけではありません**。同梱は
-`src/WinformsMVP/WinformsMVP.csproj` で明示的に配線しています：
+`src/WinformsMVP.Core/WinformsMVP.Core.csproj` で明示的に配線しています：
 
 - MSBuild Target `BuildMVPAnalyzers` がアナライザーをビルドし、
 - `<None Include="...\WinformsMVP.Analyzers.dll" Pack="true" PackagePath="analyzers/dotnet/cs" />`
   が `.nupkg` の `analyzers/dotnet/cs/` に配置します。
+
+アナライザーはパッケージ依存を通じて推移的に流れるため、`WinformsMVP` だけを参照する利用者にも効きます
+（`WinformsMVP.csproj` は Core への ProjectReference に `PrivateAssets="none"` を付け、
+パッケージ依存に `exclude="Build,Analyzers"` が出ないようにしています）。
 
 ワークフローのステップ 6 はこれが効いていることを毎回検証します。
 「発行してからルールが効いていなかった」を防ぐためのガードなので、外さないでください。
@@ -98,9 +104,10 @@ MVP 設計ルールの Roslyn アナライザーは**コアパッケージに同
 1. **`Directory.Build.props`（リポジトリ直下）** — 共通のパッケージメタデータ
    （`Authors` / `PackageLicenseExpression=MIT` / `RepositoryUrl` / `PackageReadmeFile` など）を集約し、
    既定で `IsPackable=false`。誤って samples / tests / アナライザーを発行しないための土台です。
-2. **発行する 2 プロジェクトの `.csproj`** — `<IsPackable>true</IsPackable>` で opt-in し、
+2. **発行する 4 プロジェクトの `.csproj`** — `<IsPackable>true</IsPackable>` で opt-in し、
    `PackageId` / `Description` / `PackageTags` と、README をパッケージに含める
-   `<None Include="..\..\README.md" Pack="true" PackagePath="\" />` を記述。
+   `<None Include="..\..\README.md" Pack="true" PackagePath="\" />` を記述
+   (`templates/WinformsMVP.Templates.csproj` は階層が 1 つ浅いので `..\README.md`)。
    （README の `<None>` は各 `.csproj` に置きます。`Directory.Build.props` は各プロジェクト本体より
    先に評価されるため、そこに `IsPackable` 条件付きで置くと `true` になる前に評価され効きません。）
 3. **`.github/workflows/release.yml`** — 上記「2. ワークフローが何をしているか」の内容。
@@ -138,7 +145,10 @@ GitHub Packages は public リポジトリでも **NuGet の復元に認証が�
 - **方法A — GitHub Packages フィード**：`read:packages` スコープの PAT を作り、
   `nuget.config` にソースと資格情報を設定して `dotnet add package WinformsMVP --prerelease`。
 - **方法B — Releases から手動ダウンロード（認証不要）**：Release ページから `.nupkg` を落とし、
-  ローカルフォルダをソースに登録してインストール。
+  ローカルフォルダをソースに登録してインストール（`WinformsMVP` は `WinformsMVP.Core` に依存するので両方の `.nupkg` を置く）。
+- **テンプレート**：`dotnet new install WinformsMVP.Templates::<version>`（フィード経由。プレビュー版はバージョン指定が必須）または
+  `dotnet new install <path>/WinformsMVP.Templates.<version>.nupkg`（ダウンロードした `.nupkg`）。
+  詳細は [テンプレートを使う](HowTo-Use-Templates)。
 
 詳細な手順とサンプル `nuget.config` は [README.md](../README.md) の「インストール」節にあります。
 
@@ -154,13 +164,17 @@ GitHub Packages は public リポジトリでも **NuGet の復元に認証が�
   `dotnet nuget push` は引用符付きのワイルドカードを自前で展開しません。
   ワークフローは `Get-ChildItem` でファイルを列挙して 1 つずつ push しています。
   手動で push するときも実ファイルパスを渡してください。
-- **net40 のビルドがランナーで失敗する**
-  `Microsoft.NETFramework.ReferenceAssemblies.net40` の参照が消えていないか確認。
+- **`net10.0-windows` のビルドが失敗する**
+  .NET 10 SDK が入っているか（ワークフローの `dotnet-version`）、非 Windows ホストなら
+  `Directory.Build.props` の `EnableWindowsTargeting` が残っているかを確認。
 - **アナライザー検証ステップで失敗する**
-  コア `.csproj` の `BuildMVPAnalyzers` Target と `analyzers/dotnet/cs` への
+  `WinformsMVP.Core.csproj` の `BuildMVPAnalyzers` Target と `analyzers/dotnet/cs` への
   `<None Include>` が壊れていないか確認。
 - **テストで落ちてリリースが止まる**
   テストはゲートです。先にテストを直してから再度タグを打ちます。
+- **テンプレートを変更した**
+  リリース前に `tests/templates/verify-templates.sh` (CI でも実行) で全テンプレートを両フレームワーク向けに
+  生成・`-warnaserror` ビルドできることを確認します (`RUN_TESTS=1` で生成されたテストも実行、Windows のみ)。
 - **同じタグで Release 作成が失敗する**
   Release ステップは既存 Release があれば `--clobber` で資産を上書きするため再実行に強い設計ですが、
   内容をやり直したいときは下記の後片付けでタグ・Release を消してから打ち直します。

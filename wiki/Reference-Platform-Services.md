@@ -59,10 +59,14 @@ public interface IMessageService
     // 非ブロッキング通知 (duration はミリ秒、type に既定値はない)
     // 隅に積み上がるトースト。詳細は「トースト通知」リファレンスを参照。
     void ShowToast(string text, ToastType type, int duration = 3000);
-    // 外観の個別指定 (位置=画面の隅・サイズ・フォント・表示時間)。既定値は ToastDefaults。
-    void ShowToast(string text, ToastType type, ToastOptions options);
 }
+
+// WinformsMVP パッケージの拡張メソッド (MessageServiceToastExtensions)
+// 外観の個別指定 (位置=画面の隅・サイズ・フォント・表示時間)。既定値は ToastDefaults。
+public static void ShowToast(this IMessageService messages, string text, ToastType type, ToastOptions options);
 ```
+
+> `ToastOptions` は `Font` やレンダラーなど WinForms 型を含むため、`IMessageService` (WinformsMVP.Core) には置かず `WinformsMVP` パッケージの拡張メソッドになっています。`WinformsMVP` を参照していれば呼び出し側のコードは `messages.ShowToast(text, type, options)` のまま変わりません。組み込みの `MessageService` 以外の実装には `options.Duration` だけが渡されます。`ShowToast` はワーカースレッドから呼んでも安全です (UI スレッドへマーシャリング)。
 
 > トーストの積み上げ挙動・`ToastOptions` / `ToastDefaults` / `AnchoredToast` の詳細は
 > [トースト通知](Reference-Toast-Notifications) を参照してください。
@@ -159,7 +163,7 @@ if (View.ConfirmDelete()) { ... }
 
 ## `IDialogProvider` — システムダイアログ
 
-OpenFile / SaveFile / FolderBrowser 等のシステム標準ダイアログを抽象化します。
+OpenFile / SaveFile / FolderBrowser / Color のシステム標準ダイアログを抽象化します。
 戻り値は [`InteractionResult<T>`](#interactionresultt--失敗しうる操作のラッパー) で、ユーザー操作 (OK/Cancel) と失敗を明示的に分けて扱えます。
 
 ### 主な API
@@ -171,9 +175,19 @@ public interface IDialogProvider
     InteractionResult<string> ShowSaveFileDialog(SaveFileDialogOptions options = null);
     InteractionResult<string> ShowFolderBrowserDialog(FolderBrowserDialogOptions options = null);
     InteractionResult<Color>  ShowColorDialog(ColorDialogOptions options = null);
-    InteractionResult<Font>   ShowFontDialog(FontDialogOptions options = null);
+}
+
+// WinformsMVP パッケージ — 戻り値が GDI+ / 印刷の型になるダイアログ
+public interface IWinFormsDialogProvider : IDialogProvider
+{
+    InteractionResult<Font>            ShowFontDialog(FontDialogOptions options = null);
+    InteractionResult<PrinterSettings> ShowPrintDialog(PrintDialogOptions options = null);
+    InteractionResult<PageSettings>    ShowPageSetupDialog(PageSetupDialogOptions options = null);
+    InteractionResult<bool>            ShowPrintPreviewDialog(PrintPreviewDialogOptions options = null); // 表示できたら Ok(true)
 }
 ```
+
+> フォント / 印刷系ダイアログは `IDialogProvider` から `IWinFormsDialogProvider` に移動しました。Presenter 向けの `IDialogProvider` (WinformsMVP.Core) をプラットフォーム非依存に保つためです。必要な場合は View 側コード (または WinForms を知るサービス) で `IWinFormsDialogProvider` を解決してください。`ServiceLocator` の既定プロバイダは同じ `DialogProvider` インスタンスを両方のインターフェイスで登録し、`AddWinformsMVP` も `IWinFormsDialogProvider` を既定登録します。
 
 ### 使用例
 
@@ -254,7 +268,7 @@ private void LoadFile(string path)
 
 ## `ILogger` / `ILoggerFactory` — ロギング
 
-`Microsoft.Extensions.Logging` 互換の API を持つ自社抽象です。`net40` ホストでも動作するように BCL のみに依存しています。
+`Microsoft.Extensions.Logging` 互換の API を持つ自社抽象です。外部依存なしで `WinformsMVP.Core` に収めるため、BCL のみに依存しています。
 
 詳細は **[Logging](Reference-Logging)** を参照してください。ここでは Presenter からの呼び出し方だけ示します。
 
@@ -377,6 +391,9 @@ else
 ```csharp
 // 設定不要 — ServiceLocator.Current は初回アクセス時に自動的に DefaultServiceProvider を生成する。
 // Messages / Dialogs / Files は標準実装、View マッピングは空、ロギングは NullLoggerFactory。
+// WinForms 系の組み込み (MessageService / DialogProvider / WindowNavigator / ViewMappingRegister) は
+// 実行時に WinformsMVP アセンブリの内部フックから登録される。WinformsMVP.Core だけを配置した場合
+// (Presenter 単体テストなど) は FileService と NullLoggerFactory のみ。
 ```
 
 ### View マッピングを上書きする
@@ -424,8 +441,7 @@ public void OnSave_ShowsSuccessMessage()
     var presenter = new MyPresenter();
     ((IServiceProviderAware)presenter).SetServiceProvider(sp);   // InternalsVisibleTo が必要
 
-    presenter.AttachView(mockView);
-    presenter.Initialize();
+    PresenterTestHost.Start(presenter, mockView);   // アタッチ + 実際の初期化
     mockView.Binder.Dispatch(StandardActions.Save);
 
     Assert.True(mockMessages.InfoMessageShown);

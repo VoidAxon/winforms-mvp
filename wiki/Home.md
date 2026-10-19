@@ -2,6 +2,7 @@ WinForms アプリケーションのための **Model-View-Presenter** フレー
 
 > **このフレームワークが初めての方は、まず [はじめに (Getting Started)](Getting-Started) からどうぞ。**
 > 5 分で動くサンプルを作りながら、フレームワークの全体像を掴めます。
+> 新しいアプリを作るなら [テンプレート (`dotnet new winformsmvp`)](HowTo-Use-Templates) から始めるのが推奨です。
 
 ---
 
@@ -49,10 +50,10 @@ WinForms アプリケーションのための **Model-View-Presenter** フレー
 - [Platform Services](Reference-Platform-Services) — `IMessageService` / `IDialogProvider` / `IFileService`
 - [トースト通知](Reference-Toast-Notifications) — 隅に積み上がるトースト、`ToastOptions` / `ToastDefaults`、`AnchoredToast`
 - [Data Binding 拡張メソッド](Reference-Data-Binding) — View 側で UI コントロールをモデルに紐付ける拡張メソッド群
-- [Logging](Reference-Logging) — 自社抽象、`net40` 対応、M.E.L. 連携
+- [Logging](Reference-Logging) — 自社抽象 (外部依存ゼロ)、M.E.L. 連携
 - [ChangeTracker](Reference-ChangeTracker) — 編集/キャンセル、深いコピー、フック差し込み
 - [レート制限 (Debounce / Throttle)](Reference-RateLimiting) — 高頻度イベントの間引き、UI 非依存、`Flush` / 確定的破棄
-- [EventAggregator](Reference-EventAggregator) — 弱参照 pub/sub、UI スレッド自動マーシャリング
+- [EventAggregator](Reference-EventAggregator) — トークンで生存期間を管理する pub/sub、UI スレッド自動マーシャリング
 - [Dependency Injection](Reference-DependencyInjection) — 3 つの DI パターン、複数プロジェクト構成
 
 ---
@@ -61,8 +62,9 @@ WinForms アプリケーションのための **Model-View-Presenter** フレー
 
 特定の課題に対する、目的別レシピです。
 
+- [テンプレートを使う](HowTo-Use-Templates) — `dotnet new` でアプリ・ウィンドウ・UserControl・テストを生成 (新規アプリの推奨スタート)
 - [Presenter 間の通信方法](HowTo-Communicate-Between-Presenters) — 4 つの選択肢と使い分け
-- [フォーム入力を検証する](HowTo-Validate-Form-Input) — フィールド/クロスフィールド/パターン検証
+- [フォーム入力を検証する](HowTo-Validate-Form-Input) — DataAnnotations + Presenter ルールの検証と `ErrorProviderDisplay` によるエラー表示
 - [非同期処理を扱う](HowTo-Handle-Async-Operations) — async/await、`IProgress<T>`、キャンセル
 - [マスター/詳細パターンを実装する](HowTo-Implement-Master-Detail) — 親子データの連動
 - [Presenter をテストする](HowTo-Test-A-Presenter) — モック、テストパターン

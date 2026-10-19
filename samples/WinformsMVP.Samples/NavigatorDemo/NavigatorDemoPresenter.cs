@@ -39,13 +39,13 @@ namespace WinformsMVP.Samples.NavigatorDemo
 
         protected override void RegisterViewActions()
         {
-            _dispatcher.Register(NavigatorDemoActions.ShowModalSimple, OnShowModalSimple);
-            _dispatcher.Register(NavigatorDemoActions.ShowModalWithResult, OnShowModalWithResult);
-            _dispatcher.Register(NavigatorDemoActions.ShowModalWithParams, OnShowModalWithParams);
-            _dispatcher.Register(NavigatorDemoActions.ShowNonModalSimple, OnShowNonModalSimple);
-            _dispatcher.Register(NavigatorDemoActions.ShowNonModalWithCallback, OnShowNonModalWithCallback);
-            _dispatcher.Register(NavigatorDemoActions.ShowSingletonWindow, OnShowSingletonWindow);
-            _dispatcher.Register(NavigatorDemoActions.ClearLog, OnClearLog);
+            Dispatcher.Register(NavigatorDemoActions.ShowModalSimple, OnShowModalSimple);
+            Dispatcher.Register(NavigatorDemoActions.ShowModalWithResult, OnShowModalWithResult);
+            Dispatcher.Register(NavigatorDemoActions.ShowModalWithParams, OnShowModalWithParams);
+            Dispatcher.Register(NavigatorDemoActions.ShowNonModalSimple, OnShowNonModalSimple);
+            Dispatcher.Register(NavigatorDemoActions.ShowNonModalWithCallback, OnShowNonModalWithCallback);
+            Dispatcher.Register(NavigatorDemoActions.ShowSingletonWindow, OnShowSingletonWindow);
+            Dispatcher.Register(NavigatorDemoActions.ClearLog, OnClearLog);
 
             // Note: View.ActionBinder.Bind(_dispatcher) is now called automatically by the base class
         }

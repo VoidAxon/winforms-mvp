@@ -5,6 +5,8 @@ Presenter は WinForms に依存しないため、**UI スレッド不要・実�
 
 > **本フレームワークの主要メリットの 1 つが、まさにこのテスタビリティです。**
 
+> **ターゲットについて:** Presenter と基底クラスは `WinformsMVP.Core` (`netstandard2.0`、WinForms 非参照) にあるため、Presenter だけのテストプロジェクトは Core を参照すれば任意のランタイムで動かせます (このとき `ServiceLocator` の既定プロバイダには `FileService` と `NullLoggerFactory` しか入らないので、フレームワークサービスはモックを渡してください)。本リポジトリの `WinformsMVP.Samples.Tests` は Form も扱う `net48` プロジェクトなので、`dotnet test` には Windows (または mono) が必要です。
+
 ---
 
 ## 目次
@@ -19,6 +21,7 @@ Presenter は WinForms に依存しないため、**UI スレッド不要・実�
   - [ConfirmYesNo の分岐をテストする](#confirmyesno-の分岐をテストする)
   - [子ウィンドウの表示を検証する](#子ウィンドウの表示を検証する)
   - [ロギングを検証する](#ロギングを検証する)
+  - [非同期処理をテストする](#非同期処理をテストする)
 - [テストを駆動するときのルール](#テストを駆動するときのルール)
 - [ベストプラクティス](#ベストプラクティス)
 - [関連ページ](#関連ページ)
@@ -50,10 +53,11 @@ MockServices                    (モックサービスを束ね DefaultServicePr
 
 Mock<IXxxView>                  (View インターフェイス用のモック — CapturingActionBinder を公開する)
 CapturingActionBinder           (フレームワークが View に渡す dispatcher を捕捉。テストから Dispatch する入口)
+PresenterTestHost               (WinformsMVP.Testing — WinformsMVP.Core に同梱。モック View をアタッチして実際の初期化を走らせ、RequestClose を記録し、CanClose / CanCloseAsync ゲートを駆動する)
 業務依存 (IXxxRepository 等)     (Presenter のコンストラクタに注入。フレームワークサービスとは別経路)
 ```
 
-モックは `WinformsMVP.Samples.Tests/Mocks/` 配下にあります。**業務依存 (Repository など) は `MockServices` には含まれません** — それらは Presenter のコンストラクタに直接注入します (下記参照)。
+モックは `WinformsMVP.Samples.Tests/Mocks/` 配下にあります (`PresenterTestHost` だけはパッケージ同梱)。**業務依存 (Repository など) は `MockServices` には含まれません** — それらは Presenter のコンストラクタに直接注入します (下記参照)。
 
 ---
 
@@ -78,8 +82,9 @@ public class UserEditorPresenterTests
         _presenter = new UserEditorPresenter(_repository)
             .WithServiceProvider(_mockServices.Provider);
 
-        _presenter.AttachView(_view);
-        _presenter.Initialize();
+        // View のアタッチ + 実際の初期化 (RegisterViewActions → binder 自動バインド → OnInitialize)。
+        // Presenter の AttachView / Initialize は明示的インターフェイス実装なので直接は呼べない。
+        PresenterTestHost.Start(_presenter, _view);
 
         // 初期化時の呼び出し記録をクリアして純粋なテスト実行に集中
         _mockServices.Reset();
@@ -105,7 +110,7 @@ public class UserEditorPresenterTests
 
 **AAA パターン** (Arrange / Act / Assert) で書くと、テストの意図が明確になります。
 
-> **アクションは `_view.Binder.Dispatch(...)` で駆動します。** Presenter の `Dispatcher` は protected で、テスト用に公開されることはありません。代わりにモック View が `CapturingActionBinder` を公開します — フレームワークは `Initialize()` 中に `View.ActionBinder.Bind(dispatcher)` を自動で呼ぶため、binder はそこで dispatcher を捕捉できます。本物の Form のボタンが使うのと同一の経路なので、`CanExecute` もミドルウェアも production と同じように評価されます。
+> **アクションは `_view.Binder.Dispatch(...)` で駆動します。** Presenter の `Dispatcher` は protected で、テスト用に公開されることはありません。代わりにモック View が `CapturingActionBinder` を公開します — フレームワークは初期化中 (`PresenterTestHost.Start` の中) に `View.ActionBinder.Bind(dispatcher)` を自動で呼ぶため、binder はそこで dispatcher を捕捉できます。本物の Form のボタンが使うのと同一の経路なので、`CanExecute` もミドルウェアも production と同じように評価されます。
 
 ```csharp
 // tests/WinformsMVP.Samples.Tests/Mocks/CapturingActionBinder.cs (リポジトリに同梱 — 要点のみ抜粋)
@@ -116,6 +121,7 @@ public sealed class CapturingActionBinder : IViewActionBinder
     public void Bind(ViewActionDispatcher dispatcher) => Dispatcher = dispatcher;   // フレームワークが呼ぶ
 
     public void Dispatch(ViewAction action, object payload = null) => Dispatcher.Dispatch(action, payload);
+    public Task DispatchAsync(ViewAction action, object payload = null) => Dispatcher.DispatchAsync(action, payload);   // 非同期ハンドラの完了を待つ
     public bool CanDispatch(ViewAction action) => Dispatcher.CanDispatch(action);
 }
 ```
@@ -304,8 +310,7 @@ public void OnSave_LogsSuccess()
     sp.RegisterInstance<WinformsMVP.Logging.ILoggerFactory>(loggerFactory);
 
     var presenter = new MyPresenter().WithServiceProvider(sp);
-    presenter.AttachView(_view);
-    presenter.Initialize();
+    PresenterTestHost.Start(presenter, _view);
 
     _view.Binder.Dispatch(StandardActions.Save);
 
@@ -315,6 +320,48 @@ public void OnSave_LogsSuccess()
 ```
 
 同じ記録用ロガーのコピー&ペースト版と詳細は [Reference-Logging#テストでの利用](Reference-Logging#テストでの利用) を参照。
+
+### 非同期処理をテストする
+
+非同期アクションハンドラ、`OnInitializeAsync`、`CanCloseAsync` は、それぞれの完了を `await` してから検証します。`Task.Delay` で待つ必要はありません。xUnit のテストメソッドは `async Task` にします。
+
+```csharp
+[Fact]
+public async Task Refresh_LoadsCustomers()
+{
+    _repository.Customers = new[] { new Customer("A"), new Customer("B") };
+
+    // 非同期ハンドラ: Dispatch は完了を待たずに戻るので DispatchAsync を使う
+    await _view.Binder.DispatchAsync(CustomerActions.Refresh);
+
+    Assert.Equal(2, _view.Customers.Count);
+}
+
+[Fact]
+public async Task Start_LoadsDataInOnInitializeAsync()
+{
+    using (var host = PresenterTestHost.Start(new CustomerListPresenter(_repository), _view))
+    {
+        await host.Initialized;            // OnInitializeAsync の完了を待つ
+        Assert.Equal("完了", _view.StatusMessage);
+    }
+}
+
+[Fact]
+public async Task Close_WithUnsavedChanges_SavesBeforeClosing()
+{
+    _view.SimulateEdit("new value");
+    _platform.MessageService.ConfirmYesNoCancelResult = ConfirmResult.Yes;
+
+    bool allow = await _host.CanCloseAsync();   // CanCloseAsync の判定 (保存) を待つ
+
+    Assert.True(allow);
+}
+```
+
+- `DispatchAsync` / `Initialized` は、ハンドラや `OnInitializeAsync` が例外を投げても fault しません (本番と同じくログに出るだけ)。失敗時の振る舞いは、ハンドラ内で表示したメッセージ (`MockMessageService`) や View の状態で検証します。
+- 実行中のアクションは `CanDispatch == false` です。「実行中は無効」を検証するなら、完了しない `TaskCompletionSource` をモックリポジトリから返し、`_view.Binder.Dispatch(...)` の直後に `Assert.False(_view.Binder.CanDispatch(...))` とします。
+- 実例: `tests/WinformsMVP.Samples.Tests/Presenters/ComposeEmailPresenterTests.cs`、`MainEmailPresenterTests.cs`、`ViewActions/AsyncActionTests.cs`。
 
 ---
 
@@ -332,45 +379,62 @@ view.Binder.Dispatch(StandardActions.Save);
 
 `Dispatcher` を public/internal に広げてテストするのも誤りです — `CapturingActionBinder` (上記) が公開 API だけで同じ経路を提供します。
 
+### PresenterTestHost でホストする
+
+`PresenterTestHost` (`WinformsMVP.Testing`、`WinformsMVP.Core` に同梱) は、本番の `WindowNavigator` / `Connect` と同じ初期化をモック View に対して行うテスト用ホストです。Form は不要です。
+
+| メンバー | 用途 |
+|---|---|
+| `PresenterTestHost.Start(presenter, view)` / `Start(presenter, view, parameters)` | View をアタッチし、`RegisterViewActions` → binder 自動バインド → `OnInitialize` を実行 (`OnInitializeAsync` は開始のみ)。初期化が例外を投げた場合は Presenter を破棄して再スロー |
+| `CloseRequested` / `CloseCount` / `CloseResult` / `CloseStatus` | Presenter が呼んだ `RequestClose` の記録 (Push 方向)。`OnInitialize` 中の呼び出しも記録される |
+| `Initialized` | `OnInitializeAsync` の完了で完了する `Task`。`await host.Initialized;` してから非同期ロードの結果を検証する (失敗はログに出るだけで fault しない) |
+| `CanClose(reason = CloseReason.Normal)` | X / Alt+F4 と同じ Pull ゲートを実行し `bool?` を返す。`CanCloseAsync` が未回答なら `null`。コントロール Presenter ではクローズゲートがないので `InvalidOperationException` |
+| `CanCloseAsync(reason = CloseReason.Normal)` | 同じゲートを実行し、`CanCloseAsync` の判定を `await` できる `Task<bool>` を返す。コントロール Presenter では `InvalidOperationException` |
+| `Dispose()` | Presenter を破棄 (`Cleanup` と `Disposables` の解放) |
+
 ### ウィンドウクローズのテスト
 
-Pull ゲート (`CanClose`) は `ICloseParticipant.CanCloseGate` を通じてテストします。`ICloseParticipant` は internal で、テストプロジェクトは `InternalsVisibleTo` で到達できます:
+Push 方向 (`RequestClose`) も Pull 方向 (`CanClose`) も `PresenterTestHost` で検証します。`ICloseParticipant` (internal) にキャストしたり、自前の `ICloseSink` を束縛したりする必要はありません:
 
 ```csharp
-// Pull direction (CanClose) — ICloseParticipant.CanCloseGate
-bool? allow = null;
-((ICloseParticipant)presenter).CanCloseGate(CloseReason.Normal, ok => allow = ok);
-Assert.False(allow);   // e.g. dirty state blocks close
-
-// System shutdown is never blocked
-((ICloseParticipant)presenter).CanCloseGate(CloseReason.SystemShutdown, ok => allow = ok);
-Assert.True(allow);
-```
-
-Push direction (`RequestClose`) は recording sink を注入してテストします:
-
-```csharp
-private sealed class RecordingSink : ICloseSink
+public class UserEditorClosingTests
 {
-    public readonly List<(object result, InteractionStatus status)> Closed
-        = new List<(object, InteractionStatus)>();
-    public void Close(object result, InteractionStatus status)
-        => Closed.Add((result, status));
+    [Fact]
+    public void Save_ClosesWithOk()
+    {
+        var view = new MockUserEditorView { UserName = "John", Email = "john@example.com" };
+        using (var host = PresenterTestHost.Start(new UserEditorPresenter(new MockUserRepository()), view))
+        {
+            view.Binder.Dispatch(StandardActions.Save);
+
+            Assert.True(host.CloseRequested);
+            Assert.Equal(1, host.CloseCount);
+            Assert.Equal(InteractionStatus.Ok, host.CloseStatus);
+        }
+    }
+
+    [Fact]
+    public void CanClose_WhenDirty_BlocksNormalCloseButNotShutdown()
+    {
+        var view = new MockUserEditorView();
+        using (var host = PresenterTestHost.Start(new UserEditorPresenter(new MockUserRepository()), view))
+        {
+            view.UserName = "Edited";
+            view.RaiseInputChanged();                      // ChangeTracker が dirty になる
+
+            Assert.False(host.CanClose());                 // CloseReason.Normal — dirty なのでブロック
+            Assert.True(host.CanClose(CloseReason.SystemShutdown));   // シャットダウンは決してブロックしない
+            Assert.False(host.CloseRequested);             // Pull ゲートは RequestClose を発生させない
+        }
+    }
 }
-
-// In the test:
-var sink = new RecordingSink();
-((ICloseParticipant)presenter).BindCloseSink(sink);
-
-view.Binder.Dispatch(StandardActions.Save);
-
-Assert.Single(sink.Closed);
-Assert.Equal(InteractionStatus.Ok, sink.Closed[0].status);
 ```
+
+`CanCloseAsync` のタスクが未完了の間、`host.CanClose()` は `null` を返します。判定を待つには `await host.CanCloseAsync()` を使います ([非同期処理をテストする](#非同期処理をテストする))。
 
 `private` だったメソッドを `internal` に変えてテストすると、CanExecute スキップ等の不具合が production で発覚するまで隠れます。
 
-完全な実例: `tests/WinformsMVP.Samples.Tests/Presenters/CanCloseTests.cs` および `WindowClosingDemoPresenterTests.cs`。
+完全な実例: `tests/WinformsMVP.Samples.Tests/Presenters/PresenterTestHostTests.cs` および `WindowClosingDemoPresenterTests.cs`。(`CanCloseTests.cs` はフレームワーク内部の契約テストで、`ICloseParticipant` を直接使います。)
 
 ---
 
@@ -446,8 +510,7 @@ public void TestEverything()
 public MyTests()
 {
     _presenter = new MyPresenter().WithServiceProvider(_mockServices.Provider);
-    _presenter.AttachView(_view);
-    _presenter.Initialize();
+    PresenterTestHost.Start(_presenter, _view);
 
     // 初期化で発生した呼び出し記録をクリア
     _mockServices.Reset();

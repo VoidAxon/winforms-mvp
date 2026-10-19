@@ -25,6 +25,15 @@ namespace WinformsMVP.Samples.Tests.Services
         }
 
         [Fact]
+        public void Default_WinFormsDialogProvider_IsSameInstanceAsDialogProvider()
+        {
+            // The WinForms built-ins arrive through the WinformsMVP assembly's platform hook,
+            // which registers one DialogProvider under both interfaces.
+            var sp = ServiceLocator.Current;
+            Assert.Same(sp.Resolve<IDialogProvider>(), sp.Resolve<IWinFormsDialogProvider>());
+        }
+
+        [Fact]
         public void Default_HasNoDispatcherConfigurer()
         {
             Assert.Null(ServiceLocator.Current.Resolve<IDispatcherConfigurer>());

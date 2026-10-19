@@ -9,10 +9,27 @@
 
 | 項目 | バージョン |
 |------|----------|
-| .NET Framework | 4.0 または 4.8 |
+| ターゲット | .NET Framework 4.7.2 以降、または .NET 10 (Windows) |
 | 言語 | 不問（コンパイル済み DLL を参照するため。利用側プロジェクトの C# バージョンに制約なし） |
-| IDE | Visual Studio 2019 以降 / JetBrains Rider / VS Code |
+| IDE | Visual Studio / JetBrains Rider / VS Code (`net10.0-windows` には .NET 10 SDK が必要) |
 | 知識 | C# と WinForms の基本 |
+
+---
+
+## 0. 推奨: テンプレートで始める
+
+新しいアプリを作るなら、`dotnet new` テンプレートが最短です。サービス登録・View 登録・メインウィンドウ (View インターフェイス + Actions + Presenter + Form) が揃った、警告ゼロでビルドできるプロジェクトが生成されます。
+
+```bash
+dotnet new install WinformsMVP.Templates::<version>   # 初回のみ。プレビュー期間中はバージョン指定が必須 (入手方法は README のインストール節)
+dotnet new winformsmvp -n MyApp
+cd MyApp && dotnet run
+dotnet new mvp-window -n OrderEdit         # ウィンドウを追加
+```
+
+オプション (`--framework net472`、`--param-type`、`--validation`、テストプロジェクトの生成など) は [HowTo: テンプレートを使う](HowTo-Use-Templates) を参照してください。
+
+以下の章では、テンプレートが生成するものを **手で 1 つずつ組み立てながら** 仕組みを理解します。
 
 ---
 
@@ -132,12 +149,14 @@ namespace MyFirstMvpApp
 - `_welcomeLabel` は `private`。Presenter からは見えない。
 - `WelcomeMessage` プロパティ越しに `Label.Text` を読み書きする。
 - Form は UI の詳細 (フォント、レイアウト、コントロールの種類) をすべて自分の中に閉じ込める。
+- **.NET 9 以降では**、View インターフェイスを実装する Form / UserControl の public プロパティに `[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]` (`System.ComponentModel`) を付ける。付けないと WinForms アナライザー **WFO1000** が既定でビルドエラーにする。Visual Studio で 1 件に `Ctrl+.` →「DesignerSerializationVisibility を追加」→「プロジェクト内のすべて修正」で一括付与できる。テンプレートが生成する Form は付与済み ([詳細](HowTo-Use-Templates#designer-と-wfo1000))。
 
 ### 2.4 エントリーポイント
 
 ```csharp
 using System;
 using System.Windows.Forms;
+using WinformsMVP.MVP.Presenters;   // Connect 拡張メソッド
 
 namespace MyFirstMvpApp
 {
@@ -152,8 +171,8 @@ namespace MyFirstMvpApp
             var view = new MainForm();
             var presenter = new MainPresenter();
 
-            presenter.AttachView(view);
-            presenter.Initialize();
+            // アタッチ + 初期化 + Form と一緒に Presenter を破棄 (Adopted ホスティング)
+            presenter.Connect(view);
 
             Application.Run(view);
         }
@@ -423,6 +442,7 @@ private void OnGreetRequested(object sender, EventArgs e)
 | 目的 | 読むべきページ |
 |------|--------------|
 | もう少し本格的なアプリを作りたい | [チュートリアル: 最初のアプリを作る](Tutorial-Building-Your-First-App) |
+| テンプレートで新規アプリ・ウィンドウを生成したい | [HowTo: テンプレートを使う](HowTo-Use-Templates) |
 | なぜ MVP なのかを理解したい | [MVP パターンとは](Concept-MVP-Pattern) |
 | フレームワークの全体像を掴みたい | [アーキテクチャ概観](Concept-Architecture-Overview) |
 | ViewAction を深掘りしたい | [ViewAction システム](Reference-ViewAction-System) |

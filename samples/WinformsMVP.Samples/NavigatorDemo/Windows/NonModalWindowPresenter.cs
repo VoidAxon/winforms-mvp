@@ -1,4 +1,5 @@
 using System;
+using WinformsMVP.Common;
 using WinformsMVP.MVP.Presenters;
 using WinformsMVP.MVP.ViewActions;
 using WinformsMVP.Services;
@@ -19,8 +20,8 @@ namespace WinformsMVP.Samples.NavigatorDemo
 
         protected override void RegisterViewActions()
         {
-            _dispatcher.Register(NonModalWindowActions.Increment, OnIncrement);
-            _dispatcher.Register(NonModalWindowActions.Close, OnClose);
+            Dispatcher.Register(NonModalWindowActions.Increment, OnIncrement);
+            Dispatcher.Register(NonModalWindowActions.Close, OnClose);
 
             // Note: View.ActionBinder.Bind(_dispatcher) is now called automatically by the base class
         }
@@ -39,10 +40,7 @@ namespace WinformsMVP.Samples.NavigatorDemo
         private void OnClose()
         {
             // Non-modal windows can just close themselves
-            if (View is System.Windows.Forms.Form form)
-            {
-                form.Close();
-            }
+            RequestClose(InteractionStatus.Cancel);
         }
     }
 

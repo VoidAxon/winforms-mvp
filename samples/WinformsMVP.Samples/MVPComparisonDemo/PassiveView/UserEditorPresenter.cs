@@ -1,5 +1,6 @@
 using System;
 using System.Text;
+using WinformsMVP.Common;
 using WinformsMVP.MVP.Presenters;
 using WinformsMVP.MVP.ViewActions;
 using WinformsMVP.Services;
@@ -52,9 +53,9 @@ namespace WinformsMVP.Samples.MVPComparisonDemo.PassiveView
 
         protected override void RegisterViewActions()
         {
-            _dispatcher.Register(UserEditorActions.Save, OnSave);
-            _dispatcher.Register(UserEditorActions.Reset, OnReset);
-            _dispatcher.Register(UserEditorActions.Close, OnClose);
+            Dispatcher.Register(UserEditorActions.Save, OnSave);
+            Dispatcher.Register(UserEditorActions.Reset, OnReset);
+            Dispatcher.Register(UserEditorActions.Close, OnClose);
 
             // Note: View.ActionBinder.Bind(_dispatcher) is now called automatically by the base class
         }
@@ -135,10 +136,7 @@ namespace WinformsMVP.Samples.MVPComparisonDemo.PassiveView
         private void OnClose()
         {
             // Close the form
-            if (View is System.Windows.Forms.Form form)
-            {
-                form.Close();
-            }
+            RequestClose(InteractionStatus.Cancel);
         }
 
         /// <summary>

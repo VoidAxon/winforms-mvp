@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "VoidAxon",
+  "classifications": [ "Desktop", "WinForms", "MVP" ],
+  "identity": "WinformsMVP.Templates.Window",
+  "name": "WinformsMVP Window",
+  "description": "A window: view interface, actions, presenter and Form (with designer file). Open it with Navigator.",
+  "shortName": "mvp-window",
+  "sourceName": "Sample",
+  "tags": { "language": "C#", "type": "item" },
+  "symbols": {
+    "namespace": {
+      "type": "parameter",
+      "datatype": "text",
+      "defaultValue": "",
+      "description": "Namespace for the generated files (default: the project's root namespace)."
+    },
+    "RootNamespace": {
+      "type": "bind",
+      "binding": "msbuild:RootNamespace",
+      "defaultValue": "MyApp"
+    },
+    "NamespaceValue": {
+      "type": "generated",
+      "generator": "coalesce",
+      "parameters": { "sourceVariableName": "namespace", "fallbackVariableName": "RootNamespace" },
+      "replaces": "MvpNamespace"
+    },
+    "ParamType": {
+      "type": "parameter",
+      "datatype": "text",
+      "defaultValue": "",
+      "replaces": "PARAM_TYPE",
+      "description": "Type of the parameter the window is opened with (e.g. int). Empty: no parameter."
+    },
+    "HasParam": {
+      "type": "computed",
+      "value": "(ParamType != \"\")"
+    },
+    "Validation": {
+      "type": "parameter",
+      "datatype": "bool",
+      "defaultValue": "false",
+      "description": "Add a model with validation rules and show errors next to fields (ErrorProvider)."
+    }
+  },
+  "sources": [
+    {
+      "modifiers": [
+        { "condition": "(!Validation)", "exclude": [ "SampleModel.cs" ] }
+      ]
+    }
+  ]
+}

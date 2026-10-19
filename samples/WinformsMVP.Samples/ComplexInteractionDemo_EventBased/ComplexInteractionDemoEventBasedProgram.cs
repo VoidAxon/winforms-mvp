@@ -58,8 +58,7 @@ namespace WinformsMVP.Samples.ComplexInteractionDemo_EventBased
                 products);
 
             // Initialize the main presenter
-            mainPresenter.AttachView(form);
-            mainPresenter.Initialize();
+            mainPresenter.Connect(form);  // attach + initialize + lifetime wiring
 
             // Set available products in ProductSelector
             productSelectorPresenter.SetAvailableProducts(mainPresenter.GetAvailableProducts());

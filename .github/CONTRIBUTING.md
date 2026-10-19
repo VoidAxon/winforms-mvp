@@ -23,8 +23,9 @@ WinForms MVP Framework への貢献を検討いただきありがとうござい
 
 ### 必要なもの
 
-- .NET Framework 4.8 SDK (および任意で 4.0 ターゲットのため Microsoft Build Tools)
-- Visual Studio 2019 以降 / JetBrains Rider / VS Code
+- .NET 10 SDK (`net10.0-windows` のビルドに必要。`EnableWindowsTargeting` により Linux / macOS でもビルド可)
+- テスト実行には Windows (テストプロジェクトが `net48` のため。または mono)
+- Visual Studio / JetBrains Rider / VS Code
 - Git
 
 ### ビルドとテスト
@@ -154,7 +155,7 @@ Closes #42
 
 ### スタイル
 
-- C# 7.3 互換 (`net40` ターゲットを壊さない)
+- `WinformsMVP.Core` (`netstandard2.0`) には WinForms / System.Drawing への参照を入れない (Presenter から使う型はすべて Core に置く)
 - 4 スペースインデント
 - 行末セミコロン必須
 - `var` は型が右辺から明らかな場合のみ使う

@@ -1,3 +1,7 @@
+// These tests exercise the aggregator itself: each test owns a short-lived aggregator, so its
+// subscriptions are released with it and the tokens are deliberately not kept.
+#pragma warning disable MVP017
+
 using System;
 using System.Threading;
 using System.Threading.Tasks;

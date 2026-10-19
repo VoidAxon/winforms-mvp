@@ -41,7 +41,7 @@
 
 ### CanClose
 
-`WindowPresenterBase` の `protected virtual bool CanClose(CloseReason reason)` override。Pull 方向のクローズゲート。`false` を返すとクローズをブロックする。非同期バリアント: `protected virtual void CanClose(CloseReason reason, Action<bool> proceed)`。
+`WindowPresenterBase` の `protected virtual bool CanClose(CloseReason reason)` override。Pull 方向のクローズゲート。`false` を返すとクローズをブロックする。非同期バリアント: `protected virtual Task<bool> CanCloseAsync(CloseReason reason)` (既定は `CanClose(reason)` を返す。旧コールバック形式 `CanClose(reason, Action<bool> proceed)` は削除済み)。
 
 詳細: [Window Closing Model](Concept-Window-Closing-Model)
 
@@ -67,7 +67,7 @@ UserControl 系の View を扱う Presenter 基底クラス。`ControlPresenterB
 
 ### DialogProvider
 
-`IDialogProvider`。`OpenFileDialog` / `SaveFileDialog` / `FolderBrowserDialog` 等のシステムダイアログを抽象化したサービス。Presenter からは `Dialogs` プロパティでアクセスする。
+`IDialogProvider`。`OpenFileDialog` / `SaveFileDialog` / `FolderBrowserDialog` / `ColorDialog` のシステムダイアログを抽象化したサービス。Presenter からは `Dialogs` プロパティでアクセスする。フォント・印刷系ダイアログは `WinformsMVP` パッケージの `IWinFormsDialogProvider : IDialogProvider` にある。
 
 詳細: [Platform Services § IDialogProvider](Reference-Platform-Services#idialogprovider--システムダイアログ)
 
@@ -79,7 +79,7 @@ UserControl 系の View を扱う Presenter 基底クラス。`ControlPresenterB
 
 ### EventAggregator
 
-`EventAggregator` クラス。Presenter 間の疎結合な pub/sub。弱参照 + UI スレッド自動マーシャリング付き。
+`EventAggregator` クラス。Presenter 間の疎結合な pub/sub。購読は返されたトークンを Dispose するまで有効。UI スレッド自動マーシャリング付き。
 
 詳細: [EventAggregator](Reference-EventAggregator)
 
@@ -123,7 +123,7 @@ ViewAction の使い方の 2 種類。Implicit ではフレームワークが自
 
 ### IPresenterFactory
 
-DI 管理の依存を持つ子 Presenter を生成するためのファクトリ。親 Presenter がコンストラクタで受け取り、`_presenters.Create<ChildPresenter>()` で子を取得する。
+DI 管理の依存を持つ子 Presenter を生成するためのファクトリ。親 Presenter がコンストラクタで受け取り、`_presenters.Create<ChildPresenter>()` で子を取得する。M.E.DI 実装 (`ServiceProviderPresenterFactory`) は Presenter ごとに `IServiceScope` を作り、Presenter の破棄と一緒にスコープも破棄する。
 
 詳細: [Dependency Injection § IPresenterFactory](Reference-DependencyInjection#ipresenterfactory-子-presenter-の生成)
 
@@ -153,6 +153,7 @@ View インターフェイスの 3 層の継承構造。
 - **`IViewBase`** — すべての View 共通の **ルート** (空のマーカー)。義務を課さない。アクション生成コントロールを持たない View (静的なスプラッシュ等) はこれを直接実装してよい。
 - **`IActionableView : IViewBase`** — ViewAction システムに参加する View が実装する中間層。`ActionBinder` (`IViewActionBinder`) を 1 つ公開する。
 - **`IWindowView : IActionableView`** — Form (ウィンドウ) 用のマーカー。独自メンバーも WinForms 型も持たない (`Handle` / `IsDisposed` / `Activate` も含まない)。クローズ制御は Presenter の `CanClose(CloseReason)` override / `RequestClose(...)` で行い、ライフサイクル・アクティブ化は具象 Form 側でフレームワークが扱う。モーダルダイアログの `owner` として渡せる (Navigator が実行時に実ウィンドウへ解決する)。
+- **`IValidatableView : IViewBase`** — 検証エラーを表示する View が追加で実装する。`ValidationErrors` (`IValidationErrorDisplay`) を 1 つ公開し、Presenter の `Validation` に自動接続される。Form では通常 `ErrorProviderDisplay` を返す ([フォーム入力を検証する](HowTo-Validate-Form-Input))。
 
 慣習として、Form 系の View は `IWindowView` を、UserControl 系の View は `IViewBase` (アクションを持つなら `IActionableView`) を起点に定義する。`IViewBase` は「UserControl 専用」ではなく、全 View の共通ルートである点に注意。
 
@@ -247,6 +248,10 @@ MVP のバリアント。Presenter は **ユースケースロジックのみ** 
 オブジェクト指向の原則。「状態を聞いて分岐する」ではなく「指示を出して任せる」。本フレームワークでは Presenter が View に対して Tell する形が基本。
 
 詳細: [MVP 設計ルール § Rule 7](Design-Rules#rule-7-presenter-メソッドの戻り値を持たせない)
+
+### ValidationState
+
+Presenter の `Validation` プロパティの型。フィールド名 (Model のプロパティ名) ごとの現在の検証エラーを持つ。`Validate(model)` で DataAnnotations を再評価、`SetError` / `ClearError` で Presenter のルールを追加、送信時は `Check(model)` で全エラーを表示、`Reset()` で初期状態に戻す。`FormLevel` はフィールドに属さないエラーのキー。[フォーム入力を検証する](HowTo-Validate-Form-Input) を参照。
 
 ### ViewAction
 

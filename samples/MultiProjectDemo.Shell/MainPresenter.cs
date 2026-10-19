@@ -23,9 +23,9 @@ namespace MultiProjectDemo.Shell
 
         protected override void RegisterViewActions()
         {
-            _dispatcher.Register(MainActions.OpenUsers, OnOpenUsers);
-            _dispatcher.Register(MainActions.OpenOrders, OnOpenOrders);
-            _dispatcher.Register(MainActions.Exit, OnExit);
+            Dispatcher.Register(MainActions.OpenUsers, OnOpenUsers);
+            Dispatcher.Register(MainActions.OpenOrders, OnOpenOrders);
+            Dispatcher.Register(MainActions.Exit, OnExit);
         }
 
         private void OnOpenUsers()

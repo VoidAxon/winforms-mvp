@@ -1,4 +1,5 @@
 using System;
+using WinformsMVP.MVP.Presenters;
 using System.Drawing;
 using System.Windows.Forms;
 using WinformsMVP.Samples.ToDoDemo;
@@ -17,6 +18,8 @@ using WinformsMVP.Samples.CascadeDemo;
 using WinformsMVP.Samples.ToastDemo;
 using WinformsMVP.Samples.AnchoredMessageDemo;
 using WinformsMVP.Samples.DebounceThrottleDemo;
+using WinformsMVP.Samples.AsyncDemo;
+using WinformsMVP.Samples.ValidationDemo;
 using WinformsMVP.Services;
 using WinformsMVP.Services.Implementations;
 
@@ -118,7 +121,21 @@ namespace WinformsMVP.Samples
                     Color.FromArgb(139, 69, 19), LaunchBulkBindingDemo),
                 new DemoItem("Value Binding Demo",
                     "Add(ctrl, selector) • CheckBox/NumericUpDown/DateTimePicker/MonthCalendar values as payload",
-                    Color.FromArgb(120, 80, 0), LaunchValueBindingDemo));
+                    Color.FromArgb(120, 80, 0), LaunchValueBindingDemo),
+                new DemoItem("Explicit Event Pattern",
+                    "ActionBinder => null • Bind() • View.ActionRequest • availability via view members",
+                    Color.FromArgb(70, 90, 120), LaunchExplicitEventDemo),
+                new DemoItem("Explicit Pattern with Parameters",
+                    "Value bindings carry payloads through ActionRequest",
+                    Color.FromArgb(90, 70, 130), LaunchExplicitParametersDemo));
+
+            AddSection(content, "Async & Validation",
+                new DemoItem("Async Operations Demo",
+                    "async actions • auto-disable while running • cancellation • progress",
+                    Color.FromArgb(0, 99, 177), LaunchAsyncDemo),
+                new DemoItem("Validation Demo",
+                    "DataAnnotations • ErrorProvider • errors after leaving a field / on submit",
+                    Color.FromArgb(196, 43, 28), LaunchValidationDemo));
 
             AddSection(content, "Navigation & Windows",
                 new DemoItem("WindowNavigator Demo",
@@ -241,8 +258,7 @@ namespace WinformsMVP.Samples
             var view = new ToDoDemoForm();
             var presenter = new ToDoDemoPresenter();  // Uses CommonServices.Default
 
-            presenter.AttachView(view);
-            presenter.Initialize();  // Must call Initialize!
+            presenter.Connect(view);  // attach + initialize + lifetime wiring
             view.Show();
 
             this.Hide();
@@ -254,8 +270,7 @@ namespace WinformsMVP.Samples
             var view = new SettingsDemoForm();
             var presenter = new SettingsDemoPresenter();
 
-            presenter.AttachView(view);
-            presenter.Initialize();  // Must call Initialize!
+            presenter.Connect(view);  // attach + initialize + lifetime wiring
             view.Show();
 
             this.Hide();
@@ -267,8 +282,7 @@ namespace WinformsMVP.Samples
             var view = new SurveyDemoForm();
             var presenter = new SurveyDemoPresenter();
 
-            presenter.AttachView(view);
-            presenter.Initialize();  // Must call Initialize!
+            presenter.Connect(view);  // attach + initialize + lifetime wiring
             view.Show();
 
             this.Hide();
@@ -280,8 +294,7 @@ namespace WinformsMVP.Samples
             var view = new ValueBindingForm();
             var presenter = new ValueBindingPresenter();
 
-            presenter.AttachView(view);
-            presenter.Initialize();
+            presenter.Connect(view);  // attach + initialize + lifetime wiring
             view.Show();
 
             this.Hide();
@@ -304,12 +317,45 @@ namespace WinformsMVP.Samples
             var view = new NavigatorDemoForm();
             var presenter = new NavigatorDemoPresenter();  // No constructor parameters needed!
 
-            presenter.AttachView(view);
-            presenter.Initialize();
+            presenter.Connect(view);  // attach + initialize + lifetime wiring
             view.Show();
 
             this.Hide();
             view.FormClosed += (s, e) => this.Show();
+        }
+
+        /// <summary>Shows <paramref name="view"/> after <paramref name="connect"/> wired its presenter.</summary>
+        private void ShowDemo(Form view, Action connect)
+        {
+            connect();
+            view.Show();
+
+            this.Hide();
+            view.FormClosed += (s, e) => this.Show();
+        }
+
+        private void LaunchExplicitEventDemo()
+        {
+            var view = new ExplicitEventDemoForm();
+            ShowDemo(view, () => new ExplicitEventDemoPresenter(ServiceLocator.Current.Resolve<IMessageService>()).Connect(view));
+        }
+
+        private void LaunchExplicitParametersDemo()
+        {
+            var view = new MixedParametersDemoForm();
+            ShowDemo(view, () => new MixedParametersDemoPresenter(ServiceLocator.Current.Resolve<IMessageService>()).Connect(view));
+        }
+
+        private void LaunchAsyncDemo()
+        {
+            var view = new AsyncDemoForm();
+            ShowDemo(view, () => new AsyncDemoPresenter().Connect(view));
+        }
+
+        private void LaunchValidationDemo()
+        {
+            var view = new ValidationDemoForm();
+            ShowDemo(view, () => new ValidationDemoPresenter().Connect(view));
         }
 
         private void LaunchMVPComparisonDemo()
@@ -326,8 +372,7 @@ namespace WinformsMVP.Samples
             var view = new ExecutionRequestDemoForm();
             var presenter = new ExecutionRequestDemoPresenter();
 
-            presenter.AttachView(view);
-            presenter.Initialize();
+            presenter.Connect(view);  // attach + initialize + lifetime wiring
             view.Show();
 
             this.Hide();
@@ -372,8 +417,7 @@ namespace WinformsMVP.Samples
             var view = new MainEmailForm();
             var presenter = new MainEmailPresenter(repository);
 
-            presenter.AttachView(view);
-            presenter.Initialize();
+            presenter.Connect(view);  // attach + initialize + lifetime wiring
             view.Show();
 
             this.Hide();
@@ -415,8 +459,7 @@ namespace WinformsMVP.Samples
             var view = new AnchoredMessageDemoForm();
             var presenter = new AnchoredMessageDemoPresenter();
 
-            presenter.AttachView(view);
-            presenter.Initialize();
+            presenter.Connect(view);  // attach + initialize + lifetime wiring
             view.Show();
 
             this.Hide();

@@ -45,8 +45,8 @@ namespace WinformsMVP.Analyzers
 
             var interfaceName = interfaceDeclaration.Identifier.Text;
 
-            // Only analyze View interfaces (those starting with I and ending with View)
-            if (!interfaceName.StartsWith("I") || !interfaceName.EndsWith("View"))
+            // Only analyze View interfaces (semantic: derives from WinformsMVP.MVP.Views.IViewBase)
+            if (!MvpSymbols.IsViewInterface(context.SemanticModel.GetDeclaredSymbol(interfaceDeclaration, context.CancellationToken)))
                 return;
 
             var methodName = methodDeclaration.Identifier.Text;

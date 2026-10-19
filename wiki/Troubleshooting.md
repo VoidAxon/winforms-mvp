@@ -291,9 +291,9 @@ public object Clone()
    _subscription.Dispose();   // ← 解除されている
    ```
 
-2. 購読者の参照が GC で消えている (弱参照)
+2. Presenter (と `Disposables` バッグ) がすでに Dispose されている
 
-   Presenter インスタンスへの強い参照がどこかに残っているか確認する。
+   `.DisposeWith(Disposables)` で登録した購読は Presenter の Dispose 時に解除される。発行時点で購読側の Presenter がまだ生きているか確認する。(購読は強参照なので GC で消えることはない)
 
 3. メッセージ型が異なる
 
@@ -301,13 +301,13 @@ public object Clone()
 
 ### バックグラウンドスレッドから `Publish` するとクロススレッド例外
 
-**原因**: `EventAggregator` が UI スレッド以外で構築された。
+**原因**: マーシャリング先のコンテキストが無い。`EventAggregator` は構築時の `SynchronizationContext`、それが無ければ購読時のスレッドのコンテキストへマーシャリングするため、ワーカースレッドで構築かつワーカースレッドで購読すると、ハンドラは発行スレッドで実行される。
 
-**対処**: `EventAggregator` の `new` を **UI スレッド上** (`Program.Main` 等) で行う。
+**対処**: `EventAggregator` の `new` は UI スレッドか `Program.Main` で行い、購読は UI スレッド (Presenter の `OnInitialize` など) で行う。
 
 ```csharp
-// Program.Main 内で
-var eventAggregator = new EventAggregator();   // ← UI スレッド
+// Program.Main 内で (SynchronizationContext がまだ無くても、UI スレッドで購読すれば UI スレッドで実行される)
+var eventAggregator = new EventAggregator();
 ```
 
 ---
@@ -392,7 +392,7 @@ ServiceLocator.Configure(reg =>
 
 **原因**: `SetServiceProvider` を `Initialize()` の **後** に呼んでいる。
 
-**対処**: `SetServiceProvider` は **`Initialize()` より前**に呼ぶ。制約はそれだけで、`AttachView` との前後は問わない (下の例では `AttachView` より前に呼んでいる)。
+**対処**: `SetServiceProvider` は **`PresenterTestHost.Start(...)` (アタッチ + 初期化) より前**に呼ぶ。
 
 ```csharp
 var sp = new DefaultServiceProvider();
@@ -401,8 +401,7 @@ sp.RegisterInstance<IMessageService>(mockMessages);
 var presenter = new MyPresenter();
 ((dynamic)presenter).SetServiceProvider(sp);   // 先 (InternalsVisibleTo または dynamic 経由)
 
-presenter.AttachView(mockView);
-presenter.Initialize();   // 後
+PresenterTestHost.Start(presenter, mockView);   // 後 (アタッチ + 初期化)
 ```
 
 ### `private OnSave()` をテストから呼べない

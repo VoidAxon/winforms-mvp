@@ -374,3 +374,7 @@ temp_*.txt
 MVP-COMPLIANCE-REPORT.md
 WIKI-SETUP-INSTRUCTIONS.md
 MVP-DESIGN-RULES.md
+
+# Claude Code personal settings
+.claude/settings.local.json
+.claude/worktrees/

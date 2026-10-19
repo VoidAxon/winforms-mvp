@@ -1,15 +1,16 @@
 using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 
 namespace WinformsMVP.Analyzers
 {
     /// <summary>
     /// Analyzer for MVP Rule 7: Presenter should access View only through interface.
-    /// Detects when Presenters reference concrete Form types instead of View interfaces.
+    /// Detects when Presenters reference concrete Form types (a WinForms class implementing a view
+    /// interface, e.g. <c>MyForm : Form, IMyView</c>) instead of the View interface — in member
+    /// signatures, in generics/arrays, and as the TView argument of the presenter base class.
+    /// Other WinForms types are reported by MVP004; non-WinForms test doubles are not flagged.
     /// </summary>
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public class MVPRule07ViewInterfaceOnlyAnalyzer : DiagnosticAnalyzer
@@ -21,89 +22,83 @@ namespace WinformsMVP.Analyzers
         {
             context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
             context.EnableConcurrentExecution();
-            context.RegisterSyntaxNodeAction(AnalyzeFieldDeclaration, SyntaxKind.FieldDeclaration);
-            context.RegisterSyntaxNodeAction(AnalyzePropertyDeclaration, SyntaxKind.PropertyDeclaration);
+            context.RegisterSymbolAction(AnalyzePresenterType, SymbolKind.NamedType);
+            context.RegisterSymbolAction(AnalyzeMember,
+                SymbolKind.Field, SymbolKind.Property, SymbolKind.Event, SymbolKind.Method);
         }
 
-        private void AnalyzeFieldDeclaration(SyntaxNodeAnalysisContext context)
+        private void AnalyzePresenterType(SymbolAnalysisContext context)
         {
-            var fieldDeclaration = (FieldDeclarationSyntax)context.Node;
-
-            // Only analyze in Presenter classes
-            if (!IsPresenterClass(fieldDeclaration.Parent))
+            var type = (INamedTypeSymbol)context.Symbol;
+            if (!MvpSymbols.IsPresenter(type) || type.BaseType == null)
                 return;
 
-            var variableDeclaration = fieldDeclaration.Declaration;
-            var typeSyntax = variableDeclaration.Type;
-
-            CheckForFormTypeReference(context, typeSyntax, fieldDeclaration.GetLocation());
-        }
-
-        private void AnalyzePropertyDeclaration(SyntaxNodeAnalysisContext context)
-        {
-            var propertyDeclaration = (PropertyDeclarationSyntax)context.Node;
-
-            // Only analyze in Presenter classes
-            if (!IsPresenterClass(propertyDeclaration.Parent))
-                return;
-
-            var typeSyntax = propertyDeclaration.Type;
-
-            CheckForFormTypeReference(context, typeSyntax, propertyDeclaration.GetLocation());
-        }
-
-        private bool IsPresenterClass(SyntaxNode node)
-        {
-            if (node is ClassDeclarationSyntax classDeclaration)
+            // class MyPresenter : WindowPresenterBase<MyForm>
+            foreach (var argument in type.BaseType.TypeArguments)
             {
-                var className = classDeclaration.Identifier.Text;
-                return className.EndsWith("Presenter");
-            }
-            return false;
-        }
-
-        private void CheckForFormTypeReference(
-            SyntaxNodeAnalysisContext context,
-            TypeSyntax typeSyntax,
-            Location location)
-        {
-            var typeSymbol = context.SemanticModel.GetTypeInfo(typeSyntax).Type;
-            if (typeSymbol == null)
-                return;
-
-            var typeName = typeSymbol.Name;
-
-            // Check if it's a concrete Form type (ends with "Form" but not an interface)
-            if (typeName.EndsWith("Form") &&
-                typeSymbol.TypeKind != TypeKind.Interface &&
-                !IsAcceptableFormReference(typeSymbol))
-            {
-                var presenterClass = GetContainingPresenterClass(location.SourceTree.GetRoot(), location);
-                if (presenterClass != null)
+                var concreteView = MvpSymbols.FindConcreteFormView(argument);
+                if (concreteView != null)
                 {
-                    var diagnostic = Diagnostic.Create(
-                        DiagnosticDescriptors.MVPRule07ViewInterfaceOnly,
-                        location,
-                        presenterClass,
-                        typeName);
-
-                    context.ReportDiagnostic(diagnostic);
+                    Report(context, type, type, concreteView);
+                    return;
                 }
             }
         }
 
-        private bool IsAcceptableFormReference(ITypeSymbol typeSymbol)
+        private void AnalyzeMember(SymbolAnalysisContext context)
         {
-            // System.Windows.Forms.Form itself is acceptable (for casting)
-            return typeSymbol.ContainingNamespace?.ToDisplayString() == "System.Windows.Forms" &&
-                   typeSymbol.Name == "Form";
+            var member = context.Symbol;
+            if (member.IsImplicitlyDeclared)
+                return;
+
+            if (member is IMethodSymbol accessor && accessor.AssociatedSymbol != null)
+                return;
+
+            var presenter = member.ContainingType;
+            if (!MvpSymbols.IsPresenter(presenter))
+                return;
+
+            switch (member)
+            {
+                case IFieldSymbol field:
+                    Check(context, presenter, member, field.Type);
+                    break;
+
+                case IPropertySymbol property:
+                    Check(context, presenter, member, property.Type);
+                    break;
+
+                case IEventSymbol evt:
+                    Check(context, presenter, member, evt.Type);
+                    break;
+
+                case IMethodSymbol method:
+                    if (!method.ReturnsVoid)
+                        Check(context, presenter, member, method.ReturnType);
+                    foreach (var parameter in method.Parameters)
+                        Check(context, presenter, parameter, parameter.Type);
+                    break;
+            }
         }
 
-        private string GetContainingPresenterClass(SyntaxNode root, Location location)
+        private void Check(SymbolAnalysisContext context, INamedTypeSymbol presenter, ISymbol reportOn, ITypeSymbol type)
         {
-            var node = root.FindNode(location.SourceSpan);
-            var classDeclaration = node.Ancestors().OfType<ClassDeclarationSyntax>().FirstOrDefault();
-            return classDeclaration?.Identifier.Text;
+            var concreteView = MvpSymbols.FindConcreteFormView(type);
+            if (concreteView != null)
+                Report(context, presenter, reportOn, concreteView);
+        }
+
+        private void Report(SymbolAnalysisContext context, INamedTypeSymbol presenter, ISymbol reportOn, ITypeSymbol concreteView)
+        {
+            var location = reportOn.Locations.FirstOrDefault(l => l.IsInSource);
+            if (location == null)
+                return;
+
+            context.ReportDiagnostic(Diagnostic.Create(
+                DiagnosticDescriptors.MVPRule07ViewInterfaceOnly,
+                location,
+                presenter.Name,
+                concreteView.Name));
         }
     }
 }

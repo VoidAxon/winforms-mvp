@@ -11,7 +11,7 @@ namespace WinformsMVP.Services.Implementations
     /// Default implementation of IDialogProvider using standard WinForms dialogs.
     /// Uses configurable defaults from DialogDefaults class.
     /// </summary>
-    public class DialogProvider : IDialogProvider
+    public class DialogProvider : IWinFormsDialogProvider
     {
         public InteractionResult<string> ShowOpenFileDialog(OpenFileDialogOptions options = null)
         {
@@ -226,10 +226,10 @@ namespace WinformsMVP.Services.Implementations
                         dialog.Text = DialogDefaults.PrintPreviewDialogTitle;
                     }
 
-                    var result = dialog.ShowDialog();
-                    return result == DialogResult.OK
-                        ? InteractionResult<bool>.Ok(true)
-                        : InteractionResult<bool>.Cancel();
+                    // PrintPreviewDialog has no OK button: it closes with Cancel (or None) however the
+                    // user leaves it, so the result only reports that the preview was shown.
+                    dialog.ShowDialog();
+                    return InteractionResult<bool>.Ok(true);
                 }
             }
             catch (Exception ex)

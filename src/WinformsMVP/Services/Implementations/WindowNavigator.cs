@@ -29,33 +29,11 @@ namespace WinformsMVP.Services.Implementations
         /// <exception cref="System.Collections.Generic.KeyNotFoundException">No View implementation
         /// is registered for the presenter's view interface.</exception>
         /// <exception cref="InvalidOperationException">The registered View is not a <see cref="Form"/>,
-        /// does not implement <see cref="IWindowView"/>, or the presenter does not implement the
-        /// matching <see cref="IViewAttacher{TView}"/>. The presenter is disposed before the throw.</exception>
+        /// does not implement <see cref="IWindowView"/>, the presenter is not a window presenter,
+        /// or the presenter requires parameters (use the overload that takes them). The presenter
+        /// is disposed before the throw.</exception>
         public InteractionResult<TResult> ShowWindowAsModal<TPresenter, TResult>(TPresenter presenter, IWindowView owner = null) where TPresenter : IPresenter
-        {
-            var form = CreateFormForPresenter(presenter);
-
-            InteractionResult<TResult> result = InteractionResult<TResult>.Cancel();
-            var controller = WireController<TResult>(presenter, form, r => result = r, disposeForm: true);
-
-            RunInitialize(presenter, form, () =>
-            {
-                if (presenter is IInitializable initializable) initializable.Initialize();
-            });
-            controller.WireFormEvents();
-
-            if (controller.CloseRequestedBeforeShow)
-            {
-                controller.ConvergeWithoutShow();
-                return result;
-            }
-
-            var resolvedOwner = ResolveOwner(owner);
-            if (resolvedOwner != null) form.ShowDialog(resolvedOwner); else form.ShowDialog();
-
-            // Presenter and form are disposed by the controller on FormClosed.
-            return result;
-        }
+            => ShowModalCore<TResult>(presenter, owner, () => ParameterlessInitializer(presenter));
 
         public InteractionResult ShowWindowAsModal<TPresenter>(TPresenter presenter, IWindowView owner = null)
         where TPresenter : IPresenter
@@ -67,26 +45,7 @@ namespace WinformsMVP.Services.Implementations
         /// <inheritdoc cref="ShowWindowAsModal{TPresenter, TResult}(TPresenter, IWindowView)"/>
         public InteractionResult<TResult> ShowWindowAsModal<TPresenter, TParam, TResult>(TPresenter presenter, TParam parameters, IWindowView owner = null)
             where TPresenter : IPresenter, IInitializable<TParam>
-        {
-            var form = CreateFormForPresenter(presenter);
-
-            InteractionResult<TResult> result = InteractionResult<TResult>.Cancel();
-            var controller = WireController<TResult>(presenter, form, r => result = r, disposeForm: true);
-
-            RunInitialize(presenter, form, () => presenter.Initialize(parameters));
-            controller.WireFormEvents();
-
-            if (controller.CloseRequestedBeforeShow)
-            {
-                controller.ConvergeWithoutShow();
-                return result;
-            }
-
-            var resolvedOwner = ResolveOwner(owner);
-            if (resolvedOwner != null) form.ShowDialog(resolvedOwner); else form.ShowDialog();
-
-            return result;
-        }
+            => ShowModalCore<TResult>(presenter, owner, () => () => presenter.Initialize(parameters));
 
         public InteractionResult ShowWindowAsModal<TPresenter, TParam>(TPresenter presenter, TParam parameters, IWindowView owner = null)
             where TPresenter : IPresenter, IInitializable<TParam>
@@ -99,6 +58,11 @@ namespace WinformsMVP.Services.Implementations
 
         #region Non-Modal
 
+        /// <summary>
+        /// Shows the presenter's window non-modally. With a <paramref name="keySelector"/>, a key
+        /// that already maps to an open window activates that window instead: the new presenter is
+        /// disposed and its <paramref name="onClosed"/> is never called.
+        /// </summary>
         public IWindowView ShowWindow<TPresenter, TResult>(
             TPresenter presenter,
             IWindowView owner = null,
@@ -106,10 +70,7 @@ namespace WinformsMVP.Services.Implementations
             Action<InteractionResult<TResult>> onClosed = null
             )
             where TPresenter : IPresenter
-        {
-            Action<InteractionResult<TResult>> finalOnClosed = onClosed ?? (r => { });
-            return ShowWindowInternal(presenter, owner, keySelector, finalOnClosed);
-        }
+            => ShowModelessCore(presenter, owner, keySelector, onClosed, () => ParameterlessInitializer(presenter));
 
         public IWindowView ShowWindow<TPresenter>(TPresenter presenter,
         IWindowView owner = null,
@@ -122,6 +83,7 @@ namespace WinformsMVP.Services.Implementations
                 onClosed: null);
         }
 
+        /// <inheritdoc cref="ShowWindow{TPresenter, TResult}(TPresenter, IWindowView, Func{TPresenter, object}, Action{InteractionResult{TResult}})"/>
         public IWindowView ShowWindow<TPresenter, TParam, TResult>(
             TPresenter presenter,
             TParam parameters,
@@ -129,26 +91,7 @@ namespace WinformsMVP.Services.Implementations
             Func<TPresenter, object> keySelector = null,
             Action<InteractionResult<TResult>> onClosed = null)
             where TPresenter : IPresenter, IInitializable<TParam>
-        {
-            object instanceKey;
-            var existing = TryActivateExisting(presenter, keySelector, out instanceKey);
-            if (existing != null) return existing;
-
-            var newForm = CreateFormForPresenter(presenter);
-
-            Action<InteractionResult<TResult>> safeOnClosed = onClosed ?? (r => { });
-            var controller = WireController<TResult>(
-                presenter, newForm, WrapWithKeyRemoval(instanceKey, safeOnClosed), disposeForm: false);
-
-            RunInitialize(presenter, newForm, () => presenter.Initialize(parameters));
-            RegisterOpenForm(instanceKey, newForm);
-            controller.WireFormEvents();
-
-            var resolvedOwner = ResolveOwner(owner);
-            if (resolvedOwner != null) newForm.Show(resolvedOwner); else newForm.Show();
-
-            return (IWindowView)newForm;
-        }
+            => ShowModelessCore(presenter, owner, keySelector, onClosed, () => () => presenter.Initialize(parameters));
 
         public IWindowView ShowWindow<TPresenter, TParam>(
             TPresenter presenter,
@@ -168,33 +111,123 @@ namespace WinformsMVP.Services.Implementations
 
         #region Core
 
-        private IWindowView ShowWindowInternal<TPresenter, TResult>(
-            TPresenter presenter,
-            IWindowView owner,
-            Func<TPresenter, object> keySelector,
-            Action<InteractionResult<TResult>> onClosed)
+        // Every public Show overload funnels into one of these two, so the create → sink → initialize
+        // → wire → show order (and its failure cleanup) exists exactly once per mode. The
+        // initializer is produced lazily by a factory so presenter-shape validation runs inside the
+        // dispose-on-failure guard of PrepareForm.
+
+        private InteractionResult<TResult> ShowModalCore<TResult>(
+            IPresenter presenter, IWindowView owner, Func<Action> initializerFactory)
+        {
+            InteractionResult<TResult> result = InteractionResult<TResult>.Cancel();
+            var form = PrepareForm<TResult>(presenter, owner, initializerFactory,
+                r => result = r, disposeForm: true, instanceKey: null, out var controller, out var resolvedOwner);
+
+            if (controller.CloseRequestedBeforeShow)
+            {
+                controller.ConvergeWithoutShow();
+                return result;
+            }
+
+            if (resolvedOwner != null) form.ShowDialog(resolvedOwner); else form.ShowDialog();
+
+            // Presenter and form are disposed by the controller on FormClosed.
+            return result;
+        }
+
+        private IWindowView ShowModelessCore<TPresenter, TResult>(
+            TPresenter presenter, IWindowView owner, Func<TPresenter, object> keySelector,
+            Action<InteractionResult<TResult>> onClosed, Func<Action> initializerFactory)
             where TPresenter : IPresenter
         {
             object instanceKey;
             var existing = TryActivateExisting(presenter, keySelector, out instanceKey);
             if (existing != null) return existing;
 
-            var newForm = CreateFormForPresenter(presenter);
+            Form newForm = null;
+            Action<InteractionResult<TResult>> safeOnClosed = onClosed ?? (r => { });
+            newForm = PrepareForm<TResult>(presenter, owner, initializerFactory,
+                r =>
+                {
+                    UnregisterOpenForm(instanceKey, newForm);
+                    safeOnClosed(r);
+                },
+                disposeForm: false, instanceKey,
+                out var controller, out var resolvedOwner);
 
-            var controller = WireController<TResult>(
-                presenter, newForm, WrapWithKeyRemoval(instanceKey, onClosed), disposeForm: false);
-
-            RunInitialize(presenter, newForm, () =>
-            {
-                if (presenter is IInitializable initializable) initializable.Initialize();
-            });
-            RegisterOpenForm(instanceKey, newForm);
-            controller.WireFormEvents();
-
-            var resolvedOwner = ResolveOwner(owner);
             if (resolvedOwner != null) newForm.Show(resolvedOwner); else newForm.Show();
 
             return (IWindowView)newForm;
+        }
+
+        /// <summary>
+        /// Validates the owner and presenter, creates and attaches the Form, injects the close sink,
+        /// initializes the presenter and wires the form events. A non-null
+        /// <paramref name="instanceKey"/> is registered BEFORE Initialize, so a re-entrant show for
+        /// the same key (e.g. OnInitialize pumps a modal prompt) activates this window instead of
+        /// opening a twin. On any failure the presenter and the form (if one was created) are
+        /// disposed, the key is released, and the exception is rethrown.
+        /// </summary>
+        private Form PrepareForm<TResult>(
+            IPresenter presenter, IWindowView owner, Func<Action> initializerFactory,
+            Action<InteractionResult<TResult>> onClosed, bool disposeForm, object instanceKey,
+            out WindowLifecycleController controller, out IWin32Window resolvedOwner)
+        {
+            if (presenter == null) throw new ArgumentNullException(nameof(presenter));
+
+            Form form = null;
+            try
+            {
+                resolvedOwner = ResolveOwner(owner);
+                var participant = presenter as ICloseParticipant;
+                if (participant == null)
+                    throw new InvalidOperationException(
+                        presenter.GetType().Name + " cannot be shown by WindowNavigator because it does not " +
+                        "derive from WindowPresenterBase / WindowPresenterBaseCore (no close participant).");
+                var initialize = initializerFactory();
+
+                form = CreateForm(presenter.ViewInterfaceType);
+                ((IViewAttachable)presenter).AttachView((IViewBase)form);
+
+                controller = new WindowLifecycleController(
+                    (IWindowView)form,
+                    participant,
+                    (res, status) => onClosed(CloseResults.Build<TResult>(res, status)),
+                    disposeForm);
+                controller.BindSink();   // sink before Initialize, so OnInitialize may RequestClose
+
+                RegisterOpenForm(instanceKey, form);
+                initialize();
+                controller.WireFormEvents();
+                return form;
+            }
+            catch
+            {
+                UnregisterOpenForm(instanceKey, form);
+                (presenter as IDisposable)?.Dispose();
+                form?.Dispose();
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// The Initialize step for the parameterless Show overloads. A presenter that only accepts
+        /// parameters (<see cref="IInitializable{TParam}"/>) would otherwise be shown uninitialized —
+        /// no action handlers, no <c>OnInitialize</c> — so it is rejected up front.
+        /// </summary>
+        private static Action ParameterlessInitializer(IPresenter presenter)
+        {
+            if (presenter is IInitializable initializable) return initializable.Initialize;
+
+            foreach (var iface in presenter.GetType().GetInterfaces())
+            {
+                if (iface.IsGenericType && iface.GetGenericTypeDefinition() == typeof(IInitializable<>))
+                    throw new InvalidOperationException(
+                        $"{presenter.GetType().Name} requires initialization parameters of type " +
+                        $"{iface.GetGenericArguments()[0].Name}. Show it with an overload that takes " +
+                        "parameters, e.g. Navigator.For(presenter).WithParam(parameters).");
+            }
+            return () => { };
         }
 
         /// <summary>
@@ -230,63 +263,26 @@ namespace WinformsMVP.Services.Implementations
 
         #endregion
 
-        #region Close wiring
-
-        /// <summary>
-        /// Creates the per-window <see cref="WindowLifecycleController"/> and injects its close sink
-        /// into the presenter (Push). Form events are wired separately, AFTER Initialize, via
-        /// <see cref="WindowLifecycleController.WireFormEvents"/>. The controller converges the close
-        /// result through <paramref name="onClosed"/>.
-        /// </summary>
-        private WindowLifecycleController WireController<TResult>(
-            IPresenter presenter, Form form, Action<InteractionResult<TResult>> onClosed, bool disposeForm)
-        {
-            var participant = presenter as ICloseParticipant;
-            if (participant == null)
-                throw new InvalidOperationException(
-                    presenter.GetType().Name + " cannot be shown by WindowNavigator because it does not " +
-                    "derive from WindowPresenterBase / WindowPresenterBaseCore (no close participant).");
-            var controller = new WindowLifecycleController(
-                (IWindowView)form,
-                participant,
-                (res, status) => onClosed(BuildResult<TResult>(res, status)),
-                disposeForm);
-            controller.BindSink();
-            return controller;
-        }
-
-        private Action<InteractionResult<TResult>> WrapWithKeyRemoval<TResult>(
-            object instanceKey, Action<InteractionResult<TResult>> inner)
-        {
-            if (instanceKey == null) return inner;
-            return r =>
-            {
-                lock (_lock) { _openForms.Remove(instanceKey); }
-                inner(r);
-            };
-        }
-
-        private static InteractionResult<TResult> BuildResult<TResult>(object result, InteractionStatus status)
-        {
-            switch (status)
-            {
-                case InteractionStatus.Ok:
-                    return InteractionResult<TResult>.Ok(result is TResult typed ? typed : default(TResult));
-                case InteractionStatus.Error:
-                    return InteractionResult<TResult>.Error("Operation failed");
-                case InteractionStatus.Cancel:
-                default:
-                    return InteractionResult<TResult>.Cancel();
-            }
-        }
+        #region Open-form registry
 
         private void RegisterOpenForm(object instanceKey, Form form)
         {
             if (instanceKey == null) return;
             lock (_lock)
             {
-                if (!_openForms.ContainsKey(instanceKey))
-                    _openForms.Add(instanceKey, form);
+                _openForms[instanceKey] = form;
+            }
+        }
+
+        /// <summary>Removes the key only while it still maps to <paramref name="form"/>, so a
+        /// window closing late never evicts a different window registered under the same key.</summary>
+        private void UnregisterOpenForm(object instanceKey, Form form)
+        {
+            if (instanceKey == null || form == null) return;
+            lock (_lock)
+            {
+                if (_openForms.TryGetValue(instanceKey, out var mapped) && ReferenceEquals(mapped, form))
+                    _openForms.Remove(instanceKey);
             }
         }
 
@@ -306,68 +302,25 @@ namespace WinformsMVP.Services.Implementations
             throw new ArgumentException("owner must be a Form-backed view.", nameof(owner));
         }
 
-        /// <summary>
-        /// Creates and attaches the Form for <paramref name="presenter"/> (does NOT initialize —
-        /// the navigator initializes explicitly after the close sink is injected). View-mapping and
-        /// configuration errors are surfaced by throwing; on any failure the presenter is disposed
-        /// and the original exception is rethrown so the misconfiguration is not silently swallowed.
-        /// </summary>
-        private Form CreateFormForPresenter(IPresenter presenter)
+        private Form CreateForm(Type viewInterfaceType)
         {
-            try
-            {
-                return CreateAndBindForm(presenter, presenter.ViewInterfaceType);
-            }
-            catch
-            {
-                (presenter as IDisposable)?.Dispose();
-                throw;
-            }
-        }
-
-        private Form CreateAndBindForm(IPresenter presenter, Type viewInterfaceType)
-        {
-            // 1. Create View instance (instantiate using ViewMappingRegister)
-            var newForm = _viewMappingRegister.CreateInstance(viewInterfaceType) as Form;
+            var instance = _viewMappingRegister.CreateInstance(viewInterfaceType);
+            var newForm = instance as Form;
             if (newForm == null)
             {
+                (instance as IDisposable)?.Dispose();
                 throw new InvalidOperationException(
                     $"The implementation of View interface {viewInterfaceType.Name} is not a Form. " +
                     $"Views used with WindowNavigator must inherit from System.Windows.Forms.Form.");
             }
 
-            // Critical: Ensure View implements IWindowView interface
             if (!(newForm is IWindowView))
             {
-                throw new InvalidOperationException($"View {newForm.GetType().Name} must implement IWindowView interface to support WindowNavigator's non-modal functionality.");
+                newForm.Dispose();
+                throw new InvalidOperationException($"View {newForm.GetType().Name} must implement IWindowView interface to be shown by WindowNavigator.");
             }
-
-            // The FormClosing/FormClosed bridge + Push sink are owned by WindowLifecycleController,
-            // wired by the caller after this returns (the sink must be injected before Initialize),
-            // so nothing close-related is set up here beyond attaching the view.
-
-            // 2. Inject View into Presenter via the non-generic internal contract.
-            ((IViewAttachable)presenter).AttachView((IViewBase)newForm);
 
             return newForm;
-        }
-
-        /// <summary>
-        /// Runs the presenter's Initialize step. On failure, disposes the presenter and the
-        /// orphaned form (it can never be shown) and rethrows.
-        /// </summary>
-        private static void RunInitialize(IPresenter presenter, Form form, Action initialize)
-        {
-            try
-            {
-                initialize();
-            }
-            catch
-            {
-                (presenter as IDisposable)?.Dispose();
-                form.Dispose();
-                throw;
-            }
         }
 
         #endregion

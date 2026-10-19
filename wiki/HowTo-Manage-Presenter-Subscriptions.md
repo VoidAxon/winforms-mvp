@@ -24,7 +24,7 @@ protected override void Cleanup()
 
 ## 道具:`CompositeDisposable` + `DisposeWith`
 
-`WinformsMVP.Common` にあります。外部依存ゼロ・net40 対応:
+`WinformsMVP.Common` にあります。外部依存ゼロ:
 
 | 型 | 役割 |
 |----|------|
@@ -105,9 +105,9 @@ detach 時にバッグが解放されると同時に、すべての `-=` が自�
 
 - **逆順解放**:構築と逆の順序で解放されます(「後に作った依存を先に壊す」の直感どおり)。
 - **冪等**:`CompositeDisposable` も `Disposable.Create` も解放は高々 1 回。多重 `Dispose` は安全です。
+- **例外に強い**:途中のメンバーが `Dispose` で例外を投げても、残りのメンバーはすべて解放されてから例外が再スローされます。`Cleanup` が例外を投げた場合も、Presenter の `Disposables` は解放されます。
 - **スレッド**:WinForms では購読も解放も UI スレッド上なので、ロックは持ちません(設計判断)。バックグラウンドスレッドから同じバッグに触らないでください。
 - **Presenter 全寿命より短い購読**:途中で解除したい購読は、戻り値を自分で持って個別に `Dispose` してください。バッグは「Presenter と共に死ぬもの」専用です。
-- **net40**:`List<T>`・ジェネリック拡張メソッド・`Action` のみで構成されており、追加要件はありません。
 
 ## Rx / ReactiveUI との関係
 

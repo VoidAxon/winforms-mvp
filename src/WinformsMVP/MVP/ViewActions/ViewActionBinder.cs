@@ -26,15 +26,23 @@ namespace WinformsMVP.MVP.ViewActions
     /// </para>
     ///
     /// <para>
-    /// <b>Pattern 2: Explicit Event-Based (via ActionTriggered)</b>
+    /// <b>Pattern 2: Explicit Event-Based (via ActionTriggered)</b> — e.g. for migrating a legacy Form
     /// <code>
-    /// // View
+    /// // View: no binder for the framework; event-only binding, forwarded to the view's own event
+    /// public IViewActionBinder ActionBinder => null;
     /// public event EventHandler&lt;ActionRequestEventArgs&gt; ActionRequest;
     /// _binder.ActionTriggered += (s, e) => ActionRequest?.Invoke(this, e);
+    /// _binder.Bind();
     ///
     /// // Presenter
-    /// View.ActionRequest += OnActionRequest;  // Explicit subscription
+    /// View.ActionRequest += OnViewActionTriggered;  // Explicit subscription
     /// </code>
+    /// </para>
+    ///
+    /// <para>
+    /// Routing is decided by which <c>Bind</c> overload runs, never by who listens:
+    /// <see cref="Bind(ViewActionDispatcher)"/> always dispatches; <see cref="Bind()"/> only raises
+    /// <see cref="ActionTriggered"/>. Subscribing to <see cref="ActionTriggered"/> never changes routing.
     /// </para>
     /// </remarks>
     public class ViewActionBinder : IViewActionBinder, IEnumerable<ActionBinding>
@@ -53,12 +61,15 @@ namespace WinformsMVP.MVP.ViewActions
         private ViewActionDispatcher _dispatcher;
 
         /// <summary>
-        /// Raised when an action is triggered from a bound control.
-        /// This event enables explicit event-based handling as an alternative to Bind(dispatcher).
+        /// Raised when an action is triggered from a bound control. With <see cref="Bind(ViewActionDispatcher)"/>
+        /// it is a notification raised after the dispatch (status bar, logging, ...); with
+        /// <see cref="Bind()"/> it is the only output, for the explicit event-based pattern.
+        /// Subscribing never changes whether actions reach the dispatcher.
         /// </summary>
         /// <remarks>
         /// <para>
-        /// Use this event when you prefer explicit event subscriptions over implicit dispatcher binding:
+        /// Explicit event-based pattern (the view returns a null <c>ActionBinder</c> and calls
+        /// <see cref="Bind()"/> itself):
         /// </para>
         /// <code>
         /// // View interface
@@ -172,8 +183,39 @@ namespace WinformsMVP.MVP.ViewActions
 
         public void Add(ViewAction actionKey, params Component[] controls)
         {
-            _bindings.Add(new ActionBinding(actionKey, controls));
+            if (controls == null) throw new ArgumentNullException(nameof(controls));
+            AddBinding(new ActionBinding(actionKey, controls));
         }
+
+        /// <summary>
+        /// A control drives exactly one action: a second binding would silently replace the first
+        /// at <c>Bind</c> time, and the control's Enabled state would follow whichever action the
+        /// refresh visited last. Reject it where the mistake is made.
+        /// </summary>
+        private void AddBinding(ActionBinding binding)
+        {
+            if (binding.ActionKey.Name == null)
+                throw new ArgumentException(
+                    "default(ViewAction) is not a valid action key; create keys with ViewAction.Create(...).");
+            foreach (var component in binding.Components)
+            {
+                if (component == null)
+                    throw new ArgumentException("Controls must not contain null.");
+                foreach (var existing in _bindings)
+                {
+                    if (Array.IndexOf(existing.Components, component) >= 0)
+                        throw new InvalidOperationException(
+                            $"{DescribeComponent(component)} is already bound to action '{existing.ActionKey}'; " +
+                            $"it cannot also be bound to '{binding.ActionKey}'. A control triggers one action.");
+                }
+            }
+            _bindings.Add(binding);
+        }
+
+        private static string DescribeComponent(Component component)
+            => component is Control c && !string.IsNullOrEmpty(c.Name) ? $"Control '{c.Name}'"
+             : component is ToolStripItem t && !string.IsNullOrEmpty(t.Name) ? $"Item '{t.Name}'"
+             : component.GetType().Name;
 
         /// <summary>
         /// Binds a control whose current value is captured at trigger time and forwarded as the
@@ -193,26 +235,18 @@ namespace WinformsMVP.MVP.ViewActions
             if (control == null) throw new ArgumentNullException(nameof(control));
             if (valueSelector == null) throw new ArgumentNullException(nameof(valueSelector));
 
-            _bindings.Add(new ActionBinding(
+            AddBinding(new ActionBinding(
                 actionKey,
                 new Component[] { control },
                 comp => valueSelector((TControl)comp)));
         }
 
         /// <summary>
-        /// Binds all registered controls to their actions.
-        /// Automatically detects whether to use implicit or explicit pattern based on ActionTriggered event subscribers.
+        /// Binds all registered controls to their actions. A trigger first runs
+        /// <paramref name="onActionTriggered"/> (the dispatch, when bound to a dispatcher), then raises
+        /// <see cref="ActionTriggered"/>, so a failing notification subscriber cannot prevent the dispatch.
         /// </summary>
-        /// <param name="onActionTriggered">Callback when an action is triggered (used in implicit pattern)</param>
-        /// <remarks>
-        /// <para>
-        /// <b>Automatic Mode Detection:</b>
-        /// </para>
-        /// <list type="bullet">
-        /// <item><b>Explicit Pattern:</b> If ActionTriggered event has subscribers, only the event fires (callback skipped to prevent double-dispatch)</item>
-        /// <item><b>Implicit Pattern:</b> If ActionTriggered event has no subscribers, only the callback fires</item>
-        /// </list>
-        /// </remarks>
+        /// <param name="onActionTriggered">Dispatch callback; null for event-only binding.</param>
         private void Bind(Action<ViewAction, object> onActionTriggered)
         {
             Unbind();
@@ -245,23 +279,13 @@ namespace WinformsMVP.MVP.ViewActions
                         ? binding.ValueSelector((Component)sender)
                         : null;
 
-                    // Always raise ActionTriggered event (for explicit event-based pattern).
+                    onActionTriggered?.Invoke(key, payload);
+
                     // Value bindings raise a value-carrying ActionRequestEventArgs<T> so the payload
                     // survives the explicit hop through the view's ActionRequest event.
                     ActionTriggered?.Invoke(this, binding.ValueSelector != null
                         ? new ActionRequestEventArgs<object>(key, payload)
                         : new ActionRequestEventArgs(key));
-
-                    // Auto-detect mode: Check if explicit event handlers are registered
-                    bool hasExplicitHandlers = ActionTriggered != null &&
-                                              ActionTriggered.GetInvocationList().Length > 0;
-
-                    if (!hasExplicitHandlers)
-                    {
-                        // Implicit pattern: No explicit handlers, use callback
-                        onActionTriggered?.Invoke(key, payload);
-                    }
-                    // Explicit pattern: Has explicit handlers, skip callback to prevent double-dispatch
                 }
             });
 
@@ -272,8 +296,8 @@ namespace WinformsMVP.MVP.ViewActions
         }
 
         /// <summary>
-        /// Binds all registered controls to trigger ActionTriggered event only.
-        /// Typically used for explicit event-based pattern, but can also work with implicit pattern if Bind(dispatcher) is called later.
+        /// Binds all registered controls to raise <see cref="ActionTriggered"/> only (explicit
+        /// event-based pattern). Nothing is dispatched.
         /// </summary>
         /// <remarks>
         /// <para>
@@ -288,8 +312,9 @@ namespace WinformsMVP.MVP.ViewActions
         /// View.ActionRequest += OnActionRequest;
         /// </code>
         /// <para>
-        /// Note: The automatic mode detection still applies. If ActionTriggered has subscribers,
-        /// explicit pattern is used. Otherwise, actions won't dispatch anywhere (unless Bind(dispatcher) is called later).
+        /// Actions reach no dispatcher in this mode. Return null from the view's <c>ActionBinder</c>
+        /// so the framework does not also call <see cref="Bind(ViewActionDispatcher)"/>, which would
+        /// rebind the controls for dispatching.
         /// </para>
         /// </remarks>
         public void Bind()

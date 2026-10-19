@@ -25,7 +25,35 @@ namespace WinformsMVP.DependencyInjection
         /// not registered — matching the standard
         /// <see cref="ServiceProviderServiceExtensions.GetRequiredService{T}"/> contract.
         /// </summary>
+        /// <remarks>
+        /// Each presenter is resolved from its own <see cref="IServiceScope"/>, and the scope is
+        /// disposed together with the presenter. Resolving from the root provider instead would make
+        /// the container keep every transient (disposable) presenter — and its View and transient
+        /// dependencies — alive until the application exits. Scoped services therefore live per
+        /// presenter (per window). This applies to presenters deriving from the framework presenter
+        /// bases; other <see cref="IPresenter"/> implementations resolve from the provider directly.
+        /// </remarks>
         public TPresenter Create<TPresenter>() where TPresenter : IPresenter
-            => _serviceProvider.GetRequiredService<TPresenter>();
+        {
+            // A per-presenter scope needs a presenter that can own it (the framework presenter
+            // bases). Anything else — a non-scoping provider, a custom IPresenter — resolves from the
+            // provider as before, so the container stays responsible for disposing its dependencies.
+            var scopeFactory = _serviceProvider.GetService<IServiceScopeFactory>();
+            if (scopeFactory == null || !typeof(IPresenterResourceOwner).IsAssignableFrom(typeof(TPresenter)))
+                return _serviceProvider.GetRequiredService<TPresenter>();
+
+            var scope = scopeFactory.CreateScope();
+            try
+            {
+                var presenter = scope.ServiceProvider.GetRequiredService<TPresenter>();
+                ((IPresenterResourceOwner)presenter).OwnUntilDisposed(scope);
+                return presenter;
+            }
+            catch
+            {
+                scope.Dispose();
+                throw;
+            }
+        }
     }
 }

@@ -30,5 +30,5 @@ assignees: ''
 ## 環境
 
 - **WinForms MVP Framework のバージョン**:
-- **.NET Framework のバージョン**:
+- **ターゲットフレームワーク** (net472 / net48 / net10.0-windows など):
 - **OS**:

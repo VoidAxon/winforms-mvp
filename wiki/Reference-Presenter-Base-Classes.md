@@ -17,7 +17,9 @@ PresenterBase<TView>                              [共通基底・直接継承�
 └─ ControlPresenterBase<TView, TParam>            [UserControl、パラメータあり]
 ```
 
-`WindowPresenterBaseCore<TView>` には Pull ゲート (`CanClose` オーバーライド)、Push helper (`RequestClose`)、および `Connect` で使われるクローズシンクバインディングが集約されています。直接継承せず、`WindowPresenterBase<TView>` または `WindowPresenterBase<TView, TParam>` を使ってください。
+これらの基底クラスはすべて `WinformsMVP.Core` パッケージ (`netstandard2.0`、WinForms 非参照) にあります。`Connect` 拡張メソッドや `WindowNavigator` など WinForms に触れる部分は `WinformsMVP` パッケージ側です (名前空間は共通)。
+
+`WindowPresenterBaseCore<TView>` には Pull ゲート (`CanClose` / `CanCloseAsync` オーバーライド)、Push helper (`RequestClose`)、および `Connect` で使われるクローズシンクバインディングが集約されています。直接継承せず、`WindowPresenterBase<TView>` または `WindowPresenterBase<TView, TParam>` を使ってください。
 
 業務結果を返す Presenter は、`RequestClose(result, status)` 基底メソッドを呼ぶだけです — インターフェイスの実装も拡張メソッドも不要。`TResult` は引数から推論されます (詳細は [ウィンドウクローズモデル](Concept-Window-Closing-Model))。
 
@@ -209,17 +211,25 @@ presenter.Connect(_searchPanel, parameters);   // アタッチ + パラメータ
 2. `WindowNavigator` が `IViewMappingRegister` から View 型を解決して View を生成
 3. View を Presenter にアタッチ (`IViewAttacher<TView>.AttachView()`)
 4. **`OnViewAttached()` 呼び出し**
-5. **`OnInitialize()` または `OnInitialize(parameters)` 呼び出し**
-6. **`RegisterViewActions()` 呼び出し** (フレームワークが続けて `View.ActionBinder?.Bind(Dispatcher)` を実行)
-7. Form 表示 (Modal / Non-Modal)
-8. (Form が閉じられたとき) **`Cleanup()` 呼び出し**
+5. **`RegisterViewActions()` 呼び出し** (フレームワークが続けて `View.ActionBinder?.Bind(Dispatcher)` を実行)
+6. **`OnInitialize()` または `OnInitialize(parameters)` 呼び出し**
+7. **`OnInitializeAsync(Lifetime)` 開始** (完了を待たない)
+8. Form 表示 (Modal / Non-Modal) — `OnInitializeAsync` の `await` 中も表示・操作できる
+9. (Form が閉じられたとき) **`Lifetime` をキャンセル** → **`Cleanup()` 呼び出し**
 
 ### UserControl 系
 
 1. UserControl は既にデザイナーまたはコードで生成済み
 2. Presenter インスタンスを生成 (`new SettingsPresenter(deps?)` — Presenter 自身の依存のみ)
-3. `presenter.Connect(view[, parameters])` を呼ぶ → 構築後に **View アタッチ** (`OnViewAttached`) → **アクション登録** (`RegisterViewActions`、続けてフレームワークが `ActionBinder` を自動 Bind) → **初期化** (`OnInitialize`) が走る
+3. `presenter.Connect(view[, parameters])` を呼ぶ → 構築後に **View アタッチ** (`OnViewAttached`) → **アクション登録** (`RegisterViewActions`、続けてフレームワークが `ActionBinder` を自動 Bind) → **初期化** (`OnInitialize`、続けて `OnInitializeAsync` を開始) が走る
 4. UserControl が `Dispose` されると Presenter も自動 `Dispose` (`Connect` が `ControlLifecycleController` 経由で橋渡し)
+
+### 誤用時の挙動 (フェイルファスト)
+
+- View をアタッチせずに `Initialize` すると `InvalidOperationException`。
+- アタッチ済みの Presenter に 2 つ目の View をアタッチすると例外。
+- UserControl 用 `Connect` が途中 (アタッチ/初期化) で失敗した場合、Presenter は破棄されます。
+- Form 用 `Connect` (Adopted) の挙動は [ウィンドウクローズモデル § Adopted ホスティング](Concept-Window-Closing-Model) を参照 (アタッチ済み・未初期化なら初期化、異なる View や 2 回目の `Connect` は例外、失敗時は破棄)。
 
 ---
 
@@ -229,10 +239,40 @@ presenter.Connect(_searchPanel, parameters);   // アタッチ + パラメータ
 |---------|-----------------|---------|
 | `OnViewAttached()` | View が注入された直後 | View イベントの購読 |
 | `OnInitialize()` / `OnInitialize(TParam)` | View アタッチ後・表示前 | View プロパティの初期化、データロード |
+| `OnInitializeAsync(CancellationToken)` | `OnInitialize` の直後に開始 (完了を待たずにウィンドウ表示) | 非同期のデータロード (DB・ネットワーク) |
 | `RegisterViewActions()` | `OnInitialize` の前 (Initialize 内) | `Dispatcher.Register` でアクション登録 (この直後にフレームワークが ActionBinder を自動 Bind) |
 | `Cleanup()` | Presenter が破棄されるとき | `Disposables` で賄えない特殊なリソース解放 |
 
 すべて `protected override`。
+
+### `OnInitializeAsync` と `Lifetime`
+
+`protected virtual Task OnInitializeAsync(CancellationToken cancellationToken)` は同期の `OnInitialize` の直後に開始され、ウィンドウはその完了を待たずに表示されます。重いデータロードはここに置くと UI がフリーズしません。
+
+```csharp
+protected override void OnInitialize()
+{
+    View.StatusMessage = "読み込み中...";   // 同期部分: すぐに表示したい初期状態
+}
+
+protected override async Task OnInitializeAsync(CancellationToken ct)
+{
+    try
+    {
+        View.Customers = await _repository.GetAllAsync(ct);
+        View.StatusMessage = "完了";
+    }
+    catch (IOException ex)
+    {
+        Messages.ShowError($"読み込みに失敗しました: {ex.Message}");   // 想定内のエラーは中で処理
+    }
+}
+```
+
+- 未処理の例外はログ出力されます (ウィンドウは開いたまま)。ユーザーに伝えるべきエラーはオーバーライド内で捕まえてください。
+- 渡されるトークンは `Lifetime` です。`protected CancellationToken Lifetime` は Presenter の `Dispose` の最初 (`Cleanup` より前) にキャンセルされるので、読み込み中にウィンドウを閉じても処理が止まり、そのキャンセルはエラー扱いされません。
+- `Lifetime` は非同期アクションハンドラにも自動で渡されます ([ViewAction § 非同期アクション](Reference-ViewAction-System#非同期アクション))。それ以外の、Presenter と一緒に止めたい非同期処理 (タイマー、ポーリング等) にも渡してください。
+- テストでは `await host.Initialized;` で完了を待ってから検証します ([HowTo: Presenter をテストする](HowTo-Test-A-Presenter))。
 
 ### `Disposables` — 購読の自動解放バッグ
 
@@ -271,10 +311,10 @@ protected override void OnViewAttached()
 
 | メソッドの種類 | 可視性 |
 |--------------|------|
-| コンストラクタ / `Initialize` / `Dispose` | `public` (既定の公開面) |
+| コンストラクタ / `Dispose` | `public` (既定の公開面)。`AttachView` / `Initialize` は `IViewAttacher<TView>` / `IInitializable` の明示的インターフェイス実装で、`presenter.Initialize()` とは書けない — 本番は `WindowNavigator` / `Connect`、テストは `PresenterTestHost` 経由 |
 | 親→子の狭いコマンド | 既定 `internal` (同一アセンブリ)。縫い目が要るときだけ公開コマンドインターフェイス — 接口は強制しない |
-| ライフサイクルフック (`OnInitialize`、`OnViewAttached`、`RegisterViewActions`、`Cleanup`) | `protected override` |
-| クローズゲート (`CanClose(CloseReason)` / `CanClose(CloseReason, Action<bool>)`) | `protected override` |
+| ライフサイクルフック (`OnInitialize`、`OnInitializeAsync`、`OnViewAttached`、`RegisterViewActions`、`Cleanup`) | `protected override` |
+| クローズゲート (`CanClose(CloseReason)` / `CanCloseAsync(CloseReason)`) | `protected override` |
 | ViewAction ハンドラ (`OnSave`、`OnCancel`、...) | `private` (硬い約束) |
 | View イベントハンドラ (`OnSelectionChanged`、...) | `private` |
 | ヘルパー (検証、フォーマッタ等) | `private` |
@@ -288,7 +328,7 @@ protected override void OnViewAttached()
 - **ウィンドウの結果通知 (上向き・単発)** → 基底 `RequestClose(result, status)` を呼ぶ (✅ 出力ポート。インターフェイス実装不要。フレームワークが `InteractionResult<TResult>` に変換して呼び出し元に返す)
 - **親子の連携 (親 → 子)** → **まず共有 Model / イベントを検討する**。直接命令は**窄い例外**で、本物の一回的コマンド (`Reset()` 等、他に関係者がなく子の状態問い合わせも不要) のときだけ使います。その場合も **handler は `private` のまま (硬線)**、露出形式は既定 `internal`、差し替え / テストの縫い目が要るときだけコマンドインターフェイス (**接口は強制しない**)。[Rule 10](Design-Rules#rule-10-view-にアクセスするのは-presenter-だけ) ・ [HowTo: Presenter 間の通信方法](HowTo-Communicate-Between-Presenters) 参照
 - **共有・観測されるステート (注文・認証等)** → ステートは Service / Store に持たせ、その変更通知イベントを発火
-- **モジュール横断の通知** → `IEventAggregator` で publish (弱参照、UI スレッド整列)
+- **モジュール横断の通知** → `IEventAggregator` で publish (購読トークンは `.DisposeWith(Disposables)`、UI スレッド整列)
 
 ### NG パターン
 
@@ -332,16 +372,22 @@ Presenter を **本物のエントリーポイントから** 駆動してくだ�
 // ❌ Wrong:   presenter.OnSave();
 // ✅ Right:   view.Binder.Dispatch(StandardActions.Save);
 
-// Pull ゲート (CanClose) のテスト — ICloseParticipant は internal、InternalsVisibleTo で到達
-bool? allow = null;
-((ICloseParticipant)presenter).CanCloseGate(CloseReason.Normal, ok => allow = ok);
-Assert.False(allow);
+// Presenter のホスト — AttachView / Initialize は明示的インターフェイス実装なので直接は呼べない。
+// PresenterTestHost (WinformsMVP.Testing) がモック View をアタッチして実際の初期化を走らせる
+using (var host = PresenterTestHost.Start(presenter, view))
+{
+    // Push (RequestClose) のテスト — ホストが記録する
+    view.Binder.Dispatch(StandardActions.Save);
+    Assert.Equal(InteractionStatus.Ok, host.CloseStatus);
 
-// Push (RequestClose) のテスト — recording sink を注入
-var sink = new RecordingSink();   // ICloseSink を実装する小さなテスト用クラス
-((ICloseParticipant)presenter).BindCloseSink(sink);
-view.Binder.Dispatch(StandardActions.Save);
-Assert.Equal(InteractionStatus.Ok, sink.Closed[0].status);
+    // Pull ゲート (CanClose) のテスト — X / Alt+F4 と同じゲート (CanCloseAsync が未回答なら null)
+    Assert.False(host.CanClose(CloseReason.Normal));
+
+    // 非同期: ハンドラ / OnInitializeAsync / CanCloseAsync の完了を await する
+    await view.Binder.DispatchAsync(StandardActions.Refresh);
+    await host.Initialized;
+    Assert.True(await host.CanCloseAsync(CloseReason.Normal));
+}
 ```
 
 `OnSave` を `private` から `internal` / `public` に格上げしてテストすると、production が通らない経路がテストで通ってしまい、CanExecute 判定をスキップする等の不具合を見逃します。
@@ -363,7 +409,10 @@ Assert.Equal(InteractionStatus.Ok, sink.Closed[0].status);
 | `Files` | `IFileService` | ファイル I/O |
 | `Logger` | `ILogger` | 構造化ロギング |
 | `Navigator` | `IWindowNavigator` | 子ウィンドウの表示 |
-これらは `ServiceLocator.Current` (`IServiceProvider`) から遅延解決されます。
+| `Lifetime` | `CancellationToken` | Presenter の破棄 (ウィンドウを閉じる / コントロール破棄) でキャンセルされるトークン |
+| `Validation` | `ValidationState` | 検証エラー (フィールド名ごと)。`Validate(model)` / `Check(model)` / `SetError` / `Reset`。View が `IValidatableView` なら `ValidationErrors` に自動接続され、変更のたびに `canExecute` を再評価 ([フォーム入力を検証する](HowTo-Validate-Form-Input)) |
+
+`Messages` / `Dialogs` / `Files` / `Logger` / `Navigator` は `ServiceLocator.Current` (`IServiceProvider`) から遅延解決されます。
 DI コンテナと統合する場合の構成方法は [Dependency Injection](Reference-DependencyInjection) を参照してください。
 
 ---
@@ -371,7 +420,7 @@ DI コンテナと統合する場合の構成方法は [Dependency Injection](Re
 ## 関連ページ
 
 - [MVP パターンとは](Concept-MVP-Pattern) — Presenter の責務範囲
-- [ウィンドウクローズモデル](Concept-Window-Closing-Model) — `RequestClose` / `CanClose` の詳細
+- [ウィンドウクローズモデル](Concept-Window-Closing-Model) — `RequestClose` / `CanClose` / `CanCloseAsync` の詳細
 - [ViewAction システム](Reference-ViewAction-System) — `Dispatcher.Register` の全形式
 - [WindowNavigator](Reference-WindowNavigator) — Form 系 Presenter の表示方法
 - [Platform Services](Reference-Platform-Services) — 内部ヘルパーで使えるサービス群

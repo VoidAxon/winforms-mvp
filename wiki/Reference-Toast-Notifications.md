@@ -29,6 +29,10 @@ Messages.ShowToast("アップロード完了", ToastType.Info, new ToastOptions
 });
 ```
 
+> `ToastOptions` を取るオーバーロードは `IMessageService` のメンバーではなく、`WinformsMVP` パッケージの拡張メソッド `MessageServiceToastExtensions.ShowToast` です (`ToastOptions` が `Font` などの WinForms 型を含むため)。`WinformsMVP` を参照しているプロジェクトでは上のコードはそのままコンパイルできます。`WinformsMVP.Core` だけを参照する Presenter プロジェクトでは `ShowToast(text, type[, duration])` のみ使えます。カスタムの `IMessageService` 実装には `options.Duration` だけが渡されます。
+>
+> 組み込みの `MessageService.ShowToast` はワーカースレッドから呼んでも UI スレッドへマーシャリングされます。
+
 `ToastType` は `Info` / `Success` / `Warning` / `Error`。背景色とアイコンを決めます。
 
 ### 積み上げの挙動

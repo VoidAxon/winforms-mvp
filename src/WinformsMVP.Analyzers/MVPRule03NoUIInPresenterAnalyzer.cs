@@ -1,5 +1,4 @@
 using System.Collections.Immutable;
-using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -9,22 +8,12 @@ namespace WinformsMVP.Analyzers
 {
     /// <summary>
     /// Analyzer for MVP Rule 3: Presenter should not create UI controls.
-    /// Detects when Presenters instantiate WinForms control types.
+    /// Detects when Presenters instantiate WinForms types (controls, forms, common dialogs, ...),
+    /// including target-typed <c>new()</c>.
     /// </summary>
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public class MVPRule03NoUIInPresenterAnalyzer : DiagnosticAnalyzer
     {
-        private static readonly string[] UIControlTypes = new[]
-        {
-            "Button", "TextBox", "Label", "ListBox", "DataGrid", "DataGridView",
-            "TreeView", "ListView", "TabControl", "Panel", "GroupBox",
-            "ComboBox", "CheckBox", "RadioButton", "PictureBox", "ProgressBar",
-            "TrackBar", "NumericUpDown", "DateTimePicker", "MonthCalendar",
-            "RichTextBox", "WebBrowser", "SplitContainer", "FlowLayoutPanel",
-            "TableLayoutPanel", "ToolStrip", "MenuStrip", "StatusStrip",
-            "ContextMenuStrip", "PropertyGrid", "MaskedTextBox", "Form"
-        };
-
         public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
             ImmutableArray.Create(DiagnosticDescriptors.MVPRule03NoUIInPresenter);
 
@@ -32,40 +21,31 @@ namespace WinformsMVP.Analyzers
         {
             context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
             context.EnableConcurrentExecution();
-            context.RegisterSyntaxNodeAction(AnalyzeObjectCreation, SyntaxKind.ObjectCreationExpression);
+            context.RegisterSyntaxNodeAction(AnalyzeObjectCreation,
+                SyntaxKind.ObjectCreationExpression, SyntaxKind.ImplicitObjectCreationExpression);
         }
 
         private void AnalyzeObjectCreation(SyntaxNodeAnalysisContext context)
         {
-            var objectCreation = (ObjectCreationExpressionSyntax)context.Node;
-
-            // Only analyze in Presenter classes
-            var containingClass = objectCreation.Ancestors().OfType<ClassDeclarationSyntax>().FirstOrDefault();
-            if (containingClass == null)
+            // Only analyze in Presenter classes (semantic: derives from PresenterBase<TView>)
+            var presenter = MvpSymbols.GetContainingPresenter(context.ContainingSymbol);
+            if (presenter == null)
                 return;
 
-            var className = containingClass.Identifier.Text;
-            if (!className.EndsWith("Presenter"))
+            // Get the type being created (works for both 'new Button()' and target-typed 'new()')
+            var createdType = context.SemanticModel.GetTypeInfo(context.Node, context.CancellationToken).Type;
+            if (createdType == null || !MvpSymbols.IsWinFormsType(createdType))
                 return;
 
-            // Get the type being created
-            var typeInfo = context.SemanticModel.GetTypeInfo(objectCreation.Type);
-            if (typeInfo.Type == null)
-                return;
+            var location = context.Node is ObjectCreationExpressionSyntax explicitCreation
+                ? explicitCreation.Type.GetLocation()
+                : context.Node.GetLocation();
 
-            var typeName = typeInfo.Type.Name;
-
-            // Check if it's a UI control type
-            if (UIControlTypes.Contains(typeName))
-            {
-                var diagnostic = Diagnostic.Create(
-                    DiagnosticDescriptors.MVPRule03NoUIInPresenter,
-                    objectCreation.Type.GetLocation(),
-                    className,
-                    typeName);
-
-                context.ReportDiagnostic(diagnostic);
-            }
+            context.ReportDiagnostic(Diagnostic.Create(
+                DiagnosticDescriptors.MVPRule03NoUIInPresenter,
+                location,
+                presenter.Name,
+                createdType.Name));
         }
     }
 }

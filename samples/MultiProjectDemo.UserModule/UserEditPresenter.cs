@@ -43,8 +43,8 @@ namespace MultiProjectDemo.UserModule
 
         protected override void RegisterViewActions()
         {
-            _dispatcher.Register(UserEditActions.Save, OnSave);
-            _dispatcher.Register(UserEditActions.Cancel, OnCancel);
+            Dispatcher.Register(UserEditActions.Save, OnSave);
+            Dispatcher.Register(UserEditActions.Cancel, OnCancel);
         }
 
         private void OnSave()

@@ -3,6 +3,7 @@ using WinformsMVP.MVP.ViewActions;
 using WinformsMVP.Samples.AnchoredMessageDemo;
 using WinformsMVP.Samples.Tests.Mocks;
 using WinformsMVP.Samples.Tests.TestHelpers;
+using WinformsMVP.Testing;
 using Xunit;
 
 namespace WinformsMVP.Samples.Tests.Presenters
@@ -37,8 +38,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
         public AnchoredMessageDemoPresenterTests()
         {
             _presenter = new AnchoredMessageDemoPresenter().WithServiceProvider(_services.Provider);
-            _presenter.AttachView(_view);
-            _presenter.Initialize();
+            PresenterTestHost.Start(_presenter, _view);
         }
 
         [Fact]

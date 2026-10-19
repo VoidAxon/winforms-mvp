@@ -92,17 +92,17 @@ namespace WinformsMVP.Samples
         protected override void RegisterViewActions()
         {
             // Register actions with handlers and CanExecute predicates
-            _dispatcher.Register(
+            Dispatcher.Register(
                 DocumentActions.Open,
                 OnOpenDocument,
                 canExecute: () => true);
 
-            _dispatcher.Register(
+            Dispatcher.Register(
                 DocumentActions.SaveAs,
                 OnSaveDocumentAs,
                 canExecute: () => View.IsDocumentLoaded);
 
-            _dispatcher.Register(
+            Dispatcher.Register(
                 DocumentActions.Export,
                 OnExportDocument,
                 canExecute: () => View.IsDocumentLoaded);

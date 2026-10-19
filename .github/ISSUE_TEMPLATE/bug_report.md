@@ -40,7 +40,7 @@ assignees: ''
 ## 環境
 
 - **WinForms MVP Framework のバージョン**: <!-- 例: master @ 56128d8、または NuGet 版 -->
-- **.NET Framework のバージョン**: <!-- net40 / net48 -->
+- **ターゲットフレームワーク**: <!-- net472 / net48 / net10.0-windows など -->
 - **OS**: <!-- 例: Windows 11 Enterprise 26H2 -->
 - **IDE**: <!-- 例: Visual Studio 2022 17.10 -->
 

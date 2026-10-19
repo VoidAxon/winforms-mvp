@@ -10,6 +10,8 @@
 
 > **前提条件**: [はじめに (Getting Started)](Getting-Started) で扱った基本概念 (View インターフェイス、Presenter、ViewAction) を理解していること。
 
+> **ヒント**: プロジェクトは `dotnet new winformsmvp -n MyTodoApp` で作ると、`Program.Main` の登録処理まで揃った状態から始められます ([HowTo: テンプレートを使う](HowTo-Use-Templates))。
+
 完成形のサンプルコードは `samples/WinformsMVP.Samples/ToDoDemo/` にあります。詰まったらそちらと見比べてください。
 
 ---
@@ -312,6 +314,8 @@ namespace MyTodoApp
 }
 ```
 
+> **ポイント (Designer を使う場合):** この例はコードだけで UI を組み立てていますが、.NET 9 以降では、View インターフェイスを実装する public プロパティ (`Items` / `SelectedItem` / `NewTaskTitle` など) に `[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]` を付けてください。付けないと WinForms アナライザー **WFO1000** が既定でビルドエラーにします (`Ctrl+.` →「プロジェクト内のすべて修正」で一括付与可)。`dotnet new mvp-window` が生成する Form は付与済みです ([HowTo: テンプレートを使う](HowTo-Use-Templates#designer-と-wfo1000))。
+
 ---
 
 ## Step 6: タスクの追加・削除を実装する
@@ -486,8 +490,8 @@ public class ToDoPresenterTests
         _view = new MockToDoView();
         _presenter = new ToDoPresenter().WithServiceProvider(_mockServices.Provider);
 
-        _presenter.AttachView(_view);
-        _presenter.Initialize();
+        // View のアタッチ + 実際の初期化 (WinformsMVP.Testing.PresenterTestHost)
+        PresenterTestHost.Start(_presenter, _view);
 
         _mockServices.Reset();
     }

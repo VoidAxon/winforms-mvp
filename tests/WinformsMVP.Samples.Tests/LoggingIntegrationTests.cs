@@ -7,6 +7,7 @@ using WinformsMVP.MVP.ViewActions;
 using WinformsMVP.Samples.Tests.Mocks;
 using WinformsMVP.Samples.Tests.TestHelpers;
 using WinformsMVP.Services;
+using WinformsMVP.Testing;
 using Xunit;
 using static WinformsMVP.Samples.LoggingDemoExample;
 
@@ -37,8 +38,7 @@ namespace WinformsMVP.Samples.Tests
 
             var view = new MockLoggingDemoView();
 
-            presenter.AttachView(view);
-            presenter.Initialize();
+            PresenterTestHost.Start(presenter, view);
 
             Assert.NotNull(view.LogOutput);
         }
@@ -56,8 +56,7 @@ namespace WinformsMVP.Samples.Tests
 
             var view = new MockLoggingDemoView { UserName = "TestUser" };
 
-            presenter.AttachView(view);
-            presenter.Initialize();
+            PresenterTestHost.Start(presenter, view);
 
             Assert.NotEmpty(loggerFactory.Logger.Entries);
 
@@ -81,8 +80,7 @@ namespace WinformsMVP.Samples.Tests
 
             var view = new MockLoggingDemoView();
 
-            presenter.AttachView(view);
-            presenter.Initialize();
+            PresenterTestHost.Start(presenter, view);
 
             view.UserName = "Alice";
 
@@ -108,8 +106,7 @@ namespace WinformsMVP.Samples.Tests
 
             var view = new MockLoggingDemoView();
 
-            presenter.AttachView(view);
-            presenter.Initialize();
+            PresenterTestHost.Start(presenter, view);
 
             view.UserName = "Bob";
 
@@ -137,8 +134,7 @@ namespace WinformsMVP.Samples.Tests
 
             var view = new MockLoggingDemoView { UserName = "TestUser" };
 
-            presenter.AttachView(view);
-            presenter.Initialize();
+            PresenterTestHost.Start(presenter, view);
 
             view.Binder.Dispatch(LoggingActions.LogDebug);
             view.Binder.Dispatch(LoggingActions.LogInfo);
@@ -207,8 +203,7 @@ namespace WinformsMVP.Samples.Tests
 
             var view = new MockLoggingDemoView { UserName = "Charlie" };
 
-            presenter.AttachView(view);
-            presenter.Initialize();
+            PresenterTestHost.Start(presenter, view);
 
             view.Binder.Dispatch(LoggingActions.LogStructured);
             view.Binder.Dispatch(LoggingActions.LogStructured);
@@ -226,8 +221,7 @@ namespace WinformsMVP.Samples.Tests
 
             var view = new MockLoggingDemoView { UserName = "David" };
 
-            presenter.AttachView(view);
-            presenter.Initialize();
+            PresenterTestHost.Start(presenter, view);
 
             view.Binder.Dispatch(LoggingActions.LogStructured);
             view.Binder.Dispatch(LoggingActions.LogStructured);

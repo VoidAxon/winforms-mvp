@@ -1,7 +1,7 @@
 # Logging
 
 本フレームワークは独自の **`WinformsMVP.Logging`** 名前空間に **`Microsoft.Extensions.Logging` 互換** の最小ロギング抽象を持っています。
-メインパッケージ (`WinformsMVP`) は **外部依存ゼロ** で `net40;net48` をマルチターゲットし、`Microsoft.Extensions.Logging` の豊富なプロバイダエコシステムは **オプションでアプリ側のアダプタ** から接続します。
+ロギング抽象はコアパッケージ (`WinformsMVP.Core`, `netstandard2.0`) にあり **外部依存ゼロ** です。`Microsoft.Extensions.Logging` の豊富なプロバイダエコシステムは **オプションでアプリ側のアダプタ** から接続します。
 
 > **位置づけ**: Presenter は `Logger.LogInformation(...)` を呼ぶだけ。プロバイダ (Debug / Console / File / Application Insights / Seq) の有無は構成側 (Composition Root) でしか決まらないため、業務コードは無修正で出力先を切り替えられます。
 
@@ -24,13 +24,13 @@
 
 ## なぜ自社抽象か
 
-`Microsoft.Extensions.Logging.Abstractions` は `net461` 以降が前提のため、`net40` をターゲットに含むこのフレームワークでは直接依存にできません。さらに、メインパッケージから外部依存が増えるとパッケージ更新のたびに整合性問題が発生するため、**自社契約 + オプションで M.E.L. 連携** という構成を採用しています。
+コアパッケージから外部依存が増えるとパッケージ更新のたびに整合性問題 (バージョン衝突・バインディングリダイレクト) が発生するため、**自社契約 + オプションで M.E.L. 連携** という構成を採用しています。
 
 | 設計判断 | 効果 |
 |---------|------|
-| BCL のみに依存 | `net40` ホストで動作 |
+| BCL のみに依存 | コアパッケージが外部依存ゼロを保てる |
 | `Microsoft.Extensions.Logging` と同じ API 表面 | コード読み書きが M.E.L. と同じ感覚で済む |
-| メインパッケージは M.E.L. を知らない | M.E.L. 依存はアプリ側で必要なら追加 |
+| フレームワークは M.E.L. を知らない | M.E.L. 依存はアプリ側で必要なら追加 |
 | Adapter は ~30 行 | 必要なら自分でコピペで書ける、ライブラリ化不要 |
 
 ---
@@ -125,7 +125,7 @@ public class MyPresenter : WindowPresenterBase<IMyView>
 
 ## 構造化ロギングのベストプラクティス
 
-名前付きプレースホルダー (`{UserName}`) と古典的なインデックス形式 (`{0}`) の両方が受け付けられます。名前付きは `WinformsMVP.Logging.MessageFormatter` で宣言順にインデックスへ正規化されます。
+名前付きプレースホルダー (`{UserName}`) と古典的なインデックス形式 (`{0}`) の両方が受け付けられます。名前付きは `WinformsMVP.Logging.MessageFormatter` で宣言順にインデックスへ正規化されます。M.E.L. / Serilog のキャプチャ指定 `{@Name}` / `{$Name}` も名前として受け付け、同じ名前が繰り返し現れた場合は同じ引数を再利用します (`"{Id} ... {Id}"` は引数 1 つ)。
 
 M.E.L. に橋渡しするアダプタを使った場合、構造化プロパティは **そのまま** 下流に流れます (アダプタが文字列を pre-format せず、M.E.L. の `Log<TState>` に委譲するため)。
 
@@ -149,12 +149,12 @@ Logger.LogInformation($"User {userName} opened document {docId}");
 
 ## 組み込み実装
 
-メインパッケージには 2 つの実装が付属します。
+コアパッケージには 2 つの実装が付属します。
 
 | 実装 | 出力先 | 依存 | 用途 |
 |------|------|------|----|
 | `NullLogger` / `NullLoggerFactory` | 出力なし (破棄) | なし | デフォルト、テスト、パフォーマンス重視のパス |
-| `DebugLogger` / `DebugLoggerFactory` | `System.Diagnostics.Debug.WriteLine` | BCL のみ (`net40` 動作) | 開発中の Visual Studio 出力ウィンドウ |
+| `DebugLogger` / `DebugLoggerFactory` | `System.Diagnostics.Trace.WriteLine` (Release ビルドでも出力) | BCL のみ | Visual Studio 出力ウィンドウ / 任意の `TraceListener` |
 
 `NullLoggerFactory.Instance` はシングルトンです。完全にログを無効化したい場合に使います (フレームワーク自身、未構成時にこれにフォールバックします)。
 
@@ -169,7 +169,7 @@ Logger.LogInformation($"User {userName} opened document {docId}");
 // — 設定不要。Logger.LogInformation(...) はコンパイル・実行されるが、出力なし
 ```
 
-### パス 2: `DebugLoggerFactory` (`net40` 対応)
+### パス 2: `DebugLoggerFactory`
 
 ```csharp
 using WinformsMVP.Logging;
@@ -183,7 +183,7 @@ internal static class Program
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
 
-        // 外部依存ゼロ、出力は VS Debug ウィンドウ
+        // 外部依存ゼロ、出力は Trace (VS 出力ウィンドウ / 登録済み TraceListener)
         ServiceLocator.Configure(reg =>
             reg.RegisterInstance<WinformsMVP.Logging.ILoggerFactory>(new DebugLoggerFactory()));
 
@@ -192,9 +192,9 @@ internal static class Program
 }
 ```
 
-### パス 3: Microsoft.Extensions.Logging ブリッジ (`net48` 専用)
+### パス 3: Microsoft.Extensions.Logging ブリッジ
 
-メインパッケージは M.E.L. のアダプタパッケージを提供しません。実際のアプリケーションは Composition Root に **小さなアダプタを書きます** (~30 行)。
+フレームワークは M.E.L. のアダプタパッケージを提供しません。実際のアプリケーションは Composition Root に **小さなアダプタを書きます** (~30 行)。
 完成形のサンプルが [`MultiProjectDemo.Shell/Logging/`](https://github.com/VoidAxon/winforms-mvp/tree/master/samples/MultiProjectDemo.Shell/Logging) にあるので、コピペで使えます。
 
 アダプタを配置したあとの Composition Root:
@@ -230,7 +230,7 @@ internal static class Program
 }
 ```
 
-> **`net40` ホストはパス 3 を使えません**。`Microsoft.Extensions.Logging.Abstractions` が `net461+` を要求するため。`net40` ではパス 1 (サイレント) かパス 2 (`DebugLoggerFactory`) を使ってください。
+> 対応ターゲット (`net472` 以降 / `net10.0-windows`) ではすべてのパスが使えます (以前の `net40` ホストではパス 3 が使えませんでしたが、`net40` のサポートは終了しました)。
 
 ---
 
@@ -305,8 +305,7 @@ public void Test_MyPresenter()
     // SetServiceProvider で差し替える (InternalsVisibleTo が必要)
     var presenter = new MyPresenter();   // ServiceLocator.Current (NullLoggerFactory) を使用
 
-    presenter.AttachView(mockView);
-    presenter.Initialize();
+    PresenterTestHost.Start(presenter, mockView);   // アタッチ + 実際の初期化
 
     // Logger 呼び出しはコンパイル・実行されるが出力なし — オーバーヘッドゼロ
 }
@@ -343,8 +342,7 @@ public void OnSave_ShouldLogSuccess()
     // SetServiceProvider は internal — InternalsVisibleTo か dynamic 経由で呼ぶ。
     // 詳細は Platform Services の「モックでのテスト」を参照。
     ((dynamic)presenter).SetServiceProvider(sp);
-    presenter.AttachView(mockView);
-    presenter.Initialize();
+    PresenterTestHost.Start(presenter, mockView);
 
     mockView.Binder.Dispatch(StandardActions.Save);
 
@@ -361,10 +359,10 @@ public void OnSave_ShouldLogSuccess()
 
 | プロパティ | 説明 |
 |----------|----|
-| `net40` 互換 | メインパッケージは M.E.L. に依存しない |
+| 外部依存ゼロ | コアパッケージは M.E.L. に依存しない |
 | デフォルトサイレント | `NullLoggerFactory.Instance` — 予期しない出力なし、起動コストもなし |
 | 親しみのある API 表面 | 拡張メソッド名・プレースホルダー記法が M.E.L. と一致 |
-| エコシステム連携はオプトイン | `net48` ホストでアプリ側の ~30 行アダプタで M.E.L. プロバイダが使える |
+| エコシステム連携はオプトイン | アプリ側の ~30 行アダプタで M.E.L. プロバイダが使える (全ターゲット) |
 | テスタブル | 2 メソッドの `ILogger` 契約は容易にモック可能 |
 | 構造化保持 | フォワーディングアダプタが M.E.L. の `Log<TState>` に直接委譲するため、プロパティが下流に流れる |
 

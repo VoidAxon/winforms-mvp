@@ -42,11 +42,8 @@ namespace WinformsMVP.Analyzers
             if (classSymbol == null)
                 return;
 
-            // Check if class implements IViewBase or IWindowView
-            var implementsViewInterface = classSymbol.AllInterfaces.Any(i =>
-                i.Name == "IViewBase" || i.Name == "IWindowView" || i.Name.EndsWith("View"));
-
-            if (!implementsViewInterface)
+            // Check if class implements a view interface (semantic: WinformsMVP.MVP.Views.IViewBase)
+            if (!MvpSymbols.IsConcreteView(classSymbol))
                 return;
 
             // Get method symbol
@@ -72,9 +69,9 @@ namespace WinformsMVP.Analyzers
             if (methodSymbol.ExplicitInterfaceImplementations.Any())
                 return;
 
-            // Check if method is defined in any View interface
+            // Check if method is defined in any View interface (IViewBase itself or a derived interface)
             var isInInterface = classSymbol.AllInterfaces
-                .Where(i => i.Name.EndsWith("View"))
+                .Where(i => MvpSymbols.IsViewBase(i) || MvpSymbols.IsViewInterface(i))
                 .SelectMany(i => i.GetMembers().OfType<IMethodSymbol>())
                 .Any(m => m.Name == methodName && SignaturesMatch(m, methodSymbol));
 

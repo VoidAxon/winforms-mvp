@@ -1,0 +1,8 @@
+{
+  "$schema": "http://json.schemastore.org/dotnetcli.host",
+  "symbolInfo": {
+    "namespace": { "longName": "namespace", "shortName": "ns" },
+    "ParamType": { "longName": "param-type", "shortName": "" },
+    "Validation": { "longName": "validation", "shortName": "" }
+  }
+}

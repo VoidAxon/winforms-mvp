@@ -84,8 +84,7 @@ namespace WinformsMVP.Samples.ComplexInteractionDemo_ServiceBased
                 orderService,   // ← Inject shared service
                 products);
 
-            mainPresenter.AttachView(form);
-            mainPresenter.Initialize();
+            mainPresenter.Connect(form);  // attach + initialize + lifetime wiring
 
             // Show the form
             form.ShowDialog();

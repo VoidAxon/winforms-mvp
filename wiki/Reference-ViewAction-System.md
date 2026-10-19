@@ -16,6 +16,7 @@ WPF の `ICommand` を WinForms 向けに持ち込んだものと考えるとほ
 - [CanExecute と自動 Enabled 制御](#canexecute-と自動-enabled-制御)
 - [パラメータ付きアクション](#パラメータ付きアクション)
 - [状態変化への対応](#状態変化への対応)
+- [非同期アクション](#非同期アクション)
 - [一括バインド (AddRange)](#一括バインド-addrange)
 - [対応するコントロール](#対応するコントロール)
 - [Implicit パターン vs Explicit パターン](#implicit-パターン-vs-explicit-パターン)
@@ -237,6 +238,7 @@ Dispatcher.Register(
 | トリガー | 動作 |
 |---------|------|
 | **任意のアクション実行直後** | 自動 (フレームワークが `ActionExecuted` 後に全 CanExecute を再評価) |
+| **非同期ハンドラの開始時・終了時** | 自動 (実行中のアクションは `CanDispatch == false`) |
 | **アクション実行を伴わない状態変化** | 手動 (`Dispatcher.RaiseCanExecuteChanged()` を呼ぶ) |
 
 詳細は [状態変化への対応](#状態変化への対応) を参照。
@@ -297,6 +299,14 @@ public enum DispatchValidationMode
 
 Strict が対象とするのは **設定ミスだけ** です。ハンドラ/`CanExecute` の例外は常に捕捉・ログされ (集中エラーハンドリングを維持)、無効化されたアクション (`CanExecute == false`) はエラー扱いしません。
 
+なお、次の配線ミスはモードに関係なく **常に登録時点で例外** になります:
+
+| 事象 | 挙動 |
+|------|------|
+| `default(ViewAction)` (未初期化のキー) を `Register` / `ViewActionBinder.Add` に渡す | `ArgumentException` (`Dispatch` に渡した場合は無視) |
+| `Register` に null ハンドラを渡す | `ArgumentNullException` |
+| 同じコントロールを 2 つのアクションに `Add` する | `InvalidOperationException` (以前は最後の 1 つが黙って残っていた) |
+
 **推奨される使い方**: Debug ビルドでのみ Strict を有効化します。`IDispatcherConfigurer` をサービスプロバイダに登録することで配線できます (全 Dispatch より前に適用されます):
 
 ```csharp
@@ -341,18 +351,9 @@ protected override void OnInitialize()
         Dispatcher.RaiseCanExecuteChanged();
     };
 }
-
-private async void OnStartBackgroundTask()
-{
-    _isRunning = true;
-    Dispatcher.RaiseCanExecuteChanged();   // タスク開始通知
-
-    await DoWorkAsync();
-
-    _isRunning = false;
-    Dispatcher.RaiseCanExecuteChanged();   // タスク完了通知
-}
 ```
+
+非同期ハンドラの開始・完了時の再評価はフレームワークが自動で行います ([非同期アクション](#非同期アクション) 参照)。
 
 ### WPF との対応
 
@@ -361,6 +362,72 @@ private async void OnStartBackgroundTask()
 | イベント名 | `CanExecuteChanged` | `CanExecuteChanged` |
 | 手動トリガー | `command.RaiseCanExecuteChanged()` | `dispatcher.RaiseCanExecuteChanged()` |
 | 自動トリガー | なし | `ActionExecuted` イベントで自動 (拡張機能) |
+
+---
+
+## 非同期アクション
+
+`Dispatcher.Register` には非同期ハンドラ用のオーバーロードがあります。`async` ラムダや `async Task` メソッドはこちらに束縛されるので、**`async void` ハンドラを書く必要はありません**。
+
+| オーバーロード | 用途 |
+|---|---|
+| `Register(key, Func<Task>)` | パラメータなし |
+| `Register(key, Func<CancellationToken, Task>)` | パラメータなし + トークン |
+| `Register<T>(key, Func<T, Task>)` | パラメータ付き |
+| `Register<T>(key, Func<T, CancellationToken, Task>)` | パラメータ付き + トークン |
+
+```csharp
+protected override void RegisterViewActions()
+{
+    Dispatcher.Register(CustomerActions.Refresh, OnRefreshAsync);
+    Dispatcher.Register(CustomerActions.Save, OnSaveAsync, canExecute: () => View.HasChanges);
+}
+
+private async Task OnRefreshAsync(CancellationToken ct)
+{
+    View.StatusMessage = "読み込み中...";
+    try
+    {
+        View.Customers = await _repository.GetAllAsync(ct);   // ct はウィンドウが閉じるとキャンセルされる
+        View.StatusMessage = "完了";
+    }
+    catch (IOException ex)
+    {
+        // 想定内のエラーはハンドラ内で捕まえてユーザーに伝える
+        Messages.ShowError($"読み込みに失敗しました: {ex.Message}");
+    }
+}
+```
+
+フレームワークが行うこと:
+
+- **実行中はアクションを無効化** — ハンドラの実行中は `CanDispatch` が `false` になり、バインド済みコントロールはグレーアウトします。連打などの重複トリガーは無視されます。開始時と終了時に全 `CanExecute` が再評価されるので、ビジーフラグや手動の `RaiseCanExecuteChanged()` は不要です (他のアクションも同時に止めたいときだけ、`canExecute` が参照するフラグを持ちます — `samples/.../AsyncDemo/AsyncDemoPresenter.cs` 参照)。
+- **完了時に `ActionExecuted`** — 同期ハンドラと同じく、ハンドラが正常に終わった時点で発火します。
+- **失敗はログ出力して再有効化** — `await` の後で起きた例外も含め、未処理の例外はログに出してアクションを再び有効にします。ユーザーに見せるべきエラーは、ハンドラ内で `try`/`catch` して `Messages` で伝えてください。
+- **破棄時のキャンセルは静か** — トークンは Presenter の `Lifetime` で、Presenter の破棄 (ウィンドウを閉じる) と同時にキャンセルされます。これによる `OperationCanceledException` はエラー扱いされません。ユーザーの「キャンセル」ボタンを実装する場合は `CancellationTokenSource.CreateLinkedTokenSource(ct)` でリンクします。
+
+### 完了を待つ: `DispatchAsync`
+
+`Dispatch` は非同期ハンドラの完了を待たずに戻ります。完了を待ちたい場合 (主にテスト、またはアクションの後に処理を続けたいコード) は `DispatchAsync` を使います。ハンドラの失敗は `Dispatch` と同様にログ出力されるだけで、返るタスクは fault しません。
+
+```csharp
+await Dispatcher.DispatchAsync(CustomerActions.Refresh);
+// テストではモック View の CapturingActionBinder から:
+await view.Binder.DispatchAsync(CustomerActions.Refresh);
+```
+
+### ミドルウェアとの関係
+
+ミドルウェアが包むのはハンドラの**同期部分 (最初の `await` まで)** だけです。非同期処理全体を計測・監査するには `ctx.Completion` (ハンドラのタスク。同期ハンドラでは完了済みタスク) を観察します。`ctx.CancellationToken` はハンドラに渡されたトークンです。`await` 後の失敗はミドルウェアがすでに戻った後なので、`ctx.Exception` ではなく Dispatcher のログで報告されます。非同期ハンドラを開始した後でミドルウェアが例外を投げた場合も、ハンドラは最後まで追跡され (完了までアクションは無効のまま)、`ActionExecuted` は発火しません。
+
+```csharp
+Dispatcher.Use((ctx, next) =>
+{
+    var sw = Stopwatch.StartNew();
+    next(ctx);
+    ctx.Completion.ContinueWith(_ => Logger.LogInformation("{Action}: {Ms}ms", ctx.Action, sw.ElapsedMilliseconds));
+});
+```
 
 ---
 
@@ -494,8 +561,10 @@ ViewAction の使い方には **2 つのパターン** があります。
 
 ### Explicit パターン
 
-View が `ActionRequest` イベントを明示的に発火し、Presenter が明示的に購読する形です。
-**ActionBinder プロパティは `null` を返す** ことで自動 Bind を無効化し、二重ディスパッチを防ぎます。
+View が `ActionRequest` イベントを明示的に発火し、Presenter が明示的に購読する形です。主に既存 Form の段階的な移行向けで、通常は Implicit パターンを使ってください。
+**ActionBinder プロパティは `null` を返し**、View 自身が `_binder.Bind()` (Dispatcher なし版) を呼びます。
+
+> **ルーティングは呼んだ `Bind` で決まります。** `Bind(dispatcher)` は常に Dispatcher へ派発し、その後で `ActionTriggered` を通知として発火します。`Bind()` は `ActionTriggered` を発火するだけです。`ActionTriggered` を購読しても派発の有無は変わりません (以前は購読者がいると派発をスキップしていたため、ステータスバー表示などの購読だけで全ボタンが無反応になっていました)。Implicit パターンの View で `ActionTriggered` を通知 (ログ・ステータス表示) に使うのは安全です。
 
 ```csharp
 // View 側
@@ -515,22 +584,24 @@ private void InitializeActionBindings()
 protected override void OnViewAttached()
 {
     View.ActionRequest += OnViewActionTriggered;   // ← 基底クラスのヘルパー
+    Disposable.Create(() => View.ActionRequest -= OnViewActionTriggered).DisposeWith(Disposables);
+
+    // Binder は Dispatcher に接続されていないため、ボタンの有効/無効は自動更新されない。
+    // 可否は意味のある View メンバー経由で伝える (Form 側が Enabled に反映する)。
+    View.SelectionChanged += OnSelectionChanged;
+    Disposable.Create(() => View.SelectionChanged -= OnSelectionChanged).DisposeWith(Disposables);
 }
 
-protected override void OnInitialize()
-{
-    View.SelectionChanged += (s, e) => Dispatcher.RaiseCanExecuteChanged();
-    View.DataChanged      += (s, e) => Dispatcher.RaiseCanExecuteChanged();
-}
+private void OnSelectionChanged(object sender, EventArgs e) => View.CanDelete = View.HasSelection;
 ```
 
 | 観点 | Explicit パターン |
 |------|---------------|
 | イベント購読が見える | ✅ F12 ナビ可能 |
 | ブレークポイント設定 | ✅ できる |
-| 自動 CanExecute 更新 | ❌ 自分で `RaiseCanExecuteChanged()` を呼ぶ |
+| 自動 CanExecute 更新 | ❌ コントロールの有効/無効は自動同期されない。`View.CanDelete` のような View メンバーで伝える (`RaiseCanExecuteChanged()` だけでは反映されない) |
 | コード量 | 多い |
-| 使いどころ | 動作を完全に追跡したい・複雑なルーティング・学習目的 |
+| 使いどころ | 既存 Form の段階的移行・動作を完全に追跡したい場合 |
 
 ### `OnViewActionTriggered` ヘルパー
 
@@ -678,14 +749,18 @@ Dispatcher.Use((ctx, next) =>
 | `Action` | `ViewAction` | ディスパッチ中のアクション |
 | `Payload` | `object` | 読み取り専用 (型変換禁止) |
 | `ExpectedPayloadType` | `Type` | パラメータなしハンドラの場合は `null` |
-| `HandlerExecuted` | `bool` | 末端ハンドラが正常終了したときだけ `true` |
+| `HandlerExecuted` | `bool` | 末端ハンドラが呼ばれたとき `true` (非同期ハンドラは開始した時点) |
 | `Exception` | `Exception` | 安全網またはミドルウェアが捕捉した例外 |
+| `Completion` | `Task` | 非同期ハンドラのタスク (同期ハンドラでは完了済み)。非同期処理全体の計測・監査用 |
+| `CancellationToken` | `CancellationToken` | 非同期ハンドラに渡されたトークン (Presenter 破棄時にキャンセル) |
 
 `Items` 辞書のような汎用拡張はありません。状態を保持したいミドルウェアは、自分のフィールドに持たせてください。
 
 ### 例外フロー
 
 ハンドラの例外はミドルウェアチェーンを上方向に伝播します。捕捉したい場合は `next(context)` を `try`/`catch` で囲みます (例: `ErrorDialogMiddleware`)。誰も捕捉しない場合はフレームワークの安全網がログを出力し、`context.Exception` に記録します。`ActionExecuted` イベントは「ハンドラが完走 **かつ** `context.Exception` が `null`」のときだけ発火します。
+
+ハンドラが投げた例外は、**ハンドラを抜けた時点で** `context.Exception` に設定されます。そのため外側のミドルウェアは、例外を捕捉しなくても `finally` ブロックで `context.Exception` を参照できます (監査・計測向け)。また、例外を投げたハンドラの後には `CanExecuteChanged` が発火し、コントロールの有効/無効状態が更新されます。
 
 ### ミドルウェアが見えないケース
 
@@ -701,7 +776,7 @@ Dispatcher.Use((ctx, next) =>
 
 - **ファストパス** (ミドルウェア未登録): アロケーションなし、追加のインダイレクションなし
 - **スローパス** (ミドルウェア登録あり): ディスパッチごとに `DispatchContext` 1 個ヒープ確保 + N 個のクロージャ呼び出し (N = ミドルウェア数)。コンパイル済みパイプラインは Dispatcher にキャッシュされ、ミドルウェア追加時のみ再構築される
-- リフレクション・Expression Trees は使用していないので、`net40` ホストでも追加コストはありません
+- リフレクション・Expression Trees は使用していないので、どのターゲットでも追加コストはありません
 
 ---
 

@@ -1,5 +1,6 @@
 using System;
 using System.Windows.Forms;
+using WinformsMVP.Common;
 using WinformsMVP.Common.Events;
 using WinformsMVP.MVP.Views;
 using WinformsMVP.MVP.Presenters;
@@ -14,9 +15,25 @@ namespace WinformsMVP.Samples
     //
     // This example demonstrates how to handle BOTH:
     // 1. Actions WITHOUT parameters (simple ActionRequestEventArgs)
-    // 2. Actions WITH parameters (ActionRequestEventArgs<T>)
+    // 2. Actions WITH parameters (value bindings → ActionRequestEventArgs<object>)
     //
-    // In the SAME View using explicit event pattern.
+    // In the SAME View using the explicit event pattern.
+    //
+    // The recommended default is still the IMPLICIT pattern (ActionBinder returns the binder,
+    // the framework calls Bind(_dispatcher)). The explicit pattern is mainly for migrating
+    // legacy Forms. Its rules:
+    // - View: ActionBinder returns null, so the framework binds nothing.
+    // - View: calls _binder.Bind() itself (event-only binding) and forwards
+    //         _binder.ActionTriggered to its own ActionRequest event.
+    // - Presenter: View.ActionRequest += OnViewActionTriggered; handlers via Dispatcher.Register.
+    // Routing depends only on which Bind overload runs: Bind(dispatcher) always dispatches,
+    // Bind() only raises ActionTriggered. Never do both — the action would dispatch twice.
+    //
+    // Parameters: the View declares them with value bindings,
+    //   _binder.Add(action, control, c => value)
+    // The value is read when the control fires and travels as ActionRequestEventArgs<object>;
+    // OnViewActionTriggered extracts it and the dispatcher matches it against the RUNTIME type
+    // expected by Register<T> (a boxed int satisfies Register<int>).
 
     #region View Actions
 
@@ -49,7 +66,7 @@ namespace WinformsMVP.Samples
         string StatusMessage { set; }
 
         // ✅ SINGLE ActionRequest event for ALL actions (with or without parameters)
-        // The framework uses ActionRequestEventArgs base class, which can hold derived types
+        // Value-carrying requests arrive as the derived ActionRequestEventArgs<object>
         event EventHandler<ActionRequestEventArgs> ActionRequest;
 
         // UI Methods
@@ -65,8 +82,9 @@ namespace WinformsMVP.Samples
     {
         private ViewActionBinder _binder;
 
-        // Return binder for automatic CanExecute UI updates
-        public IViewActionBinder ActionBinder => _binder;
+        // ✅ Return null: the View binds the binder itself (event-only). Returning _binder would make
+        // the framework call Bind(_dispatcher), dispatching each action a second time.
+        public IViewActionBinder ActionBinder => null;
 
         // Single ActionRequest event (handles both types)
         public event EventHandler<ActionRequestEventArgs> ActionRequest;
@@ -147,67 +165,24 @@ namespace WinformsMVP.Samples
         {
             _binder = new ViewActionBinder();
 
-            // ✅ Bind simple actions (no parameters)
+            // ✅ Simple actions (no parameters)
             _binder.Add(MixedDemoActions.Refresh, _btnRefresh);
             _binder.Add(MixedDemoActions.Clear, _btnClear);
 
-            // ✅ Bind parameterized actions
-            // Note: We'll pass parameters when triggering the event
-            _binder.Add(MixedDemoActions.SelectTab, _btnTab1, _btnTab2, _btnTab3);
-            _binder.Add(MixedDemoActions.LoadDocument, _btnLoadDoc);
-            _binder.Add(MixedDemoActions.SetZoom, _btnSetZoom);
+            // ✅ Parameterized actions: value bindings read the payload when the control fires.
+            // Each tab button carries its own index — no click tracking needed.
+            _binder.Add(MixedDemoActions.SelectTab, _btnTab1, b => 0);
+            _binder.Add(MixedDemoActions.SelectTab, _btnTab2, b => 1);
+            _binder.Add(MixedDemoActions.SelectTab, _btnTab3, b => 2);
+            _binder.Add(MixedDemoActions.LoadDocument, _btnLoadDoc, b => _txtDocument.Text);
+            _binder.Add(MixedDemoActions.SetZoom, _btnSetZoom, b => (int)_numZoom.Value);
 
-            // ✅ CRITICAL: Subscribe to ActionTriggered and handle BOTH types
-            _binder.ActionTriggered += (sender, e) =>
-            {
-                // Check if this action needs a parameter
-                if (e.ActionKey == MixedDemoActions.SelectTab)
-                {
-                    // Determine which tab button was clicked
-                    var clickedButton = sender as ViewActionBinder;
-                    int tabIndex = GetTabIndexFromSender();
+            // ✅ Forward everything unchanged: value bindings already raise
+            // ActionRequestEventArgs<object> carrying the payload
+            _binder.ActionTriggered += (sender, e) => ActionRequest?.Invoke(this, e);
 
-                    // Create parameterized event args
-                    var parameterizedArgs = new ActionRequestEventArgs<int>(e.ActionKey, tabIndex);
-                    ActionRequest?.Invoke(this, parameterizedArgs);
-                }
-                else if (e.ActionKey == MixedDemoActions.LoadDocument)
-                {
-                    // Get document name from textbox
-                    var docName = _txtDocument.Text;
-                    var parameterizedArgs = new ActionRequestEventArgs<string>(e.ActionKey, docName);
-                    ActionRequest?.Invoke(this, parameterizedArgs);
-                }
-                else if (e.ActionKey == MixedDemoActions.SetZoom)
-                {
-                    // Get zoom level from NumericUpDown
-                    int zoomLevel = (int)_numZoom.Value;
-                    var parameterizedArgs = new ActionRequestEventArgs<int>(e.ActionKey, zoomLevel);
-                    ActionRequest?.Invoke(this, parameterizedArgs);
-                }
-                else
-                {
-                    // Simple action without parameters
-                    ActionRequest?.Invoke(this, e);
-                }
-            };
-
-            // Subscribe to button clicks to track which tab button was clicked
-            _btnTab1.Click += (s, e) => _lastClickedTabButton = _btnTab1;
-            _btnTab2.Click += (s, e) => _lastClickedTabButton = _btnTab2;
-            _btnTab3.Click += (s, e) => _lastClickedTabButton = _btnTab3;
-
-            // Framework will call View.ActionBinder.Bind(_dispatcher) automatically
-        }
-
-        private Button _lastClickedTabButton;
-
-        private int GetTabIndexFromSender()
-        {
-            if (_lastClickedTabButton == _btnTab1) return 0;
-            if (_lastClickedTabButton == _btnTab2) return 1;
-            if (_lastClickedTabButton == _btnTab3) return 2;
-            return 0;
+            // ✅ Event-only binding, done by the View because ActionBinder returns null
+            _binder.Bind();
         }
 
         // IMixedParametersDemoView implementation
@@ -266,6 +241,7 @@ namespace WinformsMVP.Samples
             // ✅ Use the OnViewActionTriggered method provided by the base class!
             // It automatically checks parameters, extracts them, and calls Dispatcher.Dispatch()
             View.ActionRequest += OnViewActionTriggered;
+            Disposable.Create(() => View.ActionRequest -= OnViewActionTriggered).DisposeWith(Disposables);
 
             // Initialize
             View.StatusMessage = "Ready - Mix of simple and parameterized actions";
@@ -283,14 +259,15 @@ namespace WinformsMVP.Samples
             Dispatcher.Register<string>(MixedDemoActions.LoadDocument, OnLoadDocument);
             Dispatcher.Register<int>(MixedDemoActions.SetZoom, OnSetZoom);
 
-            // Framework calls View.ActionBinder.Bind(_dispatcher) automatically
-            // Mode detection recognizes explicit pattern and prevents double-dispatch
+            // ActionBinder is null, so the framework binds nothing here.
+            // Requests arrive via View.ActionRequest → OnViewActionTriggered → Dispatcher.
+            // The payload is object-typed on the way; Register<T> matches its runtime type.
         }
 
         // ✅ No need to manually write parameter checking logic!
         // OnViewActionTriggered (base class method) has already handled:
-        // - Check e is IActionRequestEventArgsWithValue
-        // - Extract parameter payload = valueProvider.GetValue()
+        // - Check e is IActionRequestEventArgsWithValue (ActionRequestEventArgs<object> from value bindings)
+        // - Extract parameter payload = valueProvider.GetValue()  (e.g. a boxed int)
         // - Call Dispatcher.Dispatch(actionKey, payload)
 
         // Simple action handlers (no parameters)
@@ -357,19 +334,28 @@ namespace WinformsMVP.Samples
      *    - Use base type: event EventHandler<ActionRequestEventArgs>
      *    - Handles both simple and parameterized actions
      *
-     * 2. VIEW IMPLEMENTATION (ActionTriggered Handler):
-     *    - Check which action was triggered
-     *    - For parameterized actions: Create ActionRequestEventArgs<T> with parameter
-     *    - For simple actions: Forward original ActionRequestEventArgs
+     * 2. VIEW IMPLEMENTATION:
+     *    - ActionBinder => null (the framework must not bind it)
+     *    - Simple actions:        _binder.Add(action, control)
+     *    - Parameterized actions: _binder.Add(action, control, c => value)  (value bindings)
+     *    - Forward unchanged:     _binder.ActionTriggered += (s, e) => ActionRequest?.Invoke(this, e);
+     *    - Then:                  _binder.Bind();  (event-only binding)
      *
      * 3. PRESENTER (Using Base Class Method - Super Simple):
      *    - Subscribe directly: View.ActionRequest += OnViewActionTriggered;
+     *    - Release it with Disposable.Create(() => View.ActionRequest -= ...).DisposeWith(Disposables)
      *    - Base class OnViewActionTriggered automatically handles parameter checking and extraction
      *    - No need to manually write any parameter handling code!
      *
      * 4. DISPATCHER REGISTRATION:
      *    - Simple actions: Dispatcher.Register(action, handler)
      *    - Parameterized actions: Dispatcher.Register<T>(action, handler)
+     *      (the object-typed payload is matched by its runtime type: boxed int → Register<int>)
+     *
+     * 5. NO AUTOMATIC ENABLED SYNC:
+     *    - The binder is not connected to the dispatcher, so CanExecute does not drive Enabled.
+     *    - Express availability through semantic view members the Presenter sets
+     *      (e.g. bool CanLoadDocument { set; }) — see ViewActionExplicitEventExample.cs.
      *
      *
      * EVENT FLOW DIAGRAM:
@@ -382,9 +368,9 @@ namespace WinformsMVP.Samples
      *              → OnRefresh()
      *
      * Parameterized Action (SelectTab):
-     * Button Click → ActionTriggered(ActionRequestEventArgs)
-     *              → Determine parameter (tab index)
-     *              → ActionRequest(ActionRequestEventArgs<int>)
+     * Button Click → value binding reads the tab index (b => 1)
+     *              → ActionTriggered(ActionRequestEventArgs<object>)
+     *              → ActionRequest(ActionRequestEventArgs<object>)
      *              → OnViewActionTriggered (base class automatically checks and extracts parameter)
      *              → Dispatcher.Dispatch(actionKey, tabIndex)
      *              → OnSelectTab(int tabIndex)
@@ -407,7 +393,8 @@ namespace WinformsMVP.Samples
      *
      * Approach 3: Generic Event (Not Recommended)
      * - event EventHandler<ActionRequestEventArgs<object>> ActionRequest;
-     * ❌ Cons: Loses type safety, requires casting
+     * ❌ Cons: Forces a payload on simple actions; keep the base-typed event and let
+     *          value bindings supply ActionRequestEventArgs<object> where needed
      *
      *
      * BEST PRACTICES:
@@ -418,7 +405,7 @@ namespace WinformsMVP.Samples
      *    - Base class automatically handles parameter checking and extraction
      *    - No need to manually write if (e is IActionRequestEventArgsWithValue) logic
      *
-     * 2. Keep parameter extraction in View layer
+     * 2. Keep parameter extraction in View layer (value bindings)
      *    - View knows about UI controls (_txtDocument, _numZoom)
      *    - Presenter doesn't need to know about controls
      *

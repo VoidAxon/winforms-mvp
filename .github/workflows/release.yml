@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   release:
-    runs-on: windows-latest   # net40/net48 + WinForms require .NET Framework MSBuild (Windows only)
+    runs-on: windows-latest   # net472 + WinForms tests need the .NET Framework runtime (Windows only)
 
     steps:
       - name: Checkout
@@ -22,7 +22,7 @@ jobs:
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '9.0.x'
+          dotnet-version: '10.0.x'
 
       - name: Derive version from tag
         shell: pwsh
@@ -43,19 +43,30 @@ jobs:
         shell: pwsh
         run: dotnet build winforms-mvp.sln -c Release --no-restore -p:Version=$env:VERSION
 
-      - name: Test (gate)
+      # One command per step: in PowerShell (the Windows default) a multi-line run only fails
+      # on the last command's exit code.
+      - name: Test gate (samples)
         run: dotnet test tests/WinformsMVP.Samples.Tests/WinformsMVP.Samples.Tests.csproj -c Release --no-build
+
+      - name: Test gate (analyzers)
+        run: dotnet test tests/WinformsMVP.Analyzers.Tests/WinformsMVP.Analyzers.Tests.csproj -c Release --no-build
 
       - name: Pack
         shell: pwsh
         run: |
+          dotnet pack src/WinformsMVP.Core/WinformsMVP.Core.csproj -c Release -p:Version=$env:VERSION -o artifacts
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           dotnet pack src/WinformsMVP/WinformsMVP.csproj -c Release -p:Version=$env:VERSION -o artifacts
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           dotnet pack src/WinformsMVP.DependencyInjection/WinformsMVP.DependencyInjection.csproj -c Release -p:Version=$env:VERSION -o artifacts
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet pack templates/WinformsMVP.Templates.csproj -c Release -p:Version=$env:VERSION -o artifacts
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Assert analyzer is bundled in the core package
         shell: pwsh
         run: |
-          $pkg = Get-ChildItem "artifacts/WinformsMVP.[0-9]*.nupkg" | Select-Object -First 1
+          $pkg = Get-ChildItem "artifacts/WinformsMVP.Core.[0-9]*.nupkg" | Select-Object -First 1
           if (-not $pkg) { throw "Core package not found in artifacts" }
           Add-Type -AssemblyName System.IO.Compression.FileSystem
           $zip = [System.IO.Compression.ZipFile]::OpenRead($pkg.FullName)
@@ -73,6 +84,7 @@ jobs:
         run: |
           Get-ChildItem artifacts/*.nupkg | ForEach-Object {
             dotnet nuget push $_.FullName --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" --api-key ${{ secrets.GITHUB_TOKEN }} --skip-duplicate
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
 
       - name: Create GitHub Release

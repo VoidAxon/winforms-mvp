@@ -281,7 +281,7 @@ public sealed class SubCategoryListPresenter : ControlPresenterBase<ISelectListV
             try
             {
                 View.Items = category == null
-                    ? new SubCategory[0]                 // net40 には Array.Empty<T>() がない
+                    ? new SubCategory[0]                 // 空配列 (Array.Empty<T>() でも可)
                     : _repo.GetByCategory(category.Id);  // 同期リポジトリ
             }
             catch (Exception ex)
@@ -453,7 +453,6 @@ Cascade.Combine(_subCategoryStore, _warehouseStore, _productStore,
 - **初期リスト読み込みは `OnInitialize`**、View イベント購読は `OnViewAttached` (フレームワークのライフサイクル。[Presenter 基底クラス](Reference-Presenter-Base-Classes) 参照)。
 - **DI は開放ジェネリック登録が前提**。`services.AddSingleton(typeof(ISelectionStore<>), typeof(SelectionStore<>));` 1 行で全レベルを賄えます。ただし **singleton はアプリ全体共有** になるため、独立した複数の連鎖画面があるなら scoped/transient か手書き組み立てで **画面ごとに隔離** してください。
 - **将来の非同期化**は `Action<TParent>` 版とは別に `Func<TParent, Task>` 版の `Cascade.Bind` を追加して並存させれば、既存 API を壊さず移行できます ([非同期処理を扱う](HowTo-Handle-Async-Operations) 参照)。
-- **net40 の制約**。`Array.Empty<T>()` (4.6+) と `IReadOnlyList<T>` (4.5+) は net40 にありません。空表現は `new T[0]`、戻り値は `T[]` / `IList<T>`。`EqualityComparer<T>.Default` / `IEqualityComparer<T>` は net40 可用。
 
 ---
 

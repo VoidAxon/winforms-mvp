@@ -169,7 +169,7 @@ WinForms の Presenter が特に肥大化しやすいのは、この 3 つが一
 
 > **Presenter をアプリケーション層のように感じるほど、その部分を本物のサービス層へ抽出すべきだという合図です。**
 
-非同期処理 (DB/ネットワーク待ち、ビジー表示、完了後の再活性化、キャンセル) も、現代の Presenter が肥大化する典型的な現場です。扱い方は [非同期処理を扱う](HowTo-Handle-Async-Operations) を参照してください。
+非同期処理 (DB/ネットワーク待ち、ビジー表示、完了後の再活性化、キャンセル) も、現代の Presenter が肥大化する典型的な現場です。実行中のアクションの無効化と完了後の再活性化、ウィンドウを閉じたときのキャンセルはフレームワーク (非同期アクションハンドラと `Lifetime`) が担うので、Presenter には業務の流れだけを書きます。扱い方は [非同期処理を扱う](HowTo-Handle-Async-Operations) を参照してください。
 
 ---
 
@@ -223,7 +223,7 @@ WinForms の Presenter が特に肥大化しやすいのは、この 3 つが一
 
 ## public 面の最小化とライフサイクル
 
-Presenter の `public` 面は、既定で **コンストラクタ / `Initialize` / `Dispose`** だけに保ちます。その他は原則 `private`。
+Presenter の `public` 面は、既定で **コンストラクタ / `Initialize` / `Dispose`** だけに保ちます。その他は原則 `private`。(本フレームワークではさらに一歩進めて、`AttachView` / `Initialize` を明示的インターフェイス実装にしているため、Presenter の型としての公開面はコンストラクタと `Dispose` だけです。ホスト側 — `WindowNavigator` / `Connect` / テストの `PresenterTestHost` — がインターフェイス経由で呼びます。)
 
 これは「`public` メソッドを 1 つも許さない」という意味ではなく、**「Presenter を、外部から命令的に突けるサービスにしない」** という意味です。Presenter は一度組み立て (構築 + `Initialize` で購読)、以降はイベントに応答して自律的に動き、破棄時 (`Dispose`) に購読を解除する — そういうスタイルへの約束です。
 

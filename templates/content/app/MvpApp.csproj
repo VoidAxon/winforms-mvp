@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>TARGET_FRAMEWORK</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>MvpApp</RootNamespace>
+  </PropertyGroup>
+
+  <!-- .NET Framework needs the WinForms assemblies referenced explicitly. -->
+  <ItemGroup Condition="'$(TargetFrameworkIdentifier)' == '.NETFramework'">
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Drawing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Brings WinformsMVP.Core and the MVP design-rule analyzers with it. -->
+    <PackageReference Include="WinformsMVP" Version="MVP_PACKAGE_VERSION" />
+  </ItemGroup>
+
+</Project>

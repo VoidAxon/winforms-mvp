@@ -20,7 +20,7 @@ namespace MultiProjectDemo.OrderModule
 
         protected override void RegisterViewActions()
         {
-            _dispatcher.Register(OrderListActions.Refresh, ReloadList);
+            Dispatcher.Register(OrderListActions.Refresh, ReloadList);
         }
 
         private void ReloadList()

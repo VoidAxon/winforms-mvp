@@ -29,7 +29,7 @@
 - [ ] 動作変更時は `CHANGELOG.md` の `[Unreleased]` セクションを更新
 - [ ] 関連する Wiki ドキュメントを更新 (該当する場合)
 - [ ] 新規コードに対してテストを追加 (該当する場合)
-- [ ] `net40` 互換を維持 (`net48` 専用にする場合は妥当な理由がある)
+- [ ] `WinformsMVP.Core` (`netstandard2.0`) に WinForms 依存を持ち込んでいない / `net472` と `net10.0-windows` の両方でビルドできる
 
 ## 影響範囲
 

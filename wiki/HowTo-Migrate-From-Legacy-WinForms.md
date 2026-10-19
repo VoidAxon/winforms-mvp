@@ -40,7 +40,7 @@
 dotnet add package WinformsMVP
 ```
 
-(または将来パッケージ化されたら NuGet 経由で。プロジェクト参照も可)
+(`WinformsMVP.Core` は依存として自動的に入ります。プロジェクト参照も可。移行先のプロジェクトは .NET Framework 4.7.2 以降、または .NET 10 (Windows) が必要です)
 
 ### 1.2 `Program.cs` にサービス構成を追加
 

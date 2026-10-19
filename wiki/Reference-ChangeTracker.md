@@ -30,7 +30,7 @@ public class ChangeTracker<T> where T : class
 
 - **`T : class`** — 参照型のみ対応
 - **`ICloneable` の実装は任意** — 推奨はされるが必須ではない。未実装でも動作する
-- **`IEquatable<T>` 等の実装も任意** — フォールバックでリフレクション深い比較に切り替わる
+- **`IEquatable<T>` / `Equals` は比較に使われない** — 既定は内容比較 (`ObjectComparer.ContentEquals`)。独自の等価性を使いたい場合は `comparer` を明示的に渡す
 
 ---
 
@@ -43,6 +43,8 @@ public class ChangeTracker<T> where T : class
 
 リフレクション深いコピーは正確だが速度面では `ICloneable` 実装に劣ります。性能が重要なら `ICloneable` を実装してください。
 
+> 組み込みの `ObjectCloner` / 深い比較は、`HashSet` / `SortedSet` / `Queue` / `Stack` / `LinkedList` / `ReadOnlyCollection` を要素単位で扱います (セットの比較子やスタックの順序は維持)。`Type` / `MemberInfo` / `Uri` / `Version` は不変として扱いコピーせずに共有します。コレクションを通る循環参照はコピー側に解決されます (コンストラクタでしか要素を受け取れないコレクションを通る循環のみ `NotSupportedException`)。参照同一性の要素を持つセットは要素の深い等価性で対応付けて比較するため、未変更のディープコピーと等しく判定され、構築直後に dirty になることはありません。
+
 ---
 
 ## 比較の解決順序
@@ -50,10 +52,18 @@ public class ChangeTracker<T> where T : class
 `IsChanged` 判定 (現在値とベースラインの比較) は以下の順で戦略を決定します。
 
 1. **コンストラクタに `comparer` を渡した** → それを使用
-2. **`T` が値等価性を持つ** (`IEquatable<T>` / `IComparable<T>` / `Equals` オーバーライド) → それを使用
-3. **いずれもない** → グローバルフック `ChangeTrackerDefaults.Comparer` (デフォルトはリフレクション深い比較)
+2. **渡していない** → グローバルフック `ChangeTrackerDefaults.Comparer` (デフォルトは内容比較 `ObjectComparer.ContentEquals`)
 
-> **動作変更の注意**: 旧バージョンでは `Equals` を override していないモデルは構築直後に `IsChanged == true` (参照比較によるバグ) でしたが、現在はリフレクション深い比較により正しく判定されます。`ICloneable` + `Equals` を実装済みのモデルは挙動不変です。
+`T` 自身の `IEquatable<T>` / `Equals` は **意図的に使いません**。エンティティは「Id が同じなら等しい」と `Equals` を定義することが多く、それを使うと内容を編集しても `IsChanged == false` となり、`CanClose` の保存確認が出ずにデータが失われるためです。
+
+`ContentEquals` は、値型とフレームワーク型 (`System.*` / `Microsoft.*`) の `Equals` だけを信頼し、アプリケーションの参照型はどの深さでもフィールド単位で比較します (`Order.Customer.Name` の変更も、`Customer.Equals` が Id 比較でも検出される)。参照型の要素を持つセットも同様に要素の内容で対応付けます。一方 `ObjectComparer.DeepEquals` は従来どおりすべての型の `Equals` を尊重します。
+
+```csharp
+new ChangeTracker<Order>(order);                         // 内容比較 (既定)
+new ChangeTracker<Order>(order, (a, b) => a.Equals(b));  // T の Equals を使いたい場合は明示
+```
+
+> **動作変更の注意**: 以前は `T` が `IEquatable<T>` / `IComparable<T>` / `Equals` オーバーライドを持つ場合それを使っていました。現在は `comparer` を渡さない限り内容比較です。`Equals` で一部フィールドを意図的に無視していたモデルは、同じ意味の `comparer` を渡してください。
 
 ---
 
@@ -193,7 +203,7 @@ public void Clone_CreatesIndependentCopy()
 | メンバー | 型 | 説明 |
 |---------|----|----|
 | `CurrentValue` | `T` | tracker が保持する作業スナップショット (読み取り専用)。**開発時のデバッグ確認用**で、IntelliSense からは隠してある (`[EditorBrowsable(Never)]`)。データの源は View であって tracker ではない |
-| `IsChanged` | `bool` | 現在値がベースラインと異なるか (結果キャッシュあり。詳細は「パフォーマンス最適化」の注記)。ダーティ判定は通常 `IsChangedWith(View の値)` を使う |
+| `IsChanged` | `bool` | 現在値がベースラインと異なるか (読むたびに比較。詳細は「パフォーマンス」の注記)。ダーティ判定は通常 `IsChangedWith(View の値)` を使う |
 
 ### メソッド
 
@@ -231,13 +241,13 @@ _changeTracker.IsChangedChanged += (s, e) =>
 すべての操作は内部でロック保護されており、マルチスレッド環境で安全に使用できます。
 非同期な業務処理 (`async/await`) からも問題なく `UpdateCurrentValue` 等を呼べます。
 
-### 2. パフォーマンス最適化
+### 2. パフォーマンス
 
-`IsChanged` プロパティは結果をキャッシュし、頻繁にアクセスしても比較コストは累積しません。
+`IsChanged` は結果をキャッシュせず、**読むたびに現在値とベースラインを比較** します。そのため `CurrentValue` のオブジェクトをインプレースで編集した場合も検出されます (以前のバージョンはキャッシュしていたため、`AcceptChanges` / `RejectChanges` / `UpdateCurrentValue` を呼ぶまで反映されませんでした)。深い比較のコストは読むたびにかかるので、頻繁なポーリングは避けてください。
 
-> ⚠️ **`IsChanged`(キャッシュ版)が再計算されるのは `AcceptChanges` / `RejectChanges` / `UpdateCurrentValue` を呼んだときだけです。** `ChangeTracker` はあなたのデータを所有せず `INotifyPropertyChanged` も購読しないため、View 側で編集された値を `IsChanged` は感知できません。**ダーティ判定は現在値を渡して実時比較する `IsChangedWith(View.GetModel())` で行ってください**(キャッシュを読まない)。Save / ウィンドウクローズのような一発判定に最適で、本ページの例もこの形です。
+> ⚠️ `ChangeTracker` はあなたのデータを所有せず `INotifyPropertyChanged` も購読しないため、**View 側にしか無い編集値**は `IsChanged` からは見えません。**ダーティ判定は現在値を渡して比較する `IsChangedWith(View.GetModel())` で行ってください**。Save / ウィンドウクローズのような一発判定に最適で、本ページの例もこの形です。
 >
-> tracker に現在値を反映させたい場合 (イベント駆動 UI 等) は、View 変更時に `UpdateCurrentValue(View.GetModel())` を呼べばキャッシュ `IsChanged` が保たれ `IsChangedChanged` も発火します (実例 `samples/.../EmailDemo/ComposeEmailPresenter.cs`)。それでもデータの源は View です。
+> `IsChangedChanged` が発火するのは `AcceptChanges` / `RejectChanges` / `UpdateCurrentValue` で状態が変わったときだけです (インプレース編集では発火しません。イベントは内部ロックの外で発火するので、ハンドラから tracker を呼んでもデッドロックしません)。イベント駆動 UI で通知が欲しい場合は、View 変更時に `UpdateCurrentValue(View.GetModel())` を呼んでください (実例 `samples/.../EmailDemo/ComposeEmailPresenter.cs`)。それでもデータの源は View です。
 
 ### 3. ウィンドウクローズとの連携
 

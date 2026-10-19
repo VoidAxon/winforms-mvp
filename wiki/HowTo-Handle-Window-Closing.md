@@ -192,6 +192,8 @@ public class CustomerListPresenter : WindowPresenterBase<ICustomerListView>
 }
 ```
 
+> `result.IsError` になるのは、子が `RequestClose("メッセージ", InteractionStatus.Error)` / `RequestClose(exception, InteractionStatus.Error)` で閉じた場合 (メッセージ/例外が `ErrorMessage` / `Exception` に入る) のほか、`Ok` で閉じたのに結果の型が `TResult` と合わない場合や、`TResult` が null 非許容の値型なのに結果がない場合です (以前は `Ok(default)` になっていました)。
+
 ---
 
 ## シナリオ 5: システムシャットダウンを絶対にブロックしない
@@ -219,41 +221,63 @@ protected override bool CanClose(CloseReason reason)
 
 ## シナリオ 6: 非同期クローズ判断
 
-クローズ判断にサーバー呼び出しやコンティニュエーションが必要な場合は、`CanClose` の 2 引数形式をオーバーライドします。net40 でコンパイルできるよう、`Task` ではなく `Action<bool>` を使います:
+クローズ判断に `await` が必要な場合 (閉じる前に保存する、サーバーに確認する) は `CanCloseAsync` をオーバーライドします。`true` で許可、`false` でブロックです。以前のコールバック形式 `CanClose(reason, Action<bool> proceed)` は削除されました (BREAKING) — `proceed(x)` は `return x;` に置き換えます。
+
+典型例は「未保存の変更があれば下書き保存してから閉じる」です (`samples/WinformsMVP.Samples/EmailDemo/ComposeEmailPresenter.cs` より):
 
 ```csharp
-protected override void CanClose(CloseReason reason, Action<bool> proceed)
+protected override async Task<bool> CanCloseAsync(CloseReason reason)
 {
-    if (reason == CloseReason.SystemShutdown || reason == CloseReason.TaskManager)
-    {
-        proceed(true);
-        return;
-    }
+    // System shutdown / Task Manager / parent closing: never block, never prompt.
+    if (reason != CloseReason.Normal) return true;
+    if (_changeTracker == null || !_changeTracker.IsChanged) return true;
 
-    if (!_changeTracker.IsChanged)
-    {
-        proceed(true);
-        return;
-    }
+    var result = Messages.ConfirmYesNoCancel(
+        "You have unsaved changes. Do you want to save as draft?", "Unsaved Changes");
 
-    // Ask the server whether there are pending locks before closing.
-    _repository.HasActiveLockAsync(_userId, hasLock =>
+    if (result == ConfirmResult.Cancel) return false;   // keep editing
+    if (result == ConfirmResult.Yes)
+        return await SaveDraftAsync();                 // the window stays open while saving
+    return true;                                       // No: discard and close
+}
+
+/// Shared by the SaveDraft action and the close prompt. False (after telling the user) blocks the close.
+private async Task<bool> SaveDraftAsync()
+{
+    // Lock editing while saving, so the snapshot being saved is what the user sees;
+    // otherwise edits made during the wait would be marked clean and lost on close.
+    View.IsSaving = true;
+    View.EnableInput = false;
+    try
     {
-        if (hasLock)
-        {
-            Messages.ShowWarning("Another user has a lock. Cannot close now.", "Warning");
-            proceed(false);
-        }
-        else
-        {
-            proceed(Messages.ConfirmYesNo("Discard unsaved changes?", "Confirm"));
-        }
-    });
-    // proceed will be called from the continuation — return without calling it now.
+        var email = CreateEmailMessage();
+        await _repository.SaveDraftAsync(email);
+
+        // Accept only if nothing changed after the snapshot was taken.
+        if (email.To != View.To || email.Subject != View.Subject || email.Body != View.Body)
+            return false;
+        _changeTracker.AcceptChanges();
+        return true;
+    }
+    catch (Exception ex)
+    {
+        Messages.ShowError($"Error saving draft: {ex.Message}", "Error");
+        return false;                                  // failed save: don't lose the text
+    }
+    finally
+    {
+        View.IsSaving = false;
+        View.EnableInput = true;
+    }
 }
 ```
 
-フレームワークは `proceed` が同期的に呼ばれなかったことを検出してクローズを抑制し、コンティニュエーションから `proceed(true)` が届いたときにゲートをバイパスした再クローズをトリガーします。
+フレームワークの動作:
+
+- タスクが未完了の間、ウィンドウは開いたままです。`true` で完了するとゲートをバイパスした再クローズが行われ、`false` ならウィンドウは開いたままです。
+- 判定待ちの間の再クローズ (X の連打など) は再質問せずに保留されますが、`SystemShutdown` / `TaskManager` によるクローズは通ります。owner / MDI 親 / `Application.Exit` から来たクローズが非同期に許可された場合は、そのクローズが再発行されます。
+- タスクが fault / キャンセルされるとクローズはブロックされ、エラーはログ出力されます (システムレベルのクローズは許可)。想定内の失敗は上の例のように中で捕まえて `Messages` で伝え、`false` を返します。
+- `SystemShutdown` / `TaskManager` では `await` せずに即座に `true` を返してください ([シナリオ 5](#シナリオ-5-システムシャットダウンを絶対にブロックしない))。
 
 ---
 
@@ -303,9 +327,23 @@ form.Show();
 
 ## テストパターン
 
+テストでは `PresenterTestHost` (`WinformsMVP.Testing`、`WinformsMVP.Core` に同梱) で Presenter をモック View にホストします。`Start` は本番と同じ初期化を実行し、`RequestClose` を記録し (Push)、`CanClose(reason)` / `CanCloseAsync(reason)` で Pull ゲートを駆動します。Form も `InternalsVisibleTo` も不要です:
+
+```csharp
+private readonly MockServices _platform = new MockServices();
+private readonly MockView _view = new MockView();
+private readonly PresenterTestHost _host;
+
+public WindowClosingDemoPresenterTests()
+{
+    var presenter = new WindowClosingDemoPresenter().WithServiceProvider(_platform.Provider);
+    _host = PresenterTestHost.Start(presenter, _view);   // アタッチ + 初期化 + RequestClose の記録
+}
+```
+
 ### Pull 方向 — `CanClose` をテストする
 
-`ICloseParticipant.CanCloseGate` 経由で Pull ゲートに到達します (内部 API。テストプロジェクトは `InternalsVisibleTo` でアクセスできます):
+`host.CanClose(reason)` は X / Alt+F4 と同じゲートを通り、`bool?` を返します (`CanCloseAsync` が未回答なら `null`)。`CanCloseAsync` をオーバーライドした Presenter では `await host.CanCloseAsync(reason)` で判定の完了を待ちます (例は後述):
 
 ```csharp
 [Fact]
@@ -314,10 +352,7 @@ public void CanClose_WithUnsavedChanges_UserDeclines_BlocksClose()
     _view.SimulateEdit("new value");
     _platform.MessageService.ConfirmYesNoResult = false;   // user keeps editing
 
-    bool? allow = null;
-    ((ICloseParticipant)_presenter).CanCloseGate(CloseReason.Normal, ok => allow = ok);
-
-    Assert.False(allow);
+    Assert.False(_host.CanClose());                         // CloseReason.Normal
     Assert.True(_platform.MessageService.ConfirmDialogShown);
 }
 
@@ -326,50 +361,49 @@ public void CanClose_SystemShutdown_DoesNotPrompt()
 {
     _view.SimulateEdit("new value");
 
-    bool? allow = null;
-    ((ICloseParticipant)_presenter).CanCloseGate(CloseReason.SystemShutdown, ok => allow = ok);
+    Assert.True(_host.CanClose(CloseReason.SystemShutdown));
+    Assert.False(_platform.MessageService.ConfirmDialogShown);
+}
+```
+
+非同期の判定 (`CanCloseAsync`) は `await` してから検証します (`tests/.../Presenters/ComposeEmailPresenterTests.cs` より):
+
+```csharp
+[Fact]
+public async Task Closing_WithDirtyState_UserSelectsYes_SavesDraftAndAllowsClose()
+{
+    _view.SimulateEmailDataChange();
+    _platform.MessageService.ConfirmYesNoCancelResult = ConfirmResult.Yes;
+
+    bool allow = await _host.CanCloseAsync();   // awaits the draft save
 
     Assert.True(allow);
-    Assert.False(_platform.MessageService.ConfirmDialogShown);
+    Assert.Contains("SaveDraftAsync(Test)", _repository.MethodCalls);
 }
 ```
 
 ### Push 方向 — `RequestClose` をテストする
 
-テストの前に記録用の `ICloseSink` を束縛してからアクションを Dispatch します:
+アクションを Dispatch し、ホストが記録した結果とステータスを検証します (非同期ハンドラなら `await _view.Binder.DispatchAsync(...)` で完了を待つ):
 
 ```csharp
-private sealed class RecordingSink : ICloseSink
-{
-    public readonly List<(object result, InteractionStatus status)> Closed
-        = new List<(object, InteractionStatus)>();
-    public void Close(object result, InteractionStatus status)
-        => Closed.Add((result, status));
-}
-
 [Fact]
 public void Save_PushesResultWithOkStatus()
 {
-    var sink = new RecordingSink();
-    ((ICloseParticipant)_presenter).BindCloseSink(sink);
-
     _view.SimulateEdit("hello");
     _view.Binder.Dispatch(WindowClosingDemoActions.Save);
 
-    Assert.Single(sink.Closed);
-    Assert.Equal("hello", sink.Closed[0].result);
-    Assert.Equal(InteractionStatus.Ok, sink.Closed[0].status);
+    Assert.Equal(1, _host.CloseCount);
+    Assert.Equal("hello", _host.CloseResult);
+    Assert.Equal(InteractionStatus.Ok, _host.CloseStatus);
 }
 
 [Fact]
 public void Cancel_PushesCancelStatus()
 {
-    var sink = new RecordingSink();
-    ((ICloseParticipant)_presenter).BindCloseSink(sink);
-
     _view.Binder.Dispatch(WindowClosingDemoActions.Cancel);
 
-    Assert.Equal(InteractionStatus.Cancel, sink.Closed[0].status);
+    Assert.Equal(InteractionStatus.Cancel, _host.CloseStatus);
 }
 ```
 
@@ -381,22 +415,16 @@ Push (Save) の後に続く `CanClose` 呼び出しが再プロンプトを出�
 [Fact]
 public void Save_ThenCanClose_DoesNotPrompt()
 {
-    var sink = new RecordingSink();
-    ((ICloseParticipant)_presenter).BindCloseSink(sink);
-
     _view.SimulateEdit("hello");
     _view.Binder.Dispatch(WindowClosingDemoActions.Save);
 
     // Simulate the framework re-running the Pull gate after the Push close.
-    bool? allow = null;
-    ((ICloseParticipant)_presenter).CanCloseGate(CloseReason.Normal, ok => allow = ok);
-
-    Assert.True(allow);
+    Assert.True(_host.CanClose());
     Assert.False(_platform.MessageService.ConfirmDialogShown);
 }
 ```
 
-完全なテスト例: `tests/WinformsMVP.Samples.Tests/Presenters/CanCloseTests.cs` および `WindowClosingDemoPresenterTests.cs`。
+完全なテスト例: `tests/WinformsMVP.Samples.Tests/Presenters/WindowClosingDemoPresenterTests.cs` および `PresenterTestHostTests.cs`。
 テスト駆動の完全なガイド: [HowTo: Presenter をテストする](HowTo-Test-A-Presenter)。
 
 ---
@@ -406,5 +434,5 @@ public void Save_ThenCanClose_DoesNotPrompt()
 - [ウィンドウクローズモデル](Concept-Window-Closing-Model) — 設計の意図と内部構造
 - [WindowNavigator](Reference-WindowNavigator) — Navigator API、Fluent 形式、`InteractionResult<T>`
 - [ChangeTracker](Reference-ChangeTracker) — ダーティ状態の追跡
-- [Presenter 基底クラス](Reference-Presenter-Base-Classes) — `CanClose`、`RequestClose`、`Connect` の位置づけ
+- [Presenter 基底クラス](Reference-Presenter-Base-Classes) — `CanClose` / `CanCloseAsync`、`RequestClose`、`Connect` の位置づけ
 - [HowTo: Presenter をテストする](HowTo-Test-A-Presenter) — 完全なテストパターン

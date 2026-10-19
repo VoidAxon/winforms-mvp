@@ -36,16 +36,16 @@ namespace WinformsMVP.Samples.ExecutionRequestDemo
         protected override void RegisterViewActions()
         {
             // Register ViewActions
-            _dispatcher.Register(
+            Dispatcher.Register(
                 ExecutionRequestDemoActions.EditCustomer,
                 OnEditCustomerAction);
 
             // ✅ Recommended approach - Use IDialogProvider for file selection
-            _dispatcher.Register(
+            Dispatcher.Register(
                 ExecutionRequestDemoActions.SelectFile,
                 OnSelectFileAction);
 
-            _dispatcher.Register(
+            Dispatcher.Register(
                 ExecutionRequestDemoActions.SaveData,
                 OnSaveDataAction,
                 canExecute: () => _currentCustomer != null);
@@ -134,7 +134,7 @@ namespace WinformsMVP.Samples.ExecutionRequestDemo
                     _currentCustomer = editedData;
 
                     // Update CanExecute
-                    _dispatcher.RaiseCanExecuteChanged();
+                    Dispatcher.RaiseCanExecuteChanged();
 
                     // Return processed data
                     e.Callback?.Invoke(editedData);  // ✅ Return business data

@@ -115,7 +115,7 @@ public class UserModel : BindableBase
 
 `SetProperty<T>` は値の変化を `EqualityComparer<T>.Default.Equals` で比較し、変更があったときだけ `PropertyChanged` イベントを発火します。`[CallerMemberName]` 属性によりプロパティ名は自動取得されるので、文字列リテラルの typo を防げます。
 
-外部ライブラリへの依存なしに `INotifyPropertyChanged` を一行で実装でき、net40 から net48 まで全ターゲットで使えます。
+外部ライブラリへの依存なしに `INotifyPropertyChanged` を一行で実装でき、全ターゲットで使えます。
 
 ---
 

@@ -55,22 +55,22 @@ namespace WinformsMVP.Samples.ToDoDemo
             // The view will decide which UI controls trigger which actions
 
             // AddTask: Always enabled (no CanExecute = always true)
-            _dispatcher.Register(ToDoDemoActions.AddTask, OnAddTask);
+            Dispatcher.Register(ToDoDemoActions.AddTask, OnAddTask);
 
             // RemoveTask: Only enabled when a task is selected
-            _dispatcher.Register(
+            Dispatcher.Register(
                 ToDoDemoActions.RemoveTask,
                 OnRemoveTask,
                 canExecute: () => View.HasSelectedTask);
 
             // CompleteTask: Only enabled when a task is selected
-            _dispatcher.Register(
+            Dispatcher.Register(
                 ToDoDemoActions.CompleteTask,
                 OnCompleteTask,
                 canExecute: () => View.HasSelectedTask);
 
             // SaveAll: Only enabled when there are unsaved changes
-            _dispatcher.Register(
+            Dispatcher.Register(
                 ToDoDemoActions.SaveAll,
                 OnSaveAll,
                 canExecute: () => View.HasPendingChanges);
@@ -97,7 +97,7 @@ namespace WinformsMVP.Samples.ToDoDemo
             {
                 // User selected/deselected a task
                 // Notify dispatcher to re-evaluate CanExecute for all actions
-                _dispatcher.RaiseCanExecuteChanged();
+                Dispatcher.RaiseCanExecuteChanged();
 
                 // Update status
                 if (View.HasSelectedTask)
@@ -113,7 +113,7 @@ namespace WinformsMVP.Samples.ToDoDemo
             View.DataChanged += (sender, e) =>
             {
                 // Data changed externally (e.g., checkbox toggled)
-                _dispatcher.RaiseCanExecuteChanged();
+                Dispatcher.RaiseCanExecuteChanged();
             };
         }
 

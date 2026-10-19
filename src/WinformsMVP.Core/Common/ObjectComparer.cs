@@ -1,0 +1,225 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Runtime.CompilerServices;
+using WinformsMVP.Common.Internal;
+
+namespace WinformsMVP.Common
+{
+    /// <summary>
+    /// Pragmatic reflection-based deep comparison; collections are compared structurally; cycle-safe.
+    /// <see cref="DeepEquals(object, object)"/> respects every type's Equals/IEquatable.
+    /// <see cref="ContentEquals(object, object)"/> — the <see cref="ChangeTrackerDefaults"/> default —
+    /// trusts Equals only where it means "same value", so identity-style entity equality
+    /// (e.g. "same Id") cannot hide an edit.
+    /// </summary>
+    public static class ObjectComparer
+    {
+        public static bool DeepEquals<T>(T a, T b) => DeepEquals((object)a, (object)b);
+
+        public static bool DeepEquals(object a, object b)
+        {
+            return AreEqual(a, b, new Visited(contentMode: false));
+        }
+
+        public static bool ContentEquals<T>(T a, T b) => ContentEquals((object)a, (object)b);
+
+        /// <summary>
+        /// Compares by content: a custom Equals/IEquatable is used only for value types and framework
+        /// (<c>System.*</c>) types. Application reference types — typically entities whose Equals
+        /// compares an Id — are compared field by field, at every depth, so changing
+        /// <c>Order.Customer.Name</c> is detected even when <c>Customer.Equals</c> compares Ids.
+        /// </summary>
+        public static bool ContentEquals(object a, object b)
+        {
+            return AreEqual(a, b, new Visited(contentMode: true));
+        }
+
+        // Cycle-detection set that also carries the comparison mode down the recursion.
+        private sealed class Visited : HashSet<RefPair>
+        {
+            public readonly bool ContentMode;
+            public Visited(bool contentMode) { ContentMode = contentMode; }
+            public Visited(Visited source) : base(source) { ContentMode = source.ContentMode; }
+        }
+
+        private static bool TrustsEquals(Type type, Visited visited)
+        {
+            if (DeepReflection.IsImmutable(type)) return true;
+            if (!DeepReflection.HasCustomEquals(type)) return false;
+            return !visited.ContentMode || type.IsValueType || IsFrameworkType(type);
+        }
+
+        private static bool IsFrameworkType(Type type)
+        {
+            var ns = type.Namespace;
+            return ns != null && (ns == "System" || ns.StartsWith("System.", StringComparison.Ordinal)
+                               || ns.StartsWith("Microsoft.", StringComparison.Ordinal));
+        }
+
+        private static bool AreEqual(object a, object b, Visited visited)
+        {
+            if (ReferenceEquals(a, b)) return true;
+            if (a == null || b == null) return false;
+
+            var type = a.GetType();
+            if (type != b.GetType()) return false;
+
+            if (TrustsEquals(type, visited))
+                return a.Equals(b);
+
+            if (a is Delegate) return true;   // ignore delegates / events
+
+            var pair = new RefPair(a, b);
+            if (visited.Contains(pair)) return true;
+            visited.Add(pair);
+
+            if (type.IsArray) return ArrayEquals((Array)a, (Array)b, visited);
+
+            var dictA = a as IDictionary;
+            if (dictA != null) return DictionaryEquals(dictA, (IDictionary)b, visited);
+
+            var listA = a as IList;
+            if (listA != null) return ListEquals(listA, (IList)b, visited);
+
+            var elementType = DeepReflection.GetSequenceElementType(type);
+            if (elementType != null)
+                return DeepReflection.IsSet(type, elementType)
+                    ? SetEquals((IEnumerable)a, b, elementType, visited)
+                    : SequenceEquals((IEnumerable)a, (IEnumerable)b, visited);
+
+            if (DeepReflection.IsUnsupported(type))
+                throw new NotSupportedException(
+                    "ObjectComparer cannot deep-compare type '" + type.FullName +
+                    "'. Implement Equals/IEquatable on the model, or set ChangeTrackerDefaults.Comparer.");
+
+            return PocoEquals(a, b, type, visited);
+        }
+
+        private static bool ArrayEquals(Array a, Array b, Visited visited)
+        {
+            if (a.Rank != b.Rank || a.Length != b.Length) return false;
+            if (a.Rank != 1)
+                throw new NotSupportedException("ObjectComparer supports single-dimensional arrays only.");
+            for (int i = 0; i < a.Length; i++)
+                if (!AreEqual(a.GetValue(i), b.GetValue(i), visited)) return false;
+            return true;
+        }
+
+        private static bool DictionaryEquals(IDictionary a, IDictionary b, Visited visited)
+        {
+            if (a.Count != b.Count) return false;
+            foreach (DictionaryEntry entry in a)
+            {
+                if (!b.Contains(entry.Key)) return false;          // key equality delegated to the dictionary itself (pragmatic: keys are usually immutable)
+                if (!AreEqual(entry.Value, b[entry.Key], visited)) return false;
+            }
+            return true;
+        }
+
+        private static bool ListEquals(IList a, IList b, Visited visited)
+        {
+            if (a.Count != b.Count) return false;
+            for (int i = 0; i < a.Count; i++)
+                if (!AreEqual(a[i], b[i], visited)) return false;
+            return true;
+        }
+
+        // Ordered collections (Queue, Stack, LinkedList, ...): element-by-element in enumeration order.
+        private static bool SequenceEquals(IEnumerable a, IEnumerable b, Visited visited)
+        {
+            var ea = a.GetEnumerator();
+            var eb = b.GetEnumerator();
+            while (true)
+            {
+                bool hasA = ea.MoveNext(), hasB = eb.MoveNext();
+                if (hasA != hasB) return false;
+                if (!hasA) return true;
+                if (!AreEqual(ea.Current, eb.Current, visited)) return false;
+            }
+        }
+
+        // Sets: same count, then membership. Value-like elements (immutable or with their own
+        // Equals) use b's own comparer. Reference-identity elements would never match a deep copy
+        // that way, so they are paired structurally — each element of a with a distinct, deeply
+        // equal element of b (O(n²), fine for model-sized sets).
+        private static bool SetEquals(IEnumerable a, object b, Type elementType, Visited visited)
+        {
+            var collectionType = typeof(ICollection<>).MakeGenericType(elementType);
+            var count = collectionType.GetProperty("Count");
+            if ((int)count.GetValue(a, null) != (int)count.GetValue(b, null)) return false;
+
+            if (!UsesReferenceIdentity(b, elementType, visited))
+            {
+                var contains = collectionType.GetMethod("Contains");
+                foreach (var item in a)
+                    if (!(bool)contains.Invoke(b, new[] { item })) return false;
+                return true;
+            }
+
+            var unmatched = new List<object>();
+            foreach (var item in (IEnumerable)b) unmatched.Add(item);
+            foreach (var item in a)
+            {
+                int match = -1;
+                for (int i = 0; i < unmatched.Count && match < 0; i++)
+                {
+                    // A failed trial must not leave "assumed equal" pairs behind in `visited`.
+                    var trial = new Visited(visited);
+                    if (AreEqual(item, unmatched[i], trial))
+                    {
+                        match = i;
+                        visited.UnionWith(trial);
+                    }
+                }
+                if (match < 0) return false;
+                unmatched.RemoveAt(match);
+            }
+            return true;
+        }
+
+        // Membership is reference identity only when the set uses the default equality comparer
+        // and the element type has no value equality of its own. An explicit comparer (e.g. a
+        // case-insensitive name comparer) or a SortedSet's IComparer defines membership itself.
+        private static bool UsesReferenceIdentity(object set, Type elementType, Visited visited)
+        {
+            if (TrustsEquals(elementType, visited))
+                return false;
+            // Content mode: an element whose content changed is an edit, whatever the set's own
+            // membership comparer (often "same Id") says.
+            if (visited.ContentMode)
+                return true;
+            var comparer = set.GetType().GetProperty("Comparer")?.GetValue(set, null);
+            if (comparer == null) return true;
+            var defaultComparer = typeof(EqualityComparer<>).MakeGenericType(elementType)
+                .GetProperty("Default").GetValue(null, null);
+            return Equals(comparer, defaultComparer);
+        }
+
+        private static bool PocoEquals(object a, object b, Type type, Visited visited)
+        {
+            foreach (var field in DeepReflection.GetFields(type))
+            {
+                if (typeof(Delegate).IsAssignableFrom(field.FieldType)) continue;
+                if (!AreEqual(field.GetValue(a), field.GetValue(b), visited)) return false;
+            }
+            return true;
+        }
+
+        private struct RefPair : IEquatable<RefPair>
+        {
+            private readonly object _a;
+            private readonly object _b;
+            public RefPair(object a, object b) { _a = a; _b = b; }
+            public bool Equals(RefPair other) => ReferenceEquals(_a, other._a) && ReferenceEquals(_b, other._b);
+            public override bool Equals(object obj) => obj is RefPair && Equals((RefPair)obj);
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    return (RuntimeHelpers.GetHashCode(_a) * 397) ^ RuntimeHelpers.GetHashCode(_b);
+                }
+            }
+        }
+    }
+}

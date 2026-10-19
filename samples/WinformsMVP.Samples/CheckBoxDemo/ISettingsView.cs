@@ -37,7 +37,7 @@ namespace WinformsMVP.Samples.CheckBoxDemo
         /// <summary>
         /// Whether any settings have been applied (for CanExecute demo)
         /// </summary>
-        bool HasSettings { get; }
+        bool HasSettings { get; set; }
 
         // ========================================
         // View Behaviors

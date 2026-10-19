@@ -54,6 +54,8 @@ MVP パターン自体の思想は [MVP パターンとは](Concept-MVP-Pattern)
 | **Model Layer** | データとビジネスルール (Repository、DTO、ドメインロジック) | ゼロ |
 | **Platform Services Layer** | UI 操作・I/O・ロギング等の抽象化 | サービス実装にのみ存在 |
 
+この境界はパッケージ構成でも強制されています。Presenter 基底クラス・ViewAction ディスパッチャ・サービスインターフェイス等は **`WinformsMVP.Core`** (`netstandard2.0`、WinForms 非参照) にあり、Presenter だけを置くプロジェクトが Core のみを参照すれば WinForms 型はコンパイルできません。View 側の実装 (`WindowNavigator`、`ViewActionBinder`、ダイアログ、トースト、`MessageService`) は **`WinformsMVP`** (`net472` / `net10.0-windows`) にあります。名前空間は共通です。
+
 ---
 
 ## 主要コンポーネント早見表
@@ -65,7 +67,7 @@ MVP パターン自体の思想は [MVP パターンとは](Concept-MVP-Pattern)
 | `WindowNavigator` | Modal/Non-Modal ウィンドウのライフサイクル管理 | [WindowNavigator](Reference-WindowNavigator) |
 | `IViewMappingRegister` | View インターフェイスと Form クラスの紐付け | [ViewMappingRegister](Reference-ViewMappingRegister) |
 | **Platform Services** | `IMessageService` 等の UI 抽象化サービス群 | [Platform Services](Reference-Platform-Services) |
-| **Logging** | M.E.L. 互換 API の自社抽象、`net40` 対応 | [Logging](Reference-Logging) |
+| **Logging** | M.E.L. 互換 API の自社抽象 (外部依存ゼロ) | [Logging](Reference-Logging) |
 | `ChangeTracker<T>` | 編集 / キャンセル用の変更追跡 | [ChangeTracker](Reference-ChangeTracker) |
 | `EventAggregator` | Presenter 間の疎結合 pub/sub | [EventAggregator](Reference-EventAggregator) |
 | `ServiceLocator` + DI 連携 | サービスの構成・取得 | [Dependency Injection](Reference-DependencyInjection) |
