@@ -194,6 +194,39 @@ namespace WinformsMVP.Samples.Tests.Services
             });
         }
 
+        [Fact]
+        public void OpenFormFallback_BindsTheUiThread()
+        {
+            // An app that disabled AutoInstall has no WinForms SynchronizationContext; the service
+            // reaches the UI thread through an open form and must then stay bound to that thread
+            // (so a later Dispose from a worker marshals back instead of closing windows off-thread).
+            Exception failure = null;
+            var thread = new Thread(() =>
+            {
+                try
+                {
+                    WindowsFormsSynchronizationContext.AutoInstall = false;   // thread-static
+                    SynchronizationContext.SetSynchronizationContext(null);
+                    using (var form = new Form { ShowInTaskbar = false, Opacity = 0 })
+                    using (var svc = new WinFormsToastService(new ToastHostOptions()))
+                    {
+                        form.Show();
+                        Assert.Null(svc.BoundUiThreadId);
+
+                        Task.Run(() => svc.Show("via form", ToastType.Info)).Wait();
+                        PumpUntil(() => svc.Manager.LiveToasts.Count == 1);
+
+                        Assert.Equal(Thread.CurrentThread.ManagedThreadId, svc.BoundUiThreadId);
+                    }
+                }
+                catch (Exception ex) { failure = ex; }
+            });
+            thread.SetApartmentState(ApartmentState.STA);
+            thread.Start();
+            Assert.True(thread.Join(TimeSpan.FromSeconds(30)), "UI thread timed out");
+            if (failure != null) throw new Exception("UI thread failed", failure);
+        }
+
         public static TheoryData<ToastHostOptions> InvalidOptions => new TheoryData<ToastHostOptions>
         {
             new ToastHostOptions { Size = new Size(0, 80) },

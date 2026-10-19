@@ -55,6 +55,12 @@ namespace WinformsMVP.Services.Implementations
 
         internal ToastManager Manager => _manager;
 
+        /// <summary>The UI thread this service is bound to, or <c>null</c> before it knows one.</summary>
+        internal int? BoundUiThreadId
+        {
+            get { lock (_gate) { return _ui == null ? (int?)null : _uiThreadId; } }
+        }
+
         /// <inheritdoc />
         public void Show(string text, ToastType type, int? duration = null)
             => Dispatch(text, type, new ToastOptions { Duration = duration }, anchor: null);
@@ -98,10 +104,15 @@ namespace WinformsMVP.Services.Implementations
         {
             var current = SynchronizationContext.Current;
             if (!(current is WindowsFormsSynchronizationContext)) return;
+            Bind(current);
+        }
+
+        private void Bind(SynchronizationContext ui)
+        {
             lock (_gate)
             {
                 if (_ui != null) return;
-                _ui = current;
+                _ui = ui;
                 _uiThreadId = Thread.CurrentThread.ManagedThreadId;
             }
         }
@@ -152,7 +163,11 @@ namespace WinformsMVP.Services.Implementations
             {
                 host.BeginInvoke((Action)(() =>
                 {
+                    // Now on the form's UI thread: bind to it so later calls (and Dispose) marshal
+                    // here. Without an installed context (AutoInstall disabled) make one: created
+                    // on this thread, it posts to this thread.
                     TryBindToCurrentThread();
+                    if (BoundUiThreadId == null) Bind(new WindowsFormsSynchronizationContext());
                     ShowNow(text, type, owned, anchor);
                 }));
             }
