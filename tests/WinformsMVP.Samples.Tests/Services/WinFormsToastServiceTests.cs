@@ -98,6 +98,8 @@ namespace WinformsMVP.Samples.Tests.Services
             var logger = new CapturingLoggerFactory();
             using (var svc = new WinFormsToastService(new ToastHostOptions(), loggerFactory: logger))
             {
+                // Forms opened by other tests running in parallel must not count as "a UI thread".
+                svc.OpenFormLocator = () => null;
                 await Task.Run(() => svc.Show("too early", ToastType.Info));
 
                 Assert.Empty(svc.Manager.LiveToasts);
@@ -211,6 +213,7 @@ namespace WinformsMVP.Samples.Tests.Services
                     using (var svc = new WinFormsToastService(new ToastHostOptions()))
                     {
                         form.Show();
+                        svc.OpenFormLocator = () => form;   // not whatever form another parallel test has open
                         Assert.Null(svc.BoundUiThreadId);
 
                         Task.Run(() => svc.Show("via form", ToastType.Info)).Wait();

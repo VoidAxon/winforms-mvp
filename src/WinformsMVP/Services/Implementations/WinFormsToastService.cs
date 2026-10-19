@@ -56,6 +56,13 @@ namespace WinformsMVP.Services.Implementations
 
         internal ToastManager Manager => _manager;
 
+        /// <summary>
+        /// Finds an open form whose thread can host toasts before a UI thread is bound. Replaceable so
+        /// tests are not affected by forms other tests have open (<see cref="Application.OpenForms"/>
+        /// is process-wide).
+        /// </summary>
+        internal Func<Form> OpenFormLocator { get; set; } = FindOpenForm;
+
         /// <summary>The UI thread this service is bound to, or <c>null</c> before it knows one.</summary>
         internal int? BoundUiThreadId
         {
@@ -154,7 +161,7 @@ namespace WinformsMVP.Services.Implementations
 
             // No UI thread bound yet (e.g. the first toast comes from a worker thread): use the
             // thread of an open form. Never create the toast on this (possibly loop-less) thread.
-            var host = FindOpenForm();
+            var host = OpenFormLocator();
             if (host == null)
             {
                 Drop(owned, "no UI thread is available yet");
