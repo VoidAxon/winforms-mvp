@@ -119,6 +119,13 @@ namespace WinformsMVP.Configuration
 
             foreach (var choice in _choices) Put(choice);
 
+            // A replacement toast service passed as an instance belongs to the caller. Register it
+            // under IToastService as that same instance too: an alias factory would make M.E.DI treat
+            // it as container-created and dispose it, depending on which interface was resolved.
+            var toasts = byType[typeof(IWinFormsToastService)];
+            if (toasts.Factory == null)
+                Put(FrameworkRegistration.ForInstance(typeof(IToastService), toasts.Instance));
+
             var result = new List<FrameworkRegistration>(order.Count);
             foreach (var type in order) result.Add(byType[type]);
             return result;

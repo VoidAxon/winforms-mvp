@@ -279,6 +279,29 @@ namespace WinformsMVP.Samples.Tests.Services
             Assert.Same(mine, services.BuildServiceProvider().GetService<IMessageDialogBackend>());
         }
 
+        private sealed class OwnedToasts : IWinFormsToastService, IDisposable
+        {
+            public bool Disposed;
+            public void Show(string text, ToastType type, int? duration = null) { }
+            public void Show(string text, ToastType type, ToastOptions options) { }
+            public void ShowAnchored(string text, ToastType type, System.Drawing.Point anchor, ToastOptions options = null) { }
+            public void Dispose() => Disposed = true;
+        }
+
+        [Fact]
+        public void ToastsUseInstance_IsNotDisposedByTheContainer_WhicheverInterfaceWasResolved()
+        {
+            var mine = new OwnedToasts();
+            var services = new ServiceCollection();
+            services.AddWinformsMVP(new ViewMappingRegister(), mvp => mvp.Toasts.Use(mine));
+            var provider = services.BuildServiceProvider();
+
+            Assert.Same(mine, provider.GetService<IToastService>());
+            provider.Dispose();
+
+            Assert.False(mine.Disposed);   // the caller passed it in, so the caller owns it
+        }
+
         [Fact]
         public void AddWinformsMVP_LaterRegistration_Wins()
         {
