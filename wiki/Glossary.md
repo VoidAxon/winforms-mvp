@@ -153,6 +153,7 @@ View インターフェイスの 3 層の継承構造。
 - **`IViewBase`** — すべての View 共通の **ルート** (空のマーカー)。義務を課さない。アクション生成コントロールを持たない View (静的なスプラッシュ等) はこれを直接実装してよい。
 - **`IActionableView : IViewBase`** — ViewAction システムに参加する View が実装する中間層。`ActionBinder` (`IViewActionBinder`) を 1 つ公開する。
 - **`IWindowView : IActionableView`** — Form (ウィンドウ) 用のマーカー。独自メンバーも WinForms 型も持たない (`Handle` / `IsDisposed` / `Activate` も含まない)。クローズ制御は Presenter の `CanClose(CloseReason)` override / `RequestClose(...)` で行い、ライフサイクル・アクティブ化は具象 Form 側でフレームワークが扱う。モーダルダイアログの `owner` として渡せる (Navigator が実行時に実ウィンドウへ解決する)。
+- **`IValidatableView : IViewBase`** — 検証エラーを表示する View が追加で実装する。`ValidationErrors` (`IValidationErrorDisplay`) を 1 つ公開し、Presenter の `Validation` に自動接続される。Form では通常 `ErrorProviderDisplay` を返す ([フォーム入力を検証する](HowTo-Validate-Form-Input))。
 
 慣習として、Form 系の View は `IWindowView` を、UserControl 系の View は `IViewBase` (アクションを持つなら `IActionableView`) を起点に定義する。`IViewBase` は「UserControl 専用」ではなく、全 View の共通ルートである点に注意。
 
@@ -247,6 +248,10 @@ MVP のバリアント。Presenter は **ユースケースロジックのみ** 
 オブジェクト指向の原則。「状態を聞いて分岐する」ではなく「指示を出して任せる」。本フレームワークでは Presenter が View に対して Tell する形が基本。
 
 詳細: [MVP 設計ルール § Rule 7](Design-Rules#rule-7-presenter-メソッドの戻り値を持たせない)
+
+### ValidationState
+
+Presenter の `Validation` プロパティの型。フィールド名 (Model のプロパティ名) ごとの現在の検証エラーを持つ。`Validate(model)` で DataAnnotations を再評価、`SetError` / `ClearError` で Presenter のルールを追加、送信時は `Check(model)` で全エラーを表示、`Reset()` で初期状態に戻す。`FormLevel` はフィールドに属さないエラーのキー。[フォーム入力を検証する](HowTo-Validate-Form-Input) を参照。
 
 ### ViewAction
 

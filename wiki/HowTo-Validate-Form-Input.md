@@ -1,210 +1,469 @@
 # HowTo: フォーム入力を検証する
 
-このページでは、フォーム入力の検証 (バリデーション) を実装するパターンを示します。
-原則: **検証ロジックは Model または Presenter に置き、View はエラー表示の "見せ方" だけを持つ**。
+このページでは、フォーム入力の検証 (バリデーション) とエラー表示の標準的な実装方法を示します。
+原則: **検証ルールは Model (DataAnnotations) と Presenter に置き、View はエラーを「どこに・どう」見せるかだけを持つ**。
 
-検証の書き方は 2 通りあります:
+標準の流れは次のとおりです:
 
-- **手書きパターン** — Presenter 内に `if` チェーンで書く。シンプルで読みやすいが、フィールドが増えると冗長になる
-- **ModelValidator パターン** (推奨) — Model に `[Required]` 等の DataAnnotations 属性を付け、`IModelValidator` で一括検証。再利用性とテスト性が高い
+- **ルール** — Model の DataAnnotations (`Validation.Validate(model)` がプロパティ属性・クラスレベル属性・`IValidatableObject` をすべて評価) + Presenter のルール (`Validation.SetError(field, msg)` / `ClearError`。クロスフィールドや DB 照会など)
+- **状態** — 全 Presenter が持つ `protected ValidationState Validation`。フィールド名 (= Model のプロパティ名) ごとの現在のエラー
+- **表示** — View が `IValidatableView` を実装して `IValidationErrorDisplay ValidationErrors` を公開。Form では `ErrorProviderDisplay` でフィールド名をコントロールに対応付ける。接続はフレームワークが自動で行う
+- **タイミング** — フィールドのエラーは、ユーザーがそのコントロールを離れた (フォーカスが外れた) 後、または送信 (`Validation.Check(model)`) の後に表示される
 
-どちらも MVP 違反ではありません。**規模と再利用性で選んでください**。同じプロジェクト内で混在させても問題ありません (例: 単純な検索フォームは手書き、ユーザー編集のような複雑なフォームは ModelValidator)。
+完全な実装例は `samples/WinformsMVP.Samples/ValidationDemo/` (`RegistrationModel` / `ValidationDemoPresenter` / `ValidationDemoForm`) です。
 
 ---
 
 ## 目次
 
-- [基本パターン: 手書き](#基本パターン-手書き)
-- [推奨パターン: ModelValidator (DataAnnotations 連携)](#推奨パターン-modelvalidator-dataannotations-連携)
+- [推奨パターン: Validation + ErrorProviderDisplay](#推奨パターン-validation--errorproviderdisplay)
+  - [1. Model にルールを書く](#1-model-にルールを書く)
+  - [2. View インターフェイス: IValidatableView](#2-view-インターフェイス-ivalidatableview)
+  - [3. Form: ErrorProviderDisplay でフィールドとコントロールを対応付ける](#3-form-errorproviderdisplay-でフィールドとコントロールを対応付ける)
+  - [4. Presenter: Validate / Check / Reset](#4-presenter-validate--check--reset)
+  - [エラーが表示されるタイミング](#エラーが表示されるタイミング)
+  - [送信ボタンは無効化しない](#送信ボタンは無効化しない)
+  - [Presenter のルール: SetError / ClearError](#presenter-のルール-seterror--clearerror)
+  - [ValidationState API](#validationstate-api)
+- [クロスフィールド検証の注意点](#クロスフィールド検証の注意点)
+- [視覚的なエラー表示をカスタマイズする](#視覚的なエラー表示をカスタマイズする)
+- [ChangeTracker と検証を組み合わせる](#changetracker-と検証を組み合わせる)
+- [リファレンス: ModelValidator (DataAnnotations 連携)](#リファレンス-modelvalidator-dataannotations-連携)
 - [`[ValidationOrder]` でフィールド順序を制御](#validationorder-でフィールド順序を制御)
-- [ChangeTracker と組み合わせる](#changetracker-と組み合わせる)
-- [シナリオ 1: フィールド単位の検証](#シナリオ-1-フィールド単位の検証)
-- [シナリオ 2: クロスフィールド検証](#シナリオ-2-クロスフィールド検証)
-- [シナリオ 3: パターン照合 (Email / 電話番号)](#シナリオ-3-パターン照合-email--電話番号)
-- [シナリオ 4: ビジネスルール検証](#シナリオ-4-ビジネスルール検証)
-- [シナリオ 5: リアルタイム検証](#シナリオ-5-リアルタイム検証)
-- [Save ボタンの有効/無効を CanExecute で制御](#save-ボタンの有効無効を-canexecute-で制御)
-- [視覚的なエラー表示](#視覚的なエラー表示)
 - [テストパターン](#テストパターン)
 - [関連ページ](#関連ページ)
 
 ---
 
-## 基本パターン: 手書き
+## 推奨パターン: Validation + ErrorProviderDisplay
 
-最もシンプルな書き方。Presenter で検証を実行し、エラーを View に渡します。
+### 1. Model にルールを書く
 
-```csharp
-public interface IUserEditorView : IWindowView
-{
-    string UserName { get; set; }
-    string Email { get; set; }
-    string Phone { get; set; }
-
-    bool IsValid { get; }                                      // 検証結果フラグ
-    void ShowValidationErrors(IReadOnlyList<string> errors);   // 一覧表示
-    void ShowFieldError(string fieldName, string error);       // 個別フィールド表示
-    void ClearFieldErrors();
-
-    ViewActionBinder ActionBinder { get; }
-    event EventHandler InputChanged;
-}
-```
-
-```csharp
-public class UserEditorPresenter : WindowPresenterBase<IUserEditorView>
-{
-    protected override void OnViewAttached()
-    {
-        View.InputChanged += (s, e) => Validate();
-    }
-
-    private bool Validate()
-    {
-        View.ClearFieldErrors();
-        var errors = new List<string>();
-
-        if (string.IsNullOrWhiteSpace(View.UserName))
-        {
-            errors.Add("Name is required.");
-            View.ShowFieldError(nameof(View.UserName), "Required");
-        }
-
-        if (!IsValidEmail(View.Email))
-        {
-            errors.Add("Email is invalid.");
-            View.ShowFieldError(nameof(View.Email), "Invalid email format");
-        }
-
-        View.ShowValidationErrors(errors);
-        return errors.Count == 0;
-    }
-}
-```
-
-このパターンはフィールドが少なく、検証ロジックがシンプルなとき有効です。次節の ModelValidator パターンでは同じことを宣言的・再利用可能な形で書けます。
-
----
-
-## 推奨パターン: ModelValidator (DataAnnotations 連携)
-
-フレームワークは標準 `System.ComponentModel.DataAnnotations` と統合した検証フレームワーク (`WinformsMVP.Common.Validation` 名前空間) を提供します。**Model に検証ルールを宣言** し、**Presenter は `IModelValidator` を通じて検証** する設計です。
-
-### Model に DataAnnotations を付ける
+ルールは Model の DataAnnotations として宣言します。標準属性 (`Required`, `StringLength`, `MinLength`, `MaxLength`, `EmailAddress`, `RegularExpression`, `Range`, `CustomValidation`, ...) とクラスレベル属性・`IValidatableObject` がすべて使えます。
 
 ```csharp
 using System.ComponentModel.DataAnnotations;
-using WinformsMVP.Common.Validation.Attributes;
 
-public class UserModel
+public class RegistrationModel
 {
-    [ValidationOrder(1)]
-    [Required(ErrorMessage = "Name is required.")]
-    [StringLength(50, MinimumLength = 2,
-        ErrorMessage = "Name must be 2-50 characters.")]
+    [Required(ErrorMessage = "User name is required.")]
+    [MinLength(3, ErrorMessage = "User name must be at least 3 characters.")]
     public string UserName { get; set; }
 
-    [ValidationOrder(2)]
     [Required(ErrorMessage = "Email is required.")]
-    [EmailAddress(ErrorMessage = "Invalid email format.")]
+    [EmailAddress(ErrorMessage = "Email format is invalid.")]
     public string Email { get; set; }
 
-    [ValidationOrder(3)]
-    [RegularExpression(@"^0\d{1,4}-\d{1,4}-\d{4}$",
-        ErrorMessage = "Invalid Japanese phone format.")]
-    public string Phone { get; set; }
+    [Required(ErrorMessage = "Password is required.")]
+    [MinLength(8, ErrorMessage = "Password must be at least 8 characters.")]
+    public string Password { get; set; }
+
+    [Required(ErrorMessage = "Password confirmation is required.")]
+    [CustomValidation(typeof(RegistrationModel), nameof(MatchesPassword))]
+    public string ConfirmPassword { get; set; }
+
+    [Required(ErrorMessage = "Age is required.")]
+    [Range(18, 120, ErrorMessage = "Age must be between 18 and 120.")]
+    public int? Age { get; set; }
+
+    // [CustomValidation] のメソッドは public static。エラーは context.MemberName で返す
+    public static ValidationResult MatchesPassword(string value, ValidationContext context)
+    {
+        var model = (RegistrationModel)context.ObjectInstance;
+        return value == model.Password
+            ? ValidationResult.Success
+            : new ValidationResult("Passwords do not match.", new[] { context.MemberName });
+    }
 }
 ```
 
-ここで使えるのは標準 `DataAnnotations` 属性 (`Required`, `StringLength`, `EmailAddress`, `RegularExpression`, `Range`, etc.) すべてと、フレームワーク独自の `ValidationOrderAttribute` です。
+エラーは `ValidationResult.MemberNames` のプロパティ名の下に登録されます。メンバー名を持たないエラー (クラスレベルの規則など) は `ValidationState.FormLevel` (空文字列) の下に入ります。
 
-### Presenter で IModelValidator を使う
+> 💡 **フィールド名 = Model のプロパティ名。** Presenter の `SetError` でも Form の `Map` でも `nameof(RegistrationModel.UserName)` のように書きます。文字列リテラルは使いません。
+
+### 2. View インターフェイス: IValidatableView
+
+View インターフェイスに `IValidatableView` を追加するだけです。エラー表示用のメソッド (`ShowFieldError` 等) を自前で定義する必要はありません。
 
 ```csharp
-using System.Linq;
-using WinformsMVP.Common.Validation.Core;
-
-public class UserEditorPresenter : WindowPresenterBase<IUserEditorView>
+public interface IRegistrationView : IWindowView, IValidatableView
 {
-    private readonly IModelValidator<UserModel> _validator = ModelValidator.For<UserModel>();
+    string UserName { get; set; }
+    string Email { get; set; }
+    string Password { get; set; }
+    string ConfirmPassword { get; set; }
+    int Age { get; set; }               // 0 = 未入力
+
+    event EventHandler DataChanged;     // どれかの値が変わった
+}
+```
+
+```csharp
+// WinformsMVP.MVP.Views (WinformsMVP.Core)
+public interface IValidatableView : IViewBase
+{
+    IValidationErrorDisplay ValidationErrors { get; }
+}
+```
+
+`IValidationErrorDisplay` (`WinformsMVP.Common.Validation.Core`) は View 側のエラーの受け口で、WinForms 型を含みません。`ShowErrors(errors, revealAll)` で全エラーを受け取り、`Reset()` で「訪問済みフィールド」を忘れます。通常は自分で実装せず、WinForms パッケージの `ErrorProviderDisplay` を使います。
+
+### 3. Form: ErrorProviderDisplay でフィールドとコントロールを対応付ける
+
+```csharp
+using WinformsMVP.Common.Validation;        // ErrorProviderDisplay / ControlErrorDisplay
+using WinformsMVP.Common.Validation.Core;   // ValidationState / IValidationErrorDisplay
+
+public partial class RegistrationForm : Form, IRegistrationView
+{
+    private readonly ErrorProvider _errorProvider = new ErrorProvider { BlinkStyle = ErrorBlinkStyle.NeverBlink };
+    private readonly ErrorProviderDisplay _errors;
+
+    public RegistrationForm()
+    {
+        InitializeComponent();
+        Disposed += (s, e) => _errorProvider.Dispose();
+
+        _errors = new ErrorProviderDisplay(_errorProvider)
+            .Map(nameof(RegistrationModel.UserName), _userNameTextBox)
+            .Map(nameof(RegistrationModel.Email), _emailTextBox)
+            .Map(nameof(RegistrationModel.Password), _passwordTextBox)
+            .Map(nameof(RegistrationModel.ConfirmPassword), _confirmPasswordTextBox)
+            .Map(nameof(RegistrationModel.Age), _ageNumeric)
+            .Map(ValidationState.FormLevel, _submitButton);   // フォーム全体 / 未マップのエラー
+    }
+
+    public IValidationErrorDisplay ValidationErrors => _errors;
+
+    // ... UserName などのプロパティ、DataChanged、ActionBinder
+}
+```
+
+- 各フィールドのエラーは、ユーザーがそのコントロールを離れた (`Leave`) 後、または送信の後に表示されます。
+- `ValidationState.FormLevel` にマップしたコントロール (例: 送信ボタン) には、**メンバー名のないエラーとマップされていないフィールドのエラー** が、送信の後に表示されます。
+- 同じフィールドを 2 回 `Map` すると例外です。Form にはフィールドごとのエラー処理コードも検証ロジックも書きません。
+
+接続はフレームワークが行います。View が `IValidatableView` を実装していれば、Presenter の `Validation` の変更はすべて `ValidationErrors` に送られ、同時に全アクションの `canExecute` が再評価されます (`ActionBinder` の自動 Bind と同じ扱い)。
+
+### 4. Presenter: Validate / Check / Reset
+
+```csharp
+public class RegistrationPresenter : WindowPresenterBase<IRegistrationView>
+{
+    protected override void OnViewAttached()
+    {
+        EventHandler onDataChanged = (s, e) => Validation.Validate(ReadModel());
+        View.DataChanged += onDataChanged;
+        Disposable.Create(() => View.DataChanged -= onDataChanged).DisposeWith(Disposables);
+    }
+
+    protected override void RegisterViewActions()
+    {
+        Dispatcher.Register(RegistrationActions.Submit, OnSubmit);   // canExecute で検証結果を見ない
+        Dispatcher.Register(RegistrationActions.Reset, OnReset);
+    }
+
+    protected override void OnInitialize()
+    {
+        // 最初からエラーを持たせておく: 空の必須欄を Tab で通過しただけでも表示される
+        Validation.Validate(ReadModel());
+    }
+
+    private void OnSubmit()
+    {
+        var model = ReadModel();
+        if (!Validation.Check(model)) return;   // 全エラーを表示して中断
+
+        Save(model);
+        Messages.ShowInfo("Registered.");
+    }
+
+    private void OnReset()
+    {
+        View.UserName = string.Empty;
+        // ... 他のフィールドもクリア
+
+        Validation.Reset();                     // エラーと「訪問済み」を忘れる
+        Validation.Validate(ReadModel());
+    }
+
+    private RegistrationModel ReadModel() => new RegistrationModel
+    {
+        UserName = View.UserName,
+        Email = View.Email,
+        Password = View.Password,
+        ConfirmPassword = View.ConfirmPassword,
+        Age = View.Age > 0 ? View.Age : (int?)null
+    };
+}
+```
+
+Presenter はコントロールにもエラー表示部品にも触れません。`Validation` は最初のアクセス時に作られ、View のアタッチ時 (またはその後の最初のアクセス時) に自動で接続されます。購読解除も `Disposables` 経由で自動です。
+
+### エラーが表示されるタイミング
+
+| 操作 | Presenter | 表示 |
+|---|---|---|
+| 入力の変更 | `Validation.Validate(model)` | ユーザーが **一度離れた** フィールドのエラーだけ |
+| 送信 (Save / Submit) | `if (!Validation.Check(model)) return;` | **全フィールド** のエラー + `FormLevel` コントロールにフォーム全体 / 未マップのエラー |
+| 新規 / クリア | `Validation.Reset()` (続けて `Validate`) | エラーを消去し、訪問済みフィールドを忘れる。再び「離れたフィールドだけ」に戻る |
+
+`Check` は `Validate` + `ShowAll()` で、エラーがなければ `true` を返します。一度 `Check` すると `Reset` まで全エラー表示 (`RevealAll`) が続くので、送信後の修正はその場で反映されます。
+
+### 送信ボタンは無効化しない
+
+**エラーがある間も送信アクションは有効のままにしてください。** 送信ボタンを押すことが、ユーザーがまだ触れていないフィールドのエラーを見せる唯一の手段です。無効化された Save ボタンは何も教えてくれません。
+
+```csharp
+// ❌ 未訪問フィールドのエラーを見せる手段がなくなる
+Dispatcher.Register(StandardActions.Save, OnSave, canExecute: () => !Validation.HasErrors);
+
+// ✅ 送信時に Check する
+Dispatcher.Register(StandardActions.Save, OnSave);
+private void OnSave()
+{
+    if (!Validation.Check(View.GetModel())) return;
+    // ...
+}
+```
+
+`Validation.HasErrors` (表示済みかどうかに関係なく、どれかのルールが失敗していれば `true`) は読めますが、送信の `canExecute` には使いません。検証以外の条件 (変更があるか、処理中か等) で `canExecute` を使うのは問題ありません。`Validation` が変わるたびに `canExecute` は自動で再評価されます。
+
+### Presenter のルール: SetError / ClearError
+
+Model の属性で表せないルール (DB での重複チェック、外部サービス、画面状態に依存する条件) は Presenter から追加します。Model のエラーと同じフィールド名で合成され、同じタイミングで表示されます。
+
+```csharp
+private void CheckUserNameAvailable(RegistrationModel model)
+{
+    if (_users.Exists(model.UserName))
+        Validation.SetError(nameof(RegistrationModel.UserName), $"'{model.UserName}' is already taken.");
+    else
+        Validation.ClearError(nameof(RegistrationModel.UserName));
+}
+```
+
+- `SetError(field, msg)` はそのフィールドの Presenter ルールのエラーを置き換えます (空メッセージは `ClearError` と同じ)。
+- `Validate(model)` は Model のエラーだけを置き換え、`SetError` のエラーは残します。条件が解消したら `ClearError` で消します。
+- フィールドに属さないエラーは `Validation.SetError(ValidationState.FormLevel, msg)` で設定します。
+
+### ValidationState API
+
+`WinformsMVP.Common.Validation.Core.ValidationState` (`WinformsMVP.Core`)。Presenter では基底クラスの `Validation` プロパティで使います。
+
+| メンバー | 説明 |
+|---|---|
+| `Validate<T>(model)` | Model の DataAnnotations (プロパティ・クラスレベル・`IValidatableObject`) を再評価し、Model 由来のエラーを置き換える |
+| `Check<T>(model)` | `Validate` + `ShowAll`。エラーがなければ `true` (送信時に使う) |
+| `SetError(field, message)` / `ClearError(field)` | Presenter ルールのエラーを設定 / 消去 |
+| `ShowAll()` | 未訪問のフィールドも含めて全エラーを表示する |
+| `Reset()` | 全エラーを消去し、訪問済みフィールドを忘れ、`RevealAll` を解除 |
+| `HasErrors` | どれかのルールが失敗していれば `true` (表示の有無とは無関係) |
+| `RevealAll` | `Check` / `ShowAll` 後、`Reset` まで `true` |
+| `Errors` / `GetErrors(field)` | 現在のエラー (フィールド名 → メッセージ一覧。Model のルールが先、Presenter のルールが後) |
+| `FormLevel` | フィールドに属さないエラーのキー (`""`) |
+| `ErrorsChanged` / `WasReset` | 変更通知 (フレームワークが View への接続に使う) |
+
+---
+
+## クロスフィールド検証の注意点
+
+「確認用パスワードが一致するか」のような複数フィールドにまたがるルールは、**エラーを出したいフィールドのプロパティ規則** として書くのが確実です。
+
+- **`[Compare]` は使わない (.NET Framework)。** .NET Framework の `CompareAttribute` はメンバー名なしでエラーを返すため、エラーが `ConfirmPassword` の横ではなく `FormLevel` のコントロール (送信ボタン) に、しかも送信後にしか出ません。`[CustomValidation]` で `context.MemberName` を付けて返すか (上の `MatchesPassword`)、Presenter ルール (`SetError`) にします。
+- **`IValidatableObject.Validate` はすべてのプロパティ規則が通った後にしか実行されません** (DataAnnotations の仕様)。他の欄に 1 つでもエラーがあると、クラスレベルのエラーは出ません。入力中から見せたいルールは `[CustomValidation]` のプロパティ規則にします。
+- `IValidatableObject` を使う場合も、`new ValidationResult(msg, new[] { nameof(EndDate) })` のようにメンバー名を付ければそのフィールドに表示されます。メンバー名がなければ `FormLevel` 扱いです。
+- 1 つのプロパティに複数のメッセージ (パスワードの大文字・数字・記号の各条件など) を出したい場合は、条件ごとに `[CustomValidation]` を並べます。同じフィールドのメッセージは改行区切りで表示されます。
+
+```csharp
+public class Period : IValidatableObject
+{
+    [Required] public DateTime? StartDate { get; set; }
+    [Required] public DateTime? EndDate { get; set; }
+
+    // StartDate / EndDate の [Required] が両方通ったときだけ実行される
+    public IEnumerable<ValidationResult> Validate(ValidationContext context)
+    {
+        if (StartDate >= EndDate)
+            yield return new ValidationResult(
+                "End date must be after start date.",
+                new[] { nameof(EndDate) });   // EndDate の横に表示
+    }
+}
+```
+
+---
+
+## 視覚的なエラー表示をカスタマイズする
+
+`ErrorProviderDisplay` (アイコン + ツールチップ) 以外の見せ方 (ラベル、背景色など) にしたい場合は、`ControlErrorDisplay` を継承して `SetControlError` を 1 つ実装します。「いつ・どのフィールドを表示するか」(訪問済み判定、送信後の全表示、`FormLevel` への集約、`Reset`) は基底クラスが扱います。
+
+```csharp
+public sealed class BackColorErrorDisplay : ControlErrorDisplay
+{
+    private readonly ToolTip _toolTip;
+
+    public BackColorErrorDisplay(ToolTip toolTip) { _toolTip = toolTip; }
+
+    // message が空ならエラー解除。同じコントロールの複数メッセージは改行区切りで渡される
+    protected override void SetControlError(Control control, string message)
+    {
+        control.BackColor = string.IsNullOrEmpty(message) ? SystemColors.Window : Color.MistyRose;
+        _toolTip.SetToolTip(control, message);
+    }
+}
+```
+
+```csharp
+_errors = new BackColorErrorDisplay(_toolTip)
+    .Map(nameof(UserModel.UserName), _nameTextBox)
+    .Map(ValidationState.FormLevel, _summaryLabel);
+```
+
+WinForms 以外の表示 (エラー一覧パネルなど) が必要なら `IValidationErrorDisplay` を直接実装することもできます。いずれも View 内部の詳細なので Presenter は関与しません。
+
+---
+
+## ChangeTracker と検証を組み合わせる
+
+[ChangeTracker](Reference-ChangeTracker) (変更追跡) と `Validation` (検証) は **無関係な別々の関心事**です。
+
+- **`ChangeTracker`** はベースラインから「**変わったか**」を答える検出ツール。**データの所有者ではありません**。
+- **`Validation`** は「**妥当か**」を答え、エラーを View に届けるだけ。
+
+データは **View(が保持・バインドする編集モデル)** が持ち、Presenter が 2 つのツールを **それぞれ別々に** 呼んで編成します。融合ヘルパーはフレームワークでは提供しません ([単一責任](Concept-MVP-Pattern))。
+
+### 典型パターン: 変更有無で Save を有効化 + 保存時に検証
+
+```csharp
+public class EditUserPresenter : WindowPresenterBase<IEditUserView>
+{
+    private ChangeTracker<UserModel> _tracker;
+
+    protected override void OnInitialize()
+    {
+        var user = LoadUser(_userId);
+        _tracker = new ChangeTracker<UserModel>(user);   // ベースラインのスナップショット(変更検出専用)
+        View.ShowUser(user);                              // 表示は意味のある View メソッドで(View が編集モデルを保持)
+        Validation.Validate(user);
+    }
+
+    protected override void RegisterViewActions()
+    {
+        Dispatcher.Register(
+            StandardActions.Save,
+            OnSave,
+            // 「変わったか」だけで有効化する。妥当性では無効化しない (未訪問フィールドのエラーを見せるため)
+            canExecute: () => _tracker.IsChangedWith(View.GetModel()));
+    }
+
+    // 入力が変わったら再検証する。Validation の変更で canExecute も自動で再評価される
+    // (エラーが変わらないときは再評価されないので、変更検出のために RaiseCanExecuteChanged も呼ぶ)
+    private void OnInputChanged(object sender, EventArgs e)
+    {
+        Validation.Validate(View.GetModel());
+        Dispatcher.RaiseCanExecuteChanged();
+    }
 
     private void OnSave()
     {
-        var model = View.GetModel();
-        var errors = _validator.ValidateAll(model);
-
-        if (errors.Any())
-        {
-            View.ClearFieldErrors();
-            foreach (var err in errors)
-            {
-                var field = err.MemberNames.FirstOrDefault();
-                if (!string.IsNullOrEmpty(field))
-                    View.ShowFieldError(field, err.ErrorMessage);
-            }
-            View.ShowValidationErrors(errors.Select(e => e.ErrorMessage).ToList());
-            return;
-        }
+        var model = View.GetModel();           // データは View から取得(tracker からではない)
+        if (!Validation.Check(model)) return;  // エラーを見せて Save をブロックするだけ。何も巻き戻さない
 
         SaveUser(model);
+        _tracker.AcceptChanges(model);         // 保存できた値を新しいベースラインに(dirty 解消)
         Messages.ShowInfo("Saved.");
     }
 }
 ```
 
+> **CanExecute の再評価にはトリガが要ります。** `canExecute` 述語は登録時、`RaiseCanExecuteChanged()` 呼び出し時、そして `Validation` のエラーが変わったときにしか再計算されません ([アクション外で状態が変わったら呼ぶ](Reference-ViewAction-System))。
+>
+> キャッシュ `IsChanged` を使いたい場合は、View 変更時に `_tracker.UpdateCurrentValue(View.GetModel())` を呼んで tracker にも現在値を反映し、`IsChangedChanged` ハンドラで `RaiseCanExecuteChanged()` を呼ぶ形にできます (実例 `samples/.../EmailDemo/ComposeEmailPresenter.cs`)。それでもデータの源は View です。
+
+### 検証は「巻き戻し」と無関係
+
+「入力が無効になったら自動で元に戻す」を `ChangeTracker.RejectChanges()` で実装しては **いけません**。`RejectChanges()` は **スナップショット全体をベースラインに戻す** 操作です。3 項目編集して 1 項目だけ無効なときに呼ぶと、**妥当だった残り 2 項目まで巻き戻ってしまいます**。検証はフィールド単位、`RejectChanges` はセッション全体——粒度が噛み合いません。
+
+- **検証失敗時**:エラーを表示して Save をブロックするだけ。`ChangeTracker` には一切触れない。
+- **`RejectChanges()` の正しい用途**:ユーザーが明示的に「キャンセル/破棄」したときに、編集セッション**全体**を捨てる操作 (個々のフィールド単位ではない)。破棄後に表示を初期状態へ戻すなら `Validation.Reset()` も呼びます。
+
+検証と変更追跡はそれぞれ単体でテストでき、互いに依存しません。
+
+---
+
+## リファレンス: ModelValidator (DataAnnotations 連携)
+
+`Validation.Validate` / `Check` は内部で `ModelValidator.For<T>().ValidateAll(model)` を使います。画面のエラー表示とは関係なく Model を検証したい場合 (インポート処理、サービス層、Model の単体テストなど) は `IModelValidator<T>` (`WinformsMVP.Common.Validation.Core`) を直接使えます。
+
+```csharp
+private readonly IModelValidator<UserModel> _validator = ModelValidator.For<UserModel>();
+
+var errors = _validator.ValidateAll(model);
+foreach (var err in errors)
+    Logger.LogWarning("{Field}: {Message}", err.MemberNames.FirstOrDefault(), err.ErrorMessage);
+```
+
 ### ValidateAll vs ValidateSequential
 
-`IModelValidator<T>` には 3 つのメソッドがあり、用途で使い分けます。
+`IModelValidator<T>` には 3 つのメソッドがあります。
 
 | メソッド | 戻り値 | 使いどころ |
 |---|---|---|
-| `ValidateAll(model)` | `ReadOnlyCollection<ModelValidationResult>` (全エラー) | 保存ボタン押下時の最終チェック (全エラーを一覧表示) |
-| `ValidateSequential(model)` | `ModelValidationResult` (最初の 1 件のみ) | リアルタイム検証 (`[ValidationOrder]` 順、最初のエラーで停止 — 高速 + UX 良) |
-| `IsValid(model)` | `bool` | `CanExecute` 述語向け (内部で `ValidateSequential` 使用) |
+| `ValidateAll(model)` | `ReadOnlyCollection<ModelValidationResult>` (全エラー) | 全エラーの取得 (`ValidationState` もこれを使う) |
+| `ValidateSequential(model)` | `ModelValidationResult` (最初の 1 件のみ) | `[ValidationOrder]` 順に評価し、最初のエラーで停止 |
+| `IsValid(model)` | `bool` | 妥当かどうかだけ知りたいとき (内部で `ValidateSequential` 使用) |
 
-> 💡 **パフォーマンス**: `ModelValidator.For<T>()` は **型ごとに singleton** です。リフレクションキャッシュにより、初回 ~1-2ms / 2 回目以降 ~0.1-0.5ms で動作します。Presenter のフィールド (`private readonly IModelValidator<UserModel> _validator = ModelValidator.For<UserModel>();`) として保持して問題ありません。
+> 💡 **パフォーマンス**: `ModelValidator.For<T>()` は **型ごとに singleton** です。リフレクションキャッシュにより、初回 ~1-2ms / 2 回目以降 ~0.1-0.5ms で動作します。入力のたびに `Validation.Validate(model)` を呼んでも問題ありません。
 
-### IValidatableObject によるクラスレベル検証
+`ValidateSequential` / `IsValid` も、プロパティ規則がすべて通った後にクラスレベル属性と `IValidatableObject.Validate` を評価し、渡されたインスタンスが派生型ならその型の規則も使います。そのため `IsValid(model)` と `ValidateAll(model)` の結果は常に一致します。
 
-複数フィールドにまたがる検証 (例: パスワードと確認パスワードが一致するか) は `IValidatableObject` インターフェイスを実装します。
-
-```csharp
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-
-public class RegistrationModel : IValidatableObject
-{
-    [Required] public string Password { get; set; }
-    [Required] public string ConfirmPassword { get; set; }
-
-    public IEnumerable<ValidationResult> Validate(ValidationContext context)
-    {
-        if (Password != ConfirmPassword)
-            yield return new ValidationResult(
-                "Passwords do not match.",
-                new[] { nameof(ConfirmPassword) });
-    }
-}
-```
+### IValidatableObject と 2 つの「結果」型
 
 > ⚠️ **検証の「失敗 1 件」を表す型が 2 つあります。場面で使い分けてください。**
 >
 > | 場面 | 使う型 | 特徴 |
 > |---|---|---|
-> | `IValidatableObject.Validate` の戻り値 (上の例) | **`System.ComponentModel.DataAnnotations.ValidationResult`** (BCL) | `IsValid` プロパティは **ない**。成功は `ValidationResult.Success` (= `null`) を返す/何も `yield` しない |
-> | `IModelValidator<T>.ValidateAll` / `ValidateSequential` の戻り値 (前節) | **`WinformsMVP.Common.Validation.Core.ModelValidationResult`** (フレームワーク) | `IsValid` プロパティが **ある** |
+> | `IValidatableObject.Validate` / `[CustomValidation]` メソッドの戻り値 | **`System.ComponentModel.DataAnnotations.ValidationResult`** (BCL) | `IsValid` プロパティは **ない**。成功は `ValidationResult.Success` (= `null`) を返す/何も `yield` しない |
+> | `IModelValidator<T>.ValidateAll` / `ValidateSequential` の戻り値 | **`WinformsMVP.Common.Validation.Core.ModelValidationResult`** (フレームワーク) | `IsValid` プロパティが **ある** |
 >
-> フレームワーク型は `ModelValidationResult` に改名され、BCL の `ValidationResult` と **名前衝突しなくなりました**。それでも役割が違うので取り違えに注意:`IValidatableObject.Validate` を実装するファイルでは **`using System.ComponentModel.DataAnnotations;`** を入れ、戻り値は BCL の `ValidationResult` を `yield` してください (フレームワークの `ModelValidationResult` を返すと契約を満たさずコンパイルエラー)。
+> `IValidatableObject.Validate` を実装するファイルでは **`using System.ComponentModel.DataAnnotations;`** を入れ、戻り値は BCL の `ValidationResult` を `yield` してください (フレームワークの `ModelValidationResult` を返すと契約を満たさずコンパイルエラー)。
 
-`Validator.TryValidateObject` が `IValidatableObject.Validate` を自動的に呼ぶため、`_validator.ValidateAll(model)` だけで属性ベース検証 + クロスフィールド検証の両方が走ります。
+### カスタム ValidationAttribute
 
-`ValidateSequential` / `IsValid` も、プロパティ規則がすべて通った後にクラスレベル属性と `IValidatableObject.Validate` を評価し、渡されたインスタンスが派生型ならその型の規則も使います。そのため `IsValid(model)` と `ValidateAll(model)` の結果は常に一致します (以前のバージョンではプロパティ規則しか見ていませんでした)。
+ドメインルールを複数の Model で再利用したい場合は、`ValidationAttribute` を継承します。メンバー名付きで返せば、そのフィールドに表示されます。
+
+```csharp
+public class MinimumAgeAttribute : ValidationAttribute
+{
+    public int MinimumAge { get; }
+
+    public MinimumAgeAttribute(int minimumAge) { MinimumAge = minimumAge; }
+
+    protected override ValidationResult IsValid(object value, ValidationContext context)
+    {
+        if (value is DateTime birthDate)
+        {
+            var age = DateTime.Today.Year - birthDate.Year;
+            if (birthDate > DateTime.Today.AddYears(-age)) age--;
+
+            if (age < MinimumAge)
+                return new ValidationResult(
+                    $"User must be at least {MinimumAge} years old.",
+                    new[] { context.MemberName });
+        }
+        return ValidationResult.Success;
+    }
+}
+```
+
+属性は宣言的で再利用性が高い一方、**外部リソース (DB・サービス) に触れない** という制約があります。そうしたルールは Presenter の `Validation.SetError` で書きます。
 
 ---
 
 ## `[ValidationOrder]` でフィールド順序を制御
 
-`[ValidationOrder(N)]` をプロパティに付けると、検証の評価順序を制御できます。`ValidateSequential` と組み合わせると **最初のエラーで停止** するため、UX とパフォーマンスの両方が改善します。
+`[ValidationOrder(N)]` (`WinformsMVP.Common.Validation.Attributes`) をプロパティに付けると、検証の評価順序を制御できます。`ValidateSequential` と組み合わせると **最初のエラーで停止** します。`ValidateAll` (= `ValidationState`) では全エラーを返すので、評価順は同じフィールド内のメッセージの並び順にだけ影響します。
 
 ```csharp
 public class UserModel
@@ -230,505 +489,7 @@ public class UserModel
 2. `Email.Required` → `Email.EmailAddress` (同プロパティ内は宣言順)
 3. `Age.Range`
 
-### なぜ順序が重要か
-
-順序を制御することで、**意味のないカスケードエラーを防げます**。たとえば「Email が空」のときに「Email 形式が不正」と二重に出さない、というケース:
-
-| 状況 | `[ValidationOrder]` なし + `ValidateAll` | `[ValidationOrder]` あり + `ValidateSequential` |
-|---|---|---|
-| Email が空 | 「Email is required」と「Invalid email format」を両方出す (混乱) | 「Email is required」だけ (明快) |
-| Age が範囲外、Email も無効 | 全部表示 (網羅的だが冗長) | Order 順で最重要のものだけ |
-
-`ValidateAll` は最終チェック (Save 押下時) で全エラーを出すために使い、`ValidateSequential` はリアルタイムフィードバックで「次に直すべき 1 件」を示すために使う、と使い分けます。
-
-### 順序を指定しない場合
-
 `[ValidationOrder]` を付けないプロパティは `Order = 0` 扱いです。同じ Order 内では宣言順 (リフレクションで読まれた順) で評価されます。**明示的な制御が必要なフィールドだけ** 属性を付けてください。
-
----
-
-## ChangeTracker と検証を組み合わせる
-
-[ChangeTracker](Reference-ChangeTracker) (変更追跡) と `IModelValidator<T>` (検証) は **無関係な別々の関心事**です。
-
-- **`ChangeTracker`** はベースラインから「**変わったか**」を答える検出ツール。**データの所有者ではありません**。
-- **`IModelValidator<T>`** は「**妥当か**」を答えるだけ。
-
-データは **View(が保持・バインドする編集モデル)** が持ち、Presenter が 2 つのツールを **それぞれ別々に** 呼んで編成します。融合ヘルパーはフレームワークでは提供しません ([単一責任](Concept-MVP-Pattern))。
-
-### 典型パターン: 保存時の検証 + CanExecute 連動
-
-```csharp
-public class EditUserPresenter : WindowPresenterBase<IEditUserView>
-{
-    private ChangeTracker<UserModel> _tracker;
-    private readonly IModelValidator<UserModel> _validator = ModelValidator.For<UserModel>();
-
-    protected override void OnInitialize()
-    {
-        var user = LoadUser(_userId);
-        _tracker = new ChangeTracker<UserModel>(user);   // ベースラインのスナップショット(変更検出専用)
-        View.ShowUser(user);                              // 表示は意味のある View メソッドで(View が編集モデルを保持)
-    }
-
-    protected override void RegisterViewActions()
-    {
-        Dispatcher.Register(
-            StandardActions.Save,
-            OnSave,
-            // データは View から取得。tracker は「変わったか」、validator は「妥当か」を答えるだけ。
-            canExecute: () => _tracker.IsChangedWith(View.GetModel())
-                           && _validator.IsValid(View.GetModel()));
-    }
-
-    // View が入力変更を通知したら CanExecute を再評価する
-    // (canExecute 述語は登録時と RaiseCanExecuteChanged() 呼び出し時にしか再計算されない)
-    private void OnInputChanged(object sender, EventArgs e)
-        => Dispatcher.RaiseCanExecuteChanged();
-
-    private void OnSave()
-    {
-        var model = View.GetModel();           // データは View から取得(tracker からではない)
-
-        var errors = _validator.ValidateAll(model);
-        if (errors.Any())
-        {
-            View.ShowValidationErrors(errors.Select(e => e.ErrorMessage).ToList());
-            return;                            // エラーを見せて Save をブロックするだけ。何も巻き戻さない
-        }
-
-        SaveUser(model);
-        _tracker.AcceptChanges(model);         // 保存できた値を新しいベースラインに(dirty 解消)
-        Messages.ShowInfo("Saved.");
-    }
-}
-```
-
-> **CanExecute の再評価にはトリガが要ります。** `canExecute` 述語は登録時と `RaiseCanExecuteChanged()` 呼び出し時にしか再計算されません ([アクション外で状態が変わったら呼ぶ](Reference-ViewAction-System))。View が入力変更イベントを公開し、Presenter がそれを購読して `RaiseCanExecuteChanged()` を呼びます。
->
-> キャッシュ `IsChanged` を使いたい場合は、View 変更時に `_tracker.UpdateCurrentValue(View.GetModel())` を呼んで tracker にも現在値を反映し、`IsChangedChanged` ハンドラで `RaiseCanExecuteChanged()` を呼ぶ形にできます (実例 `samples/.../EmailDemo/ComposeEmailPresenter.cs`)。それでもデータの源は View です。
-
-### 検証は「巻き戻し」と無関係
-
-「入力が無効になったら自動で元に戻す」を `ChangeTracker.RejectChanges()` で実装しては **いけません**。`RejectChanges()` は **スナップショット全体をベースラインに戻す** 操作です。3 項目編集して 1 項目だけ無効なときに呼ぶと、**妥当だった残り 2 項目まで巻き戻ってしまいます**。検証はフィールド単位、`RejectChanges` はセッション全体——粒度が噛み合いません。
-
-- **検証失敗時**:エラーを表示して Save をブロックするだけ。`ChangeTracker` には一切触れない。
-- **`RejectChanges()` の正しい用途**:ユーザーが明示的に「キャンセル/破棄」したときに、編集セッション**全体**を捨てる操作 (個々のフィールド単位ではない)。
-
-検証と変更追跡はそれぞれ単体でテストでき、互いに依存しません。
-
----
-
-## シナリオ 1: フィールド単位の検証
-
-### 手書き
-
-```csharp
-private bool ValidateUserName()
-{
-    if (string.IsNullOrWhiteSpace(View.UserName))
-    {
-        View.ShowFieldError(nameof(View.UserName), "Name is required.");
-        return false;
-    }
-
-    if (View.UserName.Length < 2)
-    {
-        View.ShowFieldError(nameof(View.UserName), "Name must be at least 2 characters.");
-        return false;
-    }
-
-    if (View.UserName.Length > 50)
-    {
-        View.ShowFieldError(nameof(View.UserName), "Name must be 50 characters or fewer.");
-        return false;
-    }
-
-    return true;
-}
-```
-
-### DataAnnotations
-
-```csharp
-public class UserModel
-{
-    [Required(ErrorMessage = "Name is required.")]
-    [StringLength(50, MinimumLength = 2,
-        ErrorMessage = "Name must be 2-50 characters.")]
-    public string UserName { get; set; }
-}
-```
-
-```csharp
-// Presenter
-var result = _validator.ValidateSequential(model);
-if (!result.IsValid)
-    View.ShowFieldError(result.MemberNames.First(), result.ErrorMessage);
-```
-
----
-
-## シナリオ 2: クロスフィールド検証
-
-「パスワードと確認パスワードが一致するか」のような複数フィールド横断の検証。
-
-### 手書き
-
-```csharp
-private bool ValidatePasswordPair()
-{
-    if (View.Password != View.ConfirmPassword)
-    {
-        View.ShowFieldError(nameof(View.ConfirmPassword), "Passwords do not match.");
-        return false;
-    }
-    return true;
-}
-
-private bool ValidateDateRange()
-{
-    if (View.StartDate >= View.EndDate)
-    {
-        View.ShowFieldError(nameof(View.EndDate), "End date must be after start date.");
-        return false;
-    }
-    return true;
-}
-```
-
-### IValidatableObject
-
-Model 側に検証ロジックを置けるため、Presenter の負担が減ります。
-
-```csharp
-public class RegistrationModel : IValidatableObject
-{
-    [Required] public string Password { get; set; }
-    [Required] public string ConfirmPassword { get; set; }
-    public DateTime StartDate { get; set; }
-    public DateTime EndDate { get; set; }
-
-    public IEnumerable<ValidationResult> Validate(ValidationContext context)
-    {
-        if (Password != ConfirmPassword)
-            yield return new ValidationResult(
-                "Passwords do not match.",
-                new[] { nameof(ConfirmPassword) });
-
-        if (StartDate >= EndDate)
-            yield return new ValidationResult(
-                "End date must be after start date.",
-                new[] { nameof(EndDate) });
-    }
-}
-```
-
-`_validator.ValidateAll(model)` を呼ぶだけで `IValidatableObject.Validate` が自動的に実行されます。
-
----
-
-## シナリオ 3: パターン照合 (Email / 電話番号)
-
-### 手書き (正規表現ヘルパー)
-
-```csharp
-internal static class RegexHelpers
-{
-    private static readonly Regex EmailRegex = new Regex(
-        @"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$",
-        RegexOptions.Compiled);
-
-    private static readonly Regex JpPhoneRegex = new Regex(
-        @"^0\d{1,4}-\d{1,4}-\d{4}$",
-        RegexOptions.Compiled);
-
-    public static bool IsValidEmail(string value)
-        => !string.IsNullOrEmpty(value) && EmailRegex.IsMatch(value);
-
-    public static bool IsValidJpPhone(string value)
-        => !string.IsNullOrEmpty(value) && JpPhoneRegex.IsMatch(value);
-}
-```
-
-```csharp
-private bool ValidateEmail()
-{
-    if (!RegexHelpers.IsValidEmail(View.Email))
-    {
-        View.ShowFieldError(nameof(View.Email), "Invalid email format.");
-        return false;
-    }
-    return true;
-}
-```
-
-### DataAnnotations
-
-```csharp
-public class ContactModel
-{
-    [Required]
-    [EmailAddress(ErrorMessage = "Invalid email format.")]
-    public string Email { get; set; }
-
-    [RegularExpression(@"^0\d{1,4}-\d{1,4}-\d{4}$",
-        ErrorMessage = "Invalid Japanese phone format.")]
-    public string Phone { get; set; }
-}
-```
-
-`[EmailAddress]` は標準で広く使われる Email 形式チェックを内蔵します。複雑なドメインルールが必要な場合だけカスタム正規表現を `[RegularExpression]` で書きます。
-
----
-
-## シナリオ 4: ビジネスルール検証
-
-「年齢が 18 歳以上」「在庫数が下限を下回らない」等のドメインルール。
-
-### 手書き
-
-```csharp
-private bool ValidateAge()
-{
-    var age = CalculateAge(View.BirthDate, DateTime.Today);
-    if (age < 18)
-    {
-        View.ShowFieldError(nameof(View.BirthDate),
-            "Users under 18 cannot register.");
-        return false;
-    }
-    return true;
-}
-
-private bool ValidateStock()
-{
-    if (View.Quantity > _product.AvailableStock)
-    {
-        View.ShowFieldError(nameof(View.Quantity),
-            $"Only {_product.AvailableStock} items available.");
-        return false;
-    }
-    return true;
-}
-```
-
-### カスタム ValidationAttribute
-
-ドメインルールを再利用したい場合は、`ValidationAttribute` を継承したカスタム属性を作れます。
-
-```csharp
-public class MinimumAgeAttribute : ValidationAttribute
-{
-    public int MinimumAge { get; }
-
-    public MinimumAgeAttribute(int minimumAge)
-    {
-        MinimumAge = minimumAge;
-    }
-
-    protected override ValidationResult IsValid(object value, ValidationContext context)
-    {
-        if (value is DateTime birthDate)
-        {
-            var age = DateTime.Today.Year - birthDate.Year;
-            if (birthDate > DateTime.Today.AddYears(-age)) age--;
-
-            if (age < MinimumAge)
-                return new ValidationResult(
-                    $"User must be at least {MinimumAge} years old.",
-                    new[] { context.MemberName });
-        }
-        return ValidationResult.Success;
-    }
-}
-```
-
-```csharp
-public class UserModel
-{
-    [MinimumAge(18)]
-    public DateTime BirthDate { get; set; }
-}
-```
-
-複雑なルール (DB 参照を伴う場合等) は `IValidatableObject.Validate` または Presenter 内で個別に書いた方がよい場合もあります。**属性は宣言的に書けて再利用性が高い** が、**外部リソース (DB・サービス) に触れない** という制約があります。
-
----
-
-## シナリオ 5: リアルタイム検証
-
-入力中に検証して即座にフィードバック。View の `InputChanged` イベントを Presenter で購読します。
-
-### 手書き
-
-```csharp
-public class UserEditorPresenter : WindowPresenterBase<IUserEditorView>
-{
-    protected override void OnViewAttached()
-    {
-        View.InputChanged += OnInputChanged;
-    }
-
-    private void OnInputChanged(object sender, EventArgs e)
-    {
-        Validate();
-        Dispatcher.RaiseCanExecuteChanged();
-    }
-
-    private bool Validate()
-    {
-        // ... 全フィールドを手書きで検証
-    }
-}
-```
-
-### ModelValidator (ValidateSequential)
-
-`ValidateSequential` は最初のエラーで停止するため、リアルタイムフィードバックに最適です。
-
-```csharp
-public class UserEditorPresenter : WindowPresenterBase<IUserEditorView>
-{
-    private readonly IModelValidator<UserModel> _validator = ModelValidator.For<UserModel>();
-    private ModelValidationResult _lastError = ModelValidationResult.Success;
-
-    protected override void OnViewAttached()
-    {
-        View.InputChanged += OnInputChanged;
-    }
-
-    private void OnInputChanged(object sender, EventArgs e)
-    {
-        var model = View.GetModel();
-        _lastError = _validator.ValidateSequential(model);
-
-        View.ClearFieldErrors();
-        if (!_lastError.IsValid)
-        {
-            var field = _lastError.MemberNames.FirstOrDefault();
-            if (!string.IsNullOrEmpty(field))
-                View.ShowFieldError(field, _lastError.ErrorMessage);
-        }
-
-        Dispatcher.RaiseCanExecuteChanged();   // Save ボタンの有効/無効を更新
-    }
-}
-```
-
-View 側は各 TextBox 等の `TextChanged` を共通の `InputChanged` イベントに集約します。
-
-```csharp
-// Form 側
-private void InitializeComponent()
-{
-    _nameTextBox.TextChanged   += RaiseInputChanged;
-    _emailTextBox.TextChanged  += RaiseInputChanged;
-    _phoneTextBox.TextChanged  += RaiseInputChanged;
-}
-
-private void RaiseInputChanged(object sender, EventArgs e)
-    => InputChanged?.Invoke(this, EventArgs.Empty);
-
-public event EventHandler InputChanged;
-```
-
----
-
-## Save ボタンの有効/無効を CanExecute で制御
-
-検証結果に応じて Save ボタンを自動的に有効化/無効化します。
-
-### 手書き
-
-```csharp
-protected override void RegisterViewActions()
-{
-    Dispatcher.Register(StandardActions.Save, OnSave,
-        canExecute: () => Validate());          // ← 検証が通っているときだけ Enabled
-}
-```
-
-毎回の `Validate()` 呼び出しを最小化するには、結果をキャッシュ:
-
-```csharp
-private bool _isValidCached;
-
-private void OnInputChanged(object sender, EventArgs e)
-{
-    _isValidCached = Validate();
-    Dispatcher.RaiseCanExecuteChanged();
-}
-
-protected override void RegisterViewActions()
-{
-    Dispatcher.Register(StandardActions.Save, OnSave,
-        canExecute: () => _isValidCached);
-}
-```
-
-### ModelValidator
-
-`IModelValidator<T>.IsValid()` は内部で `ValidateSequential` を使うため、最初のエラーで停止します。`CanExecute` 述語に直接呼んで問題ありません。
-
-```csharp
-private readonly IModelValidator<UserModel> _validator = ModelValidator.For<UserModel>();
-
-protected override void RegisterViewActions()
-{
-    Dispatcher.Register(
-        StandardActions.Save,
-        OnSave,
-        canExecute: () => _validator.IsValid(View.GetModel()));
-}
-
-protected override void OnViewAttached()
-{
-    // 入力が変わったら CanExecute を再評価
-    View.InputChanged += (s, e) => Dispatcher.RaiseCanExecuteChanged();
-}
-```
-
-ChangeTracker と組み合わせる場合は前述の [ChangeTracker と組み合わせる](#changetracker-と組み合わせる) 節を参照してください。
-
----
-
-## 視覚的なエラー表示
-
-Form 実装で、エラーを赤枠やラベル等で示します。**View 内部のディテールなので Presenter は関与しません**。
-
-```csharp
-public partial class UserEditorForm : Form, IUserEditorView
-{
-    public void ShowFieldError(string fieldName, string error)
-    {
-        var textBox = GetTextBoxFor(fieldName);
-        if (textBox == null) return;
-
-        textBox.BackColor = Color.LightPink;     // 赤背景
-        _errorProvider.SetError(textBox, error); // ErrorProvider 利用
-    }
-
-    public void ClearFieldErrors()
-    {
-        foreach (var tb in new[] { _nameTextBox, _emailTextBox, _phoneTextBox })
-        {
-            tb.BackColor = SystemColors.Window;
-            _errorProvider.SetError(tb, "");
-        }
-    }
-
-    public void ShowValidationErrors(IReadOnlyList<string> errors)
-    {
-        _summaryLabel.Visible = errors.Count > 0;
-        _summaryLabel.Text = errors.Count > 0
-            ? "• " + string.Join("\n• ", errors)
-            : "";
-    }
-}
-```
-
-`ErrorProvider` は WinForms の標準コンポーネントで、TextBox の横に赤いアイコン + ツールチップを出してくれます。
 
 ---
 
@@ -736,72 +497,75 @@ public partial class UserEditorForm : Form, IUserEditorView
 
 ### Presenter のテスト
 
+モック View で `IValidatableView` を実装し、受け取ったエラーを記録する `IValidationErrorDisplay` を返します。アクションは本番と同じ経路 (`view.Binder.Dispatch`) で実行します。
+
 ```csharp
-[Fact]
-public void Save_WithInvalidEmail_ShowsFieldError()
+private sealed class RecordingDisplay : IValidationErrorDisplay
 {
-    _view.UserName = "John";
-    _view.Email    = "not-an-email";
-    _view.RaiseInputChanged();
+    public IReadOnlyDictionary<string, IReadOnlyList<string>> Errors { get; private set; }
+    public bool RevealAll { get; private set; }
+    public int ResetCount { get; private set; }
 
-    _view.Binder.Dispatch(StandardActions.Save);
+    public void ShowErrors(IReadOnlyDictionary<string, IReadOnlyList<string>> errors, bool revealAll)
+    {
+        Errors = errors;
+        RevealAll = revealAll;
+    }
 
-    Assert.Contains("Invalid email", _view.FieldErrors[nameof(_view.Email)]);
-    Assert.False(_view.SavedCalled);
+    public void Reset() => ResetCount++;
+}
+
+// MockRegistrationView : IRegistrationView
+//     public RecordingDisplay Display { get; } = new RecordingDisplay();
+//     public IValidationErrorDisplay ValidationErrors => Display;
+
+[Fact]
+public void Submit_WithEmptyEmail_RevealsErrorAndDoesNotSave()
+{
+    _view.UserName = "john";
+    _view.Email    = "";
+
+    _view.Binder.Dispatch(RegistrationActions.Submit);
+
+    Assert.True(_view.Display.RevealAll);
+    Assert.Contains(nameof(RegistrationModel.Email), _view.Display.Errors.Keys);
+    Assert.False(_repository.Saved);
 }
 
 [Fact]
-public void Save_WithAllValid_PersistsData()
+public void Submit_StaysEnabled_WhileThereAreErrors()
 {
-    _view.UserName = "John";
-    _view.Email    = "john@example.com";
-    _view.Phone    = "090-1234-5678";
-    _view.RaiseInputChanged();
+    _view.UserName = "";
+    _view.RaiseDataChanged();
 
-    _view.Binder.Dispatch(StandardActions.Save);
-
-    Assert.True(_view.SavedCalled);
-    Assert.True(_platform.MessageService.InfoMessageShown);
-}
-
-[Fact]
-public void CanExecute_BecomesFalse_WhenAnyFieldInvalid()
-{
-    _view.UserName = "";    // 不正
-    _view.RaiseInputChanged();
-
-    Assert.False(_view.Binder.CanDispatch(StandardActions.Save));
+    Assert.True(_view.Binder.CanDispatch(RegistrationActions.Submit));
 }
 ```
 
-### Model 自体のテスト (ModelValidator パターン)
+### Model 自体のテスト
 
-ModelValidator 経由なら、Presenter を介さずに Model 単体で検証ロジックをテストできます。
+検証ルールは Presenter を介さずに Model 単体でテストできます。
 
 ```csharp
 [Fact]
 public void UserModel_WithEmptyName_FailsValidation()
 {
     var model = new UserModel { UserName = "", Email = "john@example.com" };
-    var validator = ModelValidator.For<UserModel>();
 
-    var errors = validator.ValidateAll(model);
+    var errors = ModelValidator.For<UserModel>().ValidateAll(model);
 
-    Assert.NotEmpty(errors);
     Assert.Contains(errors, e => e.MemberNames.Contains(nameof(UserModel.UserName)));
 }
 
 [Fact]
-public void UserModel_ValidateSequential_StopsAtFirstError()
+public void ValidationState_GroupsErrorsByField()
 {
-    var model = new UserModel { UserName = "", Email = "bad", Phone = "999" };
-    var validator = ModelValidator.For<UserModel>();
+    var state = new ValidationState();
 
-    var error = validator.ValidateSequential(model);
+    state.Validate(new UserModel { UserName = "", Email = "bad" });
 
-    // [ValidationOrder(1)] の UserName から最初のエラーが返る
-    Assert.False(error.IsValid);
-    Assert.Contains(nameof(UserModel.UserName), error.MemberNames);
+    Assert.NotEmpty(state.GetErrors(nameof(UserModel.UserName)));
+    Assert.NotEmpty(state.GetErrors(nameof(UserModel.Email)));
 }
 ```
 
@@ -809,9 +573,10 @@ public void UserModel_ValidateSequential_StopsAtFirstError()
 
 ## 関連ページ
 
-- [ViewAction システム](Reference-ViewAction-System) — `CanExecute` の使い方
+- [ViewAction システム](Reference-ViewAction-System) — `CanExecute` と `RaiseCanExecuteChanged`
 - [ChangeTracker](Reference-ChangeTracker) — 「未保存の変更」と「妥当性」を組み合わせる
 - [HowTo: Presenter をテストする](HowTo-Test-A-Presenter) — テストパターン詳細
-- [Presenter 基底クラス](Reference-Presenter-Base-Classes) — `View.InputChanged` 等のイベント購読
+- [Presenter 基底クラス](Reference-Presenter-Base-Classes) — `Validation` を含む基底クラスのメンバー
+- [HowTo: エラーを扱う](HowTo-Handle-Errors) — 検証以外のエラー処理
 - サンプル:
-  - `samples/WinformsMVP.Samples/ValidationDemo/` — `ValidationDemoPresenter` / `ValidationDemoForm` で手書きと ModelValidator の両方を扱う完全実装
+  - `samples/WinformsMVP.Samples/ValidationDemo/` — `RegistrationModel` (DataAnnotations + `[CustomValidation]`)、`ValidationDemoPresenter` (`Validate` / `Check` / `Reset` / `SetError`)、`ValidationDemoForm` (`ErrorProviderDisplay`) の完全実装

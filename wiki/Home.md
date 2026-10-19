@@ -62,7 +62,7 @@ WinForms アプリケーションのための **Model-View-Presenter** フレー
 特定の課題に対する、目的別レシピです。
 
 - [Presenter 間の通信方法](HowTo-Communicate-Between-Presenters) — 4 つの選択肢と使い分け
-- [フォーム入力を検証する](HowTo-Validate-Form-Input) — フィールド/クロスフィールド/パターン検証
+- [フォーム入力を検証する](HowTo-Validate-Form-Input) — DataAnnotations + Presenter ルールの検証と `ErrorProviderDisplay` によるエラー表示
 - [非同期処理を扱う](HowTo-Handle-Async-Operations) — async/await、`IProgress<T>`、キャンセル
 - [マスター/詳細パターンを実装する](HowTo-Implement-Master-Detail) — 親子データの連動
 - [Presenter をテストする](HowTo-Test-A-Presenter) — モック、テストパターン

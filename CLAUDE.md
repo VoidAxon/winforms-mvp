@@ -279,6 +279,19 @@ Validate early; catch specific exceptions before generic ones; never silently sw
 
 Key API: `CurrentValue`, `IsChanged` (computed on each read — in-place edits through `CurrentValue` are seen), `AcceptChanges()`, `RejectChanges()`, `IsChangedChanged` event (raised outside the internal lock). Used in the window-closing dirty-check pattern. See [wiki/Reference-ChangeTracker.md](wiki/Reference-ChangeTracker.md).
 
+### Validation (`ValidationState` + `IValidatableView`)
+
+Every presenter has `protected ValidationState Validation` — current errors keyed by field name (the model property name, `nameof(Model.Prop)`; `ValidationState.FormLevel` for errors that belong to no field).
+
+- **Rules:** model DataAnnotations via `Validation.Validate(model)` (property, class-level, `IValidatableObject`), plus presenter rules via `Validation.SetError(field, msg)` / `ClearError(field)` for cross-field / database checks. Call `Validate` on every edit.
+- **When errors show:** next to a field once the user has left its control, or all at once after a submit attempt — `if (!Validation.Check(model)) return;`. `Validation.Reset()` for a new/cleared form forgets visited fields.
+- **Keep Submit enabled while there are errors** — a disabled Save cannot reveal errors of unvisited fields. `Validation.HasErrors` exists but must not gate Submit's `canExecute`.
+- **View:** implement `IValidatableView` → `IValidationErrorDisplay ValidationErrors { get; }`. Form: `new ErrorProviderDisplay(errorProvider).Map(nameof(Model.Field), control)...Map(ValidationState.FormLevel, btnSubmit)`; form-level and unmapped-field errors appear on the FormLevel control after a submit attempt. Custom rendering: derive from `ControlErrorDisplay`, implement `SetControlError(Control, string)`.
+- The framework connects `Validation` to the view automatically when it implements `IValidatableView`; each change re-evaluates `canExecute`.
+- Gotchas: `[Compare]` on .NET Framework reports no member name (lands on the FormLevel control) — use `[CustomValidation]` or a presenter rule; `IValidatableObject` only runs after all property rules pass.
+
+See [wiki/HowTo-Validate-Form-Input.md](wiki/HowTo-Validate-Form-Input.md) and `samples/.../ValidationDemo/`.
+
 ### Event aggregator (`IEventAggregator`)
 
 Thread-safe pub/sub for **cross-presenter** communication: automatic UI-thread marshaling, exception isolation. Subscriptions are held **strongly** until the returned `IDisposable` token is disposed — no weak references, no GC auto-cleanup — so any handler shape (method group, capturing lambda, capturing filter) works; a token that is never disposed keeps its handler (and the presenter it captures) alive for the aggregator's lifetime. Pattern: `_events.Subscribe<T>(handler).DisposeWith(Disposables);`. Analyzer **MVP017** warns when a `Subscribe(...)` result is discarded as a bare statement (`_ = ...`, storing, chaining, or `using` are accepted). Create the aggregator on the UI thread so handlers marshal there; if it is created without a `SynchronizationContext` (e.g. in `Program.Main` before `Application.Run`), each subscription uses the subscriber's context instead. A subscription disposed while its message is queued receives nothing.
