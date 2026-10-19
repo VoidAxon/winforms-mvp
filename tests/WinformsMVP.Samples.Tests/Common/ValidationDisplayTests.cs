@@ -309,6 +309,18 @@ namespace WinformsMVP.Samples.Tests.Common
         }
 
         [Fact]
+        public void ErrorProvider_MapChain_KeepsTheConcreteType()
+        {
+            using (var provider = new ErrorProvider())
+            using (var a = new TextBox())
+            using (var b = new TextBox())
+            {
+                ErrorProviderDisplay display = new ErrorProviderDisplay(provider).Map("A", a).Map("B", b);
+                Assert.NotNull(display);
+            }
+        }
+
+        [Fact]
         public void ErrorProvider_MappingAFieldTwice_Throws()
         {
             using (var provider = new ErrorProvider())

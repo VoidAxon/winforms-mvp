@@ -96,6 +96,14 @@ namespace WinformsMVP.Common.Validation
             _provider = provider ?? throw new ArgumentNullException(nameof(provider));
         }
 
+        /// <inheritdoc cref="ControlErrorDisplay.Map"/>
+        /// <remarks>Returns this display's own type, so a field typed <c>ErrorProviderDisplay</c> can hold the chain.</remarks>
+        public new ErrorProviderDisplay Map(string field, Control control)
+        {
+            base.Map(field, control);
+            return this;
+        }
+
         protected override void SetControlError(Control control, string message) => _provider.SetError(control, message);
     }
 }
