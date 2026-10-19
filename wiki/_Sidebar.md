@@ -3,6 +3,7 @@
 **チュートリアル**
 
 - [はじめに](Getting-Started)
+- [テンプレートを使う](HowTo-Use-Templates)
 - [最初のアプリを作る](Tutorial-Building-Your-First-App)
 
 **コンセプト**

@@ -6,10 +6,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A WinForms MVP (Model-View-Presenter) framework for .NET Framework 4.7.2+ and .NET 10 (Windows), providing infrastructure for building desktop applications with clean separation of concerns. All projects use SDK-style `.csproj`.
 
-It ships as three packages:
+It ships as four packages:
 - **`WinformsMVP.Core`** (`netstandard2.0`) — presenters, ViewAction dispatcher, EventAggregator, ChangeTracker, validation, logging and the service interfaces. It has **no WinForms reference**, so presenter code compiled against it cannot touch WinForms types. Bundles the MVP Roslyn analyzers.
 - **`WinformsMVP`** (`net472;net10.0-windows`, depends on Core) — the WinForms implementation: `WindowNavigator`, `ViewActionBinder`, dialogs, toasts, `MessageService`, view mapping, `Connect` hosting. The analyzers flow to its consumers transitively.
 - **`WinformsMVP.DependencyInjection`** (`net472;net10.0-windows`) — optional M.E.DI integration.
+- **`WinformsMVP.Templates`** (template package, `templates/`) — `dotnet new` templates: `winformsmvp` (app with service/view registration + main window, `--framework net10.0-windows|net472`, `--mvp-version`, `--no-restore`), `mvp-window` (`--param-type`, `--validation`, `--namespace`), `mvp-control`, `winformsmvp-tests` (`--app-project`). Install with `dotnet new install WinformsMVP.Templates` (or a local `.nupkg` path).
 
 Namespaces are the same in both assemblies (`WinformsMVP.MVP.*`, `WinformsMVP.Services`, `WinformsMVP.Common`, ...).
 
@@ -30,6 +31,11 @@ dotnet test tests/WinformsMVP.Samples.Tests/WinformsMVP.Samples.Tests.csproj -v 
 
 # Analyzer tests (net10.0, runs anywhere)
 dotnet test tests/WinformsMVP.Analyzers.Tests/WinformsMVP.Analyzers.Tests.csproj
+
+# Templates: pack to a local feed, instantiate every template for both frameworks,
+# assert namespaces/variants, build with -warnaserror (RUN_TESTS=1 also runs the generated tests; Windows only)
+tests/templates/verify-templates.sh
+RUN_TESTS=1 tests/templates/verify-templates.sh
 
 # Run the sample app
 dotnet run --project samples/WinformsMVP.Samples/WinformsMVP.Samples.csproj
@@ -314,28 +320,30 @@ Use for cross-presenter/cross-module events. Do **not** use for parent-child coo
 │   │   └── Common/                    Toast options/renderers, control binding helpers
 │   ├── WinformsMVP.DependencyInjection/   Optional M.E.DI integration (net472;net10.0-windows)
 │   └── WinformsMVP.Analyzers/             Roslyn analyzers (in the .sln, build-only — bundled into WinformsMVP.Core package)
+├── templates/  WinformsMVP.Templates.csproj + content/{app,window,control,tests} (dotnet new template package; content folders are template sources, not compiled)
 ├── samples/    Sample/demo apps (WinformsMVP.Samples, MultiProjectDemo.*)
-├── tests/      WinformsMVP.Samples.Tests (xUnit, net48), WinformsMVP.Analyzers.Tests (xUnit, net10.0)
+├── tests/      WinformsMVP.Samples.Tests (xUnit, net48), WinformsMVP.Analyzers.Tests (xUnit, net10.0), templates/verify-templates.sh
 ├── docs/  wiki/  tools/
 └── winforms-mvp.sln
 ```
 
-`src/` holds only shippable libraries; samples and tests are siblings outside it.
+`src/` holds only shippable libraries; the template package lives in `templates/`; samples and tests are siblings outside it.
 
 ## Development Notes
 
 - **Target frameworks:** `WinformsMVP.Core` → `netstandard2.0`; `WinformsMVP` / `WinformsMVP.DependencyInjection` → `net472;net10.0-windows`; samples and tests → `net48`. Minimum .NET Framework is 4.7.2; net40 is no longer supported. SDK-style gives automatic file inclusion and `PackageReference`; `EnableWindowsTargeting` (in `Directory.Build.props`) lets `dotnet build` run on non-Windows hosts.
 - **Where code goes:** anything a presenter needs goes in `WinformsMVP.Core` and must not reference WinForms / System.Drawing; WinForms implementations go in `WinformsMVP`.
 - **Tests:** xUnit 2.9.3. `WinformsMVP.Samples.Tests` targets net48, so `dotnet test` on it needs Windows (or mono); `WinformsMVP.Analyzers.Tests` (net10.0) runs anywhere.
-- **Adding a Form/Dialog:** define `IXxxView : IWindowView` → presenter extends `WindowPresenterBase<TView>[, TParam]` → implement the Form → register the mapping → show via `WindowNavigator`.
+- **Adding a Form/Dialog:** define `IXxxView : IWindowView` → presenter extends `WindowPresenterBase<TView>[, TParam]` → implement the Form → register the mapping → show via `WindowNavigator`. In an app project, `dotnet new mvp-window -n Xxx [--param-type int] [--validation]` scaffolds the view interface, actions, presenter and Form (`dotnet new mvp-control` for a UserControl).
+- **WFO1000 (.NET 9+ WinForms analyzer):** public properties on a Form/UserControl — i.e. view-interface implementations — need `[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]`; otherwise the designer may serialize view data into `.Designer.cs` and the build warns. The templates already do this.
 - **Adding a UserControl:** define `IXxxView : IViewBase` → presenter extends `ControlPresenterBase<TView>[, TParam]` → implement the UserControl → in the parent, `new` the presenter (its own deps only) then `presenter.Connect(view[, param])`.
 - The `wiki/` folder mirrors every subsystem above with Concept / HowTo / Reference / Tutorial pages — consult it before duplicating explanation here.
 
 ## Releasing
 
-Every push to `master` and every pull request runs `.github/workflows/ci.yml` (Windows: build + both test projects).
+Every push to `master` and every pull request runs `.github/workflows/ci.yml` (Windows: build + both test projects + `tests/templates/verify-templates.sh` with the generated tests run).
 
-Releases are **tag-driven**. Pushing a tag matching `v*` triggers `.github/workflows/release.yml`, which builds, runs the test suite (gate), packs the three shippable packages (`WinformsMVP.Core`, `WinformsMVP`, `WinformsMVP.DependencyInjection`), asserts the analyzer is bundled in `WinformsMVP.Core`, publishes to **GitHub Packages**, and creates a **GitHub Release** with the `.nupkg` files attached.
+Releases are **tag-driven**. Pushing a tag matching `v*` triggers `.github/workflows/release.yml`, which builds, runs the test suite (gate), packs the four shippable packages (`WinformsMVP.Core`, `WinformsMVP`, `WinformsMVP.DependencyInjection`, `WinformsMVP.Templates`), asserts the analyzer is bundled in `WinformsMVP.Core`, publishes to **GitHub Packages**, and creates a **GitHub Release** with the `.nupkg` files attached.
 
 ```bash
 git tag v1.0.0-preview.1 && git push origin v1.0.0-preview.1   # preview
@@ -344,6 +352,6 @@ git tag v1.0.0           && git push origin v1.0.0             # stable
 
 - The package version is the tag minus the leading `v`. There is no version in any `.csproj` — **never** hardcode one; pass it only via the tag (the workflow injects `-p:Version=`).
 - A tag containing `-` (e.g. `-preview.1`) → NuGet prerelease (hidden by default) **and** the workflow passes `--prerelease` to mark the GitHub Release as pre-release. A clean tag → stable.
-- Only `WinformsMVP.Core`, `WinformsMVP` and `WinformsMVP.DependencyInjection` publish; everything else is `IsPackable=false` via `Directory.Build.props`. The analyzer ships **inside** `WinformsMVP.Core` (`analyzers/dotnet/cs/`), not standalone, and flows transitively to `WinformsMVP` consumers.
+- Only `WinformsMVP.Core`, `WinformsMVP`, `WinformsMVP.DependencyInjection` and `WinformsMVP.Templates` publish; everything else is `IsPackable=false` via `Directory.Build.props`. The analyzer ships **inside** `WinformsMVP.Core` (`analyzers/dotnet/cs/`), not standalone, and flows transitively to `WinformsMVP` consumers.
 - GitHub Packages requires consumer authentication (a PAT) even for public repos; the auth-free fallback is downloading the `.nupkg` from the Release. Both routes are documented for consumers in `README.md`.
 - Full maintainer guide (workflow internals, first-time setup, consuming, troubleshooting, cleanup): [wiki/HowTo-Release.md](wiki/HowTo-Release.md).

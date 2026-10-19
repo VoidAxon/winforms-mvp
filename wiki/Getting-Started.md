@@ -16,6 +16,23 @@
 
 ---
 
+## 0. 推奨: テンプレートで始める
+
+新しいアプリを作るなら、`dotnet new` テンプレートが最短です。サービス登録・View 登録・メインウィンドウ (View インターフェイス + Actions + Presenter + Form) が揃った、警告ゼロでビルドできるプロジェクトが生成されます。
+
+```bash
+dotnet new install WinformsMVP.Templates   # 初回のみ (入手方法は README のインストール節)
+dotnet new winformsmvp -n MyApp
+cd MyApp && dotnet run
+dotnet new mvp-window -n OrderEdit         # ウィンドウを追加
+```
+
+オプション (`--framework net472`、`--param-type`、`--validation`、テストプロジェクトの生成など) は [HowTo: テンプレートを使う](HowTo-Use-Templates) を参照してください。
+
+以下の章では、テンプレートが生成するものを **手で 1 つずつ組み立てながら** 仕組みを理解します。
+
+---
+
 ## 1. プロジェクトを準備する
 
 リポジトリをクローンして、サンプルアプリをまず動かしてみることをおすすめします。
@@ -132,6 +149,7 @@ namespace MyFirstMvpApp
 - `_welcomeLabel` は `private`。Presenter からは見えない。
 - `WelcomeMessage` プロパティ越しに `Label.Text` を読み書きする。
 - Form は UI の詳細 (フォント、レイアウト、コントロールの種類) をすべて自分の中に閉じ込める。
+- **Designer を使う Form (.NET 9 以降) では**、View インターフェイスを実装する public プロパティに `[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]` (`System.ComponentModel`) を付ける。付けないと WinForms アナライザー **WFO1000** が警告し、Designer が View のデータを `.Designer.cs` に書き出すことがある。テンプレートが生成する Form は付与済み ([詳細](HowTo-Use-Templates#designer-と-wfo1000))。
 
 ### 2.4 エントリーポイント
 
@@ -424,6 +442,7 @@ private void OnGreetRequested(object sender, EventArgs e)
 | 目的 | 読むべきページ |
 |------|--------------|
 | もう少し本格的なアプリを作りたい | [チュートリアル: 最初のアプリを作る](Tutorial-Building-Your-First-App) |
+| テンプレートで新規アプリ・ウィンドウを生成したい | [HowTo: テンプレートを使う](HowTo-Use-Templates) |
 | なぜ MVP なのかを理解したい | [MVP パターンとは](Concept-MVP-Pattern) |
 | フレームワークの全体像を掴みたい | [アーキテクチャ概観](Concept-Architecture-Overview) |
 | ViewAction を深掘りしたい | [ViewAction システム](Reference-ViewAction-System) |

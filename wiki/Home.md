@@ -2,6 +2,7 @@ WinForms アプリケーションのための **Model-View-Presenter** フレー
 
 > **このフレームワークが初めての方は、まず [はじめに (Getting Started)](Getting-Started) からどうぞ。**
 > 5 分で動くサンプルを作りながら、フレームワークの全体像を掴めます。
+> 新しいアプリを作るなら [テンプレート (`dotnet new winformsmvp`)](HowTo-Use-Templates) から始めるのが推奨です。
 
 ---
 
@@ -61,6 +62,7 @@ WinForms アプリケーションのための **Model-View-Presenter** フレー
 
 特定の課題に対する、目的別レシピです。
 
+- [テンプレートを使う](HowTo-Use-Templates) — `dotnet new` でアプリ・ウィンドウ・UserControl・テストを生成 (新規アプリの推奨スタート)
 - [Presenter 間の通信方法](HowTo-Communicate-Between-Presenters) — 4 つの選択肢と使い分け
 - [フォーム入力を検証する](HowTo-Validate-Form-Input) — DataAnnotations + Presenter ルールの検証と `ErrorProviderDisplay` によるエラー表示
 - [非同期処理を扱う](HowTo-Handle-Async-Operations) — async/await、`IProgress<T>`、キャンセル

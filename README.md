@@ -136,6 +136,26 @@ navigator.ShowWindow(new UserEditorPresenter());
    dotnet add package WinformsMVP --prerelease
    ```
 
+### プロジェクトテンプレート (`WinformsMVP.Templates`)
+
+新規アプリはテンプレートから始めるのがおすすめです。テンプレートパッケージも同じ方法 (GitHub Packages フィード、またはダウンロードした `.nupkg`) で入手できます:
+
+```bash
+dotnet new install WinformsMVP.Templates                              # フィード経由 (nuget.config に設定済みのソース)
+dotnet new install C:\path\to\folder\WinformsMVP.Templates.<version>.nupkg   # ローカルの .nupkg から
+```
+
+生成されるプロジェクトは `WinformsMVP` パッケージを参照するので、上記 A / B どちらかのソースを `nuget.config` に設定しておいてください。4 行で動くアプリ + ウィンドウ + テストができます:
+
+```bash
+dotnet new winformsmvp -n MyApp                 # アプリ (net10.0-windows。--framework net472 も可)
+cd MyApp && dotnet new mvp-window -n OrderEdit  # View インターフェイス + Actions + Presenter + Form
+cd .. && dotnet new winformsmvp-tests -n MyApp.Tests --app-project ../MyApp/MyApp.csproj
+dotnet build MyApp.Tests && dotnet run --project MyApp
+```
+
+テンプレート一覧とオプションは [Wiki: テンプレートを使う](https://github.com/VoidAxon/winforms-mvp/wiki/HowTo-Use-Templates) を参照してください。
+
 ---
 
 ## はじめに
@@ -173,6 +193,7 @@ navigator.ShowWindow(new UserEditorPresenter());
 ### 入門
 
 - [はじめての方へ (Getting Started)](https://github.com/VoidAxon/winforms-mvp/wiki/Getting-Started) — 5 分で動かす最小サンプル
+- [テンプレートを使う](https://github.com/VoidAxon/winforms-mvp/wiki/HowTo-Use-Templates) — `dotnet new` でアプリ・ウィンドウ・UserControl・テストを生成
 - [チュートリアル: 最初のアプリを作る](https://github.com/VoidAxon/winforms-mvp/wiki/Tutorial-Building-Your-First-App)
 
 ### 設計思想 (Concepts)
@@ -209,13 +230,14 @@ navigator.ShowWindow(new UserEditorPresenter());
 | テストフレームワーク | xUnit 2.9 |
 | SDK / IDE | .NET 10 SDK (`net10.0-windows` ターゲットのビルドに必要)。Visual Studio、JetBrains Rider、VS Code |
 
-パッケージは 3 つです:
+パッケージは 4 つです:
 
 | パッケージ | ターゲット | 内容 |
 |---|---|---|
 | `WinformsMVP.Core` | `netstandard2.0` | Presenter 基底クラス、ViewAction ディスパッチャ、EventAggregator、ChangeTracker、検証、ロギング、サービスインターフェイス。WinForms 非参照 (外部依存は `System.ComponentModel.Annotations` のみ)。MVP アナライザーを同梱 |
 | `WinformsMVP` | `net472`; `net10.0-windows` | WinForms 実装 (WindowNavigator、ViewActionBinder、ダイアログ、トースト、MessageService、View マッピング)。`WinformsMVP.Core` に依存し、アナライザーも推移的に有効 |
 | `WinformsMVP.DependencyInjection` | `net472`; `net10.0-windows` | `Microsoft.Extensions.DependencyInjection` 連携 (オプション) |
+| `WinformsMVP.Templates` | (テンプレート) | `dotnet new` テンプレート: `winformsmvp` (アプリ) / `mvp-window` / `mvp-control` / `winformsmvp-tests` |
 
 名前空間はアセンブリをまたいで変わりません。`net40` のサポートは終了しました (最低 .NET Framework 4.7.2)。
 `Microsoft.Extensions.Logging` 連携については出荷パッケージは無く、M.E.L. の `ILoggerFactory` を框架の `ILoggerFactory` に橋渡しする **~30 行のアダプタを自分で書きます** ([Logging](https://github.com/VoidAxon/winforms-mvp/wiki/Reference-Logging) 参照、全ターゲットで利用可)。

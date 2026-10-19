@@ -1,6 +1,6 @@
 # HowTo: リリースする（GitHub Releases + GitHub Packages）
 
-このページは、`WinformsMVP.Core` / `WinformsMVP` / `WinformsMVP.DependencyInjection` の NuGet パッケージを
+このページは、`WinformsMVP.Core` / `WinformsMVP` / `WinformsMVP.DependencyInjection` / `WinformsMVP.Templates` の NuGet パッケージを
 **GitHub Packages** に発行し、`.nupkg` を **GitHub Release** に添付するまでの、
 メンテナ向けの完全な手順です。仕組みの説明・初回セットアップ・利用者側の使い方・
 トラブルシュート・後片付けまで含みます。
@@ -50,8 +50,10 @@ git push origin v1.0.0
    ハイフンの有無で `IS_PRERELEASE` を決めます。
 3. **Restore / Build (Release)** — `-p:Version=$VERSION` 付きでソリューションをビルド。
 4. **Test (gate)** — テストスイートを実行。**1 件でも失敗するとリリースは中断します。**
-5. **Pack** — `WinformsMVP.Core` / `WinformsMVP` / `WinformsMVP.DependencyInjection` の 3 つを
-   同じ `-p:Version` でパック。`WinformsMVP` は `WinformsMVP.Core` を、DI パッケージは `WinformsMVP` を
+5. **Pack** — `WinformsMVP.Core` / `WinformsMVP` / `WinformsMVP.DependencyInjection` / `WinformsMVP.Templates` の 4 つを
+   同じ `-p:Version` でパック (テンプレートパッケージ `templates/WinformsMVP.Templates.csproj` は `dotnet new` 用の
+   テンプレート型パッケージで、生成されるプロジェクトは既定で最新の `WinformsMVP` (`*-*`) を参照します)。
+   `WinformsMVP` は `WinformsMVP.Core` を、DI パッケージは `WinformsMVP` を
    ProjectReference 参照しているため、**同一バージョンへの依存**が自動的に記録されます。
 6. **Assert analyzer is bundled** — `WinformsMVP.Core` パッケージ内に
    `analyzers/dotnet/cs/WinformsMVP.Analyzers.dll` が含まれているかを検証し、
@@ -102,9 +104,10 @@ MVP 設計ルールの Roslyn アナライザーは**コアパッケージ（`Wi
 1. **`Directory.Build.props`（リポジトリ直下）** — 共通のパッケージメタデータ
    （`Authors` / `PackageLicenseExpression=MIT` / `RepositoryUrl` / `PackageReadmeFile` など）を集約し、
    既定で `IsPackable=false`。誤って samples / tests / アナライザーを発行しないための土台です。
-2. **発行する 3 プロジェクトの `.csproj`** — `<IsPackable>true</IsPackable>` で opt-in し、
+2. **発行する 4 プロジェクトの `.csproj`** — `<IsPackable>true</IsPackable>` で opt-in し、
    `PackageId` / `Description` / `PackageTags` と、README をパッケージに含める
-   `<None Include="..\..\README.md" Pack="true" PackagePath="\" />` を記述。
+   `<None Include="..\..\README.md" Pack="true" PackagePath="\" />` を記述
+   (`templates/WinformsMVP.Templates.csproj` は階層が 1 つ浅いので `..\README.md`)。
    （README の `<None>` は各 `.csproj` に置きます。`Directory.Build.props` は各プロジェクト本体より
    先に評価されるため、そこに `IsPackable` 条件付きで置くと `true` になる前に評価され効きません。）
 3. **`.github/workflows/release.yml`** — 上記「2. ワークフローが何をしているか」の内容。
@@ -143,6 +146,9 @@ GitHub Packages は public リポジトリでも **NuGet の復元に認証が�
   `nuget.config` にソースと資格情報を設定して `dotnet add package WinformsMVP --prerelease`。
 - **方法B — Releases から手動ダウンロード（認証不要）**：Release ページから `.nupkg` を落とし、
   ローカルフォルダをソースに登録してインストール（`WinformsMVP` は `WinformsMVP.Core` に依存するので両方の `.nupkg` を置く）。
+- **テンプレート**：`dotnet new install WinformsMVP.Templates`（フィード経由）または
+  `dotnet new install <path>/WinformsMVP.Templates.<version>.nupkg`（ダウンロードした `.nupkg`）。
+  詳細は [テンプレートを使う](HowTo-Use-Templates)。
 
 詳細な手順とサンプル `nuget.config` は [README.md](../README.md) の「インストール」節にあります。
 
@@ -166,6 +172,9 @@ GitHub Packages は public リポジトリでも **NuGet の復元に認証が�
   `<None Include>` が壊れていないか確認。
 - **テストで落ちてリリースが止まる**
   テストはゲートです。先にテストを直してから再度タグを打ちます。
+- **テンプレートを変更した**
+  リリース前に `tests/templates/verify-templates.sh` (CI でも実行) で全テンプレートを両フレームワーク向けに
+  生成・`-warnaserror` ビルドできることを確認します (`RUN_TESTS=1` で生成されたテストも実行、Windows のみ)。
 - **同じタグで Release 作成が失敗する**
   Release ステップは既存 Release があれば `--clobber` で資産を上書きするため再実行に強い設計ですが、
   内容をやり直したいときは下記の後片付けでタグ・Release を消してから打ち直します。
