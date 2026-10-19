@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using WinformsMVP.Common.Internal;
 
 namespace WinformsMVP.Services
@@ -26,9 +27,11 @@ namespace WinformsMVP.Services
 
         private readonly Dictionary<Type, Entry> _entries = new Dictionary<Type, Entry>();
         private readonly List<object> _created = new List<object>();   // factory results, creation order
-        // Every instance ever passed to RegisterInstance/Register — kept even after the registration
-        // is replaced, so an alias factory that handed one back can never get it disposed.
-        private readonly HashSet<object> _callerOwned = new HashSet<object>(DeepReflection.ReferenceEqualityComparer.Instance);
+        // Every instance ever passed to RegisterInstance/Register — remembered even after the
+        // registration is replaced, so an alias factory that handed one back never gets it disposed.
+        // Weak keys: a replaced instance nobody else references can still be collected.
+        private readonly ConditionalWeakTable<object, object> _callerOwned = new ConditionalWeakTable<object, object>();
+        private static readonly object Owned = new object();
         private readonly object _lock = new object();
         private bool _disposed;
 
@@ -42,7 +45,7 @@ namespace WinformsMVP.Services
             lock (_lock)
             {
                 _entries[typeof(TService)] = new Entry { Instance = instance, HasInstance = true };
-                if (instance != null) _callerOwned.Add(instance);
+                if (instance != null) MarkCallerOwned(instance);
             }
         }
 
@@ -53,7 +56,7 @@ namespace WinformsMVP.Services
             lock (_lock)
             {
                 _entries[serviceType] = new Entry { Instance = instance, HasInstance = true };
-                if (instance != null) _callerOwned.Add(instance);
+                if (instance != null) MarkCallerOwned(instance);
             }
         }
 
@@ -107,6 +110,18 @@ namespace WinformsMVP.Services
             }
         }
 
+        private void MarkCallerOwned(object instance)
+        {
+            _callerOwned.Remove(instance);
+            _callerOwned.Add(instance, Owned);
+        }
+
+        private bool IsCallerOwned(object instance)
+        {
+            object ignored;
+            return _callerOwned.TryGetValue(instance, out ignored);
+        }
+
         /// <summary>
         /// Disposes the <see cref="IDisposable"/> singletons created by factories, newest first, each
         /// once. Idempotent. Resolving afterwards throws <see cref="ObjectDisposedException"/>.
@@ -124,7 +139,7 @@ namespace WinformsMVP.Services
                 {
                     var created = _created[i];
                     var disposable = created as IDisposable;
-                    if (disposable != null && !_callerOwned.Contains(created) && seen.Add(created))
+                    if (disposable != null && !IsCallerOwned(created) && seen.Add(created))
                         toDispose.Add(disposable);
                 }
                 _created.Clear();
