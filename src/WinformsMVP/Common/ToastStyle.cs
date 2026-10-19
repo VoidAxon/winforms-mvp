@@ -3,7 +3,7 @@ namespace WinformsMVP.Common
     /// <summary>
     /// Selects a built-in toast appearance. Map to a renderer via the framework's resolver;
     /// a custom <see cref="ToastRenderer"/> set on <c>ToastOptions.Renderer</c> or
-    /// <c>ToastDefaults.Renderer</c> overrides the style.
+    /// A configured renderer (<c>mvp.Toasts.UseRenderer</c>) overrides the style.
     /// </summary>
     public enum ToastStyle
     {

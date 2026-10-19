@@ -12,16 +12,21 @@ namespace WinformsMVP.Services.Implementations
     /// This is a low-level View-layer utility for Forms / UserControls that know a pixel location
     /// (a control's screen rectangle, the cursor, a hit-test result). <b>Do NOT call it from a
     /// Presenter</b> — Presenters must not deal in screen coordinates. Presenters that want a toast
-    /// use <see cref="IMessageService.ShowToast(string, ToastType, ToastOptions)"/>, which shows
-    /// stacked toasts in a screen corner instead; when the toast's position carries meaning, the
+    /// use their <c>Toasts</c> property (<see cref="IToastService"/>), which shows stacked toasts in
+    /// a screen corner instead; when the toast's position carries meaning, the
     /// Presenter calls a small semantic view method (e.g. <c>View.ShowRowTouched()</c>) whose Form
     /// implementation picks the anchor and calls this utility.
     /// <para>
     /// Unlike the corner toasts, an anchored toast is a standalone singleton: only one exists at a
     /// time, and showing a new one closes the previous. It does not stack with — or disturb — the
-    /// corner toasts. Appearance comes from <paramref name="options"/> (falling back to
-    /// <see cref="ToastDefaults"/>); the <see cref="ToastOptions.Position"/> corner is ignored
-    /// here because the anchor point determines placement.
+    /// corner toasts. Appearance comes from <paramref name="options"/> (falling back to the
+    /// toast service's <see cref="ToastHostOptions"/>); the <see cref="ToastOptions.Position"/>
+    /// corner is ignored here because the anchor point determines placement.
+    /// </para>
+    /// <para>
+    /// This is a static shortcut for <see cref="IWinFormsToastService.ShowAnchored"/> on the
+    /// application's toast service (resolved from <see cref="ServiceLocator.Current"/>), so a
+    /// replaced toast service also receives anchored toasts.
     /// </para>
     /// </remarks>
     public static class AnchoredToast
@@ -36,8 +41,7 @@ namespace WinformsMVP.Services.Implementations
         /// <param name="options">Optional per-toast appearance overrides. <c>Position</c> is ignored.</param>
         public static void Show(string text, ToastType type, Point anchor, ToastOptions options = null)
         {
-            var toast = new ToastNotification(text, type, options);
-            toast.ShowAnchored(anchor);
+            ServiceLocator.Current.ResolveRequired<IWinFormsToastService>().ShowAnchored(text, type, anchor, options);
         }
 
         /// <summary>Shows an anchored information toast at <paramref name="anchor"/>.</summary>

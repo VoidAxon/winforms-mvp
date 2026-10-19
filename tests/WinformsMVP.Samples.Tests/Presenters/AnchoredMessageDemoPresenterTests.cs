@@ -10,7 +10,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
 {
     /// <summary>
     /// Demonstrates testing the feedback division of labor: corner toasts are asserted through
-    /// the injected MockServices' message service; position-meaningful feedback goes through
+    /// the injected MockServices' toast service; position-meaningful feedback goes through
     /// semantic view methods, asserted directly on the mock view. No global state involved.
     /// </summary>
     public class AnchoredMessageDemoPresenterTests
@@ -45,8 +45,8 @@ namespace WinformsMVP.Samples.Tests.Presenters
         public void Save_ShowsCornerToast_WithItemName()
         {
             _view.Binder.Dispatch(AnchoredMessageDemoActions.Save);
-            Assert.Contains(_services.MessageService.Calls,
-                c => c.Type == MessageType.Toast && c.Message.Contains("Saved 'Alpha'"));
+            Assert.Contains(_services.ToastService.Calls,
+                c => c.Text.Contains("Saved 'Alpha'"));
         }
 
         [Fact]
@@ -55,8 +55,8 @@ namespace WinformsMVP.Samples.Tests.Presenters
             _view.ConfirmDeleteResult = true;
             _view.Binder.Dispatch(AnchoredMessageDemoActions.Delete);
             Assert.Equal(1, _view.ConfirmDeleteCalls);
-            Assert.Contains(_services.MessageService.Calls,
-                c => c.Type == MessageType.Toast && c.Message.Contains("Deleted"));
+            Assert.Contains(_services.ToastService.Calls,
+                c => c.Text.Contains("Deleted"));
         }
 
         [Fact]
@@ -64,8 +64,8 @@ namespace WinformsMVP.Samples.Tests.Presenters
         {
             _view.ConfirmDeleteResult = false;
             _view.Binder.Dispatch(AnchoredMessageDemoActions.Delete);
-            Assert.DoesNotContain(_services.MessageService.Calls,
-                c => c.Type == MessageType.Toast && c.Message.Contains("Deleted"));
+            Assert.DoesNotContain(_services.ToastService.Calls,
+                c => c.Text.Contains("Deleted"));
             Assert.Equal("Delete cancelled.", _view.LastHint);
         }
 
@@ -81,8 +81,8 @@ namespace WinformsMVP.Samples.Tests.Presenters
         {
             _view.NotificationsEnabled = true;
             _view.Binder.Dispatch(AnchoredMessageDemoActions.ToggleNotify);
-            Assert.Contains(_services.MessageService.Calls,
-                c => c.Type == MessageType.Toast && c.Message.Contains("enabled"));
+            Assert.Contains(_services.ToastService.Calls,
+                c => c.Text.Contains("enabled"));
         }
     }
 }

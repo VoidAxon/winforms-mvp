@@ -59,16 +59,6 @@ namespace WinformsMVP.Samples.Tests.Mocks
             return ConfirmYesNoCancelResult;
         }
 
-        public void ShowToast(string text, ToastType type, int duration = 3000)
-        {
-            Calls.Add(new MessageCall { Type = MessageType.Toast, Message = text });
-        }
-
-        public void ShowToast(string text, ToastType type, ToastOptions options)
-        {
-            Calls.Add(new MessageCall { Type = MessageType.Toast, Message = text });
-        }
-
         // Helper methods
         public void Clear()
         {
@@ -108,7 +98,6 @@ namespace WinformsMVP.Samples.Tests.Mocks
         Info,
         Warning,
         Error,
-        Confirm,
-        Toast
+        Confirm
     }
 }

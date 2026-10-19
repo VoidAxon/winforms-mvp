@@ -47,6 +47,13 @@ namespace WinformsMVP.DependencyInjection
 
             // Framework built-ins — host may register its own before calling AddWinformsMVP.
             services.TryAddSingleton<IMessageService, MessageService>();
+            services.TryAddSingleton(new ToastHostOptions());
+            services.TryAddSingleton(sp => new WinFormsToastService(
+                sp.GetRequiredService<ToastHostOptions>(),
+                sp.GetService<WinformsMVP.Common.ToastRenderer>(),
+                sp.GetService<ILoggerFactory>()));
+            services.TryAddSingleton<IWinFormsToastService>(sp => sp.GetRequiredService<WinFormsToastService>());
+            services.TryAddSingleton<IToastService>(sp => sp.GetRequiredService<IWinFormsToastService>());
             // One DialogProvider serves both interfaces, as in the ServiceLocator defaults.
             services.TryAddSingleton<DialogProvider>();
             services.TryAddSingleton<IDialogProvider>(sp => sp.GetRequiredService<DialogProvider>());

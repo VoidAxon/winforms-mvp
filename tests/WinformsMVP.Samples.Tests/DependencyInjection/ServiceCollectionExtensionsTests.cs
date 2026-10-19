@@ -94,6 +94,18 @@ namespace WinformsMVP.Samples.Tests.DependencyInjection
         }
 
         [Fact]
+        public void AddWinformsMVP_ToastServices_AreSameInstance()
+        {
+            var services = new ServiceCollection();
+            services.AddWinformsMVP(new ViewMappingRegister());
+
+            var provider = services.BuildServiceProvider();
+
+            Assert.IsType<WinFormsToastService>(provider.GetService<IToastService>());
+            Assert.Same(provider.GetService<IToastService>(), provider.GetService<IWinFormsToastService>());
+        }
+
+        [Fact]
         public void AddWinformsMVP_RegistersViewMappingRegister_AsSpecifiedInstance()
         {
             // The very same instance must be retrievable — that's how WindowNavigator

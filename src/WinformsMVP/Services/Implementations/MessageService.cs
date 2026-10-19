@@ -4,7 +4,7 @@ using WinformsMVP.Common;
 namespace WinformsMVP.Services.Implementations
 {
     /// <summary>
-    /// Default implementation of IMessageService using WinForms MessageBox and custom dialogs.
+    /// Default implementation of IMessageService using WinForms MessageBox.
     /// Uses configurable defaults from DialogDefaults class.
     /// </summary>
     public class MessageService : IMessageService
@@ -46,29 +46,6 @@ namespace WinformsMVP.Services.Implementations
         {
             caption = string.IsNullOrEmpty(caption) ? DialogDefaults.DefaultMessageCaption : caption;
             MessageBox.Show(text, caption, MessageBoxButtons.OK, MessageBoxIcon.Warning);
-        }
-
-        #endregion
-
-        #region Toast Notifications
-
-        public void ShowToast(string text, ToastType type, int duration = 3000)
-        {
-            ShowToast(text, type, new ToastOptions { Duration = duration });
-        }
-
-        /// <remarks>
-        /// Safe to call from any thread (e.g. a presenter continuing after
-        /// <c>ConfigureAwait(false)</c>): the toast is created on the UI thread, which owns its
-        /// window, close timer and the shared stacking state.
-        /// </remarks>
-        public void ShowToast(string text, ToastType type, ToastOptions options)
-        {
-            UiThread.Run(() =>
-            {
-                var toast = new ToastNotification(text, type, options);
-                toast.Show();
-            });
         }
 
         #endregion

@@ -1,49 +1,62 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
+using WinformsMVP.Common;
 
 namespace WinformsMVP.Services.Implementations
 {
     /// <summary>
-    /// Owns the set of on-screen toasts and arranges them. A single global stack on the UI thread:
-    /// it tracks live toasts, enforces the <see cref="ToastDefaults.MaxVisibleToasts"/> cap, and
-    /// repositions everyone whenever a toast appears or closes.
+    /// Collects the live toasts of one <see cref="WinFormsToastService"/>: it tracks the stack,
+    /// enforces <see cref="ToastHostOptions.MaxVisibleToasts"/>, positions the stack, and holds the
+    /// single anchored toast. It also carries the service's defaults that each toast reads.
+    /// UI-thread only: the service creates, shows and closes toasts on its UI thread.
     /// </summary>
-    /// <remarks>
-    /// This is the glue layer: it reads the screen working area and moves windows, but delegates
-    /// the actual stacking math to <see cref="ToastLayout"/> (which is pure and unit-tested).
-    /// <see cref="ToastNotification"/> handles a single toast's window, painting, and fade; the
-    /// manager handles the collection. Only ever touched on the UI thread.
-    /// </remarks>
-    internal static class ToastManager
+    internal sealed class ToastManager
     {
         // Live toasts in oldest-first order; this list also defines the stacking order.
-        private static readonly List<ToastNotification> LiveToasts = new List<ToastNotification>();
+        private readonly List<ToastNotification> _liveToasts = new List<ToastNotification>();
 
         // The single anchored (point-positioned) toast, if any. It does NOT participate in the
-        // stack: it never appears in LiveToasts and is never reflowed.
-        private static ToastNotification _anchored;
+        // stack: it never appears in _liveToasts and is never reflowed.
+        private ToastNotification _anchored;
 
-        /// <summary>Registers a freshly shown toast, evicts overflow, and re-lays out the stack.</summary>
-        public static void Add(ToastNotification toast)
+        internal ToastManager(ToastHostOptions settings, Font defaultFont, ToastRenderer defaultRenderer)
         {
-            LiveToasts.Add(toast);
+            Settings = settings;
+            DefaultFont = defaultFont;
+            DefaultRenderer = defaultRenderer;
+        }
+
+        /// <summary>Validated snapshot of the service's options.</summary>
+        internal ToastHostOptions Settings { get; }
+
+        /// <summary>Font used when a toast does not set its own.</summary>
+        internal Font DefaultFont { get; }
+
+        /// <summary>App-wide custom painter, or <c>null</c> to paint by <see cref="ToastHostOptions.Style"/>.</summary>
+        internal ToastRenderer DefaultRenderer { get; }
+
+        /// <summary>Stacked toasts, oldest first.</summary>
+        internal IReadOnlyList<ToastNotification> LiveToasts => _liveToasts;
+
+        /// <summary>The anchored toast, or <c>null</c>.</summary>
+        internal ToastNotification Anchored => _anchored;
+
+        public void Add(ToastNotification toast)
+        {
+            _liveToasts.Add(toast);
 
             // Cap the stack: evict the oldest toasts so it never overflows the screen. Iterate by
             // index 0 because CloseNow() calls back into Remove(), shrinking the list.
-            while (LiveToasts.Count > ToastDefaults.MaxVisibleToasts)
+            while (_liveToasts.Count > Settings.MaxVisibleToasts)
             {
-                LiveToasts[0].CloseNow();
+                _liveToasts[0].CloseNow();
             }
 
             Reflow();
         }
 
-        /// <summary>
-        /// Registers a freshly shown anchored toast as the single one, closing any previous anchored
-        /// toast. Anchored toasts are standalone — they are not stacked or reflowed.
-        /// </summary>
-        public static void RegisterAnchored(ToastNotification toast)
+        public void RegisterAnchored(ToastNotification toast)
         {
             var previous = _anchored;
             _anchored = toast;
@@ -56,8 +69,7 @@ namespace WinformsMVP.Services.Implementations
             }
         }
 
-        /// <summary>Drops a closed toast: clears the anchored slot, or removes from the stack and reflows.</summary>
-        public static void Remove(ToastNotification toast)
+        public void Remove(ToastNotification toast)
         {
             if (ReferenceEquals(_anchored, toast))
             {
@@ -65,20 +77,30 @@ namespace WinformsMVP.Services.Implementations
                 return;
             }
 
-            if (LiveToasts.Remove(toast))
+            if (_liveToasts.Remove(toast))
             {
                 Reflow();
             }
         }
 
-        private static void Reflow()
+        /// <summary>Closes every toast this manager holds (service shutdown).</summary>
+        public void CloseAll()
+        {
+            while (_liveToasts.Count > 0)
+            {
+                _liveToasts[_liveToasts.Count - 1].CloseNow();
+            }
+            _anchored?.CloseNow();
+        }
+
+        private void Reflow()
         {
             var area = Screen.PrimaryScreen.WorkingArea;
 
-            var boxes = new ToastBox[LiveToasts.Count];
-            for (int i = 0; i < LiveToasts.Count; i++)
+            var boxes = new ToastBox[_liveToasts.Count];
+            for (int i = 0; i < _liveToasts.Count; i++)
             {
-                var toast = LiveToasts[i];
+                var toast = _liveToasts[i];
                 boxes[i] = new ToastBox
                 {
                     Position = toast.Position,
@@ -87,11 +109,11 @@ namespace WinformsMVP.Services.Implementations
                 };
             }
 
-            Point[] points = ToastLayout.Arrange(boxes, area, ToastDefaults.Margin, ToastDefaults.Gap);
+            Point[] points = ToastLayout.Arrange(boxes, area, Settings.Margin, Settings.Gap);
 
-            for (int i = 0; i < LiveToasts.Count; i++)
+            for (int i = 0; i < _liveToasts.Count; i++)
             {
-                LiveToasts[i].MoveTo(points[i].X, points[i].Y);
+                _liveToasts[i].MoveTo(points[i].X, points[i].Y);
             }
         }
     }

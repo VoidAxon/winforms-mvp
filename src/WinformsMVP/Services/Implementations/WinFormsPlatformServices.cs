@@ -12,6 +12,13 @@ namespace WinformsMVP.Services.Implementations
             var dialogs = new DialogProvider();
             registry.RegisterInstance<IViewMappingRegister>(new ViewMappingRegister());
             registry.RegisterInstance<IMessageService>(new MessageService());
+            registry.RegisterInstance(new ToastHostOptions());
+            registry.RegisterFactory(sp => new WinFormsToastService(
+                sp.ResolveRequired<ToastHostOptions>(),
+                sp.Resolve<WinformsMVP.Common.ToastRenderer>(),
+                sp.Resolve<WinformsMVP.Logging.ILoggerFactory>()));
+            registry.RegisterFactory<IWinFormsToastService>(sp => sp.ResolveRequired<WinFormsToastService>());
+            registry.RegisterFactory<IToastService>(sp => sp.ResolveRequired<IWinFormsToastService>());
             registry.RegisterInstance<IDialogProvider>(dialogs);
             registry.RegisterInstance<IWinFormsDialogProvider>(dialogs);
             registry.RegisterFactory<IWindowNavigator>(sp =>

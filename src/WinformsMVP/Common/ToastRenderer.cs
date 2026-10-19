@@ -4,7 +4,7 @@ namespace WinformsMVP.Common
 {
     /// <summary>
     /// Draws the content of a toast notification. Assign a custom renderer via
-    /// <see cref="ToastOptions.Renderer"/> (per toast) or <c>ToastDefaults.Renderer</c>
+    /// <see cref="ToastOptions.Renderer"/> (per toast) or the toast service default (<c>mvp.Toasts.UseRenderer</c>)
     /// (app-wide) to take over a toast's appearance — the toast equivalent of
     /// <c>System.Windows.Forms.ToolStrip.Renderer</c>.
     /// </summary>

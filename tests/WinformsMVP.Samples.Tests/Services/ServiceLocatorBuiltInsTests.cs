@@ -34,6 +34,14 @@ namespace WinformsMVP.Samples.Tests.Services
         }
 
         [Fact]
+        public void Default_ToastServices_AreSameInstance()
+        {
+            var sp = ServiceLocator.Current;
+            Assert.IsType<WinformsMVP.Services.Implementations.WinFormsToastService>(sp.Resolve<IToastService>());
+            Assert.Same(sp.Resolve<IToastService>(), sp.Resolve<IWinFormsToastService>());
+        }
+
+        [Fact]
         public void Default_HasNoDispatcherConfigurer()
         {
             Assert.Null(ServiceLocator.Current.Resolve<IDispatcherConfigurer>());

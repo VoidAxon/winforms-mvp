@@ -67,6 +67,10 @@ namespace WinformsMVP.MVP.Presenters
         protected WinformsMVP.Services.IMessageService Messages =>
             Services.ResolveRequired<WinformsMVP.Services.IMessageService>();
 
+        /// <summary>Convenience property for accessing IToastService (non-blocking notifications).</summary>
+        protected WinformsMVP.Services.IToastService Toasts =>
+            Services.ResolveRequired<WinformsMVP.Services.IToastService>();
+
         /// <summary>Convenience property for accessing IDialogProvider.</summary>
         protected WinformsMVP.Services.IDialogProvider Dialogs =>
             Services.ResolveRequired<WinformsMVP.Services.IDialogProvider>();
