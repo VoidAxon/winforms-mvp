@@ -11,38 +11,25 @@ namespace WinformsMVP.Common
     /// <typeparam name="T">The type to track. Must be a reference type.</typeparam>
     /// <remarks>
     /// <para>
-    /// Snapshotting (clone) resolution order: if T implements <see cref="ICloneable"/> its
-    /// Clone() is used; otherwise the global <see cref="ChangeTrackerDefaults.Cloner"/> hook is used
-    /// (default = built-in reflection deep copy in <see cref="ObjectCloner"/>).
+    /// Snapshots and comparison come from a <see cref="ChangeTrackingPolicy{T}"/> fixed at
+    /// construction: the built-in engines (reflection deep copy and
+    /// <see cref="ObjectComparer.ContentEquals(object, object)"/>), a comparer you pass, or an
+    /// explicit policy. Nothing global is read afterwards.
     /// </para>
     /// <para>
-    /// Comparison: an explicit comparer argument wins; otherwise the global
-    /// <see cref="ChangeTrackerDefaults.Comparer"/> hook is used (default =
-    /// <see cref="ObjectComparer.ContentEquals(object, object)"/>). T's own Equals/IEquatable is
-    /// deliberately not consulted: entity types commonly define equality as "same Id", which would
-    /// report an edited entity as unchanged and skip the save prompt. Pass a comparer to opt in.
+    /// T's own Equals/IEquatable is deliberately not consulted: entity types commonly define
+    /// equality as "same Id", which would report an edited entity as unchanged and skip the save
+    /// prompt. Pass a comparer to opt in. <see cref="ICloneable"/> is not consulted either — .NET
+    /// allows Clone() to be shallow; a model with a verified deep Clone() opts in with a policy.
     /// </para>
     /// <para>
-    /// To plug in a third-party deep-copy library, set the hook once at startup, e.g.
-    /// <c>ChangeTrackerDefaults.Cloner = o => o.DeepClone();</c>
-    /// </para>
-    /// <para>
-    /// Implementing <see cref="ICloneable"/> with a deep copy is still recommended as the fast path,
-    /// but is no longer required.
-    /// </para>
-    /// <para>
-    /// The cloning strategy is resolved from the runtime type of the initial value at construction time;
-    /// subsequent updates (UpdateCurrentValue, AcceptChanges with a new value) must be compatible —
-    /// i.e., if the initial value implements ICloneable, later values must also be assignable to ICloneable.
-    /// For most uses (concrete <c>T</c>), this is automatic.
+    /// Inside a presenter, prefer <c>TrackChanges(value)</c>: it uses the application-wide
+    /// engines and per-type policies configured at startup (<c>mvp.ChangeTracking</c>). A tracker
+    /// created with <c>new</c> only ever uses what its constructor was given.
     /// </para>
     /// </remarks>
     public class ChangeTracker<T> : IChangeTracking, IRevertibleChangeTracking where T : class
     {
-        // Cached once per closed generic type by the CLR static initializer; avoids re-computing
-        // BuildComparerFunc() on every constructor call when no explicit comparer is supplied.
-        private static readonly Func<T, T, bool> DefaultComparer = BuildComparerFunc();
-
         private T _originalValue;
         private T _currentValue;
         private readonly Func<T, T> _clone;
@@ -87,37 +74,57 @@ namespace WinformsMVP.Common
         }
 
         /// <summary>
-        /// Initializes a ChangeTracker with the specified initial value.
+        /// Tracks <paramref name="initialValue"/> with the built-in engines: reflection deep copy for
+        /// snapshots and content comparison (<see cref="ObjectComparer.ContentEquals(object, object)"/>).
         /// </summary>
-        /// <param name="initialValue">The initial value to start tracking.</param>
-        /// <param name="comparer">Custom comparison function for values. If null, the global
-        /// ChangeTrackerDefaults.Comparer content-compare hook is used.</param>
         /// <exception cref="ArgumentNullException">When initialValue is null.</exception>
         /// <remarks>
-        /// The clone and comparer strategies are resolved once at construction time based on
-        /// the runtime type of <paramref name="initialValue"/>. See the class-level remarks for
-        /// the full resolution order.
+        /// Application-wide engines and per-type policies registered at startup are not consulted
+        /// here; a presenter's <c>TrackChanges(value)</c> uses them.
         /// </remarks>
-        public ChangeTracker(T initialValue, Func<T, T, bool> comparer = null)
+        public ChangeTracker(T initialValue)
+            : this(initialValue, ChangeTrackingPolicy<T>.BuiltIn)
         {
-            if (initialValue == null)
-                throw new ArgumentNullException(nameof(initialValue));
-
-            // Resolve clone and comparer strategies before taking the first snapshots.
-            _clone = BuildCloneFunc(initialValue);
-            _comparer = comparer ?? DefaultComparer;
-            _currentValue = _clone(initialValue);
-            _originalValue = _clone(initialValue);
         }
 
         /// <summary>
-        /// Initializes a ChangeTracker with the specified initial value and IEqualityComparer.
+        /// Tracks <paramref name="initialValue"/> comparing with <paramref name="comparer"/>;
+        /// snapshots use the built-in deep copy.
         /// </summary>
-        /// <param name="initialValue">The initial value to start tracking.</param>
-        /// <param name="comparer">The IEqualityComparer to use for value comparison.</param>
-        public ChangeTracker(T initialValue, IEqualityComparer<T> comparer)
-            : this(initialValue, comparer != null ? (Func<T, T, bool>)comparer.Equals : null)
+        /// <exception cref="ArgumentNullException">When initialValue or comparer is null.</exception>
+        public ChangeTracker(T initialValue, Func<T, T, bool> comparer)
+            : this(initialValue, new ChangeTrackingPolicy<T>(
+                ChangeTrackingPolicy<T>.BuiltIn.Clone,
+                comparer ?? throw new ArgumentNullException(nameof(comparer))))
         {
+        }
+
+        /// <summary>
+        /// Tracks <paramref name="initialValue"/> comparing with <paramref name="comparer"/>;
+        /// snapshots use the built-in deep copy.
+        /// </summary>
+        /// <exception cref="ArgumentNullException">When initialValue or comparer is null.</exception>
+        public ChangeTracker(T initialValue, IEqualityComparer<T> comparer)
+            : this(initialValue, (comparer ?? throw new ArgumentNullException(nameof(comparer))).Equals)
+        {
+        }
+
+        /// <summary>
+        /// Tracks <paramref name="initialValue"/> with an explicit snapshot/compare
+        /// <paramref name="policy"/>. The policy is fixed for the tracker's lifetime.
+        /// </summary>
+        /// <exception cref="ArgumentNullException">When initialValue or policy is null.</exception>
+        public ChangeTracker(T initialValue, ChangeTrackingPolicy<T> policy)
+        {
+            if (initialValue == null)
+                throw new ArgumentNullException(nameof(initialValue));
+            if (policy == null)
+                throw new ArgumentNullException(nameof(policy));
+
+            _clone = policy.Clone;
+            _comparer = policy.ContentEquals;
+            _currentValue = _clone(initialValue);
+            _originalValue = _clone(initialValue);
         }
 
         // ----------------------------------------------------------------------------------
@@ -257,16 +264,5 @@ namespace WinformsMVP.Common
             }
             if (raise) IsChangedChanged?.Invoke(this, EventArgs.Empty);
         }
-
-        // Clone resolution: if the sample value implements ICloneable, use Clone(); otherwise fall back to the global hook.
-        private static Func<T, T> BuildCloneFunc(T sample)
-        {
-            if (sample is ICloneable)
-                return v => (T)((ICloneable)v).Clone();
-            return v => (T)ChangeTrackerDefaults.Cloner(v);
-        }
-
-        private static Func<T, T, bool> BuildComparerFunc()
-            => (a, b) => ChangeTrackerDefaults.Comparer(a, b);
     }
 }

@@ -133,15 +133,38 @@ namespace WinformsMVP.Samples.Tests.Common
             Assert.Same(copyA, copyA.Next.Next);   // cycle is preserved within the copy
         }
 
+        // A node whose Clone() is shallow: .NET does not promise ICloneable is a deep copy.
+        private class ShallowCloneable : ICloneable
+        {
+            public Node Child { get; set; }
+            public object Clone() => MemberwiseClone();
+        }
+
+        private class HoldsShallowCloneable
+        {
+            public ShallowCloneable Inner { get; set; }
+        }
+
         [Fact]
-        public void DeepCopy_NodeImplementingICloneable_UsesCloneMethod()
+        public void DeepCopy_NodeImplementingICloneable_IsCopiedByReflection_NotCloneMethod()
         {
             var src = new CloneableLeaf { Tag = "t" };
 
             var copy = ObjectCloner.DeepCopy(src);
 
-            Assert.True(copy.Cloned);   // ICloneable.Clone() was used, not reflection
+            Assert.False(copy.Cloned);   // ICloneable is not trusted: reflection copy
             Assert.Equal("t", copy.Tag);
+        }
+
+        [Fact]
+        public void NestedCloneable_IsDeepCopiedNotTrusted()
+        {
+            var src = new HoldsShallowCloneable { Inner = new ShallowCloneable { Child = new Node { Name = "a" } } };
+
+            var copy = ObjectCloner.DeepCopy(src);
+            copy.Inner.Child.Name = "b";
+
+            Assert.Equal("a", src.Inner.Child.Name);   // a shallow Clone() would have shared Child
         }
 
         [Fact]

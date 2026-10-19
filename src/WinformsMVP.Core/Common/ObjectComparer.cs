@@ -9,7 +9,7 @@ namespace WinformsMVP.Common
     /// <summary>
     /// Pragmatic reflection-based deep comparison; collections are compared structurally; cycle-safe.
     /// <see cref="DeepEquals(object, object)"/> respects every type's Equals/IEquatable.
-    /// <see cref="ContentEquals(object, object)"/> — the <see cref="ChangeTrackerDefaults"/> default —
+    /// <see cref="ContentEquals(object, object)"/> — behind <see cref="BuiltInObjectContentComparer"/>, the default —
     /// trusts Equals only where it means "same value", so identity-style entity equality
     /// (e.g. "same Id") cannot hide an edit.
     /// </summary>
@@ -91,7 +91,8 @@ namespace WinformsMVP.Common
             if (DeepReflection.IsUnsupported(type))
                 throw new NotSupportedException(
                     "ObjectComparer cannot deep-compare type '" + type.FullName +
-                    "'. Implement Equals/IEquatable on the model, or set ChangeTrackerDefaults.Comparer.");
+                    "'. Register a ChangeTrackingPolicy for the model type, or replace the comparer " +
+                    "(mvp.ChangeTracking.UseComparer).");
 
             return PocoEquals(a, b, type, visited);
         }
