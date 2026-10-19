@@ -1,0 +1,44 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "VoidAxon",
+  "classifications": [ "Desktop", "WinForms", "MVP", "Test", "xUnit" ],
+  "identity": "WinformsMVP.Templates.Tests",
+  "name": "WinformsMVP Presenter Tests",
+  "description": "An xUnit project for presenter tests: PresenterTestHost, a CapturingActionBinder for mock views, and an example test.",
+  "shortName": "winformsmvp-tests",
+  "sourceName": "MvpApp.Tests",
+  "preferNameDirectory": true,
+  "tags": { "language": "C#", "type": "project" },
+  "symbols": {
+    "Framework": {
+      "type": "parameter",
+      "datatype": "choice",
+      "choices": [
+        { "choice": "net10.0-windows", "description": ".NET 10 (Windows)" },
+        { "choice": "net472", "description": ".NET Framework 4.7.2" }
+      ],
+      "defaultValue": "net10.0-windows",
+      "replaces": "TARGET_FRAMEWORK",
+      "description": "Target framework (use the application's)."
+    },
+    "MvpVersion": {
+      "type": "parameter",
+      "datatype": "text",
+      "defaultValue": "*-*",
+      "replaces": "MVP_PACKAGE_VERSION",
+      "description": "WinformsMVP package version (default: latest, prereleases included)."
+    },
+    "AppProject": {
+      "type": "parameter",
+      "datatype": "text",
+      "defaultValue": "",
+      "replaces": "APP_PROJECT_PATH",
+      "description": "Path to the application project under test, relative to the new test project (e.g. ../MyApp/MyApp.csproj)."
+    },
+    "HasAppProject": {
+      "type": "computed",
+      "value": "(AppProject != \"\")"
+    }
+  },
+  "primaryOutputs": [ { "path": "MvpApp.Tests.csproj" } ]
+}

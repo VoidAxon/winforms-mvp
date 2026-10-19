@@ -1,0 +1,40 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "VoidAxon",
+  "classifications": [
+    "Desktop",
+    "WinForms",
+    "MVP"
+  ],
+  "identity": "WinformsMVP.Templates.Control",
+  "name": "WinformsMVP UserControl",
+  "description": "A UserControl: view interface, actions, presenter and control (with designer file). The parent creates the presenter and calls Connect.",
+  "shortName": "mvp-control",
+  "sourceName": "Sample",
+  "tags": {
+    "language": "C#",
+    "type": "item"
+  },
+  "symbols": {
+    "namespace": {
+      "type": "parameter",
+      "datatype": "text",
+      "defaultValue": "",
+      "description": "Namespace for the generated files (default: the project's root namespace)."
+    },
+    "RootNamespace": {
+      "type": "bind",
+      "binding": "msbuild:RootNamespace",
+      "defaultValue": "MyApp"
+    },
+    "NamespaceValue": {
+      "type": "generated",
+      "generator": "coalesce",
+      "parameters": {
+        "sourceVariableName": "namespace",
+        "fallbackVariableName": "RootNamespace"
+      },
+      "replaces": "MvpNamespace"
+    }
+  }
+}

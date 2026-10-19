@@ -1,0 +1,69 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "VoidAxon",
+  "classifications": [
+    "Desktop",
+    "WinForms",
+    "MVP"
+  ],
+  "identity": "WinformsMVP.Templates.App",
+  "name": "WinformsMVP Application",
+  "description": "A WinForms application wired for WinformsMVP: service and view registration plus a main window (view interface, actions, presenter, Form).",
+  "shortName": "winformsmvp",
+  "sourceName": "MvpApp",
+  "preferNameDirectory": true,
+  "tags": {
+    "language": "C#",
+    "type": "project"
+  },
+  "symbols": {
+    "Framework": {
+      "type": "parameter",
+      "datatype": "choice",
+      "choices": [
+        {
+          "choice": "net10.0-windows",
+          "description": ".NET 10 (Windows)"
+        },
+        {
+          "choice": "net472",
+          "description": ".NET Framework 4.7.2"
+        }
+      ],
+      "defaultValue": "net10.0-windows",
+      "replaces": "TARGET_FRAMEWORK",
+      "description": "Target framework."
+    },
+    "MvpVersion": {
+      "type": "parameter",
+      "datatype": "text",
+      "defaultValue": "*-*",
+      "replaces": "MVP_PACKAGE_VERSION",
+      "description": "WinformsMVP package version (default: latest, prereleases included)."
+    },
+    "skipRestore": {
+      "type": "parameter",
+      "datatype": "bool",
+      "defaultValue": "false",
+      "description": "Skip the automatic restore after creating the project."
+    }
+  },
+  "primaryOutputs": [
+    {
+      "path": "MvpApp.csproj"
+    }
+  ],
+  "postActions": [
+    {
+      "description": "Restore NuGet packages required by this project.",
+      "manualInstructions": [
+        {
+          "text": "Run 'dotnet restore'"
+        }
+      ],
+      "actionId": "210D431B-A78B-4D2F-B762-4ED3E3EA9025",
+      "continueOnError": true,
+      "condition": "(!skipRestore)"
+    }
+  ]
+}

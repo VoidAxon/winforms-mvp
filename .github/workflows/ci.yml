@@ -38,3 +38,11 @@ jobs:
 
       - name: Test (analyzers)
         run: dotnet test tests/WinformsMVP.Analyzers.Tests/WinformsMVP.Analyzers.Tests.csproj -c Release --no-build
+
+      # Generates an app, windows, a control and a test project from the templates for both
+      # target frameworks, builds them warning-free and runs the generated tests.
+      - name: Templates
+        shell: bash
+        env:
+          RUN_TESTS: '1'
+        run: tests/templates/verify-templates.sh
