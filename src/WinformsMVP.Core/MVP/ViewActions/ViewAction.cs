@@ -12,6 +12,9 @@ namespace WinformsMVP.MVP.ViewActions
         }
 
         public static ViewAction Create(string name) => new ViewAction(name);
+
+        /// <summary>Creates an action key whose payload is a <typeparamref name="T"/>.</summary>
+        public static ViewAction<T> Create<T>(string name) => new ViewAction<T>(new ViewAction(name));
         public static ViewActionFactory Factory { get; } = new ViewActionFactory();
 
         public ViewAction WithQualifier(ViewActionFactory factory) => factory.Create(Name);

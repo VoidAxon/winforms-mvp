@@ -191,6 +191,27 @@ namespace WinformsMVP.MVP.ViewActions
             };
         }
 
+        /// <summary>Registers a handler for a typed action; the payload type comes from the key.</summary>
+        public void Register<T>(ViewAction<T> actionKey, Action<T> handler, Func<bool> canExecute = null)
+            => Register<T>(actionKey.Key, handler, canExecute);
+
+        /// <summary>Registers an async handler for a typed action; the payload type comes from the key.</summary>
+        public void Register<T>(ViewAction<T> actionKey, Func<T, Task> handler, Func<bool> canExecute = null)
+            => Register<T>(actionKey.Key, handler, canExecute);
+
+        /// <summary>Registers an async, cancellable handler for a typed action; the payload type comes from the key.</summary>
+        public void Register<T>(ViewAction<T> actionKey, Func<T, CancellationToken, Task> handler, Func<bool> canExecute = null)
+            => Register<T>(actionKey.Key, handler, canExecute);
+
+        /// <summary>Whether the typed action is registered and its canExecute allows it now.</summary>
+        public bool CanDispatch<T>(ViewAction<T> actionKey) => CanDispatch(actionKey.Key);
+
+        /// <summary>Dispatches a typed action with its payload.</summary>
+        public void Dispatch<T>(ViewAction<T> actionKey, T payload) => Dispatch(actionKey.Key, payload);
+
+        /// <summary>Dispatches a typed action; the task completes when the handler finishes (see <see cref="DispatchAsync(ViewAction, object)"/>).</summary>
+        public Task DispatchAsync<T>(ViewAction<T> actionKey, T payload) => DispatchAsync(actionKey.Key, payload);
+
         /// <summary>
         /// Adds a middleware to the dispatch pipeline. Middleware runs in registration order
         /// (first registered = outermost). The registered handler is always the innermost step.
