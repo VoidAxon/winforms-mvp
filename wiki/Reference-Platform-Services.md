@@ -466,9 +466,9 @@ provider.UseWinformsMVP();   // ServiceLocator.Current = provider
 
 ## モックでのテスト
 
-> ⚠️ **各 `Mock*` サービス (`MockMessageService`、`MockDialogProvider`、`MockFileService`、`MockWindowNavigator`)・`MockServices` は、いずれもテストプロジェクト用のヘルパーで `WinformsMVP` パッケージには同梱されていません** (`tests/WinformsMVP.Samples.Tests/Mocks/`)。自分のテストプロジェクトにコピーして使ってください。Presenter にサービスを差し込むには `PresenterBase.SetServiceProvider` (internal — `InternalsVisibleTo` 経由) を使います。
+> ⚠️ **各 `Mock*` サービス (`MockMessageService`、`MockDialogProvider`、`MockFileService`、`MockWindowNavigator`)・`MockServices` は、いずれもテストプロジェクト用のヘルパーで `WinformsMVP` パッケージには同梱されていません** (`tests/WinformsMVP.Samples.Tests/Mocks/`)。自分のテストプロジェクトにコピーして使ってください。Presenter にサービスを渡すには `PresenterTestHost.Start(services, presenter, view)` を使います (パッケージ同梱)。
 
-テスト用サービスを差し替えるには、`ServiceLocator.Configure(...)` でテスト用プロバイダを設定するか、`InternalsVisibleTo` を通じて `SetServiceProvider` を直接呼びます。
+テスト用サービスは `PresenterTestHost.Start` の第 1 引数で、その Presenter だけに渡します。グローバルな `ServiceLocator.Current` を差し替える必要はないので、テストを並列に実行できます。`TestServices.Create()` は無出力の `ILoggerFactory` (どの Presenter もアタッチ時に必要) だけを登録したプロバイダを返します。
 
 ```csharp
 [Fact]
@@ -476,14 +476,11 @@ public void OnSave_ShowsSuccessMessage()
 {
     // テスト用サービスプロバイダを用意する
     var mockMessages = new MockMessageService();
-    var sp = new DefaultServiceProvider();
+    var sp = TestServices.Create();                 // ILoggerFactory (無出力) だけ登録済み
     sp.RegisterInstance<IMessageService>(mockMessages);
-    // ... 他のサービスも必要に応じて登録
+    // ... Presenter が使う他のサービスも登録 (未登録のものはエラー。グローバルでは補われない)
 
-    var presenter = new MyPresenter();
-    ((IServiceProviderAware)presenter).SetServiceProvider(sp);   // InternalsVisibleTo が必要
-
-    PresenterTestHost.Start(presenter, mockView);   // アタッチ + 実際の初期化
+    PresenterTestHost.Start(sp, new MyPresenter(), mockView);   // アタッチ + 実際の初期化
     mockView.Binder.Dispatch(StandardActions.Save);
 
     Assert.True(mockMessages.InfoMessageShown);

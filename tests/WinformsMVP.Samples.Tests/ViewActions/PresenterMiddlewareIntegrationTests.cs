@@ -30,11 +30,10 @@ namespace WinformsMVP.Samples.Tests.ViewActions
             platform.Provider.RegisterInstance<IDispatcherConfigurer>(
                 new ActionDispatcherConfigurer(d => d.Use(new TraceMW("global", trace))));
 
-            var presenter = new TestPresenter(trace)
-                .WithServiceProvider(platform.Provider);
+            var presenter = new TestPresenter(trace);
 
             var view = new TestView();
-            PresenterTestHost.Start(presenter, view);
+            PresenterTestHost.Start(platform.Provider, presenter, view);
 
             view.Binder.Dispatch(SaveAction);
 
@@ -50,11 +49,10 @@ namespace WinformsMVP.Samples.Tests.ViewActions
             var trace = new List<string>();
             var platform = new MockServices();  // no IDispatcherConfigurer registered
 
-            var presenter = new TestPresenter(trace)
-                .WithServiceProvider(platform.Provider);
+            var presenter = new TestPresenter(trace);
 
             var view = new TestView();
-            PresenterTestHost.Start(presenter, view);
+            PresenterTestHost.Start(platform.Provider, presenter, view);
 
             view.Binder.Dispatch(SaveAction);
 
@@ -70,11 +68,10 @@ namespace WinformsMVP.Samples.Tests.ViewActions
             var platform = new MockServices();
 
             // Presenter with no local middleware (only handler)
-            var presenter = new FastPathPresenter(trace)
-                .WithServiceProvider(platform.Provider);
+            var presenter = new FastPathPresenter(trace);
 
             var view = new TestView();
-            PresenterTestHost.Start(presenter, view);
+            PresenterTestHost.Start(platform.Provider, presenter, view);
 
             view.Binder.Dispatch(SaveAction);
 
@@ -90,11 +87,10 @@ namespace WinformsMVP.Samples.Tests.ViewActions
                 new ActionDispatcherConfigurer(d => { globalConfigInvocations++; d.Use((ctx, next) => next(ctx)); }));
 
             var trace = new List<string>();
-            var presenter = new TestPresenter(trace)
-                .WithServiceProvider(platform.Provider);
+            var presenter = new TestPresenter(trace);
 
             var view = new TestView();
-            PresenterTestHost.Start(presenter, view);
+            PresenterTestHost.Start(platform.Provider, presenter, view);
 
             // Dispatch many times — config should still only have fired once.
             for (int i = 0; i < 10; i++)

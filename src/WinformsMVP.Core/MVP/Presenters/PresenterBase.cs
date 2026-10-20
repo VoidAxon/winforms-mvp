@@ -15,7 +15,7 @@ namespace WinformsMVP.MVP.Presenters
     /// Base class for all presenters providing common functionality.
     /// This class should not be used directly - use WindowPresenterBase or ControlPresenterBase instead.
     /// </summary>
-    public abstract class PresenterBase<TView> : IPresenter, IViewAttachable, IPresenterResourceOwner where TView : IViewBase
+    public abstract class PresenterBase<TView> : IPresenter, IViewAttachable, IPresenterResourceOwner, IPresenterServicesBinding where TView : IViewBase
     {
         protected TView View { get; private set; }
         private readonly ViewActionDispatcher _dispatcher;
@@ -39,23 +39,18 @@ namespace WinformsMVP.MVP.Presenters
         /// </summary>
         protected CancellationToken Lifetime => _lifetime.Token;
 
-        /// <summary>
-        /// Overrides the service provider for this presenter (tests / scoped composition).
-        /// MUST be called before AttachView() or Initialize().
-        /// </summary>
-        /// <exception cref="ArgumentNullException">Thrown when serviceProvider is null</exception>
-        /// <exception cref="InvalidOperationException">Thrown when called after initialization</exception>
-        internal void SetServiceProvider(IServiceProvider serviceProvider)
+        void IPresenterServicesBinding.BindServices(IServiceProvider services)
         {
-            if (serviceProvider == null)
-                throw new ArgumentNullException(nameof(serviceProvider));
-
-            if (_initialized)
+            if (services == null) throw new ArgumentNullException(nameof(services));
+            if (View != null || _initialized)
                 throw new InvalidOperationException(
-                    "Cannot set the service provider after the presenter has been initialized. " +
-                    "Call SetServiceProvider() before AttachView() or Initialize().");
+                    GetType().Name + " already has a view; its services must be given before the view is attached.");
+            if (_serviceProvider != null)
+                throw new InvalidOperationException(
+                    GetType().Name + " already resolved framework services (for example Logger or Messages in its constructor), " +
+                    "so it cannot be given other services. Move that code to OnViewAttached or OnInitialize.");
 
-            _serviceProvider = serviceProvider;
+            _serviceProvider = services;
         }
 
         /// <summary>The service provider this presenter resolves framework services from.

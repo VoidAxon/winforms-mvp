@@ -16,7 +16,7 @@ namespace WinformsMVP.Samples.Tests.Mocks
         public MockWindowNavigator WindowNavigator { get; } = new MockWindowNavigator();
         public ILoggerFactory LoggerFactory { get; } = NullLoggerFactory.Instance;
 
-        /// <summary>The provider to inject via <c>presenter.WithServiceProvider(mock.Provider)</c>.</summary>
+        /// <summary>The provider to give a presenter via <c>PresenterTestHost.Start(mock.Provider, presenter, view)</c>.</summary>
         public DefaultServiceProvider Provider { get; }
 
         public MockServices()

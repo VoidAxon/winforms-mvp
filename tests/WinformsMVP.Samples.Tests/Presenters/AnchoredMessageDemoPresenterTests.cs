@@ -37,8 +37,8 @@ namespace WinformsMVP.Samples.Tests.Presenters
 
         public AnchoredMessageDemoPresenterTests()
         {
-            _presenter = new AnchoredMessageDemoPresenter().WithServiceProvider(_services.Provider);
-            PresenterTestHost.Start(_presenter, _view);
+            _presenter = new AnchoredMessageDemoPresenter();
+            PresenterTestHost.Start(_services.Provider, _presenter, _view);
         }
 
         [Fact]

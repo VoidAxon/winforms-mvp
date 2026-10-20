@@ -53,6 +53,54 @@ namespace WinformsMVP.Testing
             return host;
         }
 
+        /// <summary>
+        /// Like <see cref="Start{TPresenter, TView}(TPresenter, TView)"/>, but the presenter resolves
+        /// its framework services (<c>Messages</c>, <c>Navigator</c>, <c>Logger</c>, ...) from
+        /// <paramref name="services"/> instead of <c>ServiceLocator.Current</c>, so tests stay
+        /// independent of each other. Start from <see cref="TestServices.Create"/> and register the
+        /// fakes the presenter uses; anything not registered is an error, not a fallback to the
+        /// global services. <paramref name="services"/> stays owned by the caller.
+        /// </summary>
+        /// <exception cref="InvalidOperationException"><paramref name="services"/> has no
+        /// <c>ILoggerFactory</c>, or the presenter already resolved framework services (e.g. in its
+        /// constructor).</exception>
+        public static PresenterTestHost Start<TPresenter, TView>(IServiceProvider services, TPresenter presenter, TView view)
+            where TPresenter : IPresenter, IViewAttacher<TView>, IInitializable
+            where TView : IViewBase
+        {
+            BindServices(services, presenter, view);
+            return Start(presenter, view);
+        }
+
+        /// <summary>The parameterized form of
+        /// <see cref="Start{TPresenter, TView}(IServiceProvider, TPresenter, TView)"/>.</summary>
+        public static PresenterTestHost Start<TPresenter, TView, TParam>(IServiceProvider services, TPresenter presenter, TView view, TParam parameters)
+            where TPresenter : IPresenter, IViewAttacher<TView>, IInitializable<TParam>
+            where TView : IViewBase
+        {
+            BindServices(services, presenter, view);
+            return Start(presenter, view, parameters);
+        }
+
+        // Everything is checked before the presenter is touched, so a rejected call leaves it unstarted.
+        private static void BindServices<TPresenter, TView>(IServiceProvider services, TPresenter presenter, TView view)
+            where TPresenter : IPresenter
+        {
+            if (services == null) throw new ArgumentNullException(nameof(services));
+            if (presenter == null) throw new ArgumentNullException(nameof(presenter));
+            if (view == null) throw new ArgumentNullException(nameof(view));
+            if (!(presenter is IPresenterServicesBinding binding))
+                throw new ArgumentException(
+                    presenter.GetType().Name + " does not derive from a framework presenter base, so it cannot be given services.",
+                    nameof(presenter));
+            if (services.GetService(typeof(WinformsMVP.Logging.ILoggerFactory)) == null)
+                throw new InvalidOperationException(
+                    "The services have no ILoggerFactory, which every presenter needs. " +
+                    "Start from TestServices.Create() (it registers a silent one) or register an ILoggerFactory.");
+
+            binding.BindServices(services);
+        }
+
         private static PresenterTestHost Attach<TPresenter, TView>(TPresenter presenter, TView view)
             where TPresenter : IPresenter, IViewAttacher<TView>
             where TView : IViewBase

@@ -56,10 +56,9 @@ namespace WinformsMVP.Samples.Tests.Presenters
 
         public WindowClosingDemoPresenterTests()
         {
-            _presenter = new WindowClosingDemoPresenter()
-                .WithServiceProvider(_platform.Provider);
+            _presenter = new WindowClosingDemoPresenter();
 
-            _host = PresenterTestHost.Start(_presenter, _view);
+            _host = PresenterTestHost.Start(_platform.Provider, _presenter, _view);
         }
 
         /// <summary>Drive the Pull gate for <paramref name="reason"/> and return whether it allowed the close.</summary>

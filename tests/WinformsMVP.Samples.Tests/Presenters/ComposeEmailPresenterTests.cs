@@ -49,14 +49,13 @@ namespace WinformsMVP.Samples.Tests.Presenters
             _mockRepository = new MockEmailRepository();
 
             // 3. Create presenter and inject mock services BEFORE AttachView
-            _presenter = new ComposeEmailPresenter(_mockRepository)
-                .WithServiceProvider(_mockServices.Provider);
+            _presenter = new ComposeEmailPresenter(_mockRepository);
 
             // 4. Create mock view
             _mockView = new MockComposeEmailView();
 
             // 5. Attach view and initialize with default parameters (New mode)
-            _host = PresenterTestHost.Start(_presenter, _mockView, new ComposeEmailParameters { Mode = ComposeMode.New });
+            _host = PresenterTestHost.Start(_mockServices.Provider, _presenter, _mockView, new ComposeEmailParameters { Mode = ComposeMode.New });
 
 
             // Clear initialization calls for clean test assertions
@@ -74,12 +73,11 @@ namespace WinformsMVP.Samples.Tests.Presenters
         public void Initialize_WithNewMode_ClearsAllFields()
         {
             // Arrange - create new presenter
-            var newPresenter = new ComposeEmailPresenter(_mockRepository)
-                .WithServiceProvider(_mockServices.Provider);
+            var newPresenter = new ComposeEmailPresenter(_mockRepository);
             var newView = new MockComposeEmailView();
 
             // Act
-            PresenterTestHost.Start(newPresenter, newView, new ComposeEmailParameters { Mode = ComposeMode.New });
+            PresenterTestHost.Start(_mockServices.Provider, newPresenter, newView, new ComposeEmailParameters { Mode = ComposeMode.New });
 
             // Assert - all fields should be empty
             Assert.Contains("To = ", newView.MethodCalls);
@@ -105,12 +103,11 @@ namespace WinformsMVP.Samples.Tests.Presenters
                 Date = DateTime.Now.AddHours(-1)
             };
 
-            var newPresenter = new ComposeEmailPresenter(_mockRepository)
-                .WithServiceProvider(_mockServices.Provider);
+            var newPresenter = new ComposeEmailPresenter(_mockRepository);
             var newView = new MockComposeEmailView();
 
             // Act
-            PresenterTestHost.Start(newPresenter, newView, new ComposeEmailParameters
+            PresenterTestHost.Start(_mockServices.Provider, newPresenter, newView, new ComposeEmailParameters
             {
                 Mode = ComposeMode.Reply,
                 OriginalEmail = originalEmail
@@ -138,12 +135,11 @@ namespace WinformsMVP.Samples.Tests.Presenters
                 Date = DateTime.Now.AddHours(-2)
             };
 
-            var newPresenter = new ComposeEmailPresenter(_mockRepository)
-                .WithServiceProvider(_mockServices.Provider);
+            var newPresenter = new ComposeEmailPresenter(_mockRepository);
             var newView = new MockComposeEmailView();
 
             // Act
-            PresenterTestHost.Start(newPresenter, newView, new ComposeEmailParameters
+            PresenterTestHost.Start(_mockServices.Provider, newPresenter, newView, new ComposeEmailParameters
             {
                 Mode = ComposeMode.Forward,
                 OriginalEmail = originalEmail
@@ -171,12 +167,11 @@ namespace WinformsMVP.Samples.Tests.Presenters
                 Date = DateTime.Now
             };
 
-            var newPresenter = new ComposeEmailPresenter(_mockRepository)
-                .WithServiceProvider(_mockServices.Provider);
+            var newPresenter = new ComposeEmailPresenter(_mockRepository);
             var newView = new MockComposeEmailView();
 
             // Act
-            PresenterTestHost.Start(newPresenter, newView, new ComposeEmailParameters
+            PresenterTestHost.Start(_mockServices.Provider, newPresenter, newView, new ComposeEmailParameters
             {
                 Mode = ComposeMode.Forward,
                 OriginalEmail = originalEmail  // Required for Forward mode
@@ -930,12 +925,11 @@ namespace WinformsMVP.Samples.Tests.Presenters
                 Date = DateTime.Now.AddHours(-3)
             };
 
-            var replyPresenter = new ComposeEmailPresenter(_mockRepository)
-                .WithServiceProvider(_mockServices.Provider);
+            var replyPresenter = new ComposeEmailPresenter(_mockRepository);
             var replyView = new MockComposeEmailView();
 
             // Act
-            PresenterTestHost.Start(replyPresenter, replyView, new ComposeEmailParameters
+            PresenterTestHost.Start(_mockServices.Provider, replyPresenter, replyView, new ComposeEmailParameters
             {
                 Mode = ComposeMode.Reply,
                 OriginalEmail = originalEmail
