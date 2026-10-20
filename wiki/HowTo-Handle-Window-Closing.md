@@ -281,6 +281,32 @@ private async Task<bool> SaveDraftAsync()
 - タスクが fault / キャンセルされるとクローズはブロックされ、エラーはログ出力されます (システムレベルのクローズは許可)。想定内の失敗は上の例のように中で捕まえて `Messages` で伝え、`false` を返します。
 - `SystemShutdown` / `TaskManager` では `await` せずに即座に `true` を返してください ([シナリオ 5](#シナリオ-5-システムシャットダウンを絶対にブロックしない))。
 
+### クローズ時に保存した結果を呼び出し元へ返す
+
+X → 「保存しますか？」→ はい → 保存、のあとで呼び出し元に「保存された」と伝えたい場合 (一覧を再表示する、入力ダイアログが編集結果を返す) は、ゲートの中で `RequestClose(result, status)` を呼んでから `true` を返します。ゲートが判定している間の `RequestClose` は 2 回目のクローズではなく、**判定中のクローズの結果**として扱われます:
+
+```csharp
+protected override bool CanClose(CloseReason reason)
+{
+    if (reason != CloseReason.Normal || !_tracker.IsChangedWith(ReadModel())) return true;
+
+    var answer = Messages.ConfirmYesNoCancel("保存しますか？");
+    if (answer == ConfirmResult.Cancel) return false;
+    if (answer == ConfirmResult.Yes)
+    {
+        if (!TrySave(out var saved)) return false;   // 入力エラー / 保存失敗: 閉じない
+        _tracker.AcceptChanges(saved);
+        RequestClose(saved, InteractionStatus.Ok);   // このクローズの結果
+    }
+    return true;
+}
+```
+
+- ゲートが `true` を返したときだけ、その結果でクローズします (呼び出し元は `InteractionStatus.Ok` と結果を受け取ります)。`false` を返すと結果は捨てられ、ウィンドウは開いたままです。次のクローズはまた既定 (`Cancel`) から始まります。
+- `CanCloseAsync` でも同じです。`await` の後で `RequestClose` を呼び、`true` を返します。判定待ちの間に呼ばれた `RequestClose` (保存ボタンからのものも含む) は、ゲートの答えが出るまで保留されます。
+- `RequestClose` を呼ばずに `true` を返した場合は、これまでどおり `Cancel` (結果なし) で閉じます。上の `ComposeEmailPresenter` は結果が「送信したか」を意味するため、下書き保存では `RequestClose` を呼びません。
+- `PresenterTestHost` も同じ規則です: ゲート内の `RequestClose` は、`host.CanClose()` / `await host.CanCloseAsync()` が許可したときだけ `CloseRequested` / `CloseResult` に記録されます。
+
 ---
 
 ## シナリオ 7: Adopted ホスティング (シェル / レガシー Form)

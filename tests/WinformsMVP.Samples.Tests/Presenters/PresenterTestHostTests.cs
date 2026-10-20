@@ -95,6 +95,76 @@ namespace WinformsMVP.Samples.Tests.Presenters
             Assert.Null(host.CanClose());
         }
 
+        // "Save changes?" -> Yes -> saved: the presenter pushes the result inside the gate. The host
+        // records it only if the gate allows, as the real window only closes then.
+        private sealed class SaveOnClosePresenter : WindowPresenterBase<IEditView>
+        {
+            public bool Allow = true;
+            public System.Threading.Tasks.Task SaveTask;   // null => the gate answers synchronously
+
+            protected override void OnViewAttached() { }
+            protected override bool CanClose(CloseReason reason)
+            {
+                RequestClose("saved", InteractionStatus.Ok);
+                return Allow;
+            }
+            protected override async System.Threading.Tasks.Task<bool> CanCloseAsync(CloseReason reason)
+            {
+                if (SaveTask == null) return CanClose(reason);
+                await SaveTask;
+                RequestClose("saved", InteractionStatus.Ok);
+                return Allow;
+            }
+        }
+
+        [Fact]
+        public void PushInsideCanClose_Allowed_IsRecordedAsTheCloseResult()
+        {
+            var host = PresenterTestHost.Start(new SaveOnClosePresenter(), new EditView());
+
+            Assert.True(host.CanClose());
+            Assert.Equal(1, host.CloseCount);
+            Assert.Equal("saved", host.CloseResult);
+            Assert.Equal(InteractionStatus.Ok, host.CloseStatus);
+        }
+
+        [Fact]
+        public void PushInsideCanClose_Blocked_IsNotRecorded()
+        {
+            var host = PresenterTestHost.Start(new SaveOnClosePresenter { Allow = false }, new EditView());
+
+            Assert.False(host.CanClose());
+            Assert.False(host.CloseRequested);
+            Assert.Null(host.CloseResult);
+        }
+
+        [Fact]
+        public async System.Threading.Tasks.Task PushInsideCanCloseAsync_IsRecordedWhenTheGateAllows()
+        {
+            var save = new System.Threading.Tasks.TaskCompletionSource<bool>();
+            var host = PresenterTestHost.Start(new SaveOnClosePresenter { SaveTask = save.Task }, new EditView());
+
+            var answer = host.CanCloseAsync();
+            Assert.False(host.CloseRequested);              // still saving
+
+            save.SetResult(true);
+            Assert.True(await answer);
+            Assert.Equal("saved", host.CloseResult);
+        }
+
+        [Fact]
+        public async System.Threading.Tasks.Task PushInsideCanCloseAsync_Blocked_IsNotRecorded()
+        {
+            var save = new System.Threading.Tasks.TaskCompletionSource<bool>();
+            var host = PresenterTestHost.Start(new SaveOnClosePresenter { SaveTask = save.Task, Allow = false }, new EditView());
+
+            var answer = host.CanCloseAsync();
+            save.SetResult(true);
+
+            Assert.False(await answer);
+            Assert.False(host.CloseRequested);
+        }
+
         [Fact]
         public void Dispose_DisposesThePresenter()
         {

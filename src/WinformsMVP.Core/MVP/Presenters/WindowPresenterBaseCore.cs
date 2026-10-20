@@ -26,6 +26,10 @@ namespace WinformsMVP.MVP.Presenters
         /// Pull gate (synchronous). Override to veto a close. Return <c>true</c> to allow.
         /// Inspect <paramref name="reason"/> — never block <see cref="CloseReason.SystemShutdown"/>
         /// or <see cref="CloseReason.TaskManager"/> with a modal prompt. Default allows.
+        /// To report a result for this close (e.g. "Save changes?" -> Yes -> saved), call
+        /// <c>RequestClose(result, status)</c> here and return <c>true</c>: while the gate is
+        /// deciding, <c>RequestClose</c> sets the result of this close instead of closing again,
+        /// and the result is dropped if the gate blocks.
         /// </summary>
         protected virtual bool CanClose(CloseReason reason) => true;
 
@@ -35,7 +39,8 @@ namespace WinformsMVP.MVP.Presenters
         /// <see cref="CanClose(CloseReason)"/>. While the task is pending the window stays open and
         /// further close attempts are held off, except system shutdown / Task Manager closes. If
         /// the task faults, the close is blocked (system-level closes are still allowed) and the
-        /// error is logged.
+        /// error is logged. A <c>RequestClose</c> made before the task completes sets the result
+        /// of this close, as for <see cref="CanClose(CloseReason)"/>.
         /// </summary>
         protected virtual Task<bool> CanCloseAsync(CloseReason reason)
             => Task.FromResult(CanClose(reason));

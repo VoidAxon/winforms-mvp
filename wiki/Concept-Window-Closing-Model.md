@@ -165,6 +165,7 @@ protected void RequestClose<TResult>(TResult result, InteractionStatus status = 
 - `Ok` で渡した結果の型が呼び出し元の `TResult` と合わない場合、または `TResult` が null 非許容の値型なのに結果を渡さなかった場合は、`Ok(default)` ではなく **`InteractionStatus.Error`** (原因を説明する `ErrorMessage` 付き) になります。
 - エラーで閉じるときは `RequestClose("保存に失敗しました", InteractionStatus.Error)` や `RequestClose(exception, InteractionStatus.Error)` のように渡すと、そのメッセージ/例外が `InteractionResult.ErrorMessage` / `Exception` に入ります。
 - フレームワークが close sink をバインドする前 (例: `OnInitialize` の中) に呼ばれた `RequestClose` は保持され、バインド時に配送されます。
+- Pull ゲート (`CanClose` / `CanCloseAsync`) が判定している間に呼ばれた `RequestClose` は、2 回目のクローズではなく**判定中のクローズの結果**になります。ゲートが許可すればその結果で閉じ、ブロックすれば捨てられます。X → 「保存しますか？」→ はい で保存した結果を呼び出し元へ返すときに使います ([HowTo: ウィンドウクローズを扱う](HowTo-Handle-Window-Closing) のシナリオ 6)。
 
 ---
 

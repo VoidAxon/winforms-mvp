@@ -118,7 +118,7 @@ namespace WinformsMVP.Testing
                 ?? throw new InvalidOperationException(
                     _presenter.GetType().Name + " is not a window presenter; only window presenters have a close gate.");
             bool? decision = null;
-            participant.CanCloseGate(reason, ok => decision = ok);
+            RunGate(participant, reason, ok => decision = ok);
             return decision;
         }
 
@@ -133,8 +133,45 @@ namespace WinformsMVP.Testing
                 ?? throw new InvalidOperationException(
                     _presenter.GetType().Name + " is not a window presenter; only window presenters have a close gate.");
             var answer = new TaskCompletionSource<bool>();
-            participant.CanCloseGate(reason, ok => answer.TrySetResult(ok));
+            RunGate(participant, reason, ok => answer.TrySetResult(ok));
             return answer.Task;
+        }
+
+        // A RequestClose made while the gate is deciding (X -> "Save changes?" -> Yes -> saved) is
+        // the result of that close, as in a real window: recorded only if the gate allows.
+        private bool _gateDeciding;
+        private bool _hasGateResult;
+        private object _gateResult;
+        private InteractionStatus _gateStatus;
+
+        private void RunGate(ICloseParticipant participant, CloseReason reason, Action<bool> answered)
+        {
+            _gateDeciding = true;
+            try
+            {
+                participant.CanCloseGate(reason, ok =>
+                {
+                    _gateDeciding = false;
+                    if (ok && _hasGateResult) Record(_gateResult, _gateStatus);
+                    _hasGateResult = false;
+                    _gateResult = null;
+                    answered(ok);
+                });
+            }
+            catch
+            {
+                _gateDeciding = false;
+                _hasGateResult = false;
+                _gateResult = null;
+                throw;
+            }
+        }
+
+        private void Record(object result, InteractionStatus status)
+        {
+            CloseCount++;
+            CloseResult = result;
+            CloseStatus = status;
         }
 
         /// <summary>Disposes the presenter (runs <c>Cleanup</c> and releases <c>Disposables</c>).</summary>
@@ -147,9 +184,14 @@ namespace WinformsMVP.Testing
 
             public void Close(object result, InteractionStatus status)
             {
-                _host.CloseCount++;
-                _host.CloseResult = result;
-                _host.CloseStatus = status;
+                if (_host._gateDeciding)
+                {
+                    _host._hasGateResult = true;
+                    _host._gateResult = result;
+                    _host._gateStatus = status;
+                    return;
+                }
+                _host.Record(result, status);
             }
         }
     }
