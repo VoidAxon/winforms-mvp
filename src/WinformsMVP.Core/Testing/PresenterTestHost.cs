@@ -114,12 +114,8 @@ namespace WinformsMVP.Testing
         /// <exception cref="InvalidOperationException">The presenter is not a window presenter.</exception>
         public bool? CanClose(CloseReason reason = CloseReason.Normal)
         {
-            var participant = _presenter as ICloseParticipant
-                ?? throw new InvalidOperationException(
-                    _presenter.GetType().Name + " is not a window presenter; only window presenters have a close gate.");
-            bool? decision = null;
-            RunGate(participant, reason, ok => decision = ok);
-            return decision;
+            var decision = RunGate(AsCloseParticipant(), reason);
+            return decision.IsCompleted ? decision.Result : (bool?)null;
         }
 
         /// <summary>
@@ -128,43 +124,58 @@ namespace WinformsMVP.Testing
         /// </summary>
         /// <exception cref="InvalidOperationException">The presenter is not a window presenter.</exception>
         public Task<bool> CanCloseAsync(CloseReason reason = CloseReason.Normal)
-        {
-            var participant = _presenter as ICloseParticipant
+            => RunGate(AsCloseParticipant(), reason);
+
+        private ICloseParticipant AsCloseParticipant()
+            => _presenter as ICloseParticipant
                 ?? throw new InvalidOperationException(
                     _presenter.GetType().Name + " is not a window presenter; only window presenters have a close gate.");
-            var answer = new TaskCompletionSource<bool>();
-            RunGate(participant, reason, ok => answer.TrySetResult(ok));
-            return answer.Task;
-        }
 
-        // A RequestClose made while the gate is deciding (X -> "Save changes?" -> Yes -> saved) is
-        // the result of that close, as in a real window: recorded only if the gate allows.
-        private bool _gateDeciding;
+        // Mirrors the real window: while an asynchronous gate is pending, another close attempt is
+        // held off (it gets the pending answer, the presenter is not asked again) except system
+        // shutdown / Task Manager, which go through. A RequestClose made while the gate is
+        // deciding (X -> "Save changes?" -> Yes -> saved) is the result of that close: recorded
+        // only if the gate allows.
+        private TaskCompletionSource<bool> _pendingGate;
         private bool _hasGateResult;
         private object _gateResult;
         private InteractionStatus _gateStatus;
 
-        private void RunGate(ICloseParticipant participant, CloseReason reason, Action<bool> answered)
+        private Task<bool> RunGate(ICloseParticipant participant, CloseReason reason)
         {
-            _gateDeciding = true;
+            if (_pendingGate != null)
+            {
+                return reason == CloseReason.SystemShutdown || reason == CloseReason.TaskManager
+                    ? Task.FromResult(true)
+                    : _pendingGate.Task;
+            }
+
+            var gate = new TaskCompletionSource<bool>();
+            _pendingGate = gate;
             try
             {
                 participant.CanCloseGate(reason, ok =>
                 {
-                    _gateDeciding = false;
+                    if (_pendingGate != gate) return;
+                    _pendingGate = null;
                     if (ok && _hasGateResult) Record(_gateResult, _gateStatus);
-                    _hasGateResult = false;
-                    _gateResult = null;
-                    answered(ok);
+                    ClearGateResult();
+                    gate.TrySetResult(ok);
                 });
             }
             catch
             {
-                _gateDeciding = false;
-                _hasGateResult = false;
-                _gateResult = null;
+                if (_pendingGate == gate) _pendingGate = null;
+                ClearGateResult();
                 throw;
             }
+            return gate.Task;
+        }
+
+        private void ClearGateResult()
+        {
+            _hasGateResult = false;
+            _gateResult = null;
         }
 
         private void Record(object result, InteractionStatus status)
@@ -184,7 +195,7 @@ namespace WinformsMVP.Testing
 
             public void Close(object result, InteractionStatus status)
             {
-                if (_host._gateDeciding)
+                if (_host._pendingGate != null)
                 {
                     _host._hasGateResult = true;
                     _host._gateResult = result;

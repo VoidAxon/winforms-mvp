@@ -166,6 +166,51 @@ namespace WinformsMVP.Samples.Tests.Presenters
         }
 
         [Fact]
+        public async System.Threading.Tasks.Task CloseAttemptWhileAsyncGatePending_IsHeldOff_NotAskedAgain()
+        {
+            var save = new System.Threading.Tasks.TaskCompletionSource<bool>();
+            var presenter = new CountingSaveOnClosePresenter { SaveTask = save.Task, Allow = false };
+            var host = PresenterTestHost.Start(presenter, new EditView());
+
+            var first = host.CanCloseAsync();
+            var second = host.CanCloseAsync();   // a real window holds this off instead of re-asking
+            Assert.Null(host.CanClose());
+            Assert.Equal(1, presenter.GateRuns);
+
+            save.SetResult(true);
+            Assert.False(await first);
+            Assert.False(await second);
+            Assert.False(host.CloseRequested);   // the blocked close's result is not recorded
+        }
+
+        [Fact]
+        public void SystemCloseWhileAsyncGatePending_IsAllowedWithoutAsking()
+        {
+            var presenter = new CountingSaveOnClosePresenter { SaveTask = new System.Threading.Tasks.TaskCompletionSource<bool>().Task };
+            var host = PresenterTestHost.Start(presenter, new EditView());
+
+            Assert.Null(host.CanClose());
+            Assert.True(host.CanClose(CloseReason.SystemShutdown));
+            Assert.Equal(1, presenter.GateRuns);
+        }
+
+        private sealed class CountingSaveOnClosePresenter : WindowPresenterBase<IEditView>
+        {
+            public bool Allow = true;
+            public System.Threading.Tasks.Task SaveTask;
+            public int GateRuns;
+
+            protected override void OnViewAttached() { }
+            protected override async System.Threading.Tasks.Task<bool> CanCloseAsync(CloseReason reason)
+            {
+                GateRuns++;
+                await SaveTask;
+                RequestClose("saved", InteractionStatus.Ok);
+                return Allow;
+            }
+        }
+
+        [Fact]
         public void Dispose_DisposesThePresenter()
         {
             var presenter = new EditPresenter();
