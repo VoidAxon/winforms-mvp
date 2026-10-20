@@ -42,6 +42,7 @@
 - [Presenter の購読ライフサイクルを管理する](HowTo-Manage-Presenter-Subscriptions)
 - [従来の WinForms から移行](HowTo-Migrate-From-Legacy-WinForms)
 - [エラー処理戦略](HowTo-Handle-Errors)
+- [フレームワークをカスタマイズする](HowTo-Customize-Framework)
 - [リリースする](HowTo-Release)
 
 **その他**

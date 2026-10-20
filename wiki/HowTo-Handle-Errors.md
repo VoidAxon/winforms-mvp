@@ -10,7 +10,7 @@
 - [4 つのレイヤー](#4-つのレイヤー)
 - [レイヤー 1: `IMessageService` でのユーザー通知](#レイヤー-1-imessageservice-でのユーザー通知)
 - [レイヤー 2: `InteractionResult<T>` で失敗を畳む](#レイヤー-2-interactionresultt-で失敗を畳む)
-- [レイヤー 3: `DialogDefaults` でメッセージを集約](#レイヤー-3-dialogdefaults-でメッセージを集約)
+- [レイヤー 3: 起動時の設定でメッセージを集約](#レイヤー-3-起動時の設定でメッセージを集約)
 - [レイヤー 4: グローバル例外ハンドラ](#レイヤー-4-グローバル例外ハンドラ)
 - [シナリオ別レシピ](#シナリオ別レシピ)
   - [バリデーションエラー](#バリデーションエラー)
@@ -28,7 +28,7 @@
 |---------|------|--------|
 | 1. ユーザー通知 | エラーを画面に表示 | `IMessageService` |
 | 2. 操作の戻り値 | 成功・キャンセル・失敗を畳んで返す | `InteractionResult<T>` |
-| 3. メッセージの集約 | 共通エラー文言を 1 箇所で管理 | `DialogDefaults` |
+| 3. メッセージの集約 | 共通エラー文言を 1 箇所で管理 | `mvp.Dialogs` / `mvp.Messages` (起動時の設定) |
 | 4. 最終防衛線 | 想定外の未捕捉例外を拾う | `Application.ThreadException` 等 |
 
 ---
@@ -90,7 +90,7 @@ private void OnDelete()
 | `Messages.ShowError(text, caption)` | エラー (フロー停止) |
 | `Messages.ConfirmYesNo(text, caption)` | Yes/No 確認 (戻り値 `bool`) |
 | `Messages.ConfirmYesNoCancel(text, caption)` | Yes/No/Cancel (戻り値 `ConfirmResult`) |
-| `Messages.ShowToast(text, type, duration)` | 非ブロッキング通知 (実装が対応する場合) |
+| `Toasts.Show(text, type[, duration])` | 非ブロッキング通知 (`IToastService`。[トースト通知](Reference-Toast-Notifications) 参照) |
 
 詳細は [Platform Services#imessageservice](Reference-Platform-Services#imessageservice--メッセージダイアログ)。
 
@@ -167,17 +167,24 @@ private void OnEditCustomer(int id)
 
 ---
 
-## レイヤー 3: `DialogDefaults` でメッセージを集約
+## レイヤー 3: 起動時の設定でメッセージを集約
 
-共通のエラーメッセージを `DialogDefaults` でアプリ起動時に設定すると、全画面で統一感が出ます。
+共通のエラーメッセージやダイアログのタイトルを起動時の設定 (`mvp.Dialogs` / `mvp.Messages`) で一度だけ指定すると、全画面で統一感が出ます。
 
 ```csharp
 // Program.cs
-DialogDefaults.FileOpenErrorMessage    = "ファイルを開くに失敗しました";
-DialogDefaults.FileSaveErrorMessage    = "ファイルの保存に失敗しました";
-DialogDefaults.FolderSelectErrorMessage = "フォルダの選択に失敗しました";
-DialogDefaults.DefaultMessageCaption    = "エラー";
+MvpApplication.Configure(framework: mvp =>
+{
+    mvp.Dialogs.FileOpenErrorMessage     = "ファイルを開くのに失敗しました";
+    mvp.Dialogs.FileSaveErrorMessage     = "ファイルの保存に失敗しました";
+    mvp.Dialogs.FolderSelectErrorMessage = "フォルダの選択に失敗しました";
+    mvp.Messages.DefaultCaption          = "エラー";   // caption を省略したときのタイトル
+});
 ```
+
+M.E.DI を使う場合は `services.AddWinformsMVP(viewRegistry, mvp => { ... })` に同じ設定を書きます。
+ダイアログの見た目そのものを社内標準にしたい場合は `mvp.Messages.UseDialogs(...)` で `IMessageDialogBackend` を差し替えます。
+詳細は [HowTo: フレームワークをカスタマイズする](HowTo-Customize-Framework) を参照してください。
 
 ### メリット
 

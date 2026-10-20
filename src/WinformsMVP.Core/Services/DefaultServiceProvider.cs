@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
+using WinformsMVP.Common.Internal;
 
 namespace WinformsMVP.Services
 {
@@ -9,7 +11,12 @@ namespace WinformsMVP.Services
     /// Dictionary-backed; supports ready instances and lazy-singleton factories. No scopes —
     /// scoped/graph resolution is a real DI container's job (the M.E.DI bridge).
     /// </summary>
-    public sealed class DefaultServiceProvider : IServiceRegistry, IServiceProvider
+    /// <remarks>
+    /// Disposing the provider disposes the singletons its factories created (newest first), the
+    /// way M.E.DI does. Instances passed to <see cref="RegisterInstance{TService}"/> belong to the
+    /// caller and are never disposed, even when a factory hands one back (an alias registration).
+    /// </remarks>
+    public sealed class DefaultServiceProvider : IServiceRegistry, IServiceProvider, IDisposable
     {
         private sealed class Entry
         {
@@ -19,7 +26,14 @@ namespace WinformsMVP.Services
         }
 
         private readonly Dictionary<Type, Entry> _entries = new Dictionary<Type, Entry>();
+        private readonly List<object> _created = new List<object>();   // factory results, creation order
+        // Every instance ever passed to RegisterInstance/Register — remembered even after the
+        // registration is replaced, so an alias factory that handed one back never gets it disposed.
+        // Weak keys: a replaced instance nobody else references can still be collected.
+        private readonly ConditionalWeakTable<object, object> _callerOwned = new ConditionalWeakTable<object, object>();
+        private static readonly object Owned = new object();
         private readonly object _lock = new object();
+        private bool _disposed;
 
         /// <summary>
         /// Registers a ready-made singleton instance for <typeparamref name="TService"/>.
@@ -31,6 +45,29 @@ namespace WinformsMVP.Services
             lock (_lock)
             {
                 _entries[typeof(TService)] = new Entry { Instance = instance, HasInstance = true };
+                if (instance != null) MarkCallerOwned(instance);
+            }
+        }
+
+        /// <summary>Non-generic <see cref="RegisterInstance{TService}"/>, for registration lists built at runtime.</summary>
+        internal void Register(Type serviceType, object instance)
+        {
+            if (serviceType == null) throw new ArgumentNullException(nameof(serviceType));
+            lock (_lock)
+            {
+                _entries[serviceType] = new Entry { Instance = instance, HasInstance = true };
+                if (instance != null) MarkCallerOwned(instance);
+            }
+        }
+
+        /// <summary>Non-generic <see cref="RegisterFactory{TService}"/>, for registration lists built at runtime.</summary>
+        internal void RegisterFactory(Type serviceType, Func<IServiceProvider, object> factory)
+        {
+            if (serviceType == null) throw new ArgumentNullException(nameof(serviceType));
+            if (factory == null) throw new ArgumentNullException(nameof(factory));
+            lock (_lock)
+            {
+                _entries[serviceType] = new Entry { Factory = factory };
             }
         }
 
@@ -58,6 +95,7 @@ namespace WinformsMVP.Services
             if (serviceType == null) throw new ArgumentNullException(nameof(serviceType));
             lock (_lock)
             {
+                if (_disposed) throw new ObjectDisposedException(nameof(DefaultServiceProvider));
                 Entry entry;
                 if (!_entries.TryGetValue(serviceType, out entry))
                     return null;                       // BCL contract: unknown -> null
@@ -66,9 +104,59 @@ namespace WinformsMVP.Services
                     entry.Instance = entry.Factory(this);   // lazy, then cache (singleton)
                     entry.HasInstance = true;
                     entry.Factory = null;
+                    if (entry.Instance != null) _created.Add(entry.Instance);
                 }
                 return entry.Instance;
             }
+        }
+
+        private void MarkCallerOwned(object instance)
+        {
+            _callerOwned.Remove(instance);
+            _callerOwned.Add(instance, Owned);
+        }
+
+        private bool IsCallerOwned(object instance)
+        {
+            object ignored;
+            return _callerOwned.TryGetValue(instance, out ignored);
+        }
+
+        /// <summary>
+        /// Disposes the <see cref="IDisposable"/> singletons created by factories, newest first, each
+        /// once. Idempotent. Resolving afterwards throws <see cref="ObjectDisposedException"/>.
+        /// </summary>
+        public void Dispose()
+        {
+            var toDispose = new List<IDisposable>();
+            lock (_lock)
+            {
+                if (_disposed) return;
+                _disposed = true;
+
+                var seen = new HashSet<object>(DeepReflection.ReferenceEqualityComparer.Instance);
+                for (int i = _created.Count - 1; i >= 0; i--)
+                {
+                    var created = _created[i];
+                    var disposable = created as IDisposable;
+                    if (disposable != null && !IsCallerOwned(created) && seen.Add(created))
+                        toDispose.Add(disposable);
+                }
+                _created.Clear();
+            }
+
+            // Outside the lock: a Dispose that touches the provider must not deadlock or recurse into it.
+            // Every singleton is disposed even if an earlier one throws; failures are rethrown after
+            // the sweep (same policy as CompositeDisposable).
+            List<Exception> errors = null;
+            foreach (var disposable in toDispose)
+            {
+                try { disposable.Dispose(); }
+                catch (Exception ex) { (errors ?? (errors = new List<Exception>())).Add(ex); }
+            }
+            if (errors == null) return;
+            if (errors.Count == 1) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(errors[0]).Throw();
+            throw new AggregateException("One or more singletons threw during DefaultServiceProvider.Dispose.", errors);
         }
     }
 }

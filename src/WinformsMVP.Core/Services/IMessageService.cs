@@ -3,7 +3,8 @@
 namespace WinformsMVP.Services
 {
     /// <summary>
-    /// Provides message box and notification services.
+    /// Modal message boxes for presenters. Non-blocking notifications are a separate service,
+    /// <see cref="IToastService"/>.
     /// </summary>
     public interface IMessageService
     {
@@ -20,10 +21,5 @@ namespace WinformsMVP.Services
         // that needs position-meaningful feedback calls a small semantic view method (e.g.
         // View.ConfirmDelete()) whose Form implementation picks the anchor. Neither belongs on
         // this Presenter-facing API.
-
-        // Toast notifications (non-blocking temporary messages)
-        // Appearance (position, size, font, renderer) is configured globally through ToastDefaults
-        // in the WinformsMVP package; view code that needs per-call styling uses AnchoredToast.
-        void ShowToast(string text, ToastType type, int duration = 3000);
     }
 }

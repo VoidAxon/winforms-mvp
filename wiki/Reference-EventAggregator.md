@@ -70,15 +70,25 @@ public class ProductAddedMessage
 public class OrderClearedMessage { }
 ```
 
-### Step 2: 共有 `EventAggregator` インスタンスを作る
+### Step 2: 共有 `IEventAggregator` を受け取る
+
+`IEventAggregator` はフレームワークが**シングルトンとして既定登録**します (`ServiceLocator` /
+`MvpApplication.Configure` の経路でも、M.E.DI の `AddWinformsMVP` でも同じ)。自分で `new` する必要はありません。
+コンストラクタ注入で受け取るか、サービスプロバイダから解決します。
 
 ```csharp
-// 構築時に SynchronizationContext があればそれをキャプチャする。
-// Program.Main (Application.Run 前) のようにまだ無い場合は、各購読が Subscribe 時点の
-// コンテキスト (通常は UI スレッド上の Presenter) をキャプチャする。
-// 通常は Program.Main や Composition Root で 1 つだけ作る
-var eventAggregator = new EventAggregator();
+// M.E.DI / IPresenterFactory 経由ならコンストラクタ注入で自動的に渡される。
+// DI を使わない場合はプロバイダから解決して渡す:
+var events = ServiceLocator.Current.ResolveRequired<IEventAggregator>();
+var presenter = new OrderSummaryPresenter(events);
 ```
+
+- 各購読は **`Subscribe` を呼んだ時点のスレッドの `SynchronizationContext`** をキャプチャします
+  (通常は UI スレッド上の Presenter)。アグリゲーター自体はどのスレッドで生成されても構いません。
+- `EventAggregator` は `IDisposable` で、生成したサービスプロバイダが破棄時に Dispose します (アプリ終了時は `MvpApplication.Run(mainForm)` / `MvpApplication.Shutdown()`、M.E.DI ではコンテナの `Dispose`)
+  (全購読を解除し、以後の `Publish` は何も配送せず、`Subscribe` は `ObjectDisposedException`)。
+- 独自の実装に差し替える場合は起動時に `mvp.Events.Use(...)` を指定します
+  ([フレームワークをカスタマイズする](HowTo-Customize-Framework))。
 
 ### Step 3: Presenter A — メッセージを購読
 
@@ -191,7 +201,7 @@ private void OnDataLoaded(DataLoadedMessage msg)
 }
 ```
 
-> **重要**: マーシャリング先は、構築時にキャプチャした `SynchronizationContext`、それが無ければ **購読 (`Subscribe`) した時点のスレッドのコンテキスト** です。`Program.Main` (最初の Control 生成前で `SynchronizationContext` がまだ無い) で構築しても、Presenter が UI スレッドで購読していれば UI スレッドで実行されます。どちらも無い場合のみ、ハンドラは発行スレッドで同期実行されます。
+> **重要**: マーシャリング先は、**購読 (`Subscribe`) した時点のスレッドの `SynchronizationContext`** です (アグリゲーターの構築時のものではありません)。Presenter が UI スレッドで購読していれば、どのスレッドから発行しても UI スレッドで実行されます。購読時にコンテキストが無かった場合のみ、ハンドラは発行スレッドで同期実行されます。
 >
 > UI スレッドへポスト済みのメッセージは、その間に Dispose された購読 (例: ウィンドウが閉じた) には配送されません。
 
@@ -300,14 +310,15 @@ _eventAggregator.Subscribe<OrderPlacedMessage>(OnOrderPlaced);
 
 ## ベストプラクティス
 
-### 1. EventAggregator はアプリで 1 つ作り、UI スレッドで購読する
+### 1. 既定登録の 1 つを共有し、UI スレッドで購読する
 
 ```csharp
-// Program.Main または MainForm のコンストラクタ内で
-var eventAggregator = new EventAggregator();   // ✅ SynchronizationContext が無ければ購読側のコンテキストを使う
+// ✅ フレームワークが登録したシングルトンを使う (コンストラクタ注入 or 解決)
+public OrderSummaryPresenter(IEventAggregator events) { _events = events; }
 ```
 
-ワーカースレッドで構築した場合はそのスレッドのコンテキスト (通常は無し) が使われないよう、構築は UI スレッドか `Program.Main` で行い、購読は UI スレッド (Presenter の `OnInitialize` など) で行ってください。
+Presenter ごとに `new` すると発行側と購読側が別インスタンスになり、メッセージが届きません。
+購読は UI スレッド (Presenter の `OnViewAttached` / `OnInitialize` など) で行ってください。マーシャリング先は購読時のコンテキストで決まります。
 
 ### 2. 必ず購読を Dispose する
 
@@ -382,7 +393,7 @@ EventAggregator は間接層を追加するため、必要な場面でだけ使�
 [Fact]
 public void ProductSelector_PublishesMessage_OrderSummaryReceives()
 {
-    // Arrange
+    // Arrange — テストではテストごとに新しいインスタンスを使う
     var eventAggregator = new EventAggregator();
     var productSelectorView = new MockProductSelectorView();
     var orderSummaryView = new MockOrderSummaryView();

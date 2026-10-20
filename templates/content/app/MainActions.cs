@@ -1,6 +1,6 @@
 using WinformsMVP.MVP.ViewActions;
 
-namespace MvpApp
+namespace MyMvpApp
 {
     public static class MainActions
     {

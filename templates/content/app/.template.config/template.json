@@ -10,7 +10,7 @@
   "name": "WinformsMVP Application",
   "description": "A WinForms application wired for WinformsMVP: service and view registration plus a main window (view interface, actions, presenter, Form).",
   "shortName": "winformsmvp",
-  "sourceName": "MvpApp",
+  "sourceName": "MyMvpApp",
   "preferNameDirectory": true,
   "tags": {
     "language": "C#",
@@ -50,7 +50,7 @@
   },
   "primaryOutputs": [
     {
-      "path": "MvpApp.csproj"
+      "path": "MyMvpApp.csproj"
     }
   ],
   "postActions": [

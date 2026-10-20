@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Windows.Forms;
 using WinformsMVP.Common.EventAggregator;
 using WinformsMVP.MVP.Presenters;
+using WinformsMVP.Services;
 using WinformsMVP.Samples.ComplexInteractionDemo.Models;
 using WinformsMVP.Samples.ComplexInteractionDemo.OrderManagement;
 using WinformsMVP.Samples.ComplexInteractionDemo_EventBased.OrderManagement;
@@ -30,9 +31,9 @@ namespace WinformsMVP.Samples.ComplexInteractionDemo_EventBased
                 new Product { Id = 6, Name = "Headphones", Price = 149.99m }
             };
 
-            // Create shared Event Aggregator - THIS IS THE KEY!
-            // All presenters use the SAME instance to communicate
-            var eventAggregator = new EventAggregator();
+            // The shared Event Aggregator - THIS IS THE KEY!
+            // The framework registers one per service provider; all presenters use that SAME instance.
+            var eventAggregator = ServiceLocator.Current.ResolveRequired<IEventAggregator>();
 
             // Create the main form (reuses existing OrderManagementForm)
             var form = new OrderManagementForm();

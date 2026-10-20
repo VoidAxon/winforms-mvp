@@ -2,7 +2,8 @@
 {
     public class FolderBrowserDialogOptions
     {
-        public string Description { get; set; } = "Select Folder";
+        /// <summary>Text shown above the folder tree. <c>null</c> = the provider's configured description.</summary>
+        public string Description { get; set; }
         public bool ShowNewFolderButton { get; set; } = true;
         public string SelectedPath { get; set; }
     }

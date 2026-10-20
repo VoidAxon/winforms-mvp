@@ -1,4 +1,5 @@
 using System;
+using WinformsMVP;
 using WinformsMVP.MVP.Presenters;
 using System.Drawing;
 using System.Windows.Forms;
@@ -19,6 +20,7 @@ using WinformsMVP.Samples.ToastDemo;
 using WinformsMVP.Samples.AnchoredMessageDemo;
 using WinformsMVP.Samples.DebounceThrottleDemo;
 using WinformsMVP.Samples.AsyncDemo;
+using WinformsMVP.Samples.CustomizationDemo;
 using WinformsMVP.Samples.ValidationDemo;
 using WinformsMVP.Services;
 using WinformsMVP.Services.Implementations;
@@ -147,6 +149,9 @@ namespace WinformsMVP.Samples
                 new DemoItem("Toast Notification Demo",
                     "Layered popup • Invisible to OpenForms (like MessageBox)",
                     Color.FromArgb(0, 150, 199), LaunchToastDemo),
+                new DemoItem("Framework Customization",
+                    "One startup call • Company dialogs • Branded toasts • Change policy",
+                    Color.FromArgb(0, 120, 110), LaunchCustomizationDemo),
                 new DemoItem("Anchored Message Demo",
                     "Corner toast by default • Anchored via semantic view methods • AnchoredToast/AnchoredMessageBox",
                     Color.FromArgb(0, 128, 128), LaunchAnchoredMessageDemo));
@@ -422,6 +427,19 @@ namespace WinformsMVP.Samples
 
             this.Hide();
             view.FormClosed += (s, e) => this.Show();
+        }
+
+        private void LaunchCustomizationDemo()
+        {
+            // An application does this once in Program.cs. The launcher switches the whole
+            // configuration for this demo and restores the defaults when it closes. Each Configure
+            // disposes the previous services, so a demo still open from before (e.g. the Toast demo,
+            // which holds its toast service) stops showing toasts until it is reopened.
+            MvpApplication.Configure(framework: CustomizationDemoSetup.Configure);
+
+            var view = new CustomizationDemoForm();
+            ShowDemo(view, () => new CustomizationDemoPresenter().Connect(view));
+            view.FormClosed += (s, e) => MvpApplication.Configure();
         }
 
         private void LaunchToastDemo()

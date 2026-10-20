@@ -9,13 +9,16 @@ namespace WinformsMVP.Services.Implementations
     {
         internal static void Register(IServiceRegistry registry)
         {
-            var dialogs = new DialogProvider();
             registry.RegisterInstance<IViewMappingRegister>(new ViewMappingRegister());
-            registry.RegisterInstance<IMessageService>(new MessageService());
-            registry.RegisterInstance<IDialogProvider>(dialogs);
-            registry.RegisterInstance<IWinFormsDialogProvider>(dialogs);
             registry.RegisterFactory<IWindowNavigator>(sp =>
                 new WindowNavigator(sp.Resolve<IViewMappingRegister>().WithServiceProvider(sp)));
+
+            // Messages, toasts, dialogs, change tracking, events, logging: the builder's defaults,
+            // the same list AddWinformsMVP and MvpApplication.Configure start from.
+            // Only ServiceLocator calls this hook, always with its own DefaultServiceProvider.
+            var provider = registry as DefaultServiceProvider
+                ?? throw new System.ArgumentException("Expected the framework's DefaultServiceProvider.", nameof(registry));
+            new WinformsMVP.Configuration.WinformsMvpBuilder().Apply(provider);
         }
     }
 }

@@ -69,6 +69,44 @@ namespace WinformsMVP.Samples.Tests.DependencyInjection
         }
 
         [Fact]
+        public void AddWinformsMVP_RegistersChangeTrackingEngines()
+        {
+            var services = new ServiceCollection();
+            services.AddWinformsMVP(new ViewMappingRegister());
+
+            var provider = services.BuildServiceProvider();
+
+            Assert.Same(WinformsMVP.Common.BuiltInObjectCloner.Instance, provider.GetService<WinformsMVP.Common.IObjectCloner>());
+            Assert.Same(WinformsMVP.Common.BuiltInObjectContentComparer.Instance, provider.GetService<WinformsMVP.Common.IObjectContentComparer>());
+        }
+
+        [Fact]
+        public void AddWinformsMVP_RegistersSingletonEventAggregator()
+        {
+            var services = new ServiceCollection();
+            services.AddWinformsMVP(new ViewMappingRegister());
+
+            var provider = services.BuildServiceProvider();
+            var first = provider.GetService<WinformsMVP.Common.EventAggregator.IEventAggregator>();
+
+            Assert.IsType<WinformsMVP.Common.EventAggregator.EventAggregator>(first);
+            Assert.Same(first, provider.GetService<WinformsMVP.Common.EventAggregator.IEventAggregator>());
+        }
+
+        [Fact]
+        public void AddWinformsMVP_IToastService_ForwardsToTheWinFormsToastService()
+        {
+            var services = new ServiceCollection();
+            services.AddWinformsMVP(new ViewMappingRegister());
+
+            using var provider = services.BuildServiceProvider();
+
+            Assert.IsType<WinFormsToastService>(provider.GetService<IWinFormsToastService>());
+            var forwarder = Assert.IsType<ToastServiceForwarder>(provider.GetService<IToastService>());
+            Assert.Same(provider.GetService<IWinFormsToastService>(), forwarder.Target);
+        }
+
+        [Fact]
         public void AddWinformsMVP_RegistersViewMappingRegister_AsSpecifiedInstance()
         {
             // The very same instance must be retrievable — that's how WindowNavigator

@@ -34,6 +34,15 @@ namespace WinformsMVP.Samples.Tests.Services
         }
 
         [Fact]
+        public void Default_IToastService_ForwardsToTheWinFormsToastService()
+        {
+            var sp = ServiceLocator.Current;
+            Assert.IsType<WinformsMVP.Services.Implementations.WinFormsToastService>(sp.Resolve<IWinFormsToastService>());
+            var forwarder = Assert.IsType<WinformsMVP.Services.Implementations.ToastServiceForwarder>(sp.Resolve<IToastService>());
+            Assert.Same(sp.Resolve<IWinFormsToastService>(), forwarder.Target);
+        }
+
+        [Fact]
         public void Default_HasNoDispatcherConfigurer()
         {
             Assert.Null(ServiceLocator.Current.Resolve<IDispatcherConfigurer>());

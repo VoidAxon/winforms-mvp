@@ -11,7 +11,7 @@ namespace WinformsMVP.Samples.AnchoredMessageDemo
     /// Demo form for the feedback division of labor.
     ///
     /// Demonstrates:
-    /// - Presenter feedback defaults to Messages.ShowToast (corner) — correct for every trigger
+    /// - Presenter feedback defaults to Toasts.Show (corner) — correct for every trigger
     ///   (mouse, Alt+S/Alt+D mnemonics, the menu's Ctrl+S shortcut, Tab + Enter/Space, code)
     /// - Position-meaningful feedback via semantic view methods: ConfirmDelete() anchors a
     ///   message box at the Delete button, ShowRowTouched() anchors a toast at the grid's

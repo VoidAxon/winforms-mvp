@@ -2,7 +2,7 @@ using System.ComponentModel;
 using System.Windows.Forms;
 using WinformsMVP.MVP.ViewActions;
 
-namespace MvpApp
+namespace MyMvpApp
 {
     /// <summary>
     /// The main window. It binds its buttons to actions and shows what the presenter sets;

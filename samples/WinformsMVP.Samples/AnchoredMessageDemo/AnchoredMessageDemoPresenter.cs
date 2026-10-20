@@ -4,7 +4,7 @@ using WinformsMVP.MVP.Presenters;
 namespace WinformsMVP.Samples.AnchoredMessageDemo
 {
     /// <summary>
-    /// Demonstrates the feedback division of labor. Default: <c>Messages.ShowToast</c> (corner)
+    /// Demonstrates the feedback division of labor. Default: <c>Toasts.Show</c> (corner)
     /// — it is correct no matter how the action was triggered (mouse, mnemonic, shortcut, or
     /// code). Anchored feedback appears only where position carries meaning, and then through a
     /// semantic view method (<c>View.ConfirmDelete()</c>, <c>View.ShowRowTouched()</c>) whose
@@ -28,7 +28,7 @@ namespace WinformsMVP.Samples.AnchoredMessageDemo
             // A command reachable by button, mnemonic, and Ctrl+S alike: the corner toast is the
             // choice that is right for every one of them.
             View.ShowHint("Saved — corner toast: correct for mouse, keyboard, and code triggers.");
-            Messages.ShowToast($"Saved '{View.ItemName}'", ToastType.Success);
+            Toasts.Show($"Saved '{View.ItemName}'", ToastType.Success);
         }
 
         private void OnDelete()
@@ -38,7 +38,7 @@ namespace WinformsMVP.Samples.AnchoredMessageDemo
             if (View.ConfirmDelete())
             {
                 View.ShowHint("Deleted — the view anchored the confirmation at the Delete button.");
-                Messages.ShowToast("Deleted", ToastType.Warning);
+                Toasts.Show("Deleted", ToastType.Warning);
             }
             else
             {
@@ -56,12 +56,12 @@ namespace WinformsMVP.Samples.AnchoredMessageDemo
         private void OnMenuNotify()
         {
             View.ShowHint("Menu command — corner toast.");
-            Messages.ShowToast("Hello from the menu", ToastType.Info);
+            Toasts.Show("Hello from the menu", ToastType.Info);
         }
 
         private void OnToggleNotify()
         {
-            Messages.ShowToast(
+            Toasts.Show(
                 View.NotificationsEnabled ? "Notifications enabled" : "Notifications disabled",
                 ToastType.Info);
         }

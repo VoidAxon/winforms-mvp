@@ -9,7 +9,7 @@ namespace WinformsMVP.Common
     /// <summary>
     /// Pragmatic reflection-based deep comparison; collections are compared structurally; cycle-safe.
     /// <see cref="DeepEquals(object, object)"/> respects every type's Equals/IEquatable.
-    /// <see cref="ContentEquals(object, object)"/> — the <see cref="ChangeTrackerDefaults"/> default —
+    /// <see cref="ContentEquals(object, object)"/> — behind <see cref="BuiltInObjectContentComparer"/>, the default —
     /// trusts Equals only where it means "same value", so identity-style entity equality
     /// (e.g. "same Id") cannot hide an edit.
     /// </summary>
@@ -19,7 +19,7 @@ namespace WinformsMVP.Common
 
         public static bool DeepEquals(object a, object b)
         {
-            return AreEqual(a, b, new Visited(contentMode: false));
+            return AreEqual(a, b, new Visited(contentMode: false, ignores: null));
         }
 
         public static bool ContentEquals<T>(T a, T b) => ContentEquals((object)a, (object)b);
@@ -32,15 +32,23 @@ namespace WinformsMVP.Common
         /// </summary>
         public static bool ContentEquals(object a, object b)
         {
-            return AreEqual(a, b, new Visited(contentMode: true));
+            return AreEqual(a, b, new Visited(contentMode: true, ignores: null));
         }
 
-        // Cycle-detection set that also carries the comparison mode down the recursion.
+        /// <summary><see cref="ContentEquals(object, object)"/>, leaving out what <paramref name="ignores"/> lists.</summary>
+        internal static bool ContentEquals(object a, object b, ChangeTrackingIgnores ignores)
+        {
+            var effective = ignores == null || ignores.IsEmpty ? null : ignores;
+            return AreEqual(a, b, new Visited(contentMode: true, ignores: effective));
+        }
+
+        // Cycle-detection set that also carries the comparison mode (and any ignores) down the recursion.
         private sealed class Visited : HashSet<RefPair>
         {
             public readonly bool ContentMode;
-            public Visited(bool contentMode) { ContentMode = contentMode; }
-            public Visited(Visited source) : base(source) { ContentMode = source.ContentMode; }
+            public readonly ChangeTrackingIgnores Ignores;   // null = nothing ignored
+            public Visited(bool contentMode, ChangeTrackingIgnores ignores) { ContentMode = contentMode; Ignores = ignores; }
+            public Visited(Visited source) : base(source) { ContentMode = source.ContentMode; Ignores = source.Ignores; }
         }
 
         private static bool TrustsEquals(Type type, Visited visited)
@@ -48,6 +56,16 @@ namespace WinformsMVP.Common
             if (DeepReflection.IsImmutable(type)) return true;
             if (!DeepReflection.HasCustomEquals(type)) return false;
             return !visited.ContentMode || type.IsValueType || IsFrameworkType(type);
+        }
+
+        // Member ignores apply to application types only: framework types keep their own semantics
+        // (e.g. IgnoreMember("Value") must not reach Nullable<T>.value).
+        private static bool HasMemberIgnores(Type type, Visited visited)
+        {
+            if (visited.Ignores == null || DeepReflection.IsImmutable(type) || IsFrameworkType(type)) return false;
+            foreach (var field in DeepReflection.GetFields(type))
+                if (visited.Ignores.SkipsField(type, field)) return true;
+            return false;
         }
 
         private static bool IsFrameworkType(Type type)
@@ -60,12 +78,27 @@ namespace WinformsMVP.Common
         private static bool AreEqual(object a, object b, Visited visited)
         {
             if (ReferenceEquals(a, b)) return true;
+
+            // A value of an ignored type is not compared: it equals null or any other ignored value
+            // (e.g. a different derived type). It is not a wildcard — replacing it with something
+            // else is a change, and set matching stays order-independent. This runs before the null
+            // and runtime-type checks, so it also covers object-typed members and collection elements.
+            if (visited.Ignores != null)
+            {
+                bool aIgnored = a != null && visited.Ignores.SkipsType(a.GetType());
+                bool bIgnored = b != null && visited.Ignores.SkipsType(b.GetType());
+                if (aIgnored || bIgnored)
+                    return (aIgnored || a == null) && (bIgnored || b == null);
+            }
+
             if (a == null || b == null) return false;
 
             var type = a.GetType();
             if (type != b.GetType()) return false;
 
-            if (TrustsEquals(type, visited))
+            // A type's own Equals would still compare its ignored members, so an application type
+            // with member ignores is compared field by field instead.
+            if (TrustsEquals(type, visited) && !HasMemberIgnores(type, visited))
                 return a.Equals(b);
 
             if (a is Delegate) return true;   // ignore delegates / events
@@ -91,7 +124,8 @@ namespace WinformsMVP.Common
             if (DeepReflection.IsUnsupported(type))
                 throw new NotSupportedException(
                     "ObjectComparer cannot deep-compare type '" + type.FullName +
-                    "'. Implement Equals/IEquatable on the model, or set ChangeTrackerDefaults.Comparer.");
+                    "'. Register a ChangeTrackingPolicy for the model type, or replace the comparer " +
+                    "(mvp.ChangeTracking.UseComparer).");
 
             return PocoEquals(a, b, type, visited);
         }
@@ -201,6 +235,7 @@ namespace WinformsMVP.Common
             foreach (var field in DeepReflection.GetFields(type))
             {
                 if (typeof(Delegate).IsAssignableFrom(field.FieldType)) continue;
+                if (visited.Ignores != null && !IsFrameworkType(type) && visited.Ignores.SkipsField(type, field)) continue;
                 if (!AreEqual(field.GetValue(a), field.GetValue(b), visited)) return false;
             }
             return true;

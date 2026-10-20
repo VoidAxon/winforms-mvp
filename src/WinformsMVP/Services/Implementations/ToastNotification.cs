@@ -32,8 +32,8 @@ namespace WinformsMVP.Services.Implementations
     /// This type owns a <em>single</em> toast: its window, painting, and fade-out. Collecting,
     /// stacking, and capping multiple toasts is <see cref="ToastManager"/>'s job. Per-toast
     /// appearance (position, size, font, duration) comes from <see cref="ToastOptions"/>, falling
-    /// back to <see cref="ToastDefaults"/>; stacking policy (margin, gap, cap) lives on
-    /// <see cref="ToastDefaults"/> and is read by the manager.
+    /// back to the owning service's <see cref="ToastHostOptions"/>; stacking policy (margin, gap,
+    /// cap) is read by the manager from the same options.
     /// </para>
     /// </remarks>
     internal sealed class ToastNotification : NativeWindow
@@ -42,7 +42,9 @@ namespace WinformsMVP.Services.Implementations
         private readonly ToastType _type;
         private readonly int _width;
         private readonly int _height;
-        private readonly Font _font; // owned by the caller / ToastDefaults — never disposed here
+        private readonly Font _font;
+        private readonly bool _ownsFont; // per-call font: a copy made by the service, disposed on close
+        private readonly ToastManager _manager;
         private readonly ToastPosition _position;
         private readonly int _duration;
         private readonly ToastRenderer _renderer; // resolved once at construction; never null
@@ -54,34 +56,43 @@ namespace WinformsMVP.Services.Implementations
         private Timer _fadeTimer;
         private double _opacity;
 
-        public ToastNotification(string message, ToastType type, ToastOptions options)
+        /// <param name="message">Text to show.</param>
+        /// <param name="type">Info / Success / Warning / Error.</param>
+        /// <param name="options">Per-call overrides already copied by the service; a non-null
+        /// <see cref="ToastOptions.Font"/> is owned (disposed) by this toast.</param>
+        /// <param name="manager">The owning service's manager: defaults, stack, anchored slot.</param>
+        public ToastNotification(string message, ToastType type, ToastOptions options, ToastManager manager)
         {
             options = options ?? new ToastOptions();
+            _manager = manager;
+            var settings = manager.Settings;
 
             _message = message ?? string.Empty;
             _type = type;
+            CreatedThreadId = System.Threading.Thread.CurrentThread.ManagedThreadId;
 
-            var size = options.Size ?? ToastDefaults.Size;
+            var size = options.Size ?? settings.Size;
             _width = size.Width;
-            _font = options.Font ?? ToastDefaults.Font;
-            _position = options.Position ?? ToastDefaults.Position;
-            _duration = options.Duration ?? ToastDefaults.Duration;
-            _opacity = ToastDefaults.Opacity;
+            _ownsFont = options.Font != null;
+            _font = options.Font ?? manager.DefaultFont;
+            _position = options.Position ?? settings.Position;
+            _duration = options.Duration ?? settings.Duration;
+            _opacity = settings.Opacity;
             _renderer = ToastRendererResolver.Resolve(
-                options.Renderer, options.Style, ToastDefaults.Renderer, ToastDefaults.Style);
-            _showCloseButton = options.ShowCloseButton ?? ToastDefaults.ShowCloseButton;
+                options.Renderer, options.Style, manager.DefaultRenderer, settings.Style);
+            _showCloseButton = options.ShowCloseButton ?? settings.ShowCloseButton;
             _layered = _renderer.CornerRadius > 0; // rounded corners need per-pixel alpha
 
             // Height: fixed from Size, or sized to content (width stays fixed) when AutoHeight is on.
-            bool autoHeight = options.AutoHeight ?? ToastDefaults.AutoHeight;
+            bool autoHeight = options.AutoHeight ?? settings.AutoHeight;
             _height = autoHeight ? MeasureAutoHeight(options) : size.Height;
         }
 
         /// <summary>Asks the renderer how tall the content wants to be, clamped to the min/max bounds.</summary>
         private int MeasureAutoHeight(ToastOptions options)
         {
-            int min = options.MinHeight ?? ToastDefaults.MinHeight;
-            int max = options.MaxHeight ?? ToastDefaults.MaxHeight;
+            int min = options.MinHeight ?? _manager.Settings.MinHeight;
+            int max = options.MaxHeight ?? _manager.Settings.MaxHeight;
             if (max < min) max = min;
 
             int height;
@@ -96,6 +107,21 @@ namespace WinformsMVP.Services.Implementations
             if (height > max) height = max;
             return height;
         }
+
+        /// <summary>The message text.</summary>
+        internal string Message { get { return _message; } }
+
+        /// <summary>Milliseconds the toast stays fully visible.</summary>
+        internal int Duration { get { return _duration; } }
+
+        /// <summary>The font the toast paints with.</summary>
+        internal Font Font { get { return _font; } }
+
+        /// <summary>Managed thread that created the toast (its window and timers belong to it).</summary>
+        internal int CreatedThreadId { get; }
+
+        /// <summary>True once <see cref="CloseNow"/> has run.</summary>
+        internal bool IsClosed { get; private set; }
 
         /// <summary>Screen corner this toast wants to appear in. Read by <see cref="ToastManager"/>.</summary>
         public ToastPosition Position { get { return _position; } }
@@ -131,7 +157,7 @@ namespace WinformsMVP.Services.Implementations
 
             // Hand off to the manager: it adds this toast to the stack, evicts any overflow, and
             // positions everyone (this toast's final spot included).
-            ToastManager.Add(this);
+            _manager.Add(this);
 
             StartCloseTimer();
         }
@@ -147,12 +173,12 @@ namespace WinformsMVP.Services.Implementations
             // toast anchored on a non-primary monitor stays there instead of being pulled back to
             // the primary one. Mirrors AnchoredMessageBox.ClampToScreen.
             var area = Screen.FromPoint(anchor).WorkingArea;
-            Point topLeft = ToastLayout.Anchor(anchor, new Size(_width, _height), area, ToastDefaults.Margin);
+            Point topLeft = ToastLayout.Anchor(anchor, new Size(_width, _height), area, _manager.Settings.Margin);
 
             CreatePopupAt(topLeft.X, topLeft.Y);
 
             // Register as the single anchored toast (closes any previous one). No stacking/reflow.
-            ToastManager.RegisterAnchored(this);
+            _manager.RegisterAnchored(this);
 
             StartCloseTimer();
         }
@@ -216,13 +242,13 @@ namespace WinformsMVP.Services.Implementations
 
         private int EdgeX(Rectangle area)
         {
-            int margin = ToastDefaults.Margin;
+            int margin = _manager.Settings.Margin;
             return IsRight ? area.Right - _width - margin : area.Left + margin;
         }
 
         private int EdgeY(Rectangle area)
         {
-            int margin = ToastDefaults.Margin;
+            int margin = _manager.Settings.Margin;
             return IsBottom ? area.Bottom - _height - margin : area.Top + margin;
         }
 
@@ -377,6 +403,9 @@ namespace WinformsMVP.Services.Implementations
         /// </summary>
         public void CloseNow()
         {
+            if (IsClosed) return;
+            IsClosed = true;
+
             if (_closeTimer != null)
             {
                 _closeTimer.Stop();
@@ -391,7 +420,7 @@ namespace WinformsMVP.Services.Implementations
                 _fadeTimer = null;
             }
 
-            ToastManager.Remove(this);
+            _manager.Remove(this);
 
             if (_bitmap != null)
             {
@@ -402,6 +431,11 @@ namespace WinformsMVP.Services.Implementations
             if (Handle != IntPtr.Zero)
             {
                 DestroyHandle();
+            }
+
+            if (_ownsFont)
+            {
+                _font.Dispose();
             }
         }
 

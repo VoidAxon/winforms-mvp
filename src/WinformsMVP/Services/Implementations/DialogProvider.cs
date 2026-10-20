@@ -8,21 +8,42 @@ using WinformsMVP.Services.Implementations.DialogOptions;
 namespace WinformsMVP.Services.Implementations
 {
     /// <summary>
-    /// Default implementation of IDialogProvider using standard WinForms dialogs.
-    /// Uses configurable defaults from DialogDefaults class.
+    /// Default implementation of IDialogProvider using standard WinForms dialogs. Titles, filter
+    /// and error messages not given per call come from <see cref="DialogProviderOptions"/>.
     /// </summary>
     public class DialogProvider : IWinFormsDialogProvider
     {
+        private readonly DialogProviderOptions _options;
+
+        /// <param name="options">Defaults; copied here (later edits have no effect).</param>
+        public DialogProvider(DialogProviderOptions options)
+        {
+            if (options == null) throw new ArgumentNullException(nameof(options));
+            _options = options.Copy();
+        }
+
+        internal static string ResolveFilter(string perCall, DialogProviderOptions options)
+            => perCall ?? options.DefaultFileFilter;
+
+        internal static string ResolveOpenTitle(OpenFileDialogOptions perCall, DialogProviderOptions options)
+            => perCall?.Title ?? options.OpenFileDialogTitle;
+
+        internal static string ResolveSaveTitle(SaveFileDialogOptions perCall, DialogProviderOptions options)
+            => perCall?.Title ?? options.SaveFileDialogTitle;
+
+        internal static string ResolveFolderDescription(FolderBrowserDialogOptions perCall, DialogProviderOptions options)
+            => perCall?.Description ?? options.FolderBrowserDescription;
+
         public InteractionResult<string> ShowOpenFileDialog(OpenFileDialogOptions options = null)
         {
             try
             {
                 using (var dialog = new OpenFileDialog())
                 {
-                    dialog.Filter = options?.Filter ?? DialogDefaults.DefaultFileFilter;
+                    dialog.Filter = ResolveFilter(options?.Filter, _options);
                     dialog.Multiselect = false;  // Single file only
                     dialog.InitialDirectory = options?.InitialDirectory ?? "";
-                    dialog.Title = options?.Title ?? DialogDefaults.OpenFileDialogTitle;
+                    dialog.Title = ResolveOpenTitle(options, _options);
 
                     if (!string.IsNullOrEmpty(options?.FileName))
                         dialog.FileName = options.FileName;
@@ -38,7 +59,7 @@ namespace WinformsMVP.Services.Implementations
             }
             catch (Exception ex)
             {
-                return InteractionResult<string>.Error(DialogDefaults.FileOpenErrorMessage, ex);
+                return InteractionResult<string>.Error(_options.FileOpenErrorMessage, ex);
             }
         }
 
@@ -48,10 +69,10 @@ namespace WinformsMVP.Services.Implementations
             {
                 using (var dialog = new OpenFileDialog())
                 {
-                    dialog.Filter = options?.Filter ?? DialogDefaults.DefaultFileFilter;
+                    dialog.Filter = ResolveFilter(options?.Filter, _options);
                     dialog.Multiselect = true;  // Multiple files allowed
                     dialog.InitialDirectory = options?.InitialDirectory ?? "";
-                    dialog.Title = options?.Title ?? DialogDefaults.OpenFileDialogTitle;
+                    dialog.Title = ResolveOpenTitle(options, _options);
 
                     if (!string.IsNullOrEmpty(options?.FileName))
                         dialog.FileName = options.FileName;
@@ -67,7 +88,7 @@ namespace WinformsMVP.Services.Implementations
             }
             catch (Exception ex)
             {
-                return InteractionResult<string[]>.Error(DialogDefaults.FileOpenErrorMessage, ex);
+                return InteractionResult<string[]>.Error(_options.FileOpenErrorMessage, ex);
             }
         }
 
@@ -77,9 +98,9 @@ namespace WinformsMVP.Services.Implementations
             {
                 using (var dialog = new SaveFileDialog())
                 {
-                    dialog.Filter = options?.Filter ?? DialogDefaults.DefaultFileFilter;
+                    dialog.Filter = ResolveFilter(options?.Filter, _options);
                     dialog.InitialDirectory = options?.InitialDirectory ?? "";
-                    dialog.Title = options?.Title ?? DialogDefaults.SaveFileDialogTitle;
+                    dialog.Title = ResolveSaveTitle(options, _options);
 
                     if (!string.IsNullOrEmpty(options?.DefaultExt))
                         dialog.DefaultExt = options.DefaultExt;
@@ -98,7 +119,7 @@ namespace WinformsMVP.Services.Implementations
             }
             catch (Exception ex)
             {
-                return InteractionResult<string>.Error(DialogDefaults.FileSaveErrorMessage, ex);
+                return InteractionResult<string>.Error(_options.FileSaveErrorMessage, ex);
             }
         }
 
@@ -108,7 +129,7 @@ namespace WinformsMVP.Services.Implementations
             {
                 using (var dialog = new FolderBrowserDialog())
                 {
-                    dialog.Description = options?.Description ?? DialogDefaults.FolderBrowserDescription;
+                    dialog.Description = ResolveFolderDescription(options, _options);
                     dialog.SelectedPath = options?.SelectedPath ?? "";
 
                     var result = dialog.ShowDialog();
@@ -119,7 +140,7 @@ namespace WinformsMVP.Services.Implementations
             }
             catch (Exception ex)
             {
-                return InteractionResult<string>.Error(DialogDefaults.FolderSelectErrorMessage, ex);
+                return InteractionResult<string>.Error(_options.FolderSelectErrorMessage, ex);
             }
         }
 
@@ -142,7 +163,7 @@ namespace WinformsMVP.Services.Implementations
             }
             catch (Exception ex)
             {
-                return InteractionResult<Color>.Error(DialogDefaults.ColorSelectErrorMessage, ex);
+                return InteractionResult<Color>.Error(_options.ColorSelectErrorMessage, ex);
             }
         }
 
@@ -162,7 +183,7 @@ namespace WinformsMVP.Services.Implementations
             }
             catch (Exception ex)
             {
-                return InteractionResult<Font>.Error(DialogDefaults.FontSelectErrorMessage, ex);
+                return InteractionResult<Font>.Error(_options.FontSelectErrorMessage, ex);
             }
         }
 
@@ -186,7 +207,7 @@ namespace WinformsMVP.Services.Implementations
             }
             catch (Exception ex)
             {
-                return InteractionResult<PrinterSettings>.Error(DialogDefaults.PrintDialogErrorMessage, ex);
+                return InteractionResult<PrinterSettings>.Error(_options.PrintDialogErrorMessage, ex);
             }
         }
 
@@ -206,7 +227,7 @@ namespace WinformsMVP.Services.Implementations
             }
             catch (Exception ex)
             {
-                return InteractionResult<PageSettings>.Error(DialogDefaults.PageSetupErrorMessage, ex);
+                return InteractionResult<PageSettings>.Error(_options.PageSetupErrorMessage, ex);
             }
         }
 
@@ -223,7 +244,7 @@ namespace WinformsMVP.Services.Implementations
                     }
                     else
                     {
-                        dialog.Text = DialogDefaults.PrintPreviewDialogTitle;
+                        dialog.Text = _options.PrintPreviewDialogTitle;
                     }
 
                     // PrintPreviewDialog has no OK button: it closes with Cancel (or None) however the
@@ -234,7 +255,7 @@ namespace WinformsMVP.Services.Implementations
             }
             catch (Exception ex)
             {
-                return InteractionResult<bool>.Error(DialogDefaults.PrintPreviewErrorMessage, ex);
+                return InteractionResult<bool>.Error(_options.PrintPreviewErrorMessage, ex);
             }
         }
 

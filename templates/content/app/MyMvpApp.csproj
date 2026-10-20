@@ -5,7 +5,7 @@
     <TargetFramework>TARGET_FRAMEWORK</TargetFramework>
     <UseWindowsForms>true</UseWindowsForms>
     <LangVersion>latest</LangVersion>
-    <RootNamespace>MvpApp</RootNamespace>
+    <RootNamespace>MyMvpApp</RootNamespace>
   </PropertyGroup>
 
   <!-- .NET Framework needs the WinForms assemblies referenced explicitly. -->

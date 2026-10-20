@@ -3,9 +3,24 @@ using System;
 namespace WinformsMVP.Common.EventAggregator
 {
     /// <summary>
-    /// Event aggregator for decoupled pub-sub messaging between components.
-    /// Thread-safe implementation suitable for production use.
+    /// Pub-sub messaging between presenters / modules. The framework registers one
+    /// <see cref="EventAggregator"/> per service provider; replace it by registering your own
+    /// implementation (<c>mvp.Events.Use(...)</c> or a direct registration).
     /// </summary>
+    /// <remarks>
+    /// A replacement must keep these semantics, which presenters rely on:
+    /// <list type="bullet">
+    ///   <item>Subscriptions are held strongly until the returned token is disposed; disposing the
+    ///   token stops delivery and releases the handler and filter.</item>
+    ///   <item>Each subscription delivers on the <see cref="System.Threading.SynchronizationContext"/>
+    ///   current when it subscribed (presenters subscribe on the UI thread): synchronously when
+    ///   publishing on that context, otherwise posted (fire-and-forget). With no context, handlers run
+    ///   on the publishing thread.</item>
+    ///   <item>The filter runs on the publishing thread.</item>
+    ///   <item>A throwing handler or filter never reaches the publisher or other subscribers.</item>
+    ///   <item>A message queued for a subscription that is disposed before it runs is not delivered.</item>
+    /// </list>
+    /// </remarks>
     public interface IEventAggregator
     {
         /// <summary>
@@ -31,10 +46,5 @@ namespace WinformsMVP.Common.EventAggregator
         /// <typeparam name="T">Message type</typeparam>
         /// <param name="message">Message to publish</param>
         void Publish<T>(T message);
-
-        /// <summary>
-        /// Clears all subscriptions (useful for testing)
-        /// </summary>
-        void ClearSubscriptions();
     }
 }

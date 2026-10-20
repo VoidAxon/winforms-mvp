@@ -7,8 +7,9 @@ using WinformsMVP.Common.Internal;
 namespace WinformsMVP.Common
 {
     /// <summary>
-    /// Pragmatic reflection-based deep copy. Serves as the default implementation for
-    /// <see cref="ChangeTrackerDefaults"/> and can also be called directly.
+    /// Pragmatic reflection-based deep copy. Backs <see cref="BuiltInObjectCloner"/>, the default
+    /// <see cref="IObjectCloner"/>, and can also be called directly. <see cref="ICloneable"/> is
+    /// not consulted (its Clone() may be shallow).
     /// </summary>
     /// <remarks>
     /// Explicitly supported collections: single-dimensional arrays, <see cref="IList"/>
@@ -16,15 +17,15 @@ namespace WinformsMVP.Common
     /// all deep-copied element by element. Other <see cref="System.Collections.IEnumerable"/>
     /// collections (e.g. HashSet&lt;T&gt;, Queue&lt;T&gt;) are not explicitly supported and
     /// fall back to field-by-field POCO copy — usable on net40/net48, but for guaranteed
-    /// semantics implement <see cref="ICloneable"/> or replace
-    /// <see cref="ChangeTrackerDefaults.Cloner"/>.
+    /// semantics register a <see cref="ChangeTrackingPolicy{T}"/> for the model type or replace
+    /// the application's <see cref="IObjectCloner"/>.
     /// <para>
     /// Known limitations of the <see cref="IList"/>/<see cref="IDictionary"/> paths:
     /// </para>
     /// <list type="bullet">
     ///   <item>The concrete type must have a public parameterless constructor.
     ///   Read-only or immutable collections (e.g. <c>ReadOnlyCollection&lt;T&gt;</c>) throw —
-    ///   implement <see cref="ICloneable"/> or swap the cloner for those.</item>
+    ///   register a <see cref="ChangeTrackingPolicy{T}"/> or swap the cloner for those.</item>
     ///   <item>A <see cref="IDictionary"/>'s key comparer is preserved only when the type exposes a
     ///   <c>Comparer</c> property and a matching single-argument constructor (true for
     ///   <c>Dictionary&lt;K,V&gt;</c>); for other dictionaries the default comparer is used.</item>
@@ -55,22 +56,16 @@ namespace WinformsMVP.Common
                 if (ReferenceEquals(existing, InProgress))
                     throw new NotSupportedException(
                         "ObjectCloner cannot deep-copy a cycle through collection type '" + type.FullName +
-                        "' (it can only be rebuilt from its finished elements). Implement ICloneable on the " +
-                        "model, or set ChangeTrackerDefaults.Cloner.");
+                        "' (it can only be rebuilt from its finished elements). Register a ChangeTrackingPolicy " +
+                        "for the model type, or replace the cloner (mvp.ChangeTracking.UseCloner).");
                 return existing;
             }
 
             if (type.IsArray) return CopyArray((Array)source, type, visited);
 
-            // Arrays are handled above (Array implements ICloneable but Clone() is shallow — must be excluded).
-            // ICloneable nodes are trusted to perform their own deep copy via Clone().
-            var cloneable = source as ICloneable;
-            if (cloneable != null)
-            {
-                var clone = cloneable.Clone();
-                visited[source] = clone;
-                return clone;
-            }
+            // ICloneable is deliberately not consulted: .NET allows Clone() to be shallow (Array.Clone
+            // is), and a shallow snapshot hides edits. A model with a verified deep Clone() opts in
+            // through a ChangeTrackingPolicy.
 
             var dictionary = source as IDictionary;
             if (dictionary != null) return CopyDictionary(dictionary, type, visited);
@@ -88,8 +83,8 @@ namespace WinformsMVP.Common
             if (DeepReflection.IsUnsupported(type))
                 throw new NotSupportedException(
                     "ObjectCloner cannot deep-copy type '" + type.FullName +
-                    "'. Implement ICloneable on the model, or set ChangeTrackerDefaults.Cloner " +
-                    "to a deep-copy library.");
+                    "'. Register a ChangeTrackingPolicy for the model type, or replace the cloner " +
+                    "(mvp.ChangeTracking.UseCloner) with a deep-copy library.");
 
             return CopyPoco(source, type, visited);
         }
@@ -161,7 +156,8 @@ namespace WinformsMVP.Common
                 if (wrapped != null) return wrapped;
                 throw new NotSupportedException(
                     "ObjectCloner cannot deep-copy read-only list type '" + type.FullName +
-                    "'. Implement ICloneable on the model, or set ChangeTrackerDefaults.Cloner.");
+                    "'. Register a ChangeTrackingPolicy for the model type, or replace the cloner " +
+                    "(mvp.ChangeTracking.UseCloner).");
             }
 
             var copy = (IList)Activator.CreateInstance(type);

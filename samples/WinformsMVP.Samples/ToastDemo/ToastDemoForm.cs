@@ -19,7 +19,7 @@ namespace WinformsMVP.Samples.ToastDemo
     /// </summary>
     public class ToastDemoForm : Form
     {
-        private readonly IMessageService _messages = new MessageService();
+        private readonly IWinFormsToastService _toasts = ServiceLocator.Current.ResolveRequired<IWinFormsToastService>();
 
         private ComboBox _positionCombo;
         private NumericUpDown _fontSizeNum;
@@ -232,7 +232,7 @@ namespace WinformsMVP.Samples.ToastDemo
 
         private void Fire(string text, ToastType type)
         {
-            _messages.ShowToast(text, type, CurrentOptions());
+            _toasts.Show(text, type, CurrentOptions());
         }
 
         // Fires a handful of toasts in one go so the vertical stacking (and the 5-toast cap) is
@@ -243,7 +243,7 @@ namespace WinformsMVP.Samples.ToastDemo
             for (int i = 0; i < 6; i++)
             {
                 string suffix = i == 5 ? "（最古が押し出される / oldest evicted）" : "";
-                _messages.ShowToast((i + 1) + "件目 / Toast #" + (i + 1) + suffix, types[i % types.Length], CurrentOptions());
+                _toasts.Show((i + 1) + "件目 / Toast #" + (i + 1) + suffix, types[i % types.Length], CurrentOptions());
             }
         }
 
@@ -254,7 +254,7 @@ namespace WinformsMVP.Samples.ToastDemo
             // An explicit Renderer wins over Style (see ToastRendererResolver), so the style
             // combo has no effect on this button.
             options.Renderer = new DarkCardToastRenderer();
-            _messages.ShowToast("カスタム描画 / Owner-drawn toast", ToastType.Success, options);
+            _toasts.Show("カスタム描画 / Owner-drawn toast", ToastType.Success, options);
         }
 
         /// <summary>

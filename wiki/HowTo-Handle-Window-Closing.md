@@ -71,10 +71,10 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView, EditUserPara
     protected override void OnInitialize(EditUserParameters parameters)
     {
         var user = LoadUser(parameters.UserId);
+        // The tracker only detects changes: it keeps its own copy as the baseline.
+        // The data shown and saved is the presenter's / the view's, never the tracker's.
         _changeTracker = new ChangeTracker<UserModel>(user);
-        // Populate sets field values without establishing a live data-binding,
-        // so the tracker owns the snapshot and WinForms does not mutate it in place.
-        View.Populate(_changeTracker.CurrentValue);
+        View.Populate(user);
 
         // IsChangedChanged fires after each UpdateCurrentValue call above; keep
         // the subscription so CanExecute is also refreshed on snapshot acceptance.
@@ -105,9 +105,9 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView, EditUserPara
     {
         // Sync the final view state before persisting; EditChanged may not have
         // fired if the control with focus has not yet committed its value.
-        _changeTracker.UpdateCurrentValue(View.GetModel());
-        SaveUser(_changeTracker.CurrentValue);
-        _changeTracker.AcceptChanges();   // commit model state; CanClose will see clean state
+        var user = View.GetModel();
+        SaveUser(user);
+        _changeTracker.AcceptChanges(user);   // new baseline; CanClose will see clean state
         RequestClose(BuildResult(), InteractionStatus.Ok);
     }
 

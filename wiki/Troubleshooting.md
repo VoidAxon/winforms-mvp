@@ -247,20 +247,27 @@ protected override bool CanClose(CloseReason reason)
 
 ### `IsChanged` が常に `true` になる
 
-**原因**: 型 `T` が値等価性 (`Equals` / `IEquatable<T>`) を実装しておらず、`Clone()` も実装していない。
+**原因 (上から順にチェック)**:
 
-**対処**: 以下のいずれか。
+1. 渡した `comparer` / `ChangeTrackingPolicy<T>` の比較が参照比較になっている (例 `(a, b) => a == b`)。スナップショットは別インスタンスなので常に「異なる」と判定される
+2. モデルに編集と無関係に変わる値 (更新日時・監査用タイムスタンプなど) がある。既定の内容比較はすべてのフィールドを比較する
+3. `mvp.ChangeTracking.UseCloner(...)` / `For<T>(policy)` で登録した複製が、元と内容的に等しいコピーを返していない
 
-1. `T` に `ICloneable` を実装し、`Equals` を override する
-2. グローバルフックでリフレクション深いコピー・比較を使う (デフォルト)
+**対処**: 既定の内容比較 (`comparer` を渡さない) に戻すか、編集対象のフィールドだけを比較する comparer をポリシーで渡す。
+
+```csharp
+mvp.ChangeTracking.For(new ChangeTrackingPolicy<Order>(
+    o => (Order)o.Clone(),                      // 検証済みの深いコピー
+    (a, b) => a.SameEditableContent(b)));       // タイムスタンプを無視して比較
+```
 
 詳しくは [ChangeTracker § 解決順序](Reference-ChangeTracker#スナップショット-複製-の解決順序) 参照。
 
 ### `RejectChanges()` を呼んでも元に戻らない
 
-**原因**: `Clone()` の実装が浅いコピー (参照型プロパティが共有されている)。
+**原因**: ポリシーまたは `IObjectCloner` で登録した複製 (例 手書きの `Clone()`) が浅いコピーになっている (参照型プロパティが共有されている)。既定のリフレクション深いコピーではこの問題は起きない。`ICloneable` は実装していても使われない。
 
-**対処**: ネストされたオブジェクトとコレクションも `Clone()` する。
+**対処**: ネストされたオブジェクトとコレクションも `Clone()` する (または登録をやめて既定の深いコピーを使う)。
 
 ```csharp
 public object Clone()
@@ -299,15 +306,23 @@ public object Clone()
 
    `Publish(new MyMessageV2())` に対し `Subscribe<MyMessageV1>(handler)` は反応しない。
 
+4. 発行側と購読側で別のインスタンスを使っている
+
+   Presenter ごとに `new EventAggregator()` すると互いに届かない。フレームワークが既定登録するシングルトンの `IEventAggregator` をコンストラクタ注入するか、`ServiceLocator.Current.ResolveRequired<IEventAggregator>()` で解決して共有する。
+
+5. アグリゲーターを作ったサービスプロバイダが破棄されている
+
+   `EventAggregator` は `IDisposable` で、生成したプロバイダの破棄時に Dispose される (以後 `Publish` は何も配送しない)。`ServiceLocator.Configure` / `MvpApplication.Configure` を再度呼ぶと前のプロバイダが破棄されるため、それ以前に解決したインスタンスを保持し続けていないか確認する。設定は起動時に 1 回だけ行う。
+
 ### バックグラウンドスレッドから `Publish` するとクロススレッド例外
 
-**原因**: マーシャリング先のコンテキストが無い。`EventAggregator` は構築時の `SynchronizationContext`、それが無ければ購読時のスレッドのコンテキストへマーシャリングするため、ワーカースレッドで構築かつワーカースレッドで購読すると、ハンドラは発行スレッドで実行される。
+**原因**: マーシャリング先のコンテキストが無い。各購読は `Subscribe` を呼んだ時点のスレッドの `SynchronizationContext` へマーシャリングするため、ワーカースレッド (コンテキスト無し) で購読すると、ハンドラは発行スレッドで実行される。
 
-**対処**: `EventAggregator` の `new` は UI スレッドか `Program.Main` で行い、購読は UI スレッド (Presenter の `OnInitialize` など) で行う。
+**対処**: 購読は UI スレッド (Presenter の `OnViewAttached` / `OnInitialize` など) で行う。アグリゲーターをどのスレッドで生成したかは関係しない。
 
 ```csharp
-// Program.Main 内で (SynchronizationContext がまだ無くても、UI スレッドで購読すれば UI スレッドで実行される)
-var eventAggregator = new EventAggregator();
+// UI スレッド上の Presenter で購読する — どのスレッドから Publish しても UI スレッドで実行される
+_events.Subscribe<DataLoadedMessage>(OnDataLoaded).DisposeWith(Disposables);
 ```
 
 ---

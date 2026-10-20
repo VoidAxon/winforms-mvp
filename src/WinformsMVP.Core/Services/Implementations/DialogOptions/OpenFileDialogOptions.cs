@@ -32,7 +32,7 @@
         public bool CheckPathExists { get; set; } = true;
 
         /// <summary>
-        /// Title (normally not required; if null, DialogDefaults.OpenFileDialogTitle is used)
+        /// Title (normally not required; if null, the provider's configured title (mvp.Dialogs) is used)
         /// </summary>
         public string Title { get; set; }
     }

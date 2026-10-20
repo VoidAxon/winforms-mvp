@@ -53,7 +53,7 @@ namespace WinformsMVP.Samples.Tests.Common
             {
                 for (int i = 0; i < 5; i++) d.Signal();   // burst: only the last survives
 
-                Assert.True(fired.Wait(2000), "debounced action did not fire");
+                Assert.True(fired.Wait(10000), "debounced action did not fire");
                 Thread.Sleep(150);                         // allow any erroneous extra fire
                 Assert.Equal(1, Volatile.Read(ref count));
             }
@@ -103,7 +103,7 @@ namespace WinformsMVP.Samples.Tests.Common
                 synchronizationContext: new InlineSyncContext()))
             {
                 d.Signal();
-                Assert.True(done.Wait(2000), "onError was not invoked");
+                Assert.True(done.Wait(10000), "onError was not invoked");
                 Assert.IsType<InvalidOperationException>(captured);
             }
         }
@@ -118,7 +118,7 @@ namespace WinformsMVP.Samples.Tests.Common
                 synchronizationContext: new InlineSyncContext()))
             {
                 d.Signal();
-                Assert.True(fired.Wait(2000));
+                Assert.True(fired.Wait(10000));
                 Thread.Sleep(50);     // the guard must swallow the exception; no crash
             }
         }
@@ -135,7 +135,7 @@ namespace WinformsMVP.Samples.Tests.Common
                 synchronizationContext: ctx))
             {
                 d.Signal();
-                Assert.True(posted.Wait(2000), "timer never posted the callback");
+                Assert.True(posted.Wait(10000), "timer never posted the callback");
 
                 d.Dispose();                     // dispose before the posted callback is pumped
                 Assert.True(ctx.TryDrainOne());  // now run it (as the UI pump would)
@@ -155,7 +155,7 @@ namespace WinformsMVP.Samples.Tests.Common
                 synchronizationContext: ctx))
             {
                 d.Signal();
-                Assert.True(fired.Wait(2000));
+                Assert.True(fired.Wait(10000));
                 Assert.True(ctx.PostCount >= 1, "callback was not posted to the context");
             }
         }

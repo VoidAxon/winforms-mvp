@@ -10,6 +10,7 @@ namespace WinformsMVP.Samples.Tests.Mocks
     public class MockServices
     {
         public MockMessageService MessageService { get; } = new MockMessageService();
+        public MockToastService ToastService { get; } = new MockToastService();
         public MockDialogProvider DialogProvider { get; } = new MockDialogProvider();
         public MockFileService FileService { get; } = new MockFileService();
         public MockWindowNavigator WindowNavigator { get; } = new MockWindowNavigator();
@@ -22,6 +23,7 @@ namespace WinformsMVP.Samples.Tests.Mocks
         {
             Provider = new DefaultServiceProvider();
             Provider.RegisterInstance<IMessageService>(MessageService);
+            Provider.RegisterInstance<IToastService>(ToastService);
             Provider.RegisterInstance<IDialogProvider>(DialogProvider);
             Provider.RegisterInstance<IFileService>(FileService);
             Provider.RegisterInstance<IWindowNavigator>(WindowNavigator);
@@ -29,6 +31,6 @@ namespace WinformsMVP.Samples.Tests.Mocks
         }
 
         /// <summary>Resets recorded calls on the message and file service mocks.</summary>
-        public void Reset() { MessageService.Clear(); FileService.Clear(); }
+        public void Reset() { MessageService.Clear(); ToastService.Clear(); FileService.Clear(); }
     }
 }

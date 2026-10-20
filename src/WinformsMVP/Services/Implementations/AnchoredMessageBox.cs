@@ -20,7 +20,10 @@ namespace WinformsMVP.Services.Implementations
     /// semantic view method (e.g. <c>bool View.ConfirmDelete()</c>) whose Form implementation
     /// picks the anchor and calls this utility — the business result flows back as the return value.
     /// <para>
-    /// Positioning uses a native MessageBox with a CBT hook, so — like any MessageBox — it never
+    /// The dialog is shown by the application's <see cref="IMessageDialogBackend"/> (resolved from
+    /// <see cref="ServiceLocator.Current"/>), so replacing the backend restyles anchored boxes too;
+    /// an empty caption becomes <see cref="MessageDialogOptions.DefaultCaption"/>. The default
+    /// backend positions a native MessageBox with a CBT hook, so — like any MessageBox — it never
     /// appears in <see cref="Application.OpenForms"/>. The requested location is clamped to the
     /// working area of the screen it lands on, so any point (even off-screen or negative) yields a
     /// fully-visible dialog.
@@ -102,7 +105,7 @@ namespace WinformsMVP.Services.Implementations
             MessageBoxIcon icon,
             Point location)
         {
-            return ShowInternal(null, text, caption, buttons, icon, location);
+            return ShowThroughBackend(null, text, caption, buttons, icon, location);
         }
 
         /// <summary>
@@ -124,14 +127,39 @@ namespace WinformsMVP.Services.Implementations
             MessageBoxIcon icon,
             Point location)
         {
-            return ShowInternal(owner, text, caption, buttons, icon, location);
+            return ShowThroughBackend(owner, text, caption, buttons, icon, location);
         }
 
         #endregion
 
         #region Internal Implementation
 
-        private static DialogResult ShowInternal(
+        private static DialogResult ShowThroughBackend(
+            IWin32Window owner,
+            string text,
+            string caption,
+            MessageBoxButtons buttons,
+            MessageBoxIcon icon,
+            Point location)
+        {
+            var services = ServiceLocator.Current;
+            var backend = services.Resolve<IMessageDialogBackend>() ?? new NativeMessageDialogBackend();
+            var defaultCaption = services.Resolve<MessageDialogOptions>()?.DefaultCaption;
+
+            var answer = backend.Show(new MessageDialogRequest
+            {
+                Text = text,
+                Caption = string.IsNullOrEmpty(caption) ? defaultCaption ?? caption : caption,
+                Buttons = NativeMessageDialogBackend.FromWinForms(buttons),
+                Icon = NativeMessageDialogBackend.FromWinForms(icon),
+                Owner = owner,
+                Location = location,
+            });
+            return NativeMessageDialogBackend.ToWinForms(answer);
+        }
+
+        /// <summary>Native MessageBox placed at <paramref name="location"/> (the default backend's positioned path).</summary>
+        internal static DialogResult ShowNative(
             IWin32Window owner,
             string text,
             string caption,

@@ -24,6 +24,7 @@ namespace WinformsMVP.Services
     {
         private static readonly object _lock = new object();
         private static IServiceProvider _current;
+        private static bool _ownsCurrent;   // true when the framework built _current (lazy default or Configure)
 
         /// <summary>
         /// The ambient provider. Defaults to a <see cref="DefaultServiceProvider"/> pre-seeded
@@ -31,6 +32,11 @@ namespace WinformsMVP.Services
         /// registry, or a real DI container's <see cref="IServiceProvider"/>) at application
         /// startup to add or replace services.
         /// </summary>
+        /// <remarks>
+        /// Assigning never disposes the previous provider: an assigned provider belongs to whoever
+        /// built it. Providers the framework built itself (the lazy default, or one built by
+        /// <see cref="Configure"/>) are disposed when they are replaced or <see cref="Reset"/>.
+        /// </remarks>
         public static IServiceProvider Current
         {
             get
@@ -44,6 +50,7 @@ namespace WinformsMVP.Services
                             var provider = new DefaultServiceProvider();
                             RegisterBuiltIns(provider);
                             _current = provider;
+                            _ownsCurrent = true;
                         }
                     }
                 }
@@ -52,27 +59,51 @@ namespace WinformsMVP.Services
             set
             {
                 if (value == null) throw new ArgumentNullException(nameof(value));
-                lock (_lock) { _current = value; }
+                Install(value, owned: false);
             }
         }
 
         /// <summary>
         /// Builds a fresh <see cref="DefaultServiceProvider"/>, seeds it with the framework
         /// built-ins, then lets <paramref name="register"/> add or override registrations
-        /// (last-registration-wins), and installs it as <see cref="Current"/>.
+        /// (last-registration-wins), and installs it as <see cref="Current"/>. A provider the
+        /// framework built earlier (the lazy default or a previous <c>Configure</c>) is disposed.
         /// </summary>
         public static void Configure(Action<IServiceRegistry> register)
         {
             var provider = new DefaultServiceProvider();
             RegisterBuiltIns(provider);
             register?.Invoke(provider);   // caller adds or overrides (last-wins)
-            Current = provider;
+            Install(provider, owned: true);
         }
 
-        /// <summary>Resets to a null default so the next access re-seeds the built-ins (primarily for tests).</summary>
+        /// <summary>
+        /// Resets to a null default so the next access re-seeds the built-ins (primarily for tests).
+        /// A provider the framework built is disposed.
+        /// </summary>
         public static void Reset()
         {
-            lock (_lock) { _current = null; }
+            Install(null, owned: false);
+        }
+
+        /// <summary>
+        /// Swaps the ambient provider. When <paramref name="owned"/> is true the framework built
+        /// <paramref name="provider"/> and disposes it when it is replaced. The previous provider is
+        /// disposed (outside the lock) only if the framework owned it.
+        /// </summary>
+        internal static void Install(IServiceProvider provider, bool owned)
+        {
+            IServiceProvider previous;
+            bool previousOwned;
+            lock (_lock)
+            {
+                previous = _current;
+                previousOwned = _ownsCurrent;
+                _current = provider;
+                _ownsCurrent = provider != null && owned;
+            }
+            if (previousOwned && !ReferenceEquals(previous, provider))
+                (previous as IDisposable)?.Dispose();
         }
 
         /// <summary>
@@ -81,10 +112,14 @@ namespace WinformsMVP.Services
         /// <c>IDispatcherConfigurer</c> is intentionally NOT registered by default
         /// (null =&gt; no global configuration).
         /// </summary>
-        private static void RegisterBuiltIns(DefaultServiceProvider provider)
+        internal static void RegisterBuiltIns(DefaultServiceProvider provider)
         {
             provider.RegisterInstance<IFileService>(new FileService());
             provider.RegisterInstance<ILoggerFactory>(NullLoggerFactory.Instance);
+            provider.RegisterInstance<WinformsMVP.Common.IObjectCloner>(WinformsMVP.Common.BuiltInObjectCloner.Instance);
+            provider.RegisterInstance<WinformsMVP.Common.IObjectContentComparer>(WinformsMVP.Common.BuiltInObjectContentComparer.Instance);
+            provider.RegisterFactory<WinformsMVP.Common.EventAggregator.IEventAggregator>(sp =>
+                new WinformsMVP.Common.EventAggregator.EventAggregator(sp.ResolveRequired<ILoggerFactory>()));
             PlatformRegistration.Value?.Invoke(provider);
         }
 

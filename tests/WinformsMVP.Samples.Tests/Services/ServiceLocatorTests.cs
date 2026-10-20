@@ -46,5 +46,60 @@ namespace WinformsMVP.Samples.Tests.Services
             ServiceLocator.Reset();
             Assert.Null(ServiceLocator.Current.Resolve<IFoo>());
         }
-    }
+    
+        [Fact]
+        public void Configure_AfterLazyDefaultWasCreated_DisposesItAndInstallsNew()
+        {
+            var lazyDefault = (DefaultServiceProvider)ServiceLocator.Current;   // framework-created
+            var probe = new DefaultServiceProviderTests.DisposableProbe();
+            lazyDefault.RegisterFactory<DefaultServiceProviderTests.IDisposableProbe>(_ => probe);
+            lazyDefault.Resolve<DefaultServiceProviderTests.IDisposableProbe>();
+
+            ServiceLocator.Configure(_ => { });
+
+            Assert.True(probe.Disposed);
+            Assert.NotSame(lazyDefault, ServiceLocator.Current);
+        }
+
+        [Fact]
+        public void Configure_Twice_DisposesThePreviouslyConfiguredRoot()
+        {
+            ServiceLocator.Configure(_ => { });
+            var first = (DefaultServiceProvider)ServiceLocator.Current;
+            var probe = new DefaultServiceProviderTests.DisposableProbe();
+            first.RegisterFactory<DefaultServiceProviderTests.IDisposableProbe>(_ => probe);
+            first.Resolve<DefaultServiceProviderTests.IDisposableProbe>();
+
+            ServiceLocator.Configure(_ => { });
+
+            Assert.True(probe.Disposed);   // Configure built that root itself, so it owns it
+        }
+
+        [Fact]
+        public void Setter_DoesNotDisposePreviousRoot()
+        {
+            var a = new DefaultServiceProvider();
+            var probe = new DefaultServiceProviderTests.DisposableProbe();
+            a.RegisterFactory<DefaultServiceProviderTests.IDisposableProbe>(_ => probe);
+            a.Resolve<DefaultServiceProviderTests.IDisposableProbe>();
+
+            ServiceLocator.Current = a;
+            ServiceLocator.Current = new DefaultServiceProvider();
+
+            Assert.False(probe.Disposed);   // an assigned root belongs to whoever assigned it
+        }
+
+        [Fact]
+        public void Reset_DisposesLazyDefaultRoot()
+        {
+            var lazyDefault = (DefaultServiceProvider)ServiceLocator.Current;
+            var probe = new DefaultServiceProviderTests.DisposableProbe();
+            lazyDefault.RegisterFactory<DefaultServiceProviderTests.IDisposableProbe>(_ => probe);
+            lazyDefault.Resolve<DefaultServiceProviderTests.IDisposableProbe>();
+
+            ServiceLocator.Reset();
+
+            Assert.True(probe.Disposed);
+        }
+}
 }
