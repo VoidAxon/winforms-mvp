@@ -29,7 +29,7 @@ WPF 風のコマンドバインドとサービス抽象 (`IMessageService` / `ID
 - 🚀 **サービス抽象化レイヤー** — `IMessageService` / `IDialogProvider` / `IFileService` で `MessageBox.Show()` から脱却。完全モック可能
 - 📊 **構造化ロギング** — `Microsoft.Extensions.Logging` 互換 API の自社抽象。BCL のみ依存 (`WinformsMVP.Core`)
 - ✅ **入力検証とエラー表示** — Model の DataAnnotations + Presenter のルール (`Validation.SetError`) を `Validation` で一元管理。View は `IValidatableView` を実装して `ErrorProviderDisplay` でフィールドとコントロールを対応付けるだけ。エラーはフィールドを離れた後、または送信 (`Validation.Check`) 後に表示
-- 🔄 **ChangeTracker** — 編集/キャンセル用の堅牢な変更追跡。`IRevertibleChangeTracking` 実装、深いコピー対応
+- 🔄 **ChangeTracker** — 未保存の変更を検出するだけの軽量な仕組み (データは Presenter が持つ)。深いコピーのスナップショットと内容比較、2 つの使い方 (同じオブジェクトを編集: `IsChanged` / `AcceptChanges()`、毎回新しいモデル: `IsChangedWith(x)` / `AcceptChanges(x)`)、画面ごとの除外 (`Ignore`)
 - 📡 **EventAggregator** — Presenter 横断の pub/sub。購読は返されたトークンを Dispose するまで有効 (`.DisposeWith(Disposables)`)、UI スレッドへの自動マーシャリング、アナライザ MVP017 がトークンの破棄忘れを検出
 - 🎨 **柔軟な DI** — Service Locator / Constructor Injection / Hybrid の 3 パターンに対応。`Microsoft.Extensions.DependencyInjection` 連携用の `WinformsMVP.DependencyInjection` パッケージも同梱
 - 🧪 **テストファースト設計** — Presenter は UI スレッド不要で単体テスト可能
