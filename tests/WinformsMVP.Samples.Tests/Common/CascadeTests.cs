@@ -14,8 +14,8 @@ namespace WinformsMVP.Samples.Tests.Common
         [Fact]
         public void Bind_ParentChange_ClearsChildAndReloadsWithParentValue()
         {
-            var parent = new SelectionStore<Node>();
-            var child = new SelectionStore<Node>();
+            var parent = new Selection<Node>();
+            var child = new Selection<Node>();
             child.Select(new Node(99));                 // pre-existing child selection
 
             Node reloadedWith = null;
@@ -34,10 +34,10 @@ namespace WinformsMVP.Samples.Tests.Common
         [Fact]
         public void Bind_InitialSync_ReloadsOnceAtBindWithCurrentParent()
         {
-            var parent = new SelectionStore<Node>();
+            var parent = new Selection<Node>();
             var p0 = new Node(5);
             parent.Select(p0);
-            var child = new SelectionStore<Node>();
+            var child = new Selection<Node>();
 
             Node reloadedWith = null;
             int reloadCount = 0;
@@ -50,9 +50,9 @@ namespace WinformsMVP.Samples.Tests.Common
         [Fact]
         public void Bind_InitialSyncFalse_DoesNotReloadAtBind()
         {
-            var parent = new SelectionStore<Node>();
+            var parent = new Selection<Node>();
             parent.Select(new Node(5));
-            var child = new SelectionStore<Node>();
+            var child = new Selection<Node>();
             int reloadCount = 0;
 
             Cascade.Bind(parent, child, p => reloadCount++, initialSync: false);
@@ -63,8 +63,8 @@ namespace WinformsMVP.Samples.Tests.Common
         [Fact]
         public void Bind_Dispose_StopsReacting()
         {
-            var parent = new SelectionStore<Node>();
-            var child = new SelectionStore<Node>();
+            var parent = new Selection<Node>();
+            var child = new Selection<Node>();
             int reloadCount = 0;
             var binding = Cascade.Bind(parent, child, p => reloadCount++, initialSync: false);
 
@@ -77,9 +77,9 @@ namespace WinformsMVP.Samples.Tests.Common
         [Fact]
         public void Bind_ThreeLevels_TopChange_ClearsAndReloadsEachLevelOnce()
         {
-            var a = new SelectionStore<Node>();   // top
-            var b = new SelectionStore<Node>();   // middle
-            var c = new SelectionStore<Node>();   // leaf
+            var a = new Selection<Node>();   // top
+            var b = new Selection<Node>();   // middle
+            var c = new Selection<Node>();   // leaf
             b.Select(new Node(20));
             c.Select(new Node(30));
 
@@ -101,9 +101,9 @@ namespace WinformsMVP.Samples.Tests.Common
         [Fact]
         public void Bind_ClearingAlreadyEmptyChild_DoesNotReloadGrandchildExtraTimes()
         {
-            var a = new SelectionStore<Node>();
-            var b = new SelectionStore<Node>();
-            var c = new SelectionStore<Node>();
+            var a = new Selection<Node>();
+            var b = new Selection<Node>();
+            var c = new Selection<Node>();
             // b and c start empty (null)
 
             int reloadC = 0;
@@ -118,9 +118,9 @@ namespace WinformsMVP.Samples.Tests.Common
         [Fact]
         public void Combine_EitherParentChange_ClearsTargetAndReloadsWithBoth()
         {
-            var a = new SelectionStore<Node>();
-            var b = new SelectionStore<Node>();
-            var target = new SelectionStore<Node>();
+            var a = new Selection<Node>();
+            var b = new Selection<Node>();
+            var target = new Selection<Node>();
             target.Select(new Node(7));
 
             Node lastA = null, lastB = null;
@@ -145,9 +145,9 @@ namespace WinformsMVP.Samples.Tests.Common
         [Fact]
         public void Combine_Dispose_UnsubscribesBothParents()
         {
-            var a = new SelectionStore<Node>();
-            var b = new SelectionStore<Node>();
-            var target = new SelectionStore<Node>();
+            var a = new Selection<Node>();
+            var b = new Selection<Node>();
+            var target = new Selection<Node>();
             int reloadCount = 0;
             var binding = Cascade.Combine(a, b, target, (av, bv) => reloadCount++, initialSync: false);
 

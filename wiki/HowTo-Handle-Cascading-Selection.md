@@ -8,7 +8,7 @@
 - 階層が N 段あると、**同じ形のコードを N 回書く**
 - 上を切り替えたとき、**下の選択をクリアし忘れて** 古い選択が残る
 
-このページは、汎用の `ISelectionStore<T>` と小さな `Cascade` ヘルパーだけで、この 2 つを構造的に潰します。状態の持ち方は [共有 Model](HowTo-Communicate-Between-Presenters#共有-model--イベント) の原則そのままで、新しい思想は持ち込みません。
+このページは、汎用の `ISelection<T>` と小さな `Cascade` ヘルパーだけで、この 2 つを構造的に潰します。状態の持ち方は [共有 Model](HowTo-Communicate-Between-Presenters#共有-model--イベント) の原則そのままで、新しい思想は持ち込みません。
 
 ---
 
@@ -16,7 +16,7 @@
 
 - [難しさはどこか](#難しさはどこか)
 - [素朴な実装が破綻する理由](#素朴な実装が破綻する理由)
-- [解法: `ISelectionStore<T>` + `Cascade`](#解法-iselectionstoret--cascade)
+- [解法: `ISelection<T>` + `Cascade`](#解法-iselectiont--cascade)
 - [フレームワークプリミティブ](#フレームワークプリミティブ)
 - [選択の同一性と値型](#選択の同一性と値型)
 - [例: カテゴリ → サブカテゴリ → 商品 (3 段)](#例-カテゴリ--サブカテゴリ--商品-3-段)
@@ -67,11 +67,11 @@ public interface IProductSelectionService     { Product Selected { get; } event 
 
 ---
 
-## 解法: `ISelectionStore<T>` + `Cascade`
+## 解法: `ISelection<T>` + `Cascade`
 
 要点は 2 つだけ。
 
-- **N 個の同型インターフェイスを 1 つのジェネリック** `ISelectionStore<T>` に畳む
+- **N 個の同型インターフェイスを 1 つのジェネリック** `ISelection<T>` に畳む
 - **「上を購読 → 自分をクリア → 再読込」の 3 段を 1 行の宣言** に畳む (`Cascade.Bind`)
 
 そして「自分をクリアすると、その変更通知で **さらに下が自動的にクリアされる**」——この連鎖が自動で起きるので、クリアの書き忘れが構造的に発生しません。
@@ -80,21 +80,21 @@ public interface IProductSelectionService     { Product Selected { get; } event 
 
 ## フレームワークプリミティブ
 
-汎用の選択ストア (`WinformsMVP.Common`)。判定の既定は「`T` が `ISelectable` を実装していれば Key 同値 (`SelectableKeyComparer<T>` を自動採用)、そうでなければ `EqualityComparer<T>.Default`」で、`IEqualityComparer<T>` を明示注入すればそれが最優先です ([選択の同一性と値型](#選択の同一性と値型) 参照)。
+汎用の選択保持オブジェクト (`WinformsMVP.Common`)。判定の既定は「`T` が `ISelectable` を実装していれば Key 同値 (`SelectableKeyComparer<T>` を自動採用)、そうでなければ `EqualityComparer<T>.Default`」で、`IEqualityComparer<T>` を明示注入すればそれが最優先です ([選択の同一性と値型](#選択の同一性と値型) 参照)。
 
 ```csharp
-public interface ISelectionStore<T> where T : class
+public interface ISelection<T> where T : class
 {
     T Current { get; }
     void Select(T item);              // Select(null) = clear
     event EventHandler CurrentChanged;
 }
 
-public sealed class SelectionStore<T> : ISelectionStore<T> where T : class
+public sealed class Selection<T> : ISelection<T> where T : class
 {
     private readonly IEqualityComparer<T> _comparer;
 
-    public SelectionStore(IEqualityComparer<T> comparer = null)
+    public Selection(IEqualityComparer<T> comparer = null)
     {
         // No comparer: ISelectable -> compare by Key; otherwise EqualityComparer<T>.Default.
         _comparer = comparer
@@ -121,7 +121,7 @@ public sealed class SelectionStore<T> : ISelectionStore<T> where T : class
 }
 ```
 
-> ⚠️ **判定は Id で、参照に頼らない。** 親が変わると下位リストは再クエリされ、**全く新しいインスタンス** に入れ替わります。参照同値で選択を比較/復元すると、論理的に「同じ」レコードが参照違いで一致しません。**エンティティに `ISelectable` を実装** すれば、`SelectionStore<T>` は comparer 未指定でも Key で判定するので、この罠は既定で塞がります (次節)。`ISelectable` を実装せず `Equals` も未実装の型では `EqualityComparer<T>.Default` が参照同値に退化するため、その場合は Id 比較の `IEqualityComparer<T>` を注入してください。
+> ⚠️ **判定は Id で、参照に頼らない。** 親が変わると下位リストは再クエリされ、**全く新しいインスタンス** に入れ替わります。参照同値で選択を比較/復元すると、論理的に「同じ」レコードが参照違いで一致しません。**エンティティに `ISelectable` を実装** すれば、`Selection<T>` は comparer 未指定でも Key で判定するので、この罠は既定で塞がります (次節)。`ISelectable` を実装せず `Equals` も未実装の型では `EqualityComparer<T>.Default` が参照同値に退化するため、その場合は Id 比較の `IEqualityComparer<T>` を注入してください。
 
 連鎖を 1 行にするヘルパー。**同期版**で、`initialSync` (既定 `true`) は束縛時に一度だけ現在値で同期します。
 
@@ -131,8 +131,8 @@ public static class Cascade
     // from が変わったら: target をクリア (→ 下位が連鎖クリア) し、新しい親値で再読込する。
     // initialSync=true: 束縛時にも一度 reload する (束縛時に親が既に値を持っていても下位が空のままにならない)。
     public static IDisposable Bind<TParent, TChild>(
-        ISelectionStore<TParent> from,
-        ISelectionStore<TChild> target,
+        ISelection<TParent> from,
+        ISelection<TChild> target,
         Action<TParent> reload,
         bool initialSync = true)
         where TParent : class where TChild : class
@@ -149,7 +149,7 @@ public static class Cascade
 
     // 多親版: target が a と b の両方に依存する場合 (下記「多親依存」参照)。
     public static IDisposable Combine<TA, TB, TChild>(
-        ISelectionStore<TA> a, ISelectionStore<TB> b, ISelectionStore<TChild> target,
+        ISelection<TA> a, ISelection<TB> b, ISelection<TChild> target,
         Action<TA, TB> reload, bool initialSync = true)
         where TA : class where TB : class where TChild : class { /* ... */ }
 }
@@ -161,11 +161,11 @@ public static class Cascade
 
 ## 選択の同一性と値型
 
-`ISelectionStore<T>` には `where T : class` 制約があります。これは「**未選択 = `null`**」を `Current` で表現するための制約で、値型 (`int` / `enum` / `Guid` / `DateTime` / `bool`) は `null` を持てないため直接は載りません (`string` は参照型なのでそのまま使えます)。そこで `WinformsMVP.Common` は同一性まわりの小さな補助を 3 つ用意します。
+`ISelection<T>` には `where T : class` 制約があります。これは「**未選択 = `null`**」を `Current` で表現するための制約で、値型 (`int` / `enum` / `Guid` / `DateTime` / `bool`) は `null` を持てないため直接は載りません (`string` は参照型なのでそのまま使えます)。そこで `WinformsMVP.Common` は同一性まわりの小さな補助を 3 つ用意します。
 
 ### エンティティ — `ISelectable` を実装する
 
-エンティティが Key (Id 等) を 1 か所宣言すれば、`SelectionStore<T>` は comparer を渡さなくても `SelectableKeyComparer<T>` を **自動採用** し、Key で判定します。再読込で別インスタンスになった「同じ行」も一致します。
+エンティティが Key (Id 等) を 1 か所宣言すれば、`Selection<T>` は comparer を渡さなくても `SelectableKeyComparer<T>` を **自動採用** し、Key で判定します。再読込で別インスタンスになった「同じ行」も一致します。
 
 ```csharp
 public sealed class Category : ISelectable
@@ -176,19 +176,19 @@ public sealed class Category : ISelectable
 }
 
 // comparer 未指定でも Key (=Id) 判定。手で comparer を渡す必要なし。
-var categoryStore = new SelectionStore<Category>();
+var categorySelection = new Selection<Category>();
 ```
 
-> 💡 `ISelectable` 方式は判定を **選択ストアの中だけに局所化** します。エンティティの `Equals`/`GetHashCode` を Id ベースに override するとアプリ全体 (Dictionary・HashSet・LINQ `Distinct` …) の同値性が変わってしまいますが、`ISelectable` + `SelectableKeyComparer<T>` ならエンティティ本来の同値性はそのままです。
+> 💡 `ISelectable` 方式は判定を **`Selection` の中だけに局所化** します。エンティティの `Equals`/`GetHashCode` を Id ベースに override するとアプリ全体 (Dictionary・HashSet・LINQ `Distinct` …) の同値性が変わってしまいますが、`ISelectable` + `SelectableKeyComparer<T>` ならエンティティ本来の同値性はそのままです。
 
 ### 値型 — `SelectableItem<T>` で包む
 
-値型や enum を選択単位にするときは `SelectableItem<T>` で包みます。Value を identity とし、`Text`/`ToString()` を持つのでリスト/コンボのデータソース項目としてもそのまま使えます。`SelectableItem<T>` 自身が `ISelectable` なので、ストアは Value で判定します。
+値型や enum を選択単位にするときは `SelectableItem<T>` で包みます。Value を identity とし、`Text`/`ToString()` を持つのでリスト/コンボのデータソース項目としてもそのまま使えます。`SelectableItem<T>` 自身が `ISelectable` なので、`Selection` は Value で判定します。
 
 ```csharp
-var yearStore = new SelectionStore<SelectableItem<int>>();
-yearStore.Select(SelectableItem.Of(2025));
-yearStore.Select(SelectableItem.Of(2025, "2025 年度"));   // 表示文字列付き
+var yearSelection = new Selection<SelectableItem<int>>();
+yearSelection.Select(SelectableItem.Of(2025));
+yearSelection.Select(SelectableItem.Of(2025, "2025 年度"));   // 表示文字列付き
 
 // 生成ヘルパー (型推論が効く)
 SelectableItem.Of(2025);                          // 単一
@@ -200,11 +200,11 @@ SelectableItem.FromEnum<OrderStatus>();                // enum 全値
 
 ### まとめ
 
-| 選びたいもの | ストアの型 | 既定の判定 |
+| 選びたいもの | `Selection` の型 | 既定の判定 |
 |---|---|---|
-| 領域エンティティ (`Category` …) | `ISelectionStore<Category>` (`ISelectable` 実装) | Key (Id) |
-| `string` | `ISelectionStore<string>` | `EqualityComparer.Default` (値) |
-| 値型 `int`/`enum`/`Guid`/`DateTime`/`bool` | `ISelectionStore<SelectableItem<int>>` | Value |
+| 領域エンティティ (`Category` …) | `ISelection<Category>` (`ISelectable` 実装) | Key (Id) |
+| `string` | `ISelection<string>` | `EqualityComparer.Default` (値) |
+| 値型 `int`/`enum`/`Guid`/`DateTime`/`bool` | `ISelection<SelectableItem<int>>` | Value |
 | 上記以外で独自判定したい | いずれも、`IEqualityComparer<T>` を注入 | 注入した comparer (最優先) |
 
 ---
@@ -224,24 +224,24 @@ public interface ISelectListView<T> : IViewBase where T : class
 
 ### 各レベルの Presenter
 
-各 Presenter が握るのは **Store (共有 Model)** と **Repository** だけ。他の Presenter は一切参照しません。各レベルは「入 (`Cascade.Bind` で上位に応じて自分のリストを再読込)」と「出 (自分の View の選択を自分の Store に書き戻す)」の二役です。
+各 Presenter が握るのは **Selection (共有 Model)** と **Repository** だけ。他の Presenter は一切参照しません。各レベルは「入 (`Cascade.Bind` で上位に応じて自分のリストを再読込)」と「出 (自分の View の選択を自分の Selection に書き戻す)」の二役です。
 
 ```csharp
-// 最上位 — 親はいない。自分のリストを読み、ユーザー選択を Store へ公開する
+// 最上位 — 親はいない。自分のリストを読み、ユーザー選択を Selection へ公開する
 public sealed class CategoryListPresenter : ControlPresenterBase<ISelectListView<Category>>
 {
-    private readonly ISelectionStore<Category> _store;
+    private readonly ISelection<Category> _selection;
     private readonly ICategoryRepository _repo;
 
-    public CategoryListPresenter(ISelectionStore<Category> store, ICategoryRepository repo)
+    public CategoryListPresenter(ISelection<Category> selection, ICategoryRepository repo)
     {
-        _store = store;
+        _selection = selection;
         _repo = repo;
     }
 
     protected override void OnViewAttached()
     {
-        // 出: View 選択 → Store。購読の解除は Disposables バッグが自動で行う
+        // 出: View 選択 → Selection。購読の解除は Disposables バッグが自動で行う
         EventHandler handler = OnUserSelected;
         View.SelectionChanged += handler;
         Disposable.Create(() => View.SelectionChanged -= handler).DisposeWith(Disposables);
@@ -250,21 +250,21 @@ public sealed class CategoryListPresenter : ControlPresenterBase<ISelectListView
     protected override void OnInitialize()
         => View.Items = _repo.GetAll();                  // 初期リスト読み込みは OnInitialize
 
-    private void OnUserSelected(object sender, EventArgs e) => _store.Select(View.Selected);
+    private void OnUserSelected(object sender, EventArgs e) => _selection.Select(View.Selected);
 
     // Cleanup の override は不要 — Disposables は Dispose 時にフレームワークが解放する
 }
 
-// 中間 — 入: Category を購読してリスト再読込; 出: サブカテゴリ選択を Store へ
+// 中間 — 入: Category を購読してリスト再読込; 出: サブカテゴリ選択を Selection へ
 public sealed class SubCategoryListPresenter : ControlPresenterBase<ISelectListView<SubCategory>>
 {
-    private readonly ISelectionStore<Category> _parent;       // 上位選択 (共有 Model)
-    private readonly ISelectionStore<SubCategory> _self;      // 自分の選択 (共有 Model)
+    private readonly ISelection<Category> _parent;       // 上位選択 (共有 Model)
+    private readonly ISelection<SubCategory> _self;      // 自分の選択 (共有 Model)
     private readonly ISubCategoryRepository _repo;
 
     public SubCategoryListPresenter(
-        ISelectionStore<Category> parent,
-        ISelectionStore<SubCategory> self,
+        ISelection<Category> parent,
+        ISelection<SubCategory> self,
         ISubCategoryRepository repo)
     {
         _parent = parent; _self = self; _repo = repo;
@@ -301,13 +301,13 @@ public sealed class SubCategoryListPresenter : ControlPresenterBase<ISelectListV
 // 末端 — SubCategory を購読する。中間とまったく同じ形
 public sealed class ProductListPresenter : ControlPresenterBase<ISelectListView<Product>>
 {
-    private readonly ISelectionStore<SubCategory> _parent;
-    private readonly ISelectionStore<Product> _self;
+    private readonly ISelection<SubCategory> _parent;
+    private readonly ISelection<Product> _self;
     private readonly IProductRepository _repo;
 
     public ProductListPresenter(
-        ISelectionStore<SubCategory> parent,
-        ISelectionStore<Product> self,
+        ISelection<SubCategory> parent,
+        ISelection<Product> self,
         IProductRepository repo)
     {
         _parent = parent; _self = self; _repo = repo;
@@ -338,24 +338,24 @@ public sealed class ProductListPresenter : ControlPresenterBase<ISelectListView<
 
 ### composition root (親 Form)
 
-Store と各 Presenter を生成し配線するのは composition root の責務です。**Store は画面ごとに生成** します (アプリ全体の singleton にしない)。
+Selection と各 Presenter を生成し配線するのは composition root の責務です。**Selection は画面ごとに生成** します (アプリ全体の singleton にしない)。
 
 ```csharp
-var categoryStore    = new SelectionStore<Category>();
-var subCategoryStore = new SelectionStore<SubCategory>();
-var productStore     = new SelectionStore<Product>();
+var categorySelection    = new Selection<Category>();
+var subCategorySelection = new Selection<SubCategory>();
+var productSelection     = new Selection<Product>();
 var catalog          = new InMemoryCatalog();
 
-var categoryP    = new CategoryListPresenter(categoryStore, catalog);
-var subCategoryP = new SubCategoryListPresenter(categoryStore, subCategoryStore, catalog);
-var productP     = new ProductListPresenter(subCategoryStore, productStore, catalog);
+var categoryP    = new CategoryListPresenter(categorySelection, catalog);
+var subCategoryP = new SubCategoryListPresenter(categorySelection, subCategorySelection, catalog);
+var productP     = new ProductListPresenter(subCategorySelection, productSelection, catalog);
 
 categoryP.Connect(categoryListControl);
 subCategoryP.Connect(subCategoryListControl);
 productP.Connect(productListControl);
 ```
 
-`subCategoryP` が受け取るのは `categoryStore` (上位 Model) と `subCategoryStore` (自分の Model) で、Presenter 参照はゼロです。
+`subCategoryP` が受け取るのは `categorySelection` (上位 Model) と `subCategorySelection` (自分の Model) で、Presenter 参照はゼロです。
 
 ### 動作の流れ
 
@@ -363,13 +363,13 @@ productP.Connect(productListControl);
 
 ```
 ユーザーが Category C を選択
-  → CategoryListPresenter: _categoryStore.Select(C)
-  → categoryStore.CurrentChanged
+  → CategoryListPresenter: _categorySelection.Select(C)
+  → categorySelection.CurrentChanged
       → SubCategory の Bind:
-          ① _subCategoryStore.Select(null)            // サブカテゴリ選択をクリア
-              → subCategoryStore.CurrentChanged
+          ① _subCategorySelection.Select(null)            // サブカテゴリ選択をクリア
+              → subCategorySelection.CurrentChanged
                   → Product の Bind:
-                      ① _productStore.Select(null)     // 商品選択をクリア (既に null なら短絡)
+                      ① _productSelection.Select(null)     // 商品選択をクリア (既に null なら短絡)
                       ② reload(sub = null) → 商品リスト = 空
           ② reload(category = C) → サブカテゴリリスト = C の一覧
 ```
@@ -384,19 +384,19 @@ productP.Connect(productListControl);
 
 「連鎖」と聞くと「親が子を駆動」しているように見えますが、実装は次のとおりです。
 
-- 各 Presenter が握るのは `ISelectionStore<T>` (共有 Model) と Repository **だけ**。他 Presenter への参照は存在しない。
-- `CategoryListPresenter` と `SubCategoryListPresenter` は **互いの存在を知らない**。やり取りは Store の `CurrentChanged` 経由の間接通信のみ。
-- 全レベルを束ねる **コーディネーター Presenter も不要**。連鎖は Store の通知が運ぶ。
+- 各 Presenter が握るのは `ISelection<T>` (共有 Model) と Repository **だけ**。他 Presenter への参照は存在しない。
+- `CategoryListPresenter` と `SubCategoryListPresenter` は **互いの存在を知らない**。やり取りは Selection の `CurrentChanged` 経由の間接通信のみ。
+- 全レベルを束ねる **コーディネーター Presenter も不要**。連鎖は Selection の通知が運ぶ。
 
 これは [共有 Model](HowTo-Communicate-Between-Presenters#共有-model--イベント) で `OrderSummaryPresenter` が `_orderModel.ProductAdded` を購読するのと同じ構図です。Model 変更を購読して反応するのは Presenter の正常な責務で、[Presenter が他の Presenter を持つ](HowTo-Communicate-Between-Presenters#-presenter-が他の-presenter-の参照を直接持つ) アンチパターンには該当しません。
 
-> 💡 変数名は `_categoryStore` のように **Store と分かる名前** に。`_categorySel` のような略称は「CategorySelector (= Presenter/コンポーネント)」と誤読され、持っているのが Model か Presenter か分からなくなります。
+> 💡 変数名は `_categorySelection` のように **Selection と分かる名前** に。`_categorySel` のような略称は「CategorySelector (= Presenter/コンポーネント)」と誤読され、持っているのが Model か Presenter か分からなくなります。
 
 ---
 
 ## リスト再読込が選択を再発火しない契約
 
-再読込で `View.Items` を入れ替えると、WinForms の `ListBox`/`DataGridView` は **先頭行を自動選択して選択イベントを発火** しがちです。これが `View.SelectionChanged → store.Select(自動項)` と回り込むと、ユーザー意図でない二次連鎖が起きます (クリア後 `Current=null` なので、自動選択された非 null は短絡されず発火してしまう)。
+再読込で `View.Items` を入れ替えると、WinForms の `ListBox`/`DataGridView` は **先頭行を自動選択して選択イベントを発火** しがちです。これが `View.SelectionChanged → selection.Select(自動項)` と回り込むと、ユーザー意図でない二次連鎖が起きます (クリア後 `Current=null` なので、自動選択された非 null は短絡されず発火してしまう)。
 
 そこで **View 側の契約**: 「`Items` の再設定は `SelectionChanged` を発火しない」。サンプルの `SelectListControl<T>` は再設定中だけ抑制フラグを立てます。
 
@@ -430,14 +430,14 @@ public IList<T> Items
 両方の親を購読し、どちらが変わっても両方の現在値で再読込する `Combine` を使います。
 
 ```csharp
-Cascade.Combine(_subCategoryStore, _warehouseStore, _productStore,
+Cascade.Combine(_subCategorySelection, _warehouseSelection, _productSelection,
     (sub, warehouse) =>
     {
         View.Items = (sub == null || warehouse == null)
             ? new Product[0]
             : _repo.GetBySubCategoryAndWarehouse(sub.Id, warehouse.Id);
     }).DisposeWith(Disposables);
-// sub か warehouse のどちらが変わっても: productStore をクリア → 両方の現在値で reload
+// sub か warehouse のどちらが変わっても: productSelection をクリア → 両方の現在値で reload
 ```
 
 3 つ以上の親が必要なら、`Combine` のオーバーロードを足すか、複数の親の `CurrentChanged` を手で購読し、同一ハンドラで `target.Select(null)` 後にすべての現在値で再読込します (論理は等価、`Bind` ほど一行ではないだけ)。
@@ -447,18 +447,18 @@ Cascade.Combine(_subCategoryStore, _warehouseStore, _productStore,
 ## 設計上の注意
 
 - **判定は Id・参照ではない** (上の ⚠️)。再読込は実例を入れ替えるので、参照同値はこの場面で必ず咬みます。
-- **`initialSync` は既定 ON**。「束縛時に親が既に値を持っているのに下位が空のまま」という隠れた罠を消します。各層が独立に初期同期し、束縛順に依存しません。初期同期は **再読込のみでクリアはしない** ので、Store を事前に詰めてから順に束縛すれば状態復元にも使えます。
+- **`initialSync` は既定 ON**。「束縛時に親が既に値を持っているのに下位が空のまま」という隠れた罠を消します。各層が独立に初期同期し、束縛順に依存しません。初期同期は **再読込のみでクリアはしない** ので、Selection を事前に詰めてから順に束縛すれば状態復元にも使えます。
 - **`reload` は自己回復する**。`Cascade` は巻き戻しません。同期 `reload` が途中で例外を投げると、最初に発火した Presenter まで呼び出しスタックを遡って「半端な連鎖」を残します。同期リポジトリでも例外は起き得る (タイムアウト・接続断) ので、`reload` 内で try/catch し、失敗時はリストを空にして通知 (上の例)。
 - **解放は `Disposables` バッグに任せる**: `Cascade.Bind` / `Combine` の戻り値と View イベント購読は、作成行で `.DisposeWith(Disposables)` を付ければ Presenter の Dispose 時にフレームワークが自動解放します。`_bind` フィールドや `Cleanup` override は不要です ([購読ライフサイクルの管理](HowTo-Manage-Presenter-Subscriptions) 参照)。
 - **初期リスト読み込みは `OnInitialize`**、View イベント購読は `OnViewAttached` (フレームワークのライフサイクル。[Presenter 基底クラス](Reference-Presenter-Base-Classes) 参照)。
-- **DI は開放ジェネリック登録が前提**。`services.AddSingleton(typeof(ISelectionStore<>), typeof(SelectionStore<>));` 1 行で全レベルを賄えます。ただし **singleton はアプリ全体共有** になるため、独立した複数の連鎖画面があるなら scoped/transient か手書き組み立てで **画面ごとに隔離** してください。
+- **DI は開放ジェネリック登録が前提**。`services.AddSingleton(typeof(ISelection<>), typeof(Selection<>));` 1 行で全レベルを賄えます。ただし **singleton はアプリ全体共有** になるため、独立した複数の連鎖画面があるなら scoped/transient か手書き組み立てで **画面ごとに隔離** してください。
 - **将来の非同期化**は `Action<TParent>` 版とは別に `Func<TParent, Task>` 版の `Cascade.Bind` を追加して並存させれば、既存 API を壊さず移行できます ([非同期処理を扱う](HowTo-Handle-Async-Operations) 参照)。
 
 ---
 
 ## 動的深度のとき
 
-階層の **深さがコンパイル時に分からない** 場合 (自己再帰的なファイルツリー等) は、型ごとに `ISelectionStore<T>` を分ける方式は合いません。レベル番号で選択を持つ単一の `DrillDownPath` を用意し、`SelectAt(level, item)` がそのレベルより下をすべて切り捨てる設計に切り替えます。より重い抽象なので、**深さが固定で各レベルの型が異なる** 通常の連鎖選択では本ページの方式を既定とし、`DrillDownPath` は逃げ道として温存します。
+階層の **深さがコンパイル時に分からない** 場合 (自己再帰的なファイルツリー等) は、型ごとに `ISelection<T>` を分ける方式は合いません。レベル番号で選択を持つ単一の `DrillDownPath` を用意し、`SelectAt(level, item)` がそのレベルより下をすべて切り捨てる設計に切り替えます。より重い抽象なので、**深さが固定で各レベルの型が異なる** 通常の連鎖選択では本ページの方式を既定とし、`DrillDownPath` は逃げ道として温存します。
 
 ---
 
@@ -468,9 +468,9 @@ Cascade.Combine(_subCategoryStore, _warehouseStore, _productStore,
 - ✅ 下位クリアが連鎖通知で自動 — 書き忘れによる stale 選択が構造的に起きない
 - ✅ `initialSync` 内蔵で「束縛時に値があるのに空」の罠がない
 - ✅ Presenter 同士は無結合、コーディネーター Presenter 不要
-- ✅ Store と `Cascade` はモック・単体テストが容易
-- ✅ 状態の所有者が明確 (各 `SelectionStore<T>`)
-- ❌ `SelectionStore<T>` と `Cascade` をフレームワーク側に用意する必要がある
+- ✅ Selection と `Cascade` はモック・単体テストが容易
+- ✅ 状態の所有者が明確 (各 `Selection<T>`)
+- ❌ `Selection<T>` と `Cascade` をフレームワーク側に用意する必要がある
 - ❌ DI に開放ジェネリック登録があると最も楽 (なくても可)
 - ❌ 多親は `Combine`、動的深度は別設計 (`DrillDownPath`) が必要
 
@@ -480,7 +480,7 @@ Cascade.Combine(_subCategoryStore, _warehouseStore, _productStore,
 
 ### ❌ レベルごとに手書きの選択 Service を N 個
 
-型引数違いの同型を手で展開するのは純粋なボイラープレート。`ISelectionStore<T>` 1 つに畳む。
+型引数違いの同型を手で展開するのは純粋なボイラープレート。`ISelection<T>` 1 つに畳む。
 
 ### ❌ コーディネーター Presenter が全子 Presenter を抱えて手で reload
 
@@ -495,7 +495,7 @@ public class MasterDetailPresenter
 }
 ```
 
-各レベルを `ISelectionStore<T>` の購読で自律させ、コーディネーターを消す。
+各レベルを `ISelection<T>` の購読で自律させ、コーディネーターを消す。
 
 ### ❌ 下位選択のクリアを各 Presenter で手書き
 
@@ -503,7 +503,7 @@ public class MasterDetailPresenter
 
 ### ❌ 選択状態を EventAggregator で管理
 
-選択は **所有・観測される状態** なので Store (共有 Model) の責務。EventAggregator は所有者のない横断通知のためのもの ([EventAggregator の誤用に注意](HowTo-Communicate-Between-Presenters#eventaggregator-の誤用に注意) 参照)。
+選択は **所有・観測される状態** なので Selection (共有 Model) の責務。EventAggregator は所有者のない横断通知のためのもの ([EventAggregator の誤用に注意](HowTo-Communicate-Between-Presenters#eventaggregator-の誤用に注意) 参照)。
 
 ---
 

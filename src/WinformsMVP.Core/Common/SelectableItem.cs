@@ -5,7 +5,7 @@ namespace WinformsMVP.Common
 {
     /// <summary>
     /// Exposes a key that represents the identity of a selection. When <typeparamref name="T"/>
-    /// of a <see cref="SelectionStore{T}"/> implements this interface, the store compares
+    /// of a <see cref="Selection{T}"/> implements this interface, the selection compares
     /// selections by this <see cref="Key"/> (via <see cref="SelectableKeyComparer{T}"/>) instead
     /// of by reference — so a reloaded list, which holds NEW instances, still matches "the same"
     /// row. Return a value-comparable key (int / string / Guid / enum, ...).
@@ -19,7 +19,7 @@ namespace WinformsMVP.Common
     /// <summary>
     /// A ready-made <see cref="ISelectable"/> wrapper around a value that is its own identity.
     /// Intended for value types (primitives / enums / <see cref="Guid"/> / <see cref="DateTime"/> /
-    /// <c>bool</c>), which cannot be used as <c>SelectionStore&lt;T&gt;</c>'s <c>T</c> directly
+    /// <c>bool</c>), which cannot be used as <c>Selection&lt;T&gt;</c>'s <c>T</c> directly
     /// (that <c>where T : class</c> constraint models "no selection = null"). Also usable as a
     /// list/combo data-source item thanks to <see cref="Text"/> / <see cref="ToString"/>.
     /// For domain entities, implement <see cref="ISelectable"/> on the entity instead of wrapping it.

@@ -194,14 +194,14 @@ WinForms の Presenter が特に肥大化しやすいのは、この 3 つが一
 
 | 関係 | 渡すもの | 機構 |
 |------|---------|------|
-| 親 → 子 | 一回的コマンド (窄い例外) | **まず共有 Model / イベントを検討**。本物の一回的コマンドのときだけ子 Presenter のメソッドを直接呼ぶ (handler は `private`、既定 `internal`、縫い目が要れば接口)。共有・観測される状態なら命令でなく下の Store へ |
+| 親 → 子 | 一回的コマンド (窄い例外) | **まず共有 Model / イベントを検討**。本物の一回的コマンドのときだけ子 Presenter のメソッドを直接呼ぶ (handler は `private`、既定 `internal`、縫い目が要れば接口)。共有・観測される状態なら命令でなく下の共有状態オブジェクトへ |
 | 子 → 親 | 通知 | 子がイベント/コールバックを公開し、親が購読する (**局所イベント**。グローバルバスを通さない) |
-| 兄弟 (所有関係なし) — **共有する状態** | 双方が見続ける 1 つのデータ | 変更通知付きの共有 **Store** (`event` / `INotifyPropertyChanged`)。両 Presenter に同じインスタンスを注入 |
+| 兄弟 (所有関係なし) — **共有する状態** | 双方が見続ける 1 つのデータ | 変更通知付きの **共有状態オブジェクト** (`event` / `INotifyPropertyChanged`。連鎖選択なら [`Selection<T>`](HowTo-Handle-Cascading-Selection))。両 Presenter に同じインスタンスを注入 |
 | 兄弟 — **一過性の信号** | 「エクスポートした」「再読み込みして」 | [EventAggregator](Reference-EventAggregator) または共通の親で協調 |
 
-> ⚠️ **状態で信号を偽装しない**。`bool` フラグを立てて即座にリセットする、カウンタを自増させて観察者を発火させる — こういうやり方は醜く、順序バグの温床です。両 Presenter が観察する「状態」なら Store、転瞬で消える「信号」なら EventAggregator。両者は競合ではなく、性質の異なる 2 つのやり取りを分担します。
+> ⚠️ **状態で信号を偽装しない**。`bool` フラグを立てて即座にリセットする、カウンタを自増させて観察者を発火させる — こういうやり方は醜く、順序バグの温床です。両 Presenter が観察する「状態」なら共有状態オブジェクト、転瞬で消える「信号」なら EventAggregator。両者は競合ではなく、性質の異なる 2 つのやり取りを分担します。
 >
-> 共有 Store を「何でも入れるグローバルゴミ箱」にしないこと。A が B を突くためだけにフィールドを足したなら、それは状態に偽装された信号です — イベントで送るべきです。
+> 共有状態オブジェクトを「何でも入れるグローバルゴミ箱」にしないこと。A が B を突くためだけにフィールドを足したなら、それは状態に偽装された信号です — イベントで送るべきです。
 
 ---
 
@@ -213,11 +213,13 @@ WinForms の Presenter が特に肥大化しやすいのは、この 3 つが一
 |------|-----------|----|
 | 受動的なデータ担体 | `Dto` / 裸の名詞 / `Info` / `Record` | `CustomerDto`、`Customer` |
 | ある View 用に整形した表示形状 | `PresentationModel` / `Vm` | `CustomerEditVm` |
-| 状態を持ち、観測可能で、共有ソースになる | `Store` / `State` / `StateContainer` | `SelectionStore`、`SelectionState` |
+| 状態を持ち、観測可能で、共有ソースになる | `State` / 持っているものの名前 | `CartState`、`Selection<Category>` |
 
-`Store` は Flux/Redux、`State`/`StateContainer` は Blazor のコンポーネント間通信に由来し、いずれも「状態を持つ + 通知を出す」を正確に伝えます。
+`State` は Blazor のコンポーネント間通信 (`XxxState` / `StateContainer`) でも使われる呼び方で、「状態を持つ + 通知を出す」を伝えます。持っているもの自体を表す名詞 (`Selection<T>` = 現在の選択) があれば、それがいちばん明確です。
 
-> 💡 実用的には、「やり取りに使うもの」だけを `Store`/`State` にリネームすれば、名前の衝突は即座に解消します。データクラスは元のままでも混同しなくなります。
+> ⚠️ `Store` は避けます。React/Vue の世界では Redux・Pinia のような **アプリ全体の状態コンテナ** (action・reducer 付き) を指すため、画面ごとの小さな通知付きオブジェクトに付けると実体より大きく見えます。フレームワークの `ISelectionStore<T>` が `ISelection<T>` に改名されたのも同じ理由です。
+
+> 💡 実用的には、「やり取りに使うもの」だけを `State` (または持っているものの名前) にリネームすれば、名前の衝突は即座に解消します。データクラスは元のままでも混同しなくなります。
 
 ---
 
@@ -337,8 +339,8 @@ Presenter には SQL も、業務ルールも、WinForms の入力型もあり�
 - [ ] 入力検証は境界、業務検証はサービス。Presenter にルールの正本を残さない。
 - [ ] 状態は 1 つだけ: 単純フォームは View コントロール、作業状態は Presenter の private フィールド。影の副本を作らない。
 - [ ] 生の Mouse/Keyboard を Presenter に入れない。View が意味イベントに翻訳する。
-- [ ] Presenter 間: 親子は直接メソッド呼び出し + 上向きイベント、兄弟の共有状態は通知付き Store、一過性の信号は EventAggregator/親で協調。
-- [ ] 命名は性質で: データは `Dto`、共有状態は `Store`/`State`。
+- [ ] Presenter 間: 親子は直接メソッド呼び出し + 上向きイベント、兄弟の共有状態は通知付きの共有状態オブジェクト、一過性の信号は EventAggregator/親で協調。
+- [ ] 命名は性質で: データは `Dto`、共有状態は `State` か持っているものの名前 (`Store` は避ける)。
 - [ ] Presenter の public 面はコンストラクタ/`Initialize`/`Dispose` のみ。`Dispose` で購読解除。
 - [ ] Presenter とサービスに対応する単体テストがある。
 
@@ -350,7 +352,7 @@ Presenter には SQL も、業務ルールも、WinForms の入力型もあり�
 |------|--------|
 | MVP パターンそのものと Supervising/Passive スペクトラム | [MVP パターンとは](Concept-MVP-Pattern) |
 | 全 17 条の設計ルール (Rule 16/17 = public 面の最小化) | [MVP 設計ルール](Design-Rules) |
-| Presenter 間の通信 (親子/兄弟/Store/EventAggregator) | [Presenter 間の通信方法](HowTo-Communicate-Between-Presenters) |
+| Presenter 間の通信 (親子/兄弟/共有状態/EventAggregator) | [Presenter 間の通信方法](HowTo-Communicate-Between-Presenters) |
 | 入力/業務検証の具体パターン | [フォーム入力を検証する](HowTo-Validate-Form-Input) |
 | 非同期処理での協調 (ビジー表示・再活性化・キャンセル) | [非同期処理を扱う](HowTo-Handle-Async-Operations) |
 | Presenter の単体テスト | [Presenter をテストする](HowTo-Test-A-Presenter) |

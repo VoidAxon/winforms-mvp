@@ -30,7 +30,7 @@ namespace WinformsMVP.Samples.CascadeDemo
             _title.Text = title;
             Controls.Add(_list);
             Controls.Add(_title);
-            // Only a genuine user change should flow to the store; repopulation must not.
+            // Only a genuine user change should flow to the selection; repopulation must not.
             _list.SelectedIndexChanged += delegate
             {
                 if (_suppress) return;

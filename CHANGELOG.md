@@ -64,6 +64,8 @@
 
 - **`ViewActionBinder` のルーティングを `Bind` のオーバーロードで決定** (BREAKING) — 以前は `ActionTriggered` に購読者がいると `Bind(dispatcher)` が Dispatcher への派発をスキップしていた (ログやステータス表示の購読だけで全ボタンが無反応になる)。現在 `Bind(dispatcher)` は常に派発し、その後 `ActionTriggered` を通知として発火する (通知側の例外が派発を妨げない)。`Bind()` はイベントのみ。Explicit パターンは「`ActionBinder` が `null` を返し、View 自身が `Bind()` を呼ぶ」形のみ。**移行**: binder を返しつつ `ActionTriggered` を `ActionRequest` に転送していた View は二重実行になるため、転送をやめて Implicit にするか、`ActionBinder => null` + `_binder.Bind()` に変更する。
 
+- **`ISelectionStore<T>` / `SelectionStore<T>` を `ISelection<T>` / `Selection<T>` に改名** (BREAKING) — 「Store」は Redux / Pinia などのアプリ全体の状態コンテナを連想させるが、実体は「現在の選択 1 つ + 変更通知」なので、役割どおりの名前にした。API (`Current` / `Select` / `CurrentChanged`、comparer の既定) と `Cascade.Bind` / `Combine` は変更なし。移行は型名の置換のみ (`ISelectionStore<` → `ISelection<`、`SelectionStore<` → `Selection<`)。
+
 ### Removed (削除)
 
 - **`ChangeTracker` の `CurrentValue` / `UpdateCurrentValue` / `RejectChanges` (`IRevertibleChangeTracking`) / `GetOriginalValue` / `IsChangedChanged`** (BREAKING) — データは呼び出し側が持つ。変更通知は無く、データが変わる箇所で `IsChanged` を読む。画面に留まったまま元に戻す場合はリポジトリから読み直し、新しい tracker を作る。

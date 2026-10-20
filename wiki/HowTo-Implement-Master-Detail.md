@@ -263,7 +263,7 @@ public partial class CustomerOrderForm : Form, ICustomerOrderView
 
 3 段以上 (カテゴリ → サブカテゴリ → 商品、国 → 都道府県 → 市区町村 等) の連鎖選択は、専用ページ **[連鎖選択 (カスケード) を扱う](HowTo-Handle-Cascading-Selection)** を参照してください。
 
-各レベルに手書きの選択 Service を N 個用意する素朴な実装は、(1) 同型コードの重複と (2) 上位変更時の「下位選択クリア忘れ」という 2 つの罠を抱えます。汎用の `ISelectionStore<T>` + `Cascade.Bind` を使えば、N 個の Service を 1 つのジェネリックに、各レベルの「上位購読 → 自分をクリア → 再読込」を 1 行に畳み、下位クリアを通知連鎖で自動化できます (多親依存は `Cascade.Combine`)。
+各レベルに手書きの選択 Service を N 個用意する素朴な実装は、(1) 同型コードの重複と (2) 上位変更時の「下位選択クリア忘れ」という 2 つの罠を抱えます。汎用の `ISelection<T>` + `Cascade.Bind` を使えば、N 個の Service を 1 つのジェネリックに、各レベルの「上位購読 → 自分をクリア → 再読込」を 1 行に畳み、下位クリアを通知連鎖で自動化できます (多親依存は `Cascade.Combine`)。
 
 ---
 
@@ -452,7 +452,7 @@ public void DeletingCustomer_WithOrders_ConfirmsBeforeDelete()
 ## 関連ページ
 
 - [HowTo: Presenter 間の通信方法](HowTo-Communicate-Between-Presenters) — 共有 Model + イベント パターン
-- [連鎖選択 (カスケード) を扱う](HowTo-Handle-Cascading-Selection) — 3 段以上の N 段連鎖 (`ISelectionStore<T>` + `Cascade`)
+- [連鎖選択 (カスケード) を扱う](HowTo-Handle-Cascading-Selection) — 3 段以上の N 段連鎖 (`ISelection<T>` + `Cascade`)
 - [ViewAction システム](Reference-ViewAction-System) — State-driven CanExecute
 - [HowTo: 非同期処理を扱う](HowTo-Handle-Async-Operations) — 詳細読み込みの async 化
 - サンプル:
