@@ -61,7 +61,9 @@ namespace WinformsMVP.MVP.ViewActions
         private ViewActionDispatcher _dispatcher;
         private Action<ViewAction, object> _onActionTriggered;   // dispatch callback of the current Bind; null = events only
         private bool _bound;
-        private readonly Dictionary<ViewAction, ViewActionCommand> _commands = new Dictionary<ViewAction, ViewActionCommand>();
+        // Keyed by action and payload type (null = untyped) so CommandFor(key) and CommandFor<T>(key)
+        // each keep their own parameter rules.
+        private readonly Dictionary<(ViewAction, Type), ViewActionCommand> _commands = new Dictionary<(ViewAction, Type), ViewActionCommand>();
 
         /// <summary>
         /// Raised when an action is triggered from a bound control. With <see cref="Bind(ViewActionDispatcher)"/>
@@ -258,19 +260,19 @@ namespace WinformsMVP.MVP.ViewActions
         /// WinForms' <c>ButtonBase.Command</c> / <c>ToolStripItem.Command</c> (.NET 7+). Executing it
         /// triggers the action like a bound control: it dispatches once the binder is bound to a
         /// dispatcher, and raises <see cref="ActionTriggered"/>. CanExecute follows the action's
-        /// canExecute (false before binding). One instance per key. Give a control either a
+        /// canExecute (false before binding). One instance per key (the typed and untyped commands of a key are separate instances). Give a control either a
         /// <c>Command</c> or an <c>Add</c> binding for an action, not both, or it triggers twice.
         /// Create it on the UI thread (e.g. in the form constructor): CanExecuteChanged is raised there.
         /// </summary>
         public System.Windows.Input.ICommand CommandFor(ViewAction actionKey)
-            => GetCommand(actionKey, parameter => parameter);
+            => GetCommand(actionKey, null, parameter => parameter);
 
         /// <summary>
         /// The <see cref="System.Windows.Input.ICommand"/> for a typed action; the command parameter
         /// is the payload and must be a <typeparamref name="T"/> (null passes <c>default(T)</c>).
         /// </summary>
         public System.Windows.Input.ICommand CommandFor<T>(ViewAction<T> actionKey)
-            => GetCommand(actionKey.Key, parameter =>
+            => GetCommand(actionKey.Key, typeof(T), parameter =>
             {
                 if (parameter == null) return default(T);
                 if (parameter is T) return parameter;
@@ -279,15 +281,15 @@ namespace WinformsMVP.MVP.ViewActions
                     nameof(parameter));
             });
 
-        private ViewActionCommand GetCommand(ViewAction actionKey, Func<object, object> payload)
+        private ViewActionCommand GetCommand(ViewAction actionKey, Type payloadType, Func<object, object> payload)
         {
             if (actionKey.Name == null)
                 throw new ArgumentException(
                     "default(ViewAction) is not a valid action key; create keys with ViewAction.Create(...).");
-            if (!_commands.TryGetValue(actionKey, out var command))
+            if (!_commands.TryGetValue((actionKey, payloadType), out var command))
             {
                 command = new ViewActionCommand(this, actionKey, payload);
-                _commands[actionKey] = command;
+                _commands[(actionKey, payloadType)] = command;
             }
             return command;
         }

@@ -140,6 +140,24 @@ namespace WinformsMVP.Samples.Tests.ViewActions
         }
 
         [Fact]
+        public void TypedCommand_KeepsItsPayloadRules_WhenTheUntypedCommandWasCreatedFirst()
+        {
+            int? received = null;
+            var dispatcher = new ViewActionDispatcher();
+            dispatcher.Register(Zoom, z => received = z);
+            var binder = new ViewActionBinder();
+            var untyped = binder.CommandFor(Zoom.Key);
+            var typed = binder.CommandFor(Zoom);
+            binder.Bind(dispatcher);
+
+            typed.Execute(null);   // default(int)
+
+            Assert.NotSame(untyped, typed);
+            Assert.Equal(0, received);
+            Assert.Throws<ArgumentException>(() => typed.Execute("not an int"));
+        }
+
+        [Fact]
         public void Command_ExplicitPattern_RaisesActionTriggered()
         {
             ViewAction? triggered = null;
