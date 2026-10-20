@@ -136,6 +136,8 @@ namespace WinformsMVP.Testing
         // shutdown / Task Manager, which go through. A RequestClose made while the gate is
         // deciding (X -> "Save changes?" -> Yes -> saved) is the result of that close: recorded
         // only if the gate allows.
+        // The deferred gate answer arrives on a thread-pool thread, so gate state is locked.
+        private readonly object _gateLock = new object();
         private TaskCompletionSource<bool> _pendingGate;
         private bool _hasGateResult;
         private object _gateResult;
@@ -143,35 +145,45 @@ namespace WinformsMVP.Testing
 
         private Task<bool> RunGate(ICloseParticipant participant, CloseReason reason)
         {
-            if (_pendingGate != null)
+            var gate = new TaskCompletionSource<bool>();
+            lock (_gateLock)
             {
-                return reason == CloseReason.SystemShutdown || reason == CloseReason.TaskManager
-                    ? Task.FromResult(true)
-                    : _pendingGate.Task;
+                if (_pendingGate != null)
+                {
+                    return reason == CloseReason.SystemShutdown || reason == CloseReason.TaskManager
+                        ? Task.FromResult(true)
+                        : _pendingGate.Task;
+                }
+                _pendingGate = gate;
             }
 
-            var gate = new TaskCompletionSource<bool>();
-            _pendingGate = gate;
             try
             {
                 participant.CanCloseGate(reason, ok =>
                 {
-                    if (_pendingGate != gate) return;
-                    _pendingGate = null;
-                    if (ok && _hasGateResult) Record(_gateResult, _gateStatus);
-                    ClearGateResult();
+                    lock (_gateLock)
+                    {
+                        if (_pendingGate != gate) return;
+                        _pendingGate = null;
+                        if (ok && _hasGateResult) Record(_gateResult, _gateStatus);
+                        ClearGateResult();
+                    }
                     gate.TrySetResult(ok);
                 });
             }
             catch
             {
-                if (_pendingGate == gate) _pendingGate = null;
-                ClearGateResult();
+                lock (_gateLock)
+                {
+                    if (_pendingGate == gate) _pendingGate = null;
+                    ClearGateResult();
+                }
                 throw;
             }
             return gate.Task;
         }
 
+        // Callers hold _gateLock.
         private void ClearGateResult()
         {
             _hasGateResult = false;
@@ -195,14 +207,17 @@ namespace WinformsMVP.Testing
 
             public void Close(object result, InteractionStatus status)
             {
-                if (_host._pendingGate != null)
+                lock (_host._gateLock)
                 {
-                    _host._hasGateResult = true;
-                    _host._gateResult = result;
-                    _host._gateStatus = status;
-                    return;
+                    if (_host._pendingGate != null)
+                    {
+                        _host._hasGateResult = true;
+                        _host._gateResult = result;
+                        _host._gateStatus = status;
+                        return;
+                    }
+                    _host.Record(result, status);
                 }
-                _host.Record(result, status);
             }
         }
     }
