@@ -175,7 +175,7 @@ namespace WinformsMVP.Samples
                     "Event Aggregator Pub-Sub • Decoupled Messaging",
                     Color.FromArgb(184, 134, 11), LaunchEventBasedDemo),
                 new DemoItem("Cascade (N-level selection)",
-                    "N-level cascading selection • SelectionStore • Child presenter wiring",
+                    "N-level cascading selection • Selection • Child presenter wiring",
                     Color.FromArgb(0, 100, 160), LaunchCascadeDemo));
 
             AddSection(content, "Complete Application",

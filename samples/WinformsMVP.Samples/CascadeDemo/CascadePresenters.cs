@@ -4,15 +4,15 @@ using WinformsMVP.MVP.Presenters;
 
 namespace WinformsMVP.Samples.CascadeDemo
 {
-    // Top level: no parent. Loads its own list; publishes the user's selection to its store.
+    // Top level: no parent. Loads its own list; publishes the user's selection to its Selection.
     public sealed class CategoryListPresenter : ControlPresenterBase<ISelectListView<Category>>
     {
-        private readonly ISelectionStore<Category> _store;
+        private readonly ISelection<Category> _selection;
         private readonly ICategoryRepository _repo;
 
-        public CategoryListPresenter(ISelectionStore<Category> store, ICategoryRepository repo)
+        public CategoryListPresenter(ISelection<Category> selection, ICategoryRepository repo)
         {
-            _store = store;
+            _selection = selection;
             _repo = repo;
         }
 
@@ -28,19 +28,19 @@ namespace WinformsMVP.Samples.CascadeDemo
             View.Items = _repo.GetAll();   // initial list load belongs in OnInitialize
         }
 
-        private void OnUserSelected(object sender, EventArgs e) { _store.Select(View.Selected); }
+        private void OnUserSelected(object sender, EventArgs e) { _selection.Select(View.Selected); }
     }
 
-    // Middle level: subscribes to the parent (Category) store, reloads its own list.
+    // Middle level: subscribes to the parent (Category) selection, reloads its own list.
     public sealed class SubCategoryListPresenter : ControlPresenterBase<ISelectListView<SubCategory>>
     {
-        private readonly ISelectionStore<Category> _parent;
-        private readonly ISelectionStore<SubCategory> _self;
+        private readonly ISelection<Category> _parent;
+        private readonly ISelection<SubCategory> _self;
         private readonly ISubCategoryRepository _repo;
 
         public SubCategoryListPresenter(
-            ISelectionStore<Category> parent,
-            ISelectionStore<SubCategory> self,
+            ISelection<Category> parent,
+            ISelection<SubCategory> self,
             ISubCategoryRepository repo)
         {
             _parent = parent;
@@ -73,16 +73,16 @@ namespace WinformsMVP.Samples.CascadeDemo
         private void OnUserSelected(object sender, EventArgs e) { _self.Select(View.Selected); }
     }
 
-    // Leaf level: subscribes to the SubCategory store. Same shape as the middle level.
+    // Leaf level: subscribes to the SubCategory selection. Same shape as the middle level.
     public sealed class ProductListPresenter : ControlPresenterBase<ISelectListView<Product>>
     {
-        private readonly ISelectionStore<SubCategory> _parent;
-        private readonly ISelectionStore<Product> _self;
+        private readonly ISelection<SubCategory> _parent;
+        private readonly ISelection<Product> _self;
         private readonly IProductRepository _repo;
 
         public ProductListPresenter(
-            ISelectionStore<SubCategory> parent,
-            ISelectionStore<Product> self,
+            ISelection<SubCategory> parent,
+            ISelection<Product> self,
             IProductRepository repo)
         {
             _parent = parent;

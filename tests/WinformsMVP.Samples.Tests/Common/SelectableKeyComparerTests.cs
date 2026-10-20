@@ -44,42 +44,42 @@ namespace WinformsMVP.Samples.Tests.Common
         }
 
         [Fact]
-        public void StoreAutoSelectsKeyComparer_ForISelectableEntity()
+        public void SelectionAutoSelectsKeyComparer_ForISelectableEntity()
         {
-            // No comparer passed: store should compare ISelectable entities by Key.
-            var store = new SelectionStore<Entity>();
-            store.Select(new Entity(7, "first"));
+            // No comparer passed: the selection should compare ISelectable entities by Key.
+            var selection = new Selection<Entity>();
+            selection.Select(new Entity(7, "first"));
 
             int raised = 0;
-            store.CurrentChanged += (s, e) => raised++;
-            store.Select(new Entity(7, "reloaded"));   // new instance, same Key
+            selection.CurrentChanged += (s, e) => raised++;
+            selection.Select(new Entity(7, "reloaded"));   // new instance, same Key
 
             Assert.Equal(0, raised);
         }
 
         [Fact]
-        public void StoreAutoSelectsKeyComparer_ForSelectableItemValueType()
+        public void SelectionAutoSelectsKeyComparer_ForSelectableItemValueType()
         {
-            var store = new SelectionStore<SelectableItem<int>>();
-            store.Select(SelectableItem.Of(2025));
+            var selection = new Selection<SelectableItem<int>>();
+            selection.Select(SelectableItem.Of(2025));
 
             int raised = 0;
-            store.CurrentChanged += (s, e) => raised++;
-            store.Select(SelectableItem.Of(2025, "different label"));   // same Value
+            selection.CurrentChanged += (s, e) => raised++;
+            selection.Select(SelectableItem.Of(2025, "different label"));   // same Value
 
             Assert.Equal(0, raised);
         }
 
         [Fact]
-        public void Store_NonSelectableType_FallsBackToDefaultComparer()
+        public void Selection_NonSelectableType_FallsBackToDefaultComparer()
         {
             // string has good value equality and does NOT implement ISelectable.
-            var store = new SelectionStore<string>();
-            store.Select("x");
+            var selection = new Selection<string>();
+            selection.Select("x");
 
             int raised = 0;
-            store.CurrentChanged += (s, e) => raised++;
-            store.Select(string.Concat("x"));   // equal by value -> short-circuited
+            selection.CurrentChanged += (s, e) => raised++;
+            selection.Select(string.Concat("x"));   // equal by value -> short-circuited
 
             Assert.Equal(0, raised);
         }

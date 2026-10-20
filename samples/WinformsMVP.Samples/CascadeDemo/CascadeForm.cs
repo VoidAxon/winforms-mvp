@@ -36,16 +36,16 @@ namespace WinformsMVP.Samples.CascadeDemo
             layout.Controls.Add(productControl, 2, 0);
             Controls.Add(layout);
 
-            // Per-screen stores (not app-wide singletons).
-            var categoryStore = new SelectionStore<Category>();
-            var subCategoryStore = new SelectionStore<SubCategory>();
-            var productStore = new SelectionStore<Product>();
+            // Per-screen selections (not app-wide singletons).
+            var categorySelection = new Selection<Category>();
+            var subCategorySelection = new Selection<SubCategory>();
+            var productSelection = new Selection<Product>();
 
             var catalog = new InMemoryCatalog();
 
-            _categoryPresenter = new CategoryListPresenter(categoryStore, catalog);
-            _subCategoryPresenter = new SubCategoryListPresenter(categoryStore, subCategoryStore, catalog);
-            _productPresenter = new ProductListPresenter(subCategoryStore, productStore, catalog);
+            _categoryPresenter = new CategoryListPresenter(categorySelection, catalog);
+            _subCategoryPresenter = new SubCategoryListPresenter(categorySelection, subCategorySelection, catalog);
+            _productPresenter = new ProductListPresenter(subCategorySelection, productSelection, catalog);
 
             _categoryPresenter.Connect(categoryControl);
             _subCategoryPresenter.Connect(subCategoryControl);

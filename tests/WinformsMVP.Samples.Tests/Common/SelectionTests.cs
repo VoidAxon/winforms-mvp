@@ -4,7 +4,7 @@ using Xunit;
 
 namespace WinformsMVP.Samples.Tests.Common
 {
-    public class SelectionStoreTests
+    public class SelectionTests
     {
         private sealed class Item
         {
@@ -26,27 +26,27 @@ namespace WinformsMVP.Samples.Tests.Common
         [Fact]
         public void Select_ChangingValue_RaisesCurrentChangedOnce()
         {
-            var store = new SelectionStore<Item>();
+            var selection = new Selection<Item>();
             int raised = 0;
-            store.CurrentChanged += (s, e) => raised++;
+            selection.CurrentChanged += (s, e) => raised++;
 
             var a = new Item(1);
-            store.Select(a);
+            selection.Select(a);
 
-            Assert.Same(a, store.Current);
+            Assert.Same(a, selection.Current);
             Assert.Equal(1, raised);
         }
 
         [Fact]
         public void Select_SameReference_DoesNotRaise()
         {
-            var store = new SelectionStore<Item>();
+            var selection = new Selection<Item>();
             var a = new Item(1);
-            store.Select(a);
+            selection.Select(a);
 
             int raised = 0;
-            store.CurrentChanged += (s, e) => raised++;
-            store.Select(a);
+            selection.CurrentChanged += (s, e) => raised++;
+            selection.Select(a);
 
             Assert.Equal(0, raised);
         }
@@ -54,23 +54,23 @@ namespace WinformsMVP.Samples.Tests.Common
         [Fact]
         public void Select_Null_ClearsCurrent()
         {
-            var store = new SelectionStore<Item>();
-            store.Select(new Item(1));
+            var selection = new Selection<Item>();
+            selection.Select(new Item(1));
 
-            store.Select(null);
+            selection.Select(null);
 
-            Assert.Null(store.Current);
+            Assert.Null(selection.Current);
         }
 
         [Fact]
         public void Select_WithComparer_TreatsEqualValuesAsUnchanged()
         {
-            var store = new SelectionStore<Item>(new ByIdComparer());
-            store.Select(new Item(7));
+            var selection = new Selection<Item>(new ByIdComparer());
+            selection.Select(new Item(7));
 
             int raised = 0;
-            store.CurrentChanged += (s, e) => raised++;
-            store.Select(new Item(7));   // different instance, equal by Id
+            selection.CurrentChanged += (s, e) => raised++;
+            selection.Select(new Item(7));   // different instance, equal by Id
 
             Assert.Equal(0, raised);
         }

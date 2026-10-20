@@ -213,7 +213,7 @@ WinForms の Presenter が特に肥大化しやすいのは、この 3 つが一
 |------|-----------|----|
 | 受動的なデータ担体 | `Dto` / 裸の名詞 / `Info` / `Record` | `CustomerDto`、`Customer` |
 | ある View 用に整形した表示形状 | `PresentationModel` / `Vm` | `CustomerEditVm` |
-| 状態を持ち、観測可能で、共有ソースになる | `Store` / `State` / `StateContainer` | `SelectionStore`、`SelectionState` |
+| 状態を持ち、観測可能で、共有ソースになる | `Store` / `State` / `StateContainer` | `CartStore`、`SelectionState` |
 
 `Store` は Flux/Redux、`State`/`StateContainer` は Blazor のコンポーネント間通信に由来し、いずれも「状態を持つ + 通知を出す」を正確に伝えます。
 

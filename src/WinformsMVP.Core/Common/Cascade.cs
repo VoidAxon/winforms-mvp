@@ -21,8 +21,8 @@ namespace WinformsMVP.Common
         /// cleared but not reloaded. Dispose the returned token to unsubscribe.
         /// </remarks>
         public static IDisposable Bind<TParent, TChild>(
-            ISelectionStore<TParent> from,
-            ISelectionStore<TChild> target,
+            ISelection<TParent> from,
+            ISelection<TChild> target,
             Action<TParent> reload,
             bool initialSync = true)
             where TParent : class
@@ -50,9 +50,9 @@ namespace WinformsMVP.Common
         /// with both current values. (<see cref="Bind{TParent,TChild}"/> is the single-parent case.)
         /// </summary>
         public static IDisposable Combine<TA, TB, TChild>(
-            ISelectionStore<TA> a,
-            ISelectionStore<TB> b,
-            ISelectionStore<TChild> target,
+            ISelection<TA> a,
+            ISelection<TB> b,
+            ISelection<TChild> target,
             Action<TA, TB> reload,
             bool initialSync = true)
             where TA : class
