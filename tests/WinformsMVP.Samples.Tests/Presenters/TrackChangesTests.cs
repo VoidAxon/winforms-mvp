@@ -73,9 +73,10 @@ namespace WinformsMVP.Samples.Tests.Presenters
         [Fact]
         public void Default_UsesBuiltInEngines()
         {
-            var tracker = Start(p => p.Track(new Order { Name = "a" }));
+            var order = new Order { Name = "a" };
+            var tracker = Start(p => p.Track(order));
 
-            tracker.CurrentValue.Name = "b";
+            order.Name = "b";
 
             Assert.True(tracker.IsChanged);
         }
@@ -84,9 +85,10 @@ namespace WinformsMVP.Samples.Tests.Presenters
         public void RegisteredComparerEngine_IsUsed()
         {
             ServiceLocator.Configure(r => r.RegisterInstance<IObjectContentComparer>(new AlwaysEqual()));
-            var tracker = Start(p => p.Track(new Order { Name = "a" }));
+            var order = new Order { Name = "a" };
+            var tracker = Start(p => p.Track(order));
 
-            tracker.CurrentValue.Name = "b";
+            order.Name = "b";
 
             Assert.False(tracker.IsChanged);
         }
@@ -99,7 +101,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
 
             Start(p => p.Track(new Order { Name = "a" }));
 
-            Assert.Equal(2, cloner.Count);
+            Assert.Equal(1, cloner.Count);   // the snapshot only
         }
 
         [Fact]
@@ -112,8 +114,9 @@ namespace WinformsMVP.Samples.Tests.Presenters
                 r.RegisterInstance(new ChangeTrackingPolicy<Order>(o => new Order { Id = o.Id, Name = o.Name }, (a, b) => true));
             });
 
-            var tracker = Start(p => p.Track(new Order { Name = "a" }));
-            tracker.CurrentValue.Name = "b";
+            var order = new Order { Name = "a" };
+            var tracker = Start(p => p.Track(order));
+            order.Name = "b";
 
             Assert.False(tracker.IsChanged);
             Assert.Equal(0, cloner.Count);
@@ -126,8 +129,9 @@ namespace WinformsMVP.Samples.Tests.Presenters
                 new ChangeTrackingPolicy<Order>(o => new Order { Name = o.Name }, (a, b) => true)));
             var explicitPolicy = new ChangeTrackingPolicy<Order>(o => new Order { Name = o.Name }, (a, b) => a.Name == b.Name);
 
-            var tracker = Start(p => p.Track(new Order { Name = "a" }, explicitPolicy));
-            tracker.CurrentValue.Name = "b";
+            var order = new Order { Name = "a" };
+            var tracker = Start(p => p.Track(order, explicitPolicy));
+            order.Name = "b";
 
             Assert.True(tracker.IsChanged);
         }
@@ -138,10 +142,11 @@ namespace WinformsMVP.Samples.Tests.Presenters
             var cloner = new CountingCloner();
             ServiceLocator.Configure(r => r.RegisterInstance<IObjectCloner>(cloner));
 
-            var tracker = Start(p => p.Track(new Order { Id = 1, Name = "a" }, (a, b) => a.Id == b.Id));
-            tracker.CurrentValue.Name = "b";
+            var order = new Order { Id = 1, Name = "a" };
+            var tracker = Start(p => p.Track(order, (a, b) => a.Id == b.Id));
+            order.Name = "b";
 
-            Assert.Equal(2, cloner.Count);
+            Assert.Equal(1, cloner.Count);   // the snapshot only
             Assert.False(tracker.IsChanged);
         }
 
@@ -154,16 +159,17 @@ namespace WinformsMVP.Samples.Tests.Presenters
 
             Start(p => p.Track(new Order { Id = 1 }, (a, b) => a.Id == b.Id));
 
-            Assert.Equal(2, policyClones);
+            Assert.Equal(1, policyClones);   // the snapshot only
         }
 
         [Fact]
         public void PolicyFixedAtCreation()
         {
-            var tracker = Start(p => p.Track(new Order { Name = "a" }));
+            var order = new Order { Name = "a" };
+            var tracker = Start(p => p.Track(order));
 
             ServiceLocator.Configure(r => r.RegisterInstance<IObjectContentComparer>(new AlwaysEqual()));
-            tracker.CurrentValue.Name = "b";
+            order.Name = "b";
 
             Assert.True(tracker.IsChanged);   // the later configuration does not reach an existing tracker
         }

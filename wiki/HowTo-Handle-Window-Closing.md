@@ -58,12 +58,11 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView, EditUserPara
 
     protected override void OnViewAttached()
     {
-        // Push the view's current snapshot into the tracker so IsChangedWith
-        // always compares against the freshest user input, then re-evaluate
-        // CanExecute so the Save button reflects the updated dirty state.
+        // The tracker raises no change notification: read the dirty state where the
+        // view reports an edit, and re-evaluate CanExecute in the same place.
         View.EditChanged += (s, e) =>
         {
-            _changeTracker.UpdateCurrentValue(View.GetModel());
+            View.IsDirty = HasUnsavedChanges;
             Dispatcher.RaiseCanExecuteChanged();
         };
     }
@@ -71,20 +70,20 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView, EditUserPara
     protected override void OnInitialize(EditUserParameters parameters)
     {
         var user = LoadUser(parameters.UserId);
-        // The tracker only detects changes: it keeps its own copy as the baseline.
-        // The data shown and saved is the presenter's / the view's, never the tracker's.
-        _changeTracker = new ChangeTracker<UserModel>(user);
         View.Populate(user);
-
-        // IsChangedChanged fires after each UpdateCurrentValue call above; keep
-        // the subscription so CanExecute is also refreshed on snapshot acceptance.
-        _changeTracker.IsChangedChanged += (s, e) => Dispatcher.RaiseCanExecuteChanged();
+        // Style 2 ("a new model from the view each time"): the tracker only detects
+        // changes. This first model is used just to take the first snapshot.
+        _changeTracker = TrackChanges(View.GetModel());
+        View.IsDirty = false;
     }
+
+    private bool HasUnsavedChanges =>
+        _changeTracker != null && _changeTracker.IsChangedWith(View.GetModel());
 
     protected override void RegisterViewActions()
     {
         Dispatcher.Register(StandardActions.Save, OnSave,
-            canExecute: () => _changeTracker.IsChanged);
+            canExecute: () => HasUnsavedChanges);
         Dispatcher.Register(StandardActions.Cancel, OnCancel);
     }
 
@@ -95,7 +94,7 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView, EditUserPara
         if (reason == CloseReason.SystemShutdown || reason == CloseReason.TaskManager)
             return true;
 
-        if (!_changeTracker.IsChanged) return true;
+        if (!HasUnsavedChanges) return true;
 
         return Messages.ConfirmYesNo("Discard unsaved changes?", "Confirm");
     }
@@ -103,17 +102,19 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView, EditUserPara
     // ── Push direction: Save / Cancel buttons ────────────────────────────────
     private void OnSave()
     {
-        // Sync the final view state before persisting; EditChanged may not have
+        // Read the final view state before persisting; EditChanged may not have
         // fired if the control with focus has not yet committed its value.
         var user = View.GetModel();
         SaveUser(user);
-        _changeTracker.AcceptChanges(user);   // new baseline; CanClose will see clean state
+        _changeTracker.AcceptChanges(user);   // snapshot = saved value; CanClose sees clean state
         RequestClose(BuildResult(), InteractionStatus.Ok);
     }
 
     private void OnCancel()
     {
-        _changeTracker.RejectChanges();
+        // Discard: stop tracking the discarded edits BEFORE RequestClose (this does not
+        // mean they were saved), so CanClose would not ask again.
+        _changeTracker.AcceptChanges(View.GetModel());
         RequestClose(InteractionStatus.Cancel);
     }
 
@@ -123,11 +124,13 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView, EditUserPara
 
 ### 二重プロンプトが起きない理由
 
-`WindowLifecycleController` は `RequestClose` が呼ばれると内部の抑制フラグをセットするため、続いて実行される `form.Close()` が発火する `FormClosing` イベントでは `CanClose` が完全にスキップされます。これは構造的な保証であり、`AcceptChanges` を `RequestClose` より前に呼ぶかどうかには依存しません。
+Push ハンドラ (`OnSave` / `OnCancel`) は `RequestClose` を呼ぶ **前に** ダーティ状態を確定させます (保存なら保存した値で、破棄なら破棄する画面の値で `AcceptChanges`)。これで `CanClose` がその後いつ評価されてもクリーンな状態を見るため、再確認は出ません。ダーティ確認は `CanClose` (Pull) にだけ置くという約束の裏返しです。
+
+なお現在の `WindowLifecycleController` は、`RequestClose` から自分で起こした `form.Close()` については `FormClosing` のゲートを 1 回省略します。これは実装の詳細であり、Push ハンドラでダーティ状態を確定させる理由を置き換えるものではありません (テストの `host.CanClose()` などはゲートを直接評価します)。
 
 ```
 OnSave()
-    ├─ AcceptChanges()         ← model state only
+    ├─ AcceptChanges(user)     ← finalize the dirty state first
     └─ RequestClose(...)
           ↓
     WindowLifecycleController.Close():  _suppressGate = true, form.Close()
@@ -230,7 +233,7 @@ protected override async Task<bool> CanCloseAsync(CloseReason reason)
 {
     // System shutdown / Task Manager / parent closing: never block, never prompt.
     if (reason != CloseReason.Normal) return true;
-    if (_changeTracker == null || !_changeTracker.IsChanged) return true;
+    if (!HasUnsavedChanges) return true;   // _changeTracker.IsChangedWith(ReadEditState())
 
     var result = Messages.ConfirmYesNoCancel(
         "You have unsaved changes. Do you want to save as draft?", "Unsaved Changes");
@@ -244,20 +247,19 @@ protected override async Task<bool> CanCloseAsync(CloseReason reason)
 /// Shared by the SaveDraft action and the close prompt. False (after telling the user) blocks the close.
 private async Task<bool> SaveDraftAsync()
 {
-    // Lock editing while saving, so the snapshot being saved is what the user sees;
-    // otherwise edits made during the wait would be marked clean and lost on close.
     View.IsSaving = true;
     View.EnableInput = false;
     try
     {
-        var email = CreateEmailMessage();
-        await _repository.SaveDraftAsync(email);
+        // Save a copy of the fields; edits made meanwhile are compared against it
+        // afterwards and stay unsaved.
+        var submitted = ReadEditState();
+        await _repository.SaveDraftAsync(CreateEmailMessage(submitted));
 
-        // Accept only if nothing changed after the snapshot was taken.
-        if (email.To != View.To || email.Subject != View.Subject || email.Body != View.Body)
-            return false;
-        _changeTracker.AcceptChanges();
-        return true;
+        _changeTracker.AcceptChanges(submitted);   // snapshot = what was saved
+        View.IsDirty = HasUnsavedChanges;          // still true if the user edited meanwhile
+        Dispatcher.RaiseCanExecuteChanged();
+        return !View.IsDirty;                      // unsaved edits remain: keep the window open
     }
     catch (Exception ex)
     {

@@ -35,6 +35,7 @@
 
 - **メッセージボックスとトーストを別サービスに分割** (BREAKING) — `IMessageService` はモーダルダイアログ 6 メソッドのみ (`ShowToast` を削除)。Presenter は `Toasts.Show(...)`、View 側でオプション付きなら `IWinFormsToastService`。`MessageService` / `DialogProvider` はオプションとバックエンドをコンストラクタで受け取る。
 - **`ChangeTracker` のコンストラクタ** (BREAKING) — `(T)` / `(T, Func<T,T,bool>)` / `(T, IEqualityComparer<T>)` / `(T, ChangeTrackingPolicy<T>)`。省略可能だった `comparer = null` 引数は別オーバーロードになった。リテラルの `null` を渡すとオーバーロードが曖昧でコンパイルエラーになる (`new ChangeTracker<T>(value)` に書き換える)。型付きの `null` は `ArgumentNullException`。`new ChangeTracker<T>` は起動時の設定を使わない (組み込みエンジンと引数のみ)。
+- **`ChangeTracker` は変更の検出だけを行う** (BREAKING) — 構築時に渡したオブジェクトを**参照で**保持し (コピーしない)、比較用のスナップショットだけを深いコピーで持つ。2 つの使い方: (1) 同じオブジェクトを編集し続ける — `IsChanged` / `AcceptChanges()`、(2) 画面から毎回新しいモデルを作る — `IsChangedWith(x)` / `AcceptChanges(x)`。`AcceptChanges(x)` は x のスナップショットを撮るだけで、追跡中のオブジェクトには触れない (非同期保存では送った内容を受け入れ、保存中の編集は未保存のまま残る)。クラスは `sealed`、実装するインターフェイスは `IChangeTracking` のみ。スレッドセーフではない (UI スレッドで使う)。
 - **`ICloneable` を自動では使わない** (BREAKING) — ルートでも入れ子でも、`ObjectCloner` / `ChangeTracker` は `Clone()` を呼ばない。深いコピーと確認済みの `Clone()` は `ChangeTrackingPolicy<T>` で明示する。
 - **`EventAggregator` の配送コンテキスト** — 各購読は `Subscribe` を呼んだ時点の `SynchronizationContext` に配送する (生成時のコンテキストは使わない)。
 - **`FolderBrowserDialogOptions.Description` の既定値を `null` に** — 未指定なら `DialogProvider` の設定 (`mvp.Dialogs.FolderBrowserDescription`) を使う (従来は "Select Folder" 固定で全体設定が効かなかった)。
@@ -65,6 +66,7 @@
 
 ### Removed (削除)
 
+- **`ChangeTracker` の `CurrentValue` / `UpdateCurrentValue` / `RejectChanges` (`IRevertibleChangeTracking`) / `GetOriginalValue` / `IsChangedChanged`** (BREAKING) — データは呼び出し側が持つ。変更通知は無く、データが変わる箇所で `IsChanged` を読む。画面に留まったまま元に戻す場合はリポジトリから読み直し、新しい tracker を作る。
 - **`ChangeTrackerDefaults` / `ToastDefaults` / `DialogDefaults`** (BREAKING) — 実行中に書き換えられる静的設定を廃止。起動時の `mvp.ChangeTracking` / `mvp.Toasts` / `mvp.Messages` + `mvp.Dialogs` に移行。
 - **`IEventAggregator.ClearSubscriptions()`** (BREAKING) — テストはインスタンスを個別に作る。アプリ終了時は `MvpApplication.Run(mainForm)` (または `MvpApplication.Shutdown()`) がプロバイダごと `EventAggregator` を破棄する。
 - **`MessageServiceToastExtensions`** — `IWinFormsToastService.Show(text, type, options)` を使う。
@@ -82,7 +84,7 @@
 - **`Connect` (Adopted)** — アタッチ済み・未初期化の Presenter を初期化する。アタッチ済みと異なる View は拒否。2 回目の `Connect` は例外を投げるが、生きている Presenter は破棄しない。アタッチ/初期化の失敗時は Presenter を破棄。コントロール用 `Connect` も失敗時に Presenter を破棄。
 - **ViewAction** — `default(ViewAction)` は `Register` / `Binder.Add` で拒否 (`Dispatch` では無視)、null ハンドラも拒否。ハンドラの例外はハンドラを抜ける時点で `DispatchContext.Exception` に設定され、外側のミドルウェアが `finally` で参照できる。例外を投げたハンドラは `CanExecuteChanged` を発火してコントロール状態を更新。同じコントロールを 2 つのアクションにバインドすると `Add` 時に例外 (従来は最後の 1 つが黙って残った)。
 - **EventAggregator** — UI スレッドへポスト済みのメッセージは、その間に破棄された購読には配送しない。各購読は `Subscribe` を呼んだ時点の `SynchronizationContext` に配送する (従来は生成時のコンテキストを優先し、`Program.Main` などコンテキストなしで生成するとワーカースレッドでハンドラが走った)。拡張メソッドのデリゲートを正しく呼び出す。
-- **ChangeTracker** — `IsChanged` をキャッシュしない (`CurrentValue` 経由のインプレース編集も検出)。`IsChangedChanged` はロックの外で発火。
+- **ChangeTracker** — `IsChanged` をキャッシュしない (追跡中のオブジェクトのインプレース編集も検出)。
 - **ObjectCloner / ObjectComparer** — `HashSet` / `SortedSet` / `Queue` / `Stack` / `LinkedList` / `ReadOnlyCollection` を要素単位で扱う (比較子とスタック順を維持)。`Type` / `MemberInfo` / `Uri` / `Version` はコピーせず共有。コレクションの循環参照はコピー側に解決 (コンストラクタ専用のコレクションを通る循環は `NotSupportedException`)。参照同一性の要素を持つセットは構造的に比較するため、未変更のディープコピーと等しくなり ChangeTracker が最初から dirty にならない。
 - **ModelValidator** — `IsValid` / `ValidateSequential` もクラスレベル属性、`IValidatableObject`、派生型のルールを含め、`ValidateAll` と結果が一致。
 - **CompositeDisposable** — 1 つが例外を投げても全要素を破棄し、その後に再スロー。
@@ -99,6 +101,13 @@
 | `ChangeTrackerDefaults.Cloner = ...` / `.Comparer = ...` | `mvp.ChangeTracking.UseCloner(...)` / `.UseComparer(...)` (`IObjectCloner` / `IObjectContentComparer` のアダプター)。Presenter では `TrackChanges(model)` |
 | Model の `ICloneable` が自動で使われる | 使われない。必要なら `mvp.ChangeTracking.For(new ChangeTrackingPolicy<T>(clone, equals))` |
 | `new ChangeTracker<T>(value, null)` | `new ChangeTracker<T>(value)` |
+| `tracker.CurrentValue.X = ...` | 呼び出し側の (構築時に渡した) オブジェクトを編集する |
+| `tracker.UpdateCurrentValue(ReadModel())` | `tracker.IsChangedWith(ReadModel())` (使い方 2) |
+| `tracker.AcceptChanges(x)` (現在値と基準の両方を置換) | `AcceptChanges(x)` は x のスナップショットのみ。追跡中のオブジェクトは変わらない |
+| `RejectChanges()` (閉じる前に dirty を解除) | `AcceptChanges()` / `AcceptChanges(ReadModel())` → `RequestClose` |
+| `RejectChanges()` (画面に留まって元に戻す) | リポジトリから読み直して表示し、新しい tracker を作る |
+| `IsChangedChanged` | データ変更の処理で `View.IsDirty = tracker.IsChanged` と `RaiseCanExecuteChanged()` |
+| `GetOriginalValue()` | 必要なら呼び出し側で元の値を保持する |
 | `ToastDefaults.Xxx = ...` | `mvp.Toasts.Xxx = ...` (`ToastDefaults.Renderer` → `mvp.Toasts.UseRenderer(...)`) |
 | `DialogDefaults.DefaultMessageCaption` | `mvp.Messages.DefaultCaption` |
 | `DialogDefaults.Xxx` (ファイル/印刷ダイアログ・エラーメッセージ) | `mvp.Dialogs.Xxx` |

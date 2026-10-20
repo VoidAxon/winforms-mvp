@@ -66,7 +66,7 @@ WindowLifecycleController.OnFormClosing
 
 > **ダーティ状態のプロンプトは `CanClose` / `CanCloseAsync` (Pull 方向) にのみ置く。**
 
-Push ハンドラは `RequestClose` を呼ぶ **前に** ダーティフラグを確定させます (`AcceptChanges` / `RejectChanges`)。これにより、フレームワークが続けて実行する `CanClose` の呼び出しはクリーンな状態を見るため、再プロンプトは起きません。二重プロンプトの防止は構造的な保証であり、`AcceptChanges` と `RequestClose` の呼び出し順序には依存しません。
+Push ハンドラは `RequestClose` を呼ぶ **前に** ダーティ状態を確定させます (保存後も破棄時も `ChangeTracker.AcceptChanges`。破棄の場合は「破棄した編集の追跡を終える」意味で、保存したという意味ではありません)。これにより、`CanClose` がその後いつ評価されてもクリーンな状態を見るため、再プロンプトは起きません。上の図のとおり現在の実装は Push 起点の `form.Close()` でゲートを 1 回省略しますが、これは実装の詳細です。ダーティ状態の確定を省く理由にはしないでください。
 
 設計上の利点:
 
@@ -124,7 +124,7 @@ protected override async Task<bool> CanCloseAsync(CloseReason reason)
 - 判定待ちの間に来た再クローズ (X の連打など) は、もう一度尋ねずに保留 (キャンセル) されます。ただし `SystemShutdown` / `TaskManager` によるクローズは保留せずに通します。また、owner ウィンドウ・MDI 親・`Application.Exit` から来たクローズが非同期に許可された場合、フレームワークはそのクローズ (owner / MDI 親のクローズ、`Application.Exit`) を再発行するので、親側の終了も続行されます。
 - タスクが fault またはキャンセルされた場合はクローズをブロックしてエラーをログ出力します (`SystemShutdown` / `TaskManager` によるクローズは許可)。ユーザーに伝えるべき失敗は、オーバーライドの中で捕まえて `Messages` で表示し `false` を返してください。
 
-待機中にユーザーが編集を続けると、保存したスナップショットより新しい変更をクリーン扱いにしてしまう恐れがあります。保存中は View の入力をロックし、完了後に「スナップショット以降に変更がないこと」を確かめてから `AcceptChanges` してください (実例: `samples/.../EmailDemo/ComposeEmailPresenter.cs`、[HowTo シナリオ 6](HowTo-Handle-Window-Closing#シナリオ-6-非同期クローズ判断))。
+待機中にユーザーが編集を続けても、その変更をクリーン扱いにしないようにします。保存する内容を先に固定し (`var saved = ...`)、完了後に `AcceptChanges(saved)` で **保存した内容** をスナップショットにしてください。保存中の編集は (元の値に戻した場合も含め) 変更として残り、その場合は `false` を返してウィンドウを開いたままにします (実例: `samples/.../EmailDemo/ComposeEmailPresenter.cs`、[HowTo シナリオ 6](HowTo-Handle-Window-Closing#シナリオ-6-非同期クローズ判断))。
 
 ---
 
@@ -137,14 +137,15 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView>
 {
     private void OnSave()
     {
-        var result = new UserResult { Name = View.UserName };
-        _changeTracker.AcceptChanges();   // commit model state
+        _repository.Save(_user);
+        _changeTracker.AcceptChanges();   // finalize the dirty state: snapshot = saved state
+        var result = new UserResult { Name = _user.Name };
         RequestClose(result, InteractionStatus.Ok);
     }
 
     private void OnCancel()
     {
-        _changeTracker.RejectChanges();
+        _changeTracker.AcceptChanges();   // stop tracking the discarded edits (not "saved") so CanClose won't ask again
         RequestClose(InteractionStatus.Cancel);   // no-result overload; C# prefers the non-generic candidate
     }
 }
