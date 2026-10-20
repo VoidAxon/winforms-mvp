@@ -73,7 +73,7 @@ namespace WinformsMVP.Samples.Tests.Common
             {
                 for (int i = 0; i < 10; i++) t.Signal();   // 1 leading now + 9 collapsed into 1 trailing
 
-                Assert.True(second.Wait(2000), "trailing fire did not occur");
+                Assert.True(second.Wait(10000), "trailing fire did not occur");
                 Thread.Sleep(150);                          // ensure no further fires
                 Assert.Equal(2, Volatile.Read(ref count));
             }

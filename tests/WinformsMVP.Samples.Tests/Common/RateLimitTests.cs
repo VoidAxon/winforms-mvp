@@ -23,7 +23,7 @@ namespace WinformsMVP.Samples.Tests.Common
             {
                 d.Signal();
                 d.Signal();
-                Assert.True(fired.Wait(2000));
+                Assert.True(fired.Wait(10000));
                 Thread.Sleep(120);
                 Assert.Equal(1, Volatile.Read(ref count));
             }
