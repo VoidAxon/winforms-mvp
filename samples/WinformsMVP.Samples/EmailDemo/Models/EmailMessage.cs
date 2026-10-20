@@ -40,7 +40,7 @@ namespace WinformsMVP.Samples.EmailDemo.Models
         public EmailFolder Folder { get; set; }
 
         /// <summary>
-        /// Create deep copy of email (for ChangeTracker)
+        /// Creates a deep copy of the email. (ChangeTracker does not use this: it copies with its own cloner.)
         /// </summary>
         public object Clone()
         {

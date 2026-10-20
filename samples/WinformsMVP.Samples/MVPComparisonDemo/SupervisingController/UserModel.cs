@@ -122,8 +122,9 @@ namespace WinformsMVP.Samples.MVPComparisonDemo.SupervisingController
         /// </code>
         /// </para>
         /// <para>
-        /// Do not use MemberwiseClone(). It creates a shallow copy and will cause
-        /// issues when used with ChangeTracker&lt;T&gt;.
+        /// Do not use MemberwiseClone() for this: it creates a shallow copy, so the copy would share
+        /// nested objects with the original. (ChangeTracker&lt;T&gt; does not call Clone(); it uses its
+        /// own deep copy.)
         /// </para>
         /// </remarks>
         public object Clone()

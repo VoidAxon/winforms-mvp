@@ -487,11 +487,6 @@ namespace WinformsMVP.Samples.Tests.Presenters
         #region Discard Tests
 
         /// <summary>
-        /// Test: Discard with no changes should close without prompting (or prompts if ChangeTracker detects changes)
-        /// NOTE: OnDiscard checks ChangeTracker.IsChanged, which may be true even on initialization
-        /// This test verifies the discard flow works correctly
-        /// </summary>
-        /// <summary>
         /// Test: after the user confirms the discard, the close goes through without a second
         /// unsaved-changes prompt from the Pull-direction gate.
         /// </summary>
@@ -510,6 +505,9 @@ namespace WinformsMVP.Samples.Tests.Presenters
             Assert.Equal(1, _mockServices.MessageService.Calls.Count(c => c.Type == MessageType.Confirm));
         }
 
+        /// <summary>
+        /// Test: Discard without user changes closes without prompting.
+        /// </summary>
         [Fact]
         public void OnDiscard_WithoutUserChanges_RequestsClose()
         {

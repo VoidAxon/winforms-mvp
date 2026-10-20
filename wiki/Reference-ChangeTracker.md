@@ -471,7 +471,7 @@ Push ハンドラは `RequestClose` を呼ぶ **前に** ダーティ状態を�
 - [ViewAction システム](Reference-ViewAction-System) — `canExecute: () => _tracker.IsChanged` パターン
 - [HowTo: ウィンドウクローズを扱う](HowTo-Handle-Window-Closing) — 完全な実装例
 - サンプル:
-  - `samples/WinformsMVP.Samples/WindowClosingDemo/` — ChangeTracker + クローズモデルの組み合わせ
+  - `samples/WinformsMVP.Samples/EmailDemo/` — ChangeTracker (使い方 2) + クローズモデルの組み合わせ
   - `tests/WinformsMVP.Samples.Tests/Common/ChangeTrackerTests.cs` — テストパターン
   - `tests/WinformsMVP.Samples.Tests/Common/ChangeTrackerUsageStyleTests.cs` — 2 つの書き方の動作
   - `samples/WinformsMVP.Samples/EmailDemo/ComposeEmailPresenter.cs` — 書き方 2 + 非同期保存 + 破棄して閉じる
