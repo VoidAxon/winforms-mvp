@@ -236,7 +236,7 @@ totalLabel.Bind(model, m => m.Total);
 summaryLabel.Bind(model, m => m.Summary);   // Summary は model 側で "Total: N items" に整形済み
 ```
 
-> ⚠️ **`Bind` に渡せるのは「プロパティへのアクセス式」だけです** (`m => m.Total`、`m => m.Address.City`)。`m => $"Total: {m.ItemCount} items"` のような **文字列補間や計算式はコンパイルは通っても実行時に `ArgumentException` になります**。整形が必要なら、モデルに `Summary` のような整形済みプロパティを置くか (元のプロパティの `PropertyChanged` で再計算)、戻り値の `Binding` の `FormatString` / `Format` を使います ([複雑なバインド](#複雑なバインド))。
+> ⚠️ **`Bind` に渡せるのは「モデルのプロパティ 1 つへのアクセス式」だけです** (`m => m.Total`)。`m => $"Total: {m.ItemCount} items"` のような **文字列補間や計算式はコンパイルは通っても実行時に `ArgumentException` になります**。整形が必要なら、モデルに `Summary` のような整形済みプロパティを置くか (元のプロパティの `PropertyChanged` で再計算)、戻り値の `Binding` の `FormatString` / `Format` を使います ([複雑なバインド](#複雑なバインド))。
 
 ```csharp
 lblTotal.Bind(model, m => m.Total).FormatString = "N0";   // 戻り値は Binding、書式が使える
@@ -423,7 +423,7 @@ pairs.BindRadioGroup(model, m => m.Priority);   // 戻り値 IDisposable は任�
 
 | やりたいこと | 方法 |
 |------------|------|
-| 子オブジェクトのプロパティ | `txtCity.Bind(model, m => m.Address.City)` — WinForms のナビゲーションパス `"Address.City"` としてバインド。`Address` を丸ごと差し替えても追従する。途中のオブジェクト (`Address`) も `PropertyChanged` を発火すること |
+| 子オブジェクトのプロパティ | 子オブジェクト自体をバインドする: `txtCity.Bind(model.Address, a => a.City)`。`Address` を差し替えたらもう一度 `Bind` する。または、モデルに `City` プロパティを置く。`m => m.Address.City` のようなパスは `ArgumentException` (WinForms は `Address` の差し替え後も古いオブジェクトにバインドしたままになり、気づかないまま古いデータを編集するため) |
 | 計算・組み合わせ (`!IsReadOnly`、姓 + 名) | モデルに計算プロパティを置き (`public bool IsEditable => !IsReadOnly;`、元のプロパティ変更時に `IsEditable` も通知)、それをバインド。表示だけの変換なら戻り値 `Binding` の `Format` / `Parse` |
 | 一覧・グリッド | WinForms 標準の `BindingSource` + `BindingList<T>` (`grid.DataSource = bindingSource`)。フレームワークは包まない |
 | モデルを新しいインスタンスに差し替える | 既存のバインドは古いインスタンスを指したまま。もう一度 `Bind` する (同じプロパティのバインドは置き換えられる) か、`BindingSource` を間に置いて `bindingSource.DataSource = newModel` |

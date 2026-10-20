@@ -33,11 +33,13 @@ namespace WinformsMVP.Common.Extensions
         /// directly. A previous binding of the same control property is replaced.
         /// </summary>
         /// <remarks>
-        /// The expression is a member path from the model: <c>m =&gt; m.Name</c> or
-        /// <c>m =&gt; m.Address.City</c> (bound as the WinForms navigation path <c>"Address.City"</c>;
-        /// every object along the path should raise <c>PropertyChanged</c>). Method calls, computed
-        /// expressions and captured variables are rejected — add a property to the model, or use
-        /// <c>Format</c> / <c>Parse</c> on the returned binding.
+        /// The expression is one property of the model: <c>m =&gt; m.Name</c>. Paths
+        /// (<c>m =&gt; m.Address.City</c>) are rejected: WinForms keeps a path bound to the old child
+        /// after <c>Address</c> is replaced. Bind the child itself
+        /// (<c>txtCity.Bind(model.Address, a =&gt; a.City)</c>, bound again when it is replaced) or
+        /// expose the value on the model. Method calls, computed expressions and captured variables
+        /// are rejected too — add a property to the model, or use <c>Format</c> / <c>Parse</c> on the
+        /// returned binding.
         /// </remarks>
         public static Binding BindProperty<TControl, TViewModel, TValue>(
             this TControl control,
@@ -54,7 +56,7 @@ namespace WinformsMVP.Common.Extensions
             if (propertyExpression == null) throw new ArgumentNullException(nameof(propertyExpression));
             if (string.IsNullOrEmpty(controlPropertyName)) throw new ArgumentNullException(nameof(controlPropertyName));
 
-            var dataMember = GetMemberPath(propertyExpression);
+            var dataMember = GetPropertyName(propertyExpression);
 
             // Remove only a previous binding for the SAME control property, so that multiple
             // properties on one control (e.g. Text + ReadOnly, or a button's Text + Enabled) can
@@ -68,10 +70,11 @@ namespace WinformsMVP.Common.Extensions
             return control.DataBindings.Add(controlPropertyName, viewModel, dataMember, formattingEnabled, updateMode);
         }
 
-        // "Name" for m => m.Name, "Address.City" for m => m.Address.City (a boxing Convert around
-        // the body is allowed). Anything that is not a plain member chain from the parameter is
-        // rejected rather than silently reduced to its last member name.
-        private static string GetMemberPath(LambdaExpression expression)
+        // "Name" for m => m.Name (a Convert around the body is allowed). Anything else is rejected
+        // rather than silently reduced to its last member name: a path because WinForms does not
+        // follow a replaced child (the binding would quietly keep editing the old object), and
+        // calls / computations / captured variables because they are not bindable members.
+        private static string GetPropertyName(LambdaExpression expression)
         {
             var body = expression.Body;
             if (body is UnaryExpression unary && (unary.NodeType == ExpressionType.Convert || unary.NodeType == ExpressionType.ConvertChecked))
@@ -90,8 +93,19 @@ namespace WinformsMVP.Common.Extensions
                     "for a computed value add a property to the model or use Format/Parse on the returned Binding.",
                     nameof(expression));
 
-            names.Reverse();
-            return string.Join(".", names);
+            if (names.Count > 1)
+            {
+                names.Reverse();
+                var path = string.Join(".", names);
+                var parent = string.Join(".", names.Take(names.Count - 1));
+                throw new ArgumentException(
+                    $"'{expression}' binds the path '{path}'. WinForms keeps such a binding on the old object when " +
+                    $"'{parent}' is replaced. Bind the child itself, e.g. control.Bind(model.{parent}, x => x.{names[names.Count - 1]}) " +
+                    "(bind again when it is replaced), or expose the value as a property of the model.",
+                    nameof(expression));
+            }
+
+            return names[0];
         }
 
         public static void Bind<TViewModel>(this TextBox textBox, TViewModel viewModel, Expression<Func<TViewModel, object>> propertyExpression)
@@ -234,11 +248,7 @@ namespace WinformsMVP.Common.Extensions
             if (viewModel == null) throw new ArgumentNullException(nameof(viewModel));
             if (propertyExpression == null) throw new ArgumentNullException(nameof(propertyExpression));
 
-            var propertyName = GetMemberPath(propertyExpression);
-            if (propertyName.Contains("."))
-                throw new ArgumentException(
-                    $"BindRadioGroup binds a property of the model itself; '{propertyName}' is a path.",
-                    nameof(propertyExpression));
+            var propertyName = GetPropertyName(propertyExpression);
             var propInfo = viewModel.GetType().GetProperty(propertyName);
             if (propInfo == null) throw new ArgumentException($"Property {propertyName} not found.", nameof(propertyExpression));
 

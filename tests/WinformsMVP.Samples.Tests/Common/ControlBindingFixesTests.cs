@@ -9,7 +9,7 @@ using Xunit;
 namespace WinformsMVP.Samples.Tests.Common
 {
     /// <summary>
-    /// Member paths, the configurable BindProperty overload, one-way Label binding and the
+    /// Expression checks, the configurable BindProperty overload, one-way Label binding and the
     /// self-releasing BindRadioGroup.
     /// </summary>
     public class ControlBindingFixesTests
@@ -61,35 +61,33 @@ namespace WinformsMVP.Samples.Tests.Common
             return form;
         }
 
-        // ---- member paths ---------------------------------------------------------------------
+        // ---- expressions ----------------------------------------------------------------------
 
         [Fact]
-        public void Path_IsBoundAsNavigationPath()
+        public void Path_IsRejected_WithAHintToBindTheChild()
         {
             using (var textBox = new TextBox())
             {
-                var binding = textBox.BindProperty(new Order(), m => m.Address.City, nameof(TextBox.Text));
+                var ex = Assert.Throws<ArgumentException>(() => textBox.Bind(new Order(), m => m.Address.City));
 
-                Assert.Equal("Address.City", binding.BindingMemberInfo.BindingMember);
+                Assert.Contains("x => x.City", ex.Message);
+                Assert.Empty(textBox.DataBindings);
             }
         }
 
         [Fact]
-        public void Path_ReadsWritesAndFollowsAReplacedChild()
+        public void BindingTheChildDirectly_Works()
         {
             var textBox = new TextBox();
             using (Host(textBox))
             {
                 var order = new Order();
                 order.Address.City = "Tokyo";
-                textBox.Bind(order, m => m.Address.City);
+                textBox.Bind(order.Address, a => a.City);
                 Assert.Equal("Tokyo", textBox.Text);
 
                 textBox.Text = "Osaka";
                 Assert.Equal("Osaka", order.Address.City);
-
-                order.Address = new Address { City = "Nagoya" };
-                Assert.Equal("Nagoya", textBox.Text);
             }
         }
 
