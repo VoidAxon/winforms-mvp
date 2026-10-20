@@ -199,6 +199,28 @@ namespace WinformsMVP.Samples.Tests.Services
         }
 
         [Fact]
+        public void PushInsideGate_CloseCancelledElsewhere_ResultDoesNotLeakIntoNextClose()
+        {
+            var (form, presenter, results, _) = Build();
+            presenter.SyncDecision = _ => { presenter.Push("saved", InteractionStatus.Ok); return true; };
+            bool vetoOnce = true;
+            form.FormClosing += (s, e) => { if (vetoOnce) { e.Cancel = true; vetoOnce = false; } };
+
+            form.Show();
+            form.Close();                         // the gate allows, another handler cancels
+
+            Assert.True(form.Visible);
+            Assert.Empty(results);
+
+            presenter.SyncDecision = _ => true;   // a later plain user close
+            form.Close();
+
+            Assert.Single(results);
+            Assert.Null(results[0].Item1);
+            Assert.Equal(InteractionStatus.Cancel, results[0].Item2);
+        }
+
+        [Fact]
         public void PushWhileAsyncGatePending_WaitsForAllow_ThenConvergesWithPushedResult()
         {
             var (form, presenter, results, _) = Build();
