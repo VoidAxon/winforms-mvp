@@ -66,6 +66,12 @@
 - **`ViewActionBinder` のルーティングを `Bind` のオーバーロードで決定** (BREAKING) — 以前は `ActionTriggered` に購読者がいると `Bind(dispatcher)` が Dispatcher への派発をスキップしていた (ログやステータス表示の購読だけで全ボタンが無反応になる)。現在 `Bind(dispatcher)` は常に派発し、その後 `ActionTriggered` を通知として発火する (通知側の例外が派発を妨げない)。`Bind()` はイベントのみ。Explicit パターンは「`ActionBinder` が `null` を返し、View 自身が `Bind()` を呼ぶ」形のみ。**移行**: binder を返しつつ `ActionTriggered` を `ActionRequest` に転送していた View は二重実行になるため、転送をやめて Implicit にするか、`ActionBinder => null` + `_binder.Bind()` に変更する。
 
 - **`ISelectionStore<T>` / `SelectionStore<T>` を `ISelection<T>` / `Selection<T>` に改名** (BREAKING) — 「Store」は Redux / Pinia などのアプリ全体の状態コンテナを連想させるが、実体は「現在の選択 1 つ + 変更通知」なので、役割どおりの名前にした。API (`Current` / `Select` / `CurrentChanged`、comparer の既定) と `Cascade.Bind` / `Combine` は変更なし。移行は型名の置換のみ (`ISelectionStore<` → `ISelection<`、`SelectionStore<` → `Selection<`)。
+- **Data Binding 拡張メソッドの修正** (`ControlBindingExtensions`)
+  - `BindProperty` に更新タイミングと書式を指定するオーバーロードを追加し、WinForms の `Binding` を返すようにした (`FormatString` / `Format` / `Parse` / `BindingComplete` を直接使える)。既存の 4 引数版も `Binding` を返す (挙動は従来どおり)。
+  - 式はモデルのプロパティ 1 つ (`m => m.Name`) だけを受け付け、それ以外は `ArgumentException`。以前は `m => m.Address.City` から最後のメンバー名 (`City`) だけを取り出し、別のプロパティに黙ってバインドされることがあった。パスは WinForms のナビゲーションパスとしても扱わない (`Address` を差し替えると古いオブジェクトにバインドしたままになるため)。子オブジェクトは `txtCity.Bind(model.Address, a => a.City)` のように直接バインドする。メソッド呼び出し・計算式・キャプチャ変数も `ArgumentException`。
+  - 引数が `null` のとき黙って何もしなかったのを `ArgumentNullException` に変更 (BREAKING: 以前は静かに失敗していたケースが例外になる)。
+  - `Label.Bind` を実際に単方向 (`DataSourceUpdateMode.Never`) にし、書式を有効化、`Binding` を返す。以前は双方向で、コードで `label.Text` を書き換えるとモデルに書き戻されていた。
+  - `BindRadioGroup` が `IDisposable` を返し、グループ内の RadioButton が破棄されると自動で解除される。以前はモデルの `PropertyChanged` の購読が残り続け (モデルがフォームより長生きするとリーク)、同じボタンを再バインドするとハンドラが重複していた。再バインドは前のバインドを置き換える。
 
 ### Removed (削除)
 

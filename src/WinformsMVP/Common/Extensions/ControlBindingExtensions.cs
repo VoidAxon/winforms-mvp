@@ -1,24 +1,62 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
 using System.Linq.Expressions;
+using System.Runtime.CompilerServices;
 using System.Windows.Forms;
 
 namespace WinformsMVP.Common.Extensions
 {
     public static class ControlBindingExtensions
     {
-        public static void BindProperty<TControl, TViewModel, TValue>(
+        /// <summary>
+        /// Two-way binding of <paramref name="controlPropertyName"/> to a model property, written back
+        /// on every change (<see cref="DataSourceUpdateMode.OnPropertyChanged"/>), no formatting.
+        /// A previous binding of the same control property is replaced.
+        /// </summary>
+        public static Binding BindProperty<TControl, TViewModel, TValue>(
             this TControl control,
             TViewModel viewModel,
             Expression<Func<TViewModel, TValue>> propertyExpression,
             string controlPropertyName)
             where TControl : Control
             where TViewModel : INotifyPropertyChanged
-        {
-            if (control == null || viewModel == null || propertyExpression == null) return;
+            => control.BindProperty(viewModel, propertyExpression, controlPropertyName,
+                DataSourceUpdateMode.OnPropertyChanged, formattingEnabled: false);
 
-            var propertyName = PropertyNameHelper.GetName(propertyExpression);
+        /// <summary>
+        /// Binds <paramref name="controlPropertyName"/> to a model property with an explicit update
+        /// mode and returns the WinForms <see cref="Binding"/>, so <c>FormatString</c>,
+        /// <c>Format</c> / <c>Parse</c>, <c>NullValue</c> and <c>BindingComplete</c> (conversion
+        /// failures; raised only when <paramref name="formattingEnabled"/> is true) are configured
+        /// directly. A previous binding of the same control property is replaced.
+        /// </summary>
+        /// <remarks>
+        /// The expression is one property of the model: <c>m =&gt; m.Name</c>. Paths
+        /// (<c>m =&gt; m.Address.City</c>) are rejected: WinForms keeps a path bound to the old child
+        /// after <c>Address</c> is replaced. Bind the child itself
+        /// (<c>txtCity.Bind(model.Address, a =&gt; a.City)</c>, bound again when it is replaced) or
+        /// expose the value on the model. Method calls, computed expressions and captured variables
+        /// are rejected too — add a property to the model, or use <c>Format</c> / <c>Parse</c> on the
+        /// returned binding.
+        /// </remarks>
+        public static Binding BindProperty<TControl, TViewModel, TValue>(
+            this TControl control,
+            TViewModel viewModel,
+            Expression<Func<TViewModel, TValue>> propertyExpression,
+            string controlPropertyName,
+            DataSourceUpdateMode updateMode,
+            bool formattingEnabled = true)
+            where TControl : Control
+            where TViewModel : INotifyPropertyChanged
+        {
+            if (control == null) throw new ArgumentNullException(nameof(control));
+            if (viewModel == null) throw new ArgumentNullException(nameof(viewModel));
+            if (propertyExpression == null) throw new ArgumentNullException(nameof(propertyExpression));
+            if (string.IsNullOrEmpty(controlPropertyName)) throw new ArgumentNullException(nameof(controlPropertyName));
+
+            var dataMember = GetPropertyName(propertyExpression);
 
             // Remove only a previous binding for the SAME control property, so that multiple
             // properties on one control (e.g. Text + ReadOnly, or a button's Text + Enabled) can
@@ -29,7 +67,45 @@ namespace WinformsMVP.Common.Extensions
                     control.DataBindings.RemoveAt(i);
             }
 
-            control.DataBindings.Add(controlPropertyName, viewModel, propertyName, false, DataSourceUpdateMode.OnPropertyChanged);
+            return control.DataBindings.Add(controlPropertyName, viewModel, dataMember, formattingEnabled, updateMode);
+        }
+
+        // "Name" for m => m.Name (a Convert around the body is allowed). Anything else is rejected
+        // rather than silently reduced to its last member name: a path because WinForms does not
+        // follow a replaced child (the binding would quietly keep editing the old object), and
+        // calls / computations / captured variables because they are not bindable members.
+        private static string GetPropertyName(LambdaExpression expression)
+        {
+            var body = expression.Body;
+            if (body is UnaryExpression unary && (unary.NodeType == ExpressionType.Convert || unary.NodeType == ExpressionType.ConvertChecked))
+                body = unary.Operand;
+
+            var names = new List<string>();
+            while (body is MemberExpression member)
+            {
+                names.Add(member.Member.Name);
+                body = member.Expression;
+            }
+
+            if (names.Count == 0 || !(body is ParameterExpression))
+                throw new ArgumentException(
+                    $"'{expression}' is not a property path of the model. Use m => m.Property (or m => m.Child.Property); " +
+                    "for a computed value add a property to the model or use Format/Parse on the returned Binding.",
+                    nameof(expression));
+
+            if (names.Count > 1)
+            {
+                names.Reverse();
+                var path = string.Join(".", names);
+                var parent = string.Join(".", names.Take(names.Count - 1));
+                throw new ArgumentException(
+                    $"'{expression}' binds the path '{path}'. WinForms keeps such a binding on the old object when " +
+                    $"'{parent}' is replaced. Bind the child itself, e.g. control.Bind(model.{parent}, x => x.{names[names.Count - 1]}) " +
+                    "(bind again when it is replaced), or expose the value as a property of the model.",
+                    nameof(expression));
+            }
+
+            return names[0];
         }
 
         public static void Bind<TViewModel>(this TextBox textBox, TViewModel viewModel, Expression<Func<TViewModel, object>> propertyExpression)
@@ -57,12 +133,13 @@ namespace WinformsMVP.Common.Extensions
         }
 
         /// <summary>
-        /// Bind Label.Text to a ViewModel property (read-only display)
+        /// Bind Label.Text to a ViewModel property, one way (model -&gt; label). Formatting is
+        /// enabled, so numbers and dates can be shaped with the returned binding's FormatString.
         /// </summary>
-        public static void Bind<TViewModel>(this Label label, TViewModel viewModel, Expression<Func<TViewModel, object>> propertyExpression)
+        public static Binding Bind<TViewModel>(this Label label, TViewModel viewModel, Expression<Func<TViewModel, object>> propertyExpression)
             where TViewModel : INotifyPropertyChanged
         {
-            label.BindProperty(viewModel, propertyExpression, nameof(label.Text));
+            return label.BindProperty(viewModel, propertyExpression, nameof(label.Text), DataSourceUpdateMode.Never);
         }
 
         /// <summary>
@@ -155,47 +232,107 @@ namespace WinformsMVP.Common.Extensions
             comboBox.BindProperty(viewModel, propertyExpression, nameof(comboBox.SelectedItem));
         }
 
-        public static void BindRadioGroup<TViewModel, TValue>(this IEnumerable<KeyValuePair<RadioButton, TValue>> radioPairs, TViewModel viewModel, Expression<Func<TViewModel, TValue>> propertyExpression) where TViewModel : INotifyPropertyChanged
+        /// <summary>
+        /// Two-way binds a group of radio buttons to one model property: the button whose value
+        /// equals the property is checked, and checking a button writes its value back.
+        /// </summary>
+        /// <remarks>
+        /// The binding ends by itself when any of the buttons is disposed (the form closes), so the
+        /// model does not keep the form alive. Binding a button again replaces its previous group
+        /// binding. Dispose the returned handle only to unbind earlier. Change the model on the UI
+        /// thread.
+        /// </remarks>
+        public static IDisposable BindRadioGroup<TViewModel, TValue>(this IEnumerable<KeyValuePair<RadioButton, TValue>> radioPairs, TViewModel viewModel, Expression<Func<TViewModel, TValue>> propertyExpression) where TViewModel : INotifyPropertyChanged
         {
-            if (radioPairs == null || viewModel == null || propertyExpression == null)
-                return;
+            if (radioPairs == null) throw new ArgumentNullException(nameof(radioPairs));
+            if (viewModel == null) throw new ArgumentNullException(nameof(viewModel));
+            if (propertyExpression == null) throw new ArgumentNullException(nameof(propertyExpression));
 
-            var propertyName = PropertyNameHelper.GetName(propertyExpression);
+            var propertyName = GetPropertyName(propertyExpression);
             var propInfo = viewModel.GetType().GetProperty(propertyName);
-            if (propInfo == null) throw new ArgumentException($"Property {propertyName} not found.");
+            if (propInfo == null) throw new ArgumentException($"Property {propertyName} not found.", nameof(propertyExpression));
 
-            foreach (var kv in radioPairs)
+            return new RadioGroupBinding<TValue>(radioPairs.ToList(), viewModel, propInfo);
+        }
+
+        // Each radio button's current group binding, so binding it again replaces the old one.
+        // Weak keys: the table never keeps a button alive.
+        private static readonly ConditionalWeakTable<RadioButton, IDisposable> RadioGroupBindings =
+            new ConditionalWeakTable<RadioButton, IDisposable>();
+
+        private sealed class RadioGroupBinding<TValue> : IDisposable
+        {
+            private readonly List<KeyValuePair<RadioButton, TValue>> _pairs;
+            private readonly INotifyPropertyChanged _model;
+            private readonly System.Reflection.PropertyInfo _property;
+            private bool _disposed;
+
+            public RadioGroupBinding(List<KeyValuePair<RadioButton, TValue>> pairs, INotifyPropertyChanged model, System.Reflection.PropertyInfo property)
             {
-                var radio = kv.Key;
-                var value = kv.Value;
+                _pairs = pairs;
+                _model = model;
+                _property = property;
 
-                radio.Checked = Equals(propInfo.GetValue(viewModel, null), value);
-
-                radio.CheckedChanged -= RadioButton_CheckedChanged;
-                radio.CheckedChanged += RadioButton_CheckedChanged;
-
-                void RadioButton_CheckedChanged(object sender, EventArgs e)
+                foreach (var radio in _pairs.Select(p => p.Key).Distinct())
                 {
-                    if (radio.Checked)
-                    {
-                        var current = propInfo.GetValue(viewModel, null);
-                        if (!Equals(current, value))
-                            propInfo.SetValue(viewModel, value, null);
-                    }
+                    if (RadioGroupBindings.TryGetValue(radio, out var previous))
+                        previous.Dispose();
+                    RadioGroupBindings.Add(radio, this);
+                }
+
+                SyncFromModel();   // before subscribing: the initial Checked writes are not user input
+
+                foreach (var pair in _pairs)
+                {
+                    pair.Key.CheckedChanged += OnCheckedChanged;
+                    pair.Key.Disposed += OnRadioDisposed;
+                }
+                _model.PropertyChanged += OnModelPropertyChanged;
+            }
+
+            private void OnCheckedChanged(object sender, EventArgs e)
+            {
+                var radio = (RadioButton)sender;
+                if (!radio.Checked) return;
+                foreach (var pair in _pairs)
+                {
+                    if (pair.Key != radio) continue;
+                    if (!Equals(_property.GetValue(_model, null), pair.Value))
+                        _property.SetValue(_model, pair.Value, null);
+                    return;
                 }
             }
 
-            viewModel.PropertyChanged += (s, e) =>
+            private void OnModelPropertyChanged(object sender, PropertyChangedEventArgs e)
             {
-                if (e.PropertyName == propertyName)
+                // null / empty name = "all properties changed"
+                if (string.IsNullOrEmpty(e.PropertyName) || e.PropertyName == _property.Name)
+                    SyncFromModel();
+            }
+
+            private void SyncFromModel()
+            {
+                var current = _property.GetValue(_model, null);
+                foreach (var pair in _pairs)
+                    pair.Key.Checked = Equals(current, pair.Value);
+            }
+
+            private void OnRadioDisposed(object sender, EventArgs e) => Dispose();
+
+            public void Dispose()
+            {
+                if (_disposed) return;
+                _disposed = true;
+
+                _model.PropertyChanged -= OnModelPropertyChanged;
+                foreach (var pair in _pairs)
                 {
-                    var currentValue = propInfo.GetValue(viewModel, null);
-                    foreach (var kv in radioPairs)
-                    {
-                        kv.Key.Checked = Equals(currentValue, kv.Value);
-                    }
+                    pair.Key.CheckedChanged -= OnCheckedChanged;
+                    pair.Key.Disposed -= OnRadioDisposed;
+                    if (RadioGroupBindings.TryGetValue(pair.Key, out var current) && ReferenceEquals(current, this))
+                        RadioGroupBindings.Remove(pair.Key);
                 }
-            };
+            }
         }
     }
 }
