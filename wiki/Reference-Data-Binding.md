@@ -26,6 +26,7 @@
   - [MaskedTextBox](#maskedtextbox)
   - [PictureBox (画像 URL)](#picturebox-画像-url)
 - [RadioButton グループバインド](#radiobutton-グループバインド)
+- [複雑なバインド](#複雑なバインド)
 - [双方向バインドと単方向バインド](#双方向バインドと単方向バインド)
 - [更新タイミング (`DataSourceUpdateMode`)](#更新タイミング-datasourceupdatemode)
 - [使用例: 完全な Form](#使用例-完全な-form)
@@ -124,14 +125,25 @@ public class UserModel : BindableBase
 任意のコントロールの任意のプロパティをバインドする汎用 API です。
 
 ```csharp
-public static void BindProperty<TControl, TViewModel, TValue>(
+// 双方向、変更のたびに書き戻し (OnPropertyChanged)、書式なし
+public static Binding BindProperty<TControl, TViewModel, TValue>(
     this TControl control,
     TViewModel viewModel,
     Expression<Func<TViewModel, TValue>> propertyExpression,
     string controlPropertyName)
-    where TControl : Control
-    where TViewModel : INotifyPropertyChanged
+
+// 更新タイミングと書式を指定する版 (formattingEnabled の既定は true)
+public static Binding BindProperty<TControl, TViewModel, TValue>(
+    this TControl control,
+    TViewModel viewModel,
+    Expression<Func<TViewModel, TValue>> propertyExpression,
+    string controlPropertyName,
+    DataSourceUpdateMode updateMode,
+    bool formattingEnabled = true)
+// どちらも where TControl : Control, TViewModel : INotifyPropertyChanged
 ```
+
+戻り値は WinForms 標準の `Binding` です。書式 (`FormatString`)、変換 (`Format` / `Parse` イベント)、`NullValue`、変換失敗の検出 (`BindingComplete`) は、フレームワークが別の層をかぶせず、この `Binding` に直接設定します。同じコントロールの同じプロパティへのバインドは置き換えられ (他のプロパティのバインドは残る)、引数が `null` なら `ArgumentNullException` です。
 
 ### 使用例
 
@@ -145,6 +157,22 @@ textBox.BindProperty(model, m => m.IsReadOnly, nameof(textBox.ReadOnly));
 // Button の Enabled をモデルから決める
 button.BindProperty(model, m => m.CanSubmit, nameof(button.Enabled));
 ```
+
+### 書式・変換エラー (第 2 形式)
+
+```csharp
+var price = txtPrice.BindProperty(model, m => m.Price, nameof(txtPrice.Text),
+                                  DataSourceUpdateMode.OnValidation);   // フォーカスを離れたとき書き戻す
+price.FormatString = "N0";                                              // 1,200 と表示
+price.BindingComplete += (s, e) =>                                      // "abc" など変換できない入力
+{
+    if (e.BindingCompleteContext != BindingCompleteContext.DataSourceUpdate) return;
+    errorProvider.SetError(txtPrice,
+        e.BindingCompleteState == BindingCompleteState.Success ? "" : "数値を入力してください");
+};
+```
+
+> ⚠️ 変換に失敗するとモデルは **直前の有効な値のまま** になります。モデルの検証 (`Validation.Validate`) だけでは画面上の不正な入力に気づけないので、`BindingComplete` で別に表示し、エラー中の保存は止めてください。`BindingComplete` は `formattingEnabled: true` のときだけ発火します (第 1 形式と専用 `Bind()` は `false`)。
 
 ### こんなときに
 
@@ -208,13 +236,17 @@ totalLabel.Bind(model, m => m.Total);
 summaryLabel.Bind(model, m => m.Summary);   // Summary は model 側で "Total: N items" に整形済み
 ```
 
-> ⚠️ **`Bind` に渡せるのは「単一プロパティへのアクセス式」だけです。** 内部で式からプロパティ名を抽出して `DataBindings` に登録するため、`m => $"Total: {m.ItemCount} items"` のような **文字列補間や計算式はコンパイルは通っても実行時に `ArgumentException` で落ちます**。整形が必要なら、モデルに `Summary` のような整形済みプロパティを置き (元のプロパティの `PropertyChanged` で再計算)、それをバインドしてください。
+> ⚠️ **`Bind` に渡せるのは「プロパティへのアクセス式」だけです** (`m => m.Total`、`m => m.Address.City`)。`m => $"Total: {m.ItemCount} items"` のような **文字列補間や計算式はコンパイルは通っても実行時に `ArgumentException` になります**。整形が必要なら、モデルに `Summary` のような整形済みプロパティを置くか (元のプロパティの `PropertyChanged` で再計算)、戻り値の `Binding` の `FormatString` / `Format` を使います ([複雑なバインド](#複雑なバインド))。
+
+```csharp
+lblTotal.Bind(model, m => m.Total).FormatString = "N0";   // 戻り値は Binding、書式が使える
+```
 
 | | |
 |---|---|
 | バインド対象 | `Text` プロパティ |
-| 双方向 | ❌ (Model → Label のみ、Label はユーザー編集不可) |
-| 型 | 任意 (内部で `ToString()`)。式は **単一プロパティアクセスのみ** (計算式・補間は不可) |
+| 双方向 | ❌ (Model → Label のみ。`DataSourceUpdateMode.Never` なので、コードで `label.Text` を書き換えてもモデルには戻らない) |
+| 型 | 任意。書式は有効 (`FormatString` 可)。式は **プロパティアクセスのみ** (計算式・補間は不可) |
 
 ### ComboBox
 
@@ -372,8 +404,10 @@ var pairs = new Dictionary<RadioButton, Priority>
     { rbHigh,   Priority.High },
 };
 
-pairs.BindRadioGroup(model, m => m.Priority);
+pairs.BindRadioGroup(model, m => m.Priority);   // 戻り値 IDisposable は任意
 ```
+
+**解除は不要です。** グループ内のどれかの RadioButton が破棄されると (フォームを閉じると) バインドは自動で外れ、モデルがフォームを生かし続けることはありません。同じ RadioButton をもう一度 `BindRadioGroup` すると前のバインドは置き換えられます。画面の途中で外したいときだけ、戻り値を `Dispose()` します。モデルは UI スレッドで変更してください。
 
 | | |
 |---|---|
@@ -382,6 +416,25 @@ pairs.BindRadioGroup(model, m => m.Priority);
 | 型 | 任意 (enum・int・string 等、`Equals` で比較可能なもの) |
 
 個別の RadioButton に `.Bind(model, m => m.IsX)` を使うと「相互排他」の制約を Model 側で複数 `bool` プロパティに分けて書く必要があります。一方 `BindRadioGroup` は **「1 つのプロパティ + 複数の選択肢」** という自然な表現で、グループ内の選択を自動で同期します。**3 つ以上の選択肢から 1 つ選ぶ UI** で第一選択です。
+
+---
+
+## 複雑なバインド
+
+| やりたいこと | 方法 |
+|------------|------|
+| 子オブジェクトのプロパティ | `txtCity.Bind(model, m => m.Address.City)` — WinForms のナビゲーションパス `"Address.City"` としてバインド。`Address` を丸ごと差し替えても追従する。途中のオブジェクト (`Address`) も `PropertyChanged` を発火すること |
+| 計算・組み合わせ (`!IsReadOnly`、姓 + 名) | モデルに計算プロパティを置き (`public bool IsEditable => !IsReadOnly;`、元のプロパティ変更時に `IsEditable` も通知)、それをバインド。表示だけの変換なら戻り値 `Binding` の `Format` / `Parse` |
+| 一覧・グリッド | WinForms 標準の `BindingSource` + `BindingList<T>` (`grid.DataSource = bindingSource`)。フレームワークは包まない |
+| モデルを新しいインスタンスに差し替える | 既存のバインドは古いインスタンスを指したまま。もう一度 `Bind` する (同じプロパティのバインドは置き換えられる) か、`BindingSource` を間に置いて `bindingSource.DataSource = newModel` |
+
+式による任意の計算バインド (`m => !m.IsReadOnly`) はサポートしません。式の依存関係を追跡する独自のバインドエンジンが必要になり、WinForms 標準の仕組みから外れるためです。
+
+### 注意点
+
+- **書き戻しのタイミング**: `Bind()` は `OnPropertyChanged` (入力のたび)。数値の入力途中 (`"1,"` など) も変換を試みます。`OnValidation` にすると、フォーカスを離れるまでモデルは古い値なので、保存ボタンの前に確定させる設計が必要です。
+- **スレッド**: バインドしたモデルは UI スレッドで変更します (`BindableBase` はスレッド切り替えをしません)。
+- **サードパーティ製コントロール**: バインドするプロパティ名と、値が変わったときの通知 (`XxxChanged` イベント) があるかを、使うバージョンで確認します。
 
 ---
 
