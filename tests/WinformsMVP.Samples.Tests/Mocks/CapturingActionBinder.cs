@@ -45,6 +45,16 @@ namespace WinformsMVP.Samples.Tests.Mocks
         /// <summary>Evaluates the action's CanExecute predicate through the captured dispatcher.</summary>
         public bool CanDispatch(ViewAction action) => Captured().CanDispatch(action);
 
+        /// <summary>Dispatches a typed action; the payload type is checked at compile time.</summary>
+        public void Dispatch<T>(ViewAction<T> action, T payload) => Captured().Dispatch(action, payload);
+
+        /// <summary>Typed <see cref="DispatchAsync(ViewAction, object)"/>.</summary>
+        public System.Threading.Tasks.Task DispatchAsync<T>(ViewAction<T> action, T payload)
+            => Captured().DispatchAsync(action, payload);
+
+        /// <summary>Typed <see cref="CanDispatch(ViewAction)"/>.</summary>
+        public bool CanDispatch<T>(ViewAction<T> action) => Captured().CanDispatch(action);
+
         private ViewActionDispatcher Captured()
         {
             if (Dispatcher == null)

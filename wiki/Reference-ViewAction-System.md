@@ -4,6 +4,8 @@ UI イベント (ボタンクリック等) を **宣言的なアクション** �
 WPF の `ICommand` を WinForms 向けに持ち込んだものと考えるとほぼ正確で、`CanExecute` による自動 `Enabled` 制御まで含めて同等の体験を提供します。
 
 > **位置づけ**: ViewAction は本フレームワークの **中核機能** です。Presenter が `Button` を一切知らずに済むのは、この仕組みのおかげです。
+>
+> ただし **必須ではありません**。ボタンが数個の単純な画面なら、View インターフェイスに `event EventHandler SaveRequested;` のような意味イベントを置き、Presenter が購読する素の MVP で十分です。ViewAction が効いてくるのは、操作が多くてイベントが増えすぎる画面や、`CanExecute` による Enabled 制御・非同期ハンドラの多重実行防止・ミドルウェアといったフレームワークの支援を使いたい画面です。同じアプリ内で画面ごとに使い分けて構いません。
 
 ---
 
@@ -268,6 +270,33 @@ private void OnOpenDocument(string filePath)
 ```
 
 **型不一致は実行時拒否**: `Register<string>` に対して `Dispatch(action, 42)` (int) を呼ぶと、既定 (Lenient) では Dispatcher はハンドラを呼ばずにログだけ出します。これによりミドルウェアパイプラインも走りません (後述の Strict モードでは例外になります)。
+
+### 型付き ActionKey (`ViewAction<T>`)
+
+キー自体にペイロード型を持たせると、型不一致が **コンパイルエラー** になります。Form 側 (`Add` の値の取り出し) と Presenter 側 (ハンドラの引数) の両方が同じキーの `T` に縛られるので、片方だけ型を変えるとビルドが通りません。
+
+```csharp
+public static class DocumentActions
+{
+    public static readonly ViewAction<string> Open    = ViewAction.Create<string>("Document.Open");
+    public static readonly ViewAction<int>    SetZoom = ViewAction.Create<int>("Document.SetZoom");
+}
+
+// View: valueSelector は int を返さなければならない
+_binder.Add(DocumentActions.SetZoom, _numZoom, n => (int)n.Value);
+
+// Presenter: ハンドラの引数は int (同期・非同期どちらも可)
+Dispatcher.Register(DocumentActions.SetZoom, zoom => _model.Zoom = zoom);
+Dispatcher.Register(DocumentActions.Open, async (path, ct) => await LoadAsync(path, ct));
+
+// テスト: CapturingActionBinder も型付きで呼べる
+view.Binder.Dispatch(DocumentActions.SetZoom, 150);
+```
+
+- **任意** です。従来の `ViewAction` + `Register<T>` はそのまま使え、同じ Dispatcher 内で混在できます。
+- 型付きの API: `ViewAction.Create<T>` / `ViewActionFactory.Create<T>`、Dispatcher の `Register` (`Action<T>` / `Func<T, Task>` / `Func<T, CancellationToken, Task>`)・`Dispatch`・`DispatchAsync`・`CanDispatch`、Binder の `Add(key, control, valueSelector)`。
+- `ViewAction<T>` から `ViewAction` への暗黙変換はありません (型付きキーが型なしのオーバーロードに黙って渡らないように)。型なしの API が必要な場面 (ミドルウェアでのキー比較、`Add(key, controls)` のような値なしバインドなど) では `.Key` を使います。`Name` は `.Key.Name` と同じです。
+- 値を取り出さないボタン (`Add(key, button)`) には型なしの `ViewAction` を使います。
 
 ---
 
