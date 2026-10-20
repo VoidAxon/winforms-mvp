@@ -156,6 +156,8 @@ _tracker = TrackChanges(order)
 - 式は **その型のメンバー 1 段だけ** (`x => x.A`)。`x => x.Customer.Name` のようなパスはエラーになり、`Ignore<Customer>(c => c.Name)` と書くよう案内されます。メソッド呼び出し・インデクサー・計算プロパティ (値を持つフィールドがない) もエラーです。
 - 自動プロパティのほか、`_name` / `m_name` のような手書きのバッキングフィールドを持つプロパティ (`BindableBase.SetProperty(ref _name, value)` など) も対象にできます。
 - 新しく追加したプロパティは何もしなくても比較されます (除外漏れで変更を見逃すことがない)。
+- メンバーの除外はアプリケーションの型だけに効きます (`System.*` / `Microsoft.*` の型の内部には及びません。例えば `IgnoreMember("Value")` が `int?` の比較を壊すことはありません)。独自の `Equals` を持つ型でも、除外があればフィールド単位で比較します。
+- `IgnoreType<T>()` は、`object` 型やインターフェイス型のメンバー・コレクションの要素に入っている値にも効き、片方が `null` や別の派生型でも比較しません。
 - `Ignore` の後に変更の有無が変わると、`IsChangedChanged` が発火します。
 - この 3 種類 (型のメンバー・メンバー名・型) は、CompareNETObjects や ObjectsComparer などの比較ライブラリが共通して持つ除外方法です。比較エンジンを差し替えた場合、tracker の除外設定は `ChangeTrackingIgnores` として `IObjectContentComparer.ContentEquals` に渡されるので、アダプタでライブラリの設定に対応付けます (上の例)。
 - 比較関数を自分で渡した tracker (`new ChangeTracker<T>(value, comparer)`、デリゲートで作った `ChangeTrackingPolicy<T>`) では `Ignore` は `InvalidOperationException` になります。その比較関数の中で除外してください。

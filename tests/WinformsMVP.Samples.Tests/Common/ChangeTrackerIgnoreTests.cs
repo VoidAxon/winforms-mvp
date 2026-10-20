@@ -227,6 +227,57 @@ namespace WinformsMVP.Samples.Tests.Common
             Assert.Same(ChangeTrackingIgnores.None, comparer.LastIgnores);
         }
 
+        public class Holder
+        {
+            public object Payload { get; set; }
+            public List<object> Items { get; set; } = new List<object>();
+            public int? Quantity { get; set; }
+            public Money Price { get; set; }
+        }
+
+        public class SpecialAudit : Audit { }
+
+        // An application struct with its own equality that includes the cached text.
+        public struct Money : IEquatable<Money>
+        {
+            public decimal Amount { get; set; }
+            public string CachedText { get; set; }
+            public bool Equals(Money other) => Amount == other.Amount && CachedText == other.CachedText;
+            public override bool Equals(object obj) => obj is Money m && Equals(m);
+            public override int GetHashCode() => Amount.GetHashCode();
+        }
+
+        [Fact]
+        public void IgnoreType_AppliesToObjectTypedMembers_AndCollectionElements_EvenWhenOneSideIsNullOrAnotherIgnoredType()
+        {
+            var original = new Holder { Payload = new Audit { By = "a" }, Items = { new Audit { By = "a" } } };
+            var tracker = new ChangeTracker<Holder>(original).IgnoreType<Audit>();
+
+            var edited = new Holder { Payload = null, Items = { new SpecialAudit { By = "b" } } };
+
+            Assert.False(tracker.IsChangedWith(edited));
+        }
+
+        [Fact]
+        public void IgnoreOwner_OnStructWithCustomEquality_IsHonored()
+        {
+            var original = new Holder { Price = new Money { Amount = 10, CachedText = "10.00" } };
+            var tracker = new ChangeTracker<Holder>(original).Ignore<Money>(m => m.CachedText);
+
+            Assert.False(tracker.IsChangedWith(new Holder { Price = new Money { Amount = 10, CachedText = "10" } }));
+            Assert.True(tracker.IsChangedWith(new Holder { Price = new Money { Amount = 11, CachedText = "10.00" } }));
+        }
+
+        [Fact]
+        public void IgnoreMember_DoesNotReachIntoFrameworkTypes()
+        {
+            // Nullable<int> stores its number in a field named "value": ignoring an app member
+            // named Value must not make every int? compare equal.
+            var tracker = new ChangeTracker<Holder>(new Holder { Quantity = 1 }).IgnoreMember("Value");
+
+            Assert.True(tracker.IsChangedWith(new Holder { Quantity = 2 }));
+        }
+
         private sealed class RecordingComparer : IObjectContentComparer
         {
             public ChangeTrackingIgnores LastIgnores;

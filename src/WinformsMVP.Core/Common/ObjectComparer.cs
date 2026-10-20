@@ -58,6 +58,16 @@ namespace WinformsMVP.Common
             return !visited.ContentMode || type.IsValueType || IsFrameworkType(type);
         }
 
+        // Member ignores apply to application types only: framework types keep their own semantics
+        // (e.g. IgnoreMember("Value") must not reach Nullable<T>.value).
+        private static bool HasMemberIgnores(Type type, Visited visited)
+        {
+            if (visited.Ignores == null || DeepReflection.IsImmutable(type) || IsFrameworkType(type)) return false;
+            foreach (var field in DeepReflection.GetFields(type))
+                if (visited.Ignores.SkipsField(type, field)) return true;
+            return false;
+        }
+
         private static bool IsFrameworkType(Type type)
         {
             var ns = type.Namespace;
@@ -68,14 +78,23 @@ namespace WinformsMVP.Common
         private static bool AreEqual(object a, object b, Visited visited)
         {
             if (ReferenceEquals(a, b)) return true;
+
+            // An ignored type is left out whatever the other side holds (null, another type), so this
+            // runs before the null and runtime-type checks; it also covers object-typed members and
+            // collection elements, whose declared type says nothing.
+            if (visited.Ignores != null
+                && ((a != null && visited.Ignores.SkipsType(a.GetType()))
+                    || (b != null && visited.Ignores.SkipsType(b.GetType()))))
+                return true;
+
             if (a == null || b == null) return false;
 
             var type = a.GetType();
             if (type != b.GetType()) return false;
 
-            if (visited.Ignores != null && visited.Ignores.SkipsType(type)) return true;
-
-            if (TrustsEquals(type, visited))
+            // A type's own Equals would still compare its ignored members, so an application type
+            // with member ignores is compared field by field instead.
+            if (TrustsEquals(type, visited) && !HasMemberIgnores(type, visited))
                 return a.Equals(b);
 
             if (a is Delegate) return true;   // ignore delegates / events
@@ -212,7 +231,7 @@ namespace WinformsMVP.Common
             foreach (var field in DeepReflection.GetFields(type))
             {
                 if (typeof(Delegate).IsAssignableFrom(field.FieldType)) continue;
-                if (visited.Ignores != null && visited.Ignores.SkipsField(type, field)) continue;
+                if (visited.Ignores != null && !IsFrameworkType(type) && visited.Ignores.SkipsField(type, field)) continue;
                 if (!AreEqual(field.GetValue(a), field.GetValue(b), visited)) return false;
             }
             return true;
