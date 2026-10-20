@@ -27,6 +27,13 @@ namespace WinformsMVP.Services.Implementations
         private bool _suppressGate;            // self-initiated / re-close: skip the gate once
         private bool _closeRequestedBeforeShow;
         private bool _gatePending;             // async CanClose has not answered yet
+        private bool _gateRunning;             // CanClose is running synchronously right now
+
+        // A push made while the gate is deciding (X -> "Save changes?" -> Yes -> saved) is the
+        // result of that close: held here and applied only if the gate allows.
+        private bool _hasGateResult;
+        private object _gateResult;
+        private InteractionStatus _gateStatus;
 
         /// <param name="disposeForm">True when this controller owns the Form lifetime (Managed
         /// modal, Adopted). False for non-modal Managed, where WinForms disposes on close.</param>
@@ -75,6 +82,15 @@ namespace WinformsMVP.Services.Implementations
         // Push (ICloseSink)
         public void Close(object result, InteractionStatus status)
         {
+            if (_gateRunning || _gatePending)
+            {
+                // Not a second close: the gate's answer decides whether this close happens.
+                _hasGateResult = true;
+                _gateResult = result;
+                _gateStatus = status;
+                return;
+            }
+
             _pendingResult = result;
             _pendingStatus = status;
             _suppressGate = true;
@@ -111,9 +127,16 @@ namespace WinformsMVP.Services.Implementations
                           || reason == WinformsMVP.Common.CloseReason.TaskManager);
                 return;
             }
+            // A fresh close attempt starts from the default (user X => Cancel): a result an earlier
+            // gate allowed must not leak in when that close was cancelled elsewhere (another
+            // FormClosing handler, another window during Application.Exit).
+            _pendingResult = null;
+            _pendingStatus = InteractionStatus.Cancel;
+
             var gate = new object();
             bool sync = true;
             bool? decision = null;
+            _gateRunning = true;
             try
             {
                 _presenter.CanCloseGate(reason, ok =>
@@ -135,6 +158,7 @@ namespace WinformsMVP.Services.Implementations
                             || reason == WinformsMVP.Common.CloseReason.TaskManager;
                 }
             }
+            finally { _gateRunning = false; }
 
             bool? answered;
             lock (gate)
@@ -143,7 +167,11 @@ namespace WinformsMVP.Services.Implementations
                 answered = decision;
             }
 
-            if (answered.HasValue) e.Cancel = !answered.Value;
+            if (answered.HasValue)
+            {
+                e.Cancel = !answered.Value;
+                TakeGateResult(answered.Value);
+            }
             else { e.Cancel = true; _gatePending = true; }
         }
 
@@ -163,6 +191,7 @@ namespace WinformsMVP.Services.Implementations
             }
 
             _gatePending = false;
+            TakeGateResult(allow);
             if (!allow || _form.IsDisposed) return;   // blocked: leave the window open
 
             _suppressGate = true;
@@ -186,6 +215,19 @@ namespace WinformsMVP.Services.Implementations
                     _form.Close();
                     break;
             }
+        }
+
+        /// <summary>An allowed close carries the result pushed during the gate; a blocked close
+        /// drops it (the next close starts clean).</summary>
+        private void TakeGateResult(bool allowed)
+        {
+            if (allowed && _hasGateResult)
+            {
+                _pendingResult = _gateResult;
+                _pendingStatus = _gateStatus;
+            }
+            _hasGateResult = false;
+            _gateResult = null;
         }
 
         // Converge (FormClosed)

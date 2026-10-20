@@ -114,12 +114,8 @@ namespace WinformsMVP.Testing
         /// <exception cref="InvalidOperationException">The presenter is not a window presenter.</exception>
         public bool? CanClose(CloseReason reason = CloseReason.Normal)
         {
-            var participant = _presenter as ICloseParticipant
-                ?? throw new InvalidOperationException(
-                    _presenter.GetType().Name + " is not a window presenter; only window presenters have a close gate.");
-            bool? decision = null;
-            participant.CanCloseGate(reason, ok => decision = ok);
-            return decision;
+            var decision = RunGate(AsCloseParticipant(), reason);
+            return decision.IsCompleted ? decision.Result : (bool?)null;
         }
 
         /// <summary>
@@ -128,13 +124,77 @@ namespace WinformsMVP.Testing
         /// </summary>
         /// <exception cref="InvalidOperationException">The presenter is not a window presenter.</exception>
         public Task<bool> CanCloseAsync(CloseReason reason = CloseReason.Normal)
-        {
-            var participant = _presenter as ICloseParticipant
+            => RunGate(AsCloseParticipant(), reason);
+
+        private ICloseParticipant AsCloseParticipant()
+            => _presenter as ICloseParticipant
                 ?? throw new InvalidOperationException(
                     _presenter.GetType().Name + " is not a window presenter; only window presenters have a close gate.");
-            var answer = new TaskCompletionSource<bool>();
-            participant.CanCloseGate(reason, ok => answer.TrySetResult(ok));
-            return answer.Task;
+
+        // Mirrors the real window: while an asynchronous gate is pending, another close attempt is
+        // held off (it gets the pending answer, the presenter is not asked again) except system
+        // shutdown / Task Manager, which go through. A RequestClose made while the gate is
+        // deciding (X -> "Save changes?" -> Yes -> saved) is the result of that close: recorded
+        // only if the gate allows.
+        // The deferred gate answer arrives on a thread-pool thread, so gate state is locked.
+        private readonly object _gateLock = new object();
+        private TaskCompletionSource<bool> _pendingGate;
+        private bool _hasGateResult;
+        private object _gateResult;
+        private InteractionStatus _gateStatus;
+
+        private Task<bool> RunGate(ICloseParticipant participant, CloseReason reason)
+        {
+            var gate = new TaskCompletionSource<bool>();
+            lock (_gateLock)
+            {
+                if (_pendingGate != null)
+                {
+                    return reason == CloseReason.SystemShutdown || reason == CloseReason.TaskManager
+                        ? Task.FromResult(true)
+                        : _pendingGate.Task;
+                }
+                _pendingGate = gate;
+            }
+
+            try
+            {
+                participant.CanCloseGate(reason, ok =>
+                {
+                    lock (_gateLock)
+                    {
+                        if (_pendingGate != gate) return;
+                        _pendingGate = null;
+                        if (ok && _hasGateResult) Record(_gateResult, _gateStatus);
+                        ClearGateResult();
+                    }
+                    gate.TrySetResult(ok);
+                });
+            }
+            catch
+            {
+                lock (_gateLock)
+                {
+                    if (_pendingGate == gate) _pendingGate = null;
+                    ClearGateResult();
+                }
+                throw;
+            }
+            return gate.Task;
+        }
+
+        // Callers hold _gateLock.
+        private void ClearGateResult()
+        {
+            _hasGateResult = false;
+            _gateResult = null;
+        }
+
+        private void Record(object result, InteractionStatus status)
+        {
+            CloseCount++;
+            CloseResult = result;
+            CloseStatus = status;
         }
 
         /// <summary>Disposes the presenter (runs <c>Cleanup</c> and releases <c>Disposables</c>).</summary>
@@ -147,9 +207,17 @@ namespace WinformsMVP.Testing
 
             public void Close(object result, InteractionStatus status)
             {
-                _host.CloseCount++;
-                _host.CloseResult = result;
-                _host.CloseStatus = status;
+                lock (_host._gateLock)
+                {
+                    if (_host._pendingGate != null)
+                    {
+                        _host._hasGateResult = true;
+                        _host._gateResult = result;
+                        _host._gateStatus = status;
+                        return;
+                    }
+                    _host.Record(result, status);
+                }
             }
         }
     }
