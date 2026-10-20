@@ -328,7 +328,7 @@ WinForms 以外の表示 (エラー一覧パネルなど) が必要なら `IVali
 
 [ChangeTracker](Reference-ChangeTracker) (変更追跡) と `Validation` (検証) は **無関係な別々の関心事**です。
 
-- **`ChangeTracker`** はベースラインから「**変わったか**」を答える検出ツール。**データの所有者ではありません**。
+- **`ChangeTracker`** はスナップショットから「**変わったか**」を答える検出ツール。**データの所有者ではありません**。
 - **`Validation`** は「**妥当か**」を答え、エラーを View に届けるだけ。
 
 データは **View(が保持・バインドする編集モデル)** が持ち、Presenter が 2 つのツールを **それぞれ別々に** 呼んで編成します。融合ヘルパーはフレームワークでは提供しません ([単一責任](Concept-MVP-Pattern))。
@@ -343,8 +343,8 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView>
     protected override void OnInitialize()
     {
         var user = LoadUser(_userId);
-        _tracker = new ChangeTracker<UserModel>(user);   // ベースラインのスナップショット(変更検出専用)
         View.ShowUser(user);                              // 表示は意味のある View メソッドで(View が編集モデルを保持)
+        _tracker = TrackChanges(View.GetModel());         // 最初のスナップショット(変更検出専用。書き方 2: 毎回 View から新しいモデルを作る)
         Validation.Validate(user);
     }
 
@@ -371,7 +371,8 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView>
         if (!Validation.Check(model)) return;  // エラーを見せて Save をブロックするだけ。何も巻き戻さない
 
         SaveUser(model);
-        _tracker.AcceptChanges(model);         // 保存できた値を新しいベースラインに(dirty 解消)
+        _tracker.AcceptChanges(model);         // 保存できた値を新しいスナップショットに(dirty 解消)
+        Dispatcher.RaiseCanExecuteChanged();   // tracker は通知しないので Save の活性を自分で再評価
         Messages.ShowInfo("Saved.");
     }
 }
@@ -379,14 +380,14 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView>
 
 > **CanExecute の再評価にはトリガが要ります。** `canExecute` 述語は登録時、`RaiseCanExecuteChanged()` 呼び出し時、そして `Validation` のエラーが変わったときにしか再計算されません ([アクション外で状態が変わったら呼ぶ](Reference-ViewAction-System))。
 >
-> キャッシュ `IsChanged` を使いたい場合は、View 変更時に `_tracker.UpdateCurrentValue(View.GetModel())` を呼んで tracker にも現在値を反映し、`IsChangedChanged` ハンドラで `RaiseCanExecuteChanged()` を呼ぶ形にできます (実例 `samples/.../EmailDemo/ComposeEmailPresenter.cs`)。それでもデータの源は View です。
+> `ChangeTracker` は変更を通知しません。入力変更ハンドラ (上の `OnInputChanged`) で `RaiseCanExecuteChanged()` を呼び、ダーティ表示が必要なら同じ場所で `View.IsDirty = _tracker.IsChangedWith(View.GetModel())` を設定します。`AcceptChanges` の後も同様に再評価します (実例 `samples/.../EmailDemo/ComposeEmailPresenter.cs`)。Presenter が 1 つのモデルを編集し続ける書き方なら `IsChanged` / `AcceptChanges()` を使います ([ChangeTracker § 2 つの使い方](Reference-ChangeTracker#2-つの使い方))。
 
 ### 検証は「巻き戻し」と無関係
 
-「入力が無効になったら自動で元に戻す」を `ChangeTracker.RejectChanges()` で実装しては **いけません**。`RejectChanges()` は **スナップショット全体をベースラインに戻す** 操作です。3 項目編集して 1 項目だけ無効なときに呼ぶと、**妥当だった残り 2 項目まで巻き戻ってしまいます**。検証はフィールド単位、`RejectChanges` はセッション全体——粒度が噛み合いません。
+「入力が無効になったら自動で元に戻す」は実装しないでください。`ChangeTracker` は変更を **検出するだけ** で、データを元に戻す機能はありません (以前の `RejectChanges()` は削除されました)。仮に編集セッション全体を戻すと、3 項目編集して 1 項目だけ無効なときに **妥当だった残り 2 項目まで巻き戻ってしまいます**。検証はフィールド単位、巻き戻しはセッション全体——粒度が噛み合いません。
 
 - **検証失敗時**:エラーを表示して Save をブロックするだけ。`ChangeTracker` には一切触れない。
-- **`RejectChanges()` の正しい用途**:ユーザーが明示的に「キャンセル/破棄」したときに、編集セッション**全体**を捨てる操作 (個々のフィールド単位ではない)。破棄後に表示を初期状態へ戻すなら `Validation.Reset()` も呼びます。
+- **ユーザーが明示的に「破棄」したとき**:画面に留まるなら、リポジトリから読み直して表示し、tracker を新しく作り (`TrackChanges(...)`)、`Validation.Reset()` も呼びます。破棄して閉じるなら、`RequestClose` の前に `_tracker.AcceptChanges(View.GetModel())` を呼んで `CanClose` が再確認しないようにします (保存したという意味ではありません)。
 
 検証と変更追跡はそれぞれ単体でテストでき、互いに依存しません。
 

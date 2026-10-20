@@ -149,7 +149,7 @@ _tracker.AcceptChanges(saved);                  // 保存的内容作为新照�
 
 - **EmailDemo**（写法 2）：每次从画面读出只含 To / Subject / Body 的 `EmailEditState`（发送用的 `EmailMessage` 还会补上日期、发件人等字段，直接拿它当基准会把这些差异也算进去），用 `IsChangedWith` 判断；异步保存草稿后 `AcceptChanges(保存的内容)`，删除手写的竞态判断；"放弃"改为 `AcceptChanges(当前画面的内容)`。
 - **CustomizationDemo**（写法 2，`IsChangedWith`）；**wiki / 使用指南**：两种写法并列介绍，各自配一个完整例子。
-- 修正 wiki `Reference-ChangeTracker.md` 中"Push 关闭会跳过 `CanClose`"的错误描述（与 CLAUDE.md 的约定矛盾）。
+- ~~修正 wiki 中"Push 关闭会跳过 `CanClose`"的描述~~：实现时核对代码发现这个描述是**对的**（`WindowLifecycleController.RequestClose` 设置 `_suppressGate`，紧接着的关闭不再经过 `CanClose`）。改为在文档中说明：Push 前先确认改动是为了让 Presenter 的状态保持一致（之后任何 `CanClose` 判断都不会误报），而不是因为框架会再调用一次 `CanClose`。
 - CHANGELOG 记为不兼容变更（未发布，没有使用者受影响）。
 
 ## 8. 测试

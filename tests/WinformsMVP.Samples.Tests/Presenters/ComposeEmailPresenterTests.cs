@@ -729,8 +729,8 @@ namespace WinformsMVP.Samples.Tests.Presenters
         }
 
         /// <summary>
-        /// When OnDiscard is confirmed it calls RejectChanges then RequestClose.
-        /// The follow-up Pull gate should observe IsChanged == false and NOT prompt.
+        /// When OnDiscard is confirmed it accepts the current content, then RequestClose.
+        /// The follow-up Pull gate should see no unsaved changes and NOT prompt.
         /// </summary>
         [Fact]
         public void OnDiscard_FollowedByClosing_DoesNotPrompt()
@@ -749,7 +749,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
                 _mockServices.MessageService.Calls.ConvertAll(c => $"{c.Type}:{c.Message}"));
 
             // Assert — the gate should NOT add any new prompts (the dirty state was
-            // already finalized by OnDiscard's RejectChanges).
+            // already finalized by OnDiscard's AcceptChanges).
             Assert.True(_host.CloseRequested);
             Assert.True(initialCalls == afterClosingCalls,
                 $"CanClose gate added {afterClosingCalls - initialCalls} extra call(s). " +
@@ -883,8 +883,6 @@ namespace WinformsMVP.Samples.Tests.Presenters
             // Assert - verify complete workflow
             Assert.Contains("SendEmailAsync(Important Message)", _mockRepository.MethodCalls);
             Assert.True(_host.CloseRequested);
-            // Note: IsDirty is cleared via ChangeTracker.AcceptChanges() which triggers IsChangedChanged event
-            // The actual dirty flag is managed internally by ChangeTracker
         }
 
         /// <summary>

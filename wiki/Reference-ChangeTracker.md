@@ -1,9 +1,9 @@
 # ChangeTracker
 
-`ChangeTracker<T>` は **編集 / キャンセル** シナリオに必要な、堅牢な **変更追跡** を提供します。
-`IChangeTracking` と `IRevertibleChangeTracking` の両インターフェイスを実装しており、ベースライン (元の値) との比較・コミット (確定) ・破棄 (元に戻す) を一貫した API で扱えます。
+`ChangeTracker<T>` は、データが読み込み時 (または最後の保存時) に撮った **スナップショット** (写真) から変わったかどうかを **検出するだけ** のコンポーネントです。
+データの持ち主は呼び出し側 (Presenter) で、tracker がデータを預かることはありません。`IChangeTracking` だけを実装します (元に戻す機能はありません)。
 
-> **位置づけ**: 編集画面の `OnSave` / `OnCancel` ハンドラの実装と、`CanExecute` 判定 (「未保存の変更があるか」) の両方を支える基幹コンポーネントです。
+> **位置づけ**: 編集画面の `CanExecute` 判定 (「未保存の変更があるか」) と、`CanClose` の保存確認を支える基幹コンポーネントです。
 
 ---
 
@@ -14,10 +14,10 @@
 - [比較の解決順序](#比較の解決順序)
 - [第三者ライブラリの差し込み](#第三者ライブラリの差し込み)
 - [項目を比較から外す (画面ごと)](#項目を比較から外す-画面ごと)
-- [使い方の最小例](#使い方の最小例)
+- [2 つの使い方](#2-つの使い方)
 - [なぜ深いコピーが必要か](#なぜ深いコピーが必要か)
 - [主要 API](#主要-api)
-- [イベント](#イベント)
+- [変更の通知](#変更の通知)
 - [高度な機能](#高度な機能)
 - [関連ページ](#関連ページ)
 
@@ -26,10 +26,11 @@
 ## 型制約
 
 ```csharp
-public class ChangeTracker<T> where T : class
+public sealed class ChangeTracker<T> : IChangeTracking where T : class
 ```
 
-- **`T : class`** — 参照型のみ対応
+- **`T : class`** — 参照型のみ対応 (値型には追跡する「参照」がないため。必要なら編集状態クラスに包む)
+- **渡したオブジェクトはコピーせず参照を保持** し、スナップショットだけを深いコピーで取る。Presenter がそのオブジェクトをその場で編集すれば `IsChanged` にすぐ反映される
 - **`ICloneable` は使われない** — .NET の `Clone()` は浅いコピーでもよい契約のため、実装していても参照しない。検証済みの深い `Clone()` を使いたい場合は `ChangeTrackingPolicy<T>` で明示する
 - **`IEquatable<T>` / `Equals` は比較に使われない** — 既定は内容比較 (`ObjectComparer.ContentEquals`)。独自の等価性を使いたい場合は `comparer` を明示的に渡す
 
@@ -58,7 +59,7 @@ _tracker = TrackChanges(order, (a, b) => a.SameEditableContent(b)); // 比較だ
 
 ## スナップショット (複製) の解決順序
 
-ベースラインを保存するために `T` のコピーを作る必要があります。`TrackChanges(value)` は以下の順で複製戦略を決定します。
+スナップショットを保存するために `T` のコピーを作る必要があります。`TrackChanges(value)` は以下の順で複製戦略を決定します。
 
 1. **`T` ちょうどに登録された `ChangeTrackingPolicy<T>`** (`mvp.ChangeTracking.For<T>(policy)`) → その `Clone`
 2. **登録された `IObjectCloner`** (`mvp.ChangeTracking.UseCloner(...)`) → その `DeepClone`
@@ -73,7 +74,7 @@ _tracker = TrackChanges(order, (a, b) => a.SameEditableContent(b)); // 比較だ
 
 ## 比較の解決順序
 
-`IsChanged` 判定 (現在値とベースラインの比較) は以下の順で戦略を決定します。
+`IsChanged` / `IsChangedWith` 判定 (追跡中のオブジェクトまたは渡した値と、スナップショットの比較) は以下の順で戦略を決定します。
 
 1. **コンストラクタ / `TrackChanges` に `comparer` かポリシーを渡した** → それを使用
 2. **(`TrackChanges` のみ) `T` ちょうどに登録された `ChangeTrackingPolicy<T>`** → その `ContentEquals`
@@ -158,72 +159,166 @@ _tracker = TrackChanges(order)
 - 新しく追加したプロパティは何もしなくても比較されます (除外漏れで変更を見逃すことがない)。
 - メンバーの除外はアプリケーションの型だけに効きます (`System.*` / `Microsoft.*` の型の内部には及びません。例えば `IgnoreMember("Value")` が `int?` の比較を壊すことはありません)。独自の `Equals` を持つ型でも、除外があればフィールド単位で比較します。
 - `IgnoreType<T>()` は、`object` 型やインターフェイス型のメンバー・コレクションの要素に入っている値にも効きます。その型の値どうし (別の派生型を含む) や `null` との違いは変更として扱いませんが、まったく別の値 (例えば文字列) に置き換えた場合は変更です。
-- `Ignore` の後に変更の有無が変わると、`IsChangedChanged` が発火します。
+- `Ignore` の指定は、次に `IsChanged` / `IsChangedWith` を読んだときから効きます。
 - この 3 種類 (型のメンバー・メンバー名・型) は、CompareNETObjects や ObjectsComparer などの比較ライブラリが共通して持つ除外方法です。比較エンジンを差し替えた場合、tracker の除外設定は `ChangeTrackingIgnores` として `IObjectContentComparer.ContentEquals` に渡されるので、アダプタでライブラリの設定に対応付けます (上の例)。
 - 比較関数を自分で渡した tracker (`new ChangeTracker<T>(value, comparer)`、デリゲートで作った `ChangeTrackingPolicy<T>`) では `Ignore` は `InvalidOperationException` になります。その比較関数の中で除外してください。
 
-## 使い方の最小例
+## 2 つの使い方
+
+tracker の使い方は 2 通りあり、それぞれ「判定」と「確定 (写真の撮り直し)」の組が決まっています。
+
+| | どんなとき | 判定 | 確定 (保存後) | 保証 |
+|---|---|---|---|---|
+| **書き方 1** | Presenter が 1 つのモデルを編集し続ける (`TrackChanges(_order)` → `_order.Name = ...`) | `IsChanged` | `AcceptChanges()` | 以後 `IsChanged == false` |
+| **書き方 2** | 必要なたびに View から新しいモデルを作る (`new Order(View.Name, ...)`) | `IsChangedWith(x)` | `AcceptChanges(x)` | 以後 `IsChangedWith(x) == false` |
+
+比較は内容で行うため、値を元に戻せば「変更なし」に戻ります。
+
+### 書き方 1: Presenter が 1 つのモデルを編集し続ける
+
+tracker は渡されたオブジェクトそのもの (参照) を覚え、そのスナップショットを撮ります。編集は `_order` に入れ、`IsChanged` で判定し、保存後に `AcceptChanges()` で撮り直します。
 
 ```csharp
-public class EditUserPresenter : WindowPresenterBase<IEditUserView>
+public class EditOrderPresenter : WindowPresenterBase<IEditOrderView, int>
 {
-    private ChangeTracker<UserModel> _changeTracker;
+    private readonly IOrderRepository _repository;
+    private Order _order;                    // データの持ち主は Presenter
+    private ChangeTracker<Order> _tracker;   // tracker は変更の検出だけ
 
-    protected override void OnInitialize()
+    public EditOrderPresenter(IOrderRepository repository) => _repository = repository;
+
+    protected override void OnViewAttached()
     {
-        var user = LoadUser(userId);
-        _changeTracker = TrackChanges(user);                    // ベースラインのスナップショット
-        View.ShowUser(user);                                    // データは View が保持・編集する
+        View.DataChanged += OnDataChanged;
     }
 
     protected override void RegisterViewActions()
     {
-        Dispatcher.Register(
-            StandardActions.Save,
-            OnSave,
-            // tracker は「変わったか」を答えるだけ。現在値は View から渡す。
-            // (Save の活性を編集に追随させるには、View の変更時に RaiseCanExecuteChanged() を
-            //  呼ぶ配線が別途必要 — [HowTo: 入力検証](HowTo-Validate-Form-Input) 参照)
-            canExecute: () => _changeTracker.IsChangedWith(View.GetModel()));
+        Dispatcher.Register(StandardActions.Save, OnSave, canExecute: () => HasUnsavedChanges);
+    }
 
-        Dispatcher.Register(StandardActions.Reset, OnReset);
+    protected override void OnInitialize(int orderId)
+    {
+        _order = _repository.Load(orderId);
+        _tracker = TrackChanges(_order);     // _order 自体を覚え、スナップショットを撮る
+        View.ShowOrder(_order);
+        View.IsDirty = false;
+    }
+
+    private bool HasUnsavedChanges => _tracker != null && _tracker.IsChanged;
+
+    private void OnDataChanged(object sender, EventArgs e)
+    {
+        _order.Name = View.OrderName;        // 編集は _order に入れる
+        _order.Quantity = View.Quantity;
+        View.IsDirty = HasUnsavedChanges;    // 通知はないので、ここで読む
+        Dispatcher.RaiseCanExecuteChanged();
     }
 
     private void OnSave()
     {
-        var model = View.GetModel();              // データは View から取得(tracker からではない)
-        SaveUser(model);
-        _changeTracker.AcceptChanges(model);      // 保存できた値を新しいベースラインに
-    }
-
-    private void OnReset()
-    {
-        // 編集を破棄してベースラインを再表示する
-        View.ShowUser(_changeTracker.GetOriginalValue());
+        _repository.Save(_order);
+        _tracker.AcceptChanges();            // 撮り直す → IsChanged == false
+        View.IsDirty = false;
+        Dispatcher.RaiseCanExecuteChanged();
     }
 }
 ```
 
-> **ChangeTracker はデータを持ちません。** データの源は常に View(またはモデル)です。tracker には「ベースライン」と「変わったか」の判定だけを任せ、現在値は `View.GetModel()` のように View から取り出して `IsChangedWith` に渡します。`CurrentValue` プロパティは開発時のデバッグ確認用で、IntelliSense からは隠してあります。
+- `_order = _repository.Load(...)` のように **変数を別のオブジェクトに差し替えたら、tracker も作り直します** (tracker は古いオブジェクトを追跡し続けるため)。
+- **非同期保存**: 保存するデータの独立したコピーを先に作り、成功後に `AcceptChanges(saved)` を呼びます。保存中にユーザーが編集していれば `IsChanged` は `true` のまま残ります (元の値に戻した場合も、保存先にはもう `saved` があるので `true`)。
+
+```csharp
+private async Task OnSaveAsync(CancellationToken ct)
+{
+    var saved = ObjectCloner.DeepCopy(_order);   // 保存するデータを固定する
+    await _repository.SaveAsync(saved, ct);
+    _tracker.AcceptChanges(saved);               // 確定するのは saved。_order には触れない
+    View.IsDirty = _tracker.IsChanged;           // 保存中の編集があれば true のまま
+    Dispatcher.RaiseCanExecuteChanged();
+}
+```
+
+### 書き方 2: 毎回 View から新しいモデルを作る
+
+最初のオブジェクトは最初のスナップショットを撮るためだけに使います。判定は `IsChangedWith(ReadModel())`、保存後は保存した値で `AcceptChanges(saved)` を呼びます。`record` や不変クラスはこちらの書き方です。
+
+```csharp
+public class EditUserPresenter : WindowPresenterBase<IEditUserView, int>
+{
+    private readonly IUserRepository _repository;
+    private ChangeTracker<UserModel> _tracker;
+
+    public EditUserPresenter(IUserRepository repository) => _repository = repository;
+
+    protected override void OnViewAttached()
+    {
+        View.DataChanged += OnDataChanged;
+    }
+
+    protected override void RegisterViewActions()
+    {
+        Dispatcher.Register(StandardActions.Save, OnSave, canExecute: () => HasUnsavedChanges);
+    }
+
+    protected override void OnInitialize(int userId)
+    {
+        var user = _repository.Load(userId);
+        View.ShowUser(user);
+        _tracker = TrackChanges(ReadModel());   // 最初のスナップショットを撮るためだけに使う
+        View.IsDirty = false;
+    }
+
+    // 編集中の内容を View から新しいモデルとして読み出す
+    private UserModel ReadModel() => new UserModel { Name = View.UserName, Email = View.Email };
+
+    private bool HasUnsavedChanges => _tracker != null && _tracker.IsChangedWith(ReadModel());
+
+    private void OnDataChanged(object sender, EventArgs e)
+    {
+        View.IsDirty = HasUnsavedChanges;
+        Dispatcher.RaiseCanExecuteChanged();
+    }
+
+    private void OnSave()
+    {
+        var saved = ReadModel();
+        _repository.Save(saved);
+        _tracker.AcceptChanges(saved);          // 保存した内容を新しいスナップショットに
+        View.IsDirty = HasUnsavedChanges;
+        Dispatcher.RaiseCanExecuteChanged();
+    }
+}
+```
+
+> ⚠️ **書き方 2 で引数なしの `AcceptChanges()` を呼ばないでください。** 引数なし版は tracker を作ったときのオブジェクト (書き方 2 では古いまま) を撮り直すため、次の `IsChangedWith` が変更ありと報告します。
+
+実例: `samples/WinformsMVP.Samples/EmailDemo/ComposeEmailPresenter.cs` (書き方 2。編集する 3 項目だけを `EmailEditState` に読み出して比較し、非同期の下書き保存後に `AcceptChanges(submitted)`)。
+
+### tracker の役割ではないこと
+
+- **元に戻す**: tracker は検出だけを行い、データを復元しません (`RejectChanges` / `GetOriginalValue` は削除されました)。画面に留まったまま編集を取り消したい場合は、リポジトリから読み直して表示し、tracker を新しく作ります。
+- **「破棄して閉じる」**: `RequestClose` の前に `AcceptChanges()` (書き方 1) / `AcceptChanges(ReadModel())` (書き方 2) を呼び、Pull 方向の `CanClose` が再び確認しないようにします ([ウィンドウクローズとの連携](#3-ウィンドウクローズとの連携))。これは破棄した編集の追跡を終えるという意味で、保存したという意味ではありません。
+- **データの保持**: 現在値を取り出すプロパティはありません (`CurrentValue` / `UpdateCurrentValue` は削除されました)。データは Presenter (書き方 1) か View (書き方 2) が持ちます。
 
 ---
 
 ## なぜ深いコピーが必要か
 
-浅いコピー (MemberwiseClone) は、参照型プロパティが元のオブジェクトと **同じインスタンスを共有** してしまいます。すると tracker が取るベースラインのスナップショットが元オブジェクトから独立せず、変更検出が壊れます。
+浅いコピー (MemberwiseClone) は、参照型プロパティが元のオブジェクトと **同じインスタンスを共有** してしまいます。すると tracker が取るスナップショットが追跡中のオブジェクトから独立せず、変更検出が壊れます。
 
 ### 浅いコピーの問題
 
 ```csharp
 var user = new UserModel { Address = new Address { City = "Tokyo" } };
-var tracker = new ChangeTracker<UserModel>(user);   // ベースラインのスナップショットを取る
+var tracker = new ChangeTracker<UserModel>(user);   // user を追跡し、スナップショットを撮る
 
-// 浅いコピーだと、ベースラインは user と同じ Address インスタンスを共有してしまう。
-// その状態で(View 上で)元オブジェクトを編集すると…
+// 浅いコピーだと、スナップショットは user と同じ Address インスタンスを共有してしまう。
+// その状態で追跡中のオブジェクトを編集すると…
 user.Address.City = "Osaka";
 
-// ベースラインまで一緒に書き換わるため、変更を検出できない
-bool changed = tracker.IsChangedWith(user);   // 浅いコピーだと false(期待: true)
+// スナップショットまで一緒に書き換わるため、変更を検出できない
+bool changed = tracker.IsChanged;   // 浅いコピーだと false(期待: true)
 ```
 
 ### 自前の深いコピーを使う場合
@@ -287,60 +382,53 @@ public void Clone_CreatesIndependentCopy()
 
 ## 主要 API
 
-### プロパティ
+公開メンバーは以下だけです (除外設定の `Ignores` / `Ignore` / `Ignore<TOwner>` / `IgnoreMember` / `IgnoreType<T>` は [項目を比較から外す](#項目を比較から外す-画面ごと) を参照)。
 
-| メンバー | 型 | 説明 |
-|---------|----|----|
-| `CurrentValue` | `T` | tracker が保持する作業スナップショット (読み取り専用)。**開発時のデバッグ確認用**で、IntelliSense からは隠してある (`[EditorBrowsable(Never)]`)。データの源は View であって tracker ではない |
-| `IsChanged` | `bool` | 現在値がベースラインと異なるか (読むたびに比較。詳細は「パフォーマンス」の注記)。ダーティ判定は通常 `IsChangedWith(View の値)` を使う |
+| メンバー | 書き方 | 説明 |
+|---------|------|----|
+| `ChangeTracker(T value[, comparer \| policy])` | 共通 | `value` を **参照のまま** 覚え (コピーしない)、深いコピーでスナップショットを撮る |
+| `bool IsChanged` | 1 | 追跡中のオブジェクトがスナップショットと異なるか。読むたびに比較する |
+| `void AcceptChanges()` | 1 | 追跡中のオブジェクトのスナップショットを撮り直す → 以後 `IsChanged == false` |
+| `bool IsChangedWith(T value)` | 2 | `value` がスナップショットと異なるか。副作用なし |
+| `void AcceptChanges(T value)` | 2 (と書き方 1 の非同期保存) | `value` の深いコピーを新しいスナップショットにする。追跡中のオブジェクトには触れない → 以後 `IsChangedWith(value) == false` |
 
-### メソッド
-
-| メソッド | 説明 |
-|---------|----|
-| `UpdateCurrentValue(T value)` | 現在値を更新 (`IsChangedChanged` イベントを発火することがある) |
-| `AcceptChanges()` / `AcceptChanges(T value)` | ベースラインを確定。引数版は指定値を新しいベースラインにする(保存後に View の値で呼ぶ) |
-| `RejectChanges()` | ベースラインに戻す |
-| `IsChangedWith(T value)` | 指定値(通常は View の現在値)がベースラインと異なるか判定。**ダーティ判定はこれを使う** |
-| `GetOriginalValue()` | ベースラインのコピーを取得 |
+削除されたメンバー: `CurrentValue`、`UpdateCurrentValue`、`RejectChanges` (と `IRevertibleChangeTracking`)、`GetOriginalValue`、`IsChangedChanged` イベント。
 
 ---
 
-## イベント
+## 変更の通知
 
-| イベント | 発火タイミング |
-|---------|--------------|
-| `IsChangedChanged` | `IsChanged` 状態が変わったとき |
+tracker は変更を通知しません (イベントはありません)。その場で編集されたオブジェクトの変化を tracker は知り得ず、書き方 2 では現在値すら持たないためです。
 
-UI への通知 (ボタンの Enabled 更新等) に使えます。
+ボタンの活性は変更の有無だけで決まるわけではないので、Presenter は View のデータ変更ハンドラでどのみち `RaiseCanExecuteChanged()` を呼びます。同じ場所で `IsChanged` / `IsChangedWith` を読みます。
 
 ```csharp
-_changeTracker.IsChangedChanged += (s, e) =>
+private void OnDataChanged(object sender, EventArgs e)
 {
-    Dispatcher.RaiseCanExecuteChanged();   // Save ボタン等を再評価
-};
+    View.IsDirty = _tracker.IsChanged;   // 書き方 2 は _tracker.IsChangedWith(ReadModel())
+    Dispatcher.RaiseCanExecuteChanged();
+}
 ```
+
+`AcceptChanges` の後も、`View.IsDirty` を自分で更新してください。
 
 ---
 
 ## 高度な機能
 
-### 1. スレッドセーフ
+### 1. スレッド
 
-すべての操作は内部でロック保護されており、マルチスレッド環境で安全に使用できます。
-非同期な業務処理 (`async/await`) からも問題なく `UpdateCurrentValue` 等を呼べます。
+tracker はスレッドセーフではありません (内部ロックはありません)。**tracker と追跡中のオブジェクトは 1 つのスレッドから順に使ってください** — WinForms では UI スレッドです。ロックで守れるのは tracker 自身のフィールドだけで、Presenter が編集しているオブジェクトは守れないためです。
+
+非同期保存では、バックグラウンドには独立した保存用データだけを渡し、完了後に UI スレッドで `AcceptChanges(saved)` を呼びます ([書き方 1](#書き方-1-presenter-が-1-つのモデルを編集し続ける))。アプリ全体で共有する複製・比較エンジンは、複数の tracker から同時に使われても安全です。
 
 ### 2. パフォーマンス
 
-`IsChanged` は結果をキャッシュせず、**読むたびに現在値とベースラインを比較** します。そのため `CurrentValue` のオブジェクトをインプレースで編集した場合も検出されます (以前のバージョンはキャッシュしていたため、`AcceptChanges` / `RejectChanges` / `UpdateCurrentValue` を呼ぶまで反映されませんでした)。深い比較のコストは読むたびにかかるので、頻繁なポーリングは避けてください。
-
-> ⚠️ `ChangeTracker` はあなたのデータを所有せず `INotifyPropertyChanged` も購読しないため、**View 側にしか無い編集値**は `IsChanged` からは見えません。**ダーティ判定は現在値を渡して比較する `IsChangedWith(View.GetModel())` で行ってください**。Save / ウィンドウクローズのような一発判定に最適で、本ページの例もこの形です。
->
-> `IsChangedChanged` が発火するのは `AcceptChanges` / `RejectChanges` / `UpdateCurrentValue` で状態が変わったときだけです (インプレース編集では発火しません。イベントは内部ロックの外で発火するので、ハンドラから tracker を呼んでもデッドロックしません)。イベント駆動 UI で通知が欲しい場合は、View 変更時に `UpdateCurrentValue(View.GetModel())` を呼んでください (実例 `samples/.../EmailDemo/ComposeEmailPresenter.cs`)。それでもデータの源は View です。
+`IsChanged` / `IsChangedWith` は結果をキャッシュせず、**読むたびにスナップショットと比較** します。そのため追跡中のオブジェクトをその場で編集した場合もすぐに検出されます。深い比較のコストは読むたびにかかるので、頻繁なポーリングは避けてください (データ変更ハンドラと `canExecute` で読む程度なら問題ありません)。
 
 ### 3. ウィンドウクローズとの連携
 
-ウィンドウクローズ時のダーティチェックに使うのが典型パターンです (一発判定なので実時比較 `IsChangedWith` を使う)。
+ウィンドウクローズ時のダーティチェックに使うのが典型パターンです (書き方 1 の例。書き方 2 では `IsChanged` を `IsChangedWith(ReadModel())`、`AcceptChanges()` を `AcceptChanges(ReadModel())` に読み替えます)。
 
 ```csharp
 // Pull direction: override CanClose (details in [Window Closing Model](Concept-Window-Closing-Model))
@@ -349,7 +437,7 @@ protected override bool CanClose(CloseReason reason)
     if (reason == CloseReason.SystemShutdown || reason == CloseReason.TaskManager)
         return true;
 
-    if (_changeTracker.IsChangedWith(View.GetModel()) &&
+    if (_tracker.IsChanged &&
         !Messages.ConfirmYesNo("Discard unsaved changes?", "Confirm"))
     {
         return false;
@@ -358,24 +446,32 @@ protected override bool CanClose(CloseReason reason)
 }
 
 // Push direction: Save button
-private void OnSave()
+private void OnSaveAndClose()
 {
-    var model = View.GetModel();
-    SaveData(model);
-    _changeTracker.AcceptChanges(model);   // commit: baseline = saved value
-    RequestClose(result, InteractionStatus.Ok);
+    _repository.Save(_order);
+    _tracker.AcceptChanges();              // commit: snapshot = saved state
+    RequestClose(_order, InteractionStatus.Ok);
+}
+
+// Push direction: Discard button
+private void OnDiscard()
+{
+    _tracker.AcceptChanges();              // stop tracking the discarded edits (not "saved")
+    RequestClose(InteractionStatus.Cancel);
 }
 ```
 
-`AcceptChanges(model)` の後に `RequestClose` を呼ぶことで、ベースラインが保存値に更新されます。続いてフレームワークが `CanClose` を呼んでも `IsChangedWith(View.GetModel())` が `false` を返し、再確認ダイアログが出ません。(この順序は推奨ですが、フレームワーク構造上 Push 起点の閉じは `CanClose` をスキップするため、二重確認が出ない保証は `AcceptChanges` の呼び出し順序に依存しません。)
+Push ハンドラは `RequestClose` を呼ぶ **前に** ダーティ状態を確定させます (保存なら保存後に、破棄なら破棄した編集を受け入れて `AcceptChanges`)。これにより、`CanClose` がその後いつ評価されてもクリーンな状態を見て、再確認ダイアログは出ません。ダーティ状態の確認は `CanClose` (Pull) だけに置き、二重確認の防止をフレームワークの閉じ方の内部動作に頼らないでください。
 
 ---
 
 ## 関連ページ
 
 - [ウィンドウクローズモデル](Concept-Window-Closing-Model) — ダーティチェックとの連携
-- [ViewAction システム](Reference-ViewAction-System) — `CanExecute: () => _changeTracker.IsChangedWith(...)` パターン
+- [ViewAction システム](Reference-ViewAction-System) — `canExecute: () => _tracker.IsChanged` パターン
 - [HowTo: ウィンドウクローズを扱う](HowTo-Handle-Window-Closing) — 完全な実装例
 - サンプル:
   - `samples/WinformsMVP.Samples/WindowClosingDemo/` — ChangeTracker + クローズモデルの組み合わせ
   - `tests/WinformsMVP.Samples.Tests/Common/ChangeTrackerTests.cs` — テストパターン
+  - `tests/WinformsMVP.Samples.Tests/Common/ChangeTrackerUsageStyleTests.cs` — 2 つの書き方の動作
+  - `samples/WinformsMVP.Samples/EmailDemo/ComposeEmailPresenter.cs` — 書き方 2 + 非同期保存 + 破棄して閉じる

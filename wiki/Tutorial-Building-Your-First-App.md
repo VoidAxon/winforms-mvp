@@ -61,7 +61,7 @@ MyTodoApp/
 
 ## Step 1: モデル (TodoItem) を作る
 
-業務データを保持するシンプルなクラスです。`ICloneable` も実装しておくと、後の ChangeTracker で深いコピーが速くなります。
+業務データを保持するシンプルなクラスです。(`ICloneable` / `Equals` は ChangeTracker では使われません。ChangeTracker は既定でリフレクションの深いコピーと内容比較を使います。)
 
 ```csharp
 using System;
@@ -91,7 +91,7 @@ namespace MyTodoApp
 
 ポイント:
 
-- `Equals` を override しないと `ChangeTracker` が参照比較になってしまう (詳細: [ChangeTracker § 比較の解決順序](Reference-ChangeTracker#比較の解決順序))
+- `ChangeTracker` は `T` の `Equals` を使わず内容で比較する (詳細: [ChangeTracker § 比較の解決順序](Reference-ChangeTracker#比較の解決順序))
 - `Clone()` 内で値型・`string` はそのままコピー (浅いコピーで OK)
 
 ---
@@ -371,15 +371,9 @@ public class ToDoPresenter : WindowPresenterBase<IToDoView>
     protected override void OnInitialize()
     {
         _items = LoadInitialItems();
-        _tracker = TrackChanges(_items);              // 基準となるコピーを内部に保持
+        _tracker = TrackChanges(_items);              // _items そのものを覚え、スナップショットを撮る
         View.Items = _items;
         UpdateDirtyState();
-
-        _tracker.IsChangedChanged += (s, e) =>
-        {
-            UpdateDirtyState();
-            Dispatcher.RaiseCanExecuteChanged();
-        };
     }
 
     protected override void OnViewAttached()
@@ -397,28 +391,32 @@ public class ToDoPresenter : WindowPresenterBase<IToDoView>
         Dispatcher.Register(ToDoActions.ToggleComplete, OnToggleComplete,
             canExecute: () => View.HasSelection);
         Dispatcher.Register(ToDoActions.Save, OnSave,
-            canExecute: () => _tracker.IsChanged);     // ← 未保存があるときだけ Save 有効
+            canExecute: () => _tracker != null && _tracker.IsChanged);  // ← 未保存があるときだけ Save 有効
     }
 
     private void OnAdd()
     {
-        _items.Add(new ToDoItem { Title = View.NewTaskTitle.Trim() });
-        _tracker.UpdateCurrentValue(_items);           // 比較し直し、状態が変われば IsChangedChanged
+        _items.Add(new ToDoItem { Title = View.NewTaskTitle.Trim() });  // _items をその場で編集
         View.Items = _items;
         View.NewTaskTitle = string.Empty;
+        UpdateDirtyState();                            // tracker は通知しないので、ここで読む
     }
 
-    // OnDelete / OnToggleComplete も同様に _tracker.UpdateCurrentValue を呼ぶ
+    // OnDelete / OnToggleComplete も同様に _items を編集してから UpdateDirtyState を呼ぶ
 
     private void OnSave()
     {
         SaveToStorage(_items);
-        _tracker.AcceptChanges(_items);                 // ← 保存した内容を新しい基準に
+        _tracker.AcceptChanges();                      // ← スナップショットを撮り直す → IsChanged == false
+        UpdateDirtyState();
         Messages.ShowInfo("Saved successfully!", "Save");
     }
 
     private void UpdateDirtyState()
-        => View.HasUnsavedChanges = _tracker.IsChanged;
+    {
+        View.HasUnsavedChanges = _tracker.IsChanged;
+        Dispatcher.RaiseCanExecuteChanged();
+    }
 
     private void SaveToStorage(List<ToDoItem> items)
     {
@@ -427,7 +425,7 @@ public class ToDoPresenter : WindowPresenterBase<IToDoView>
 }
 ```
 
-> **重要**: `_items` を直接変更するのではなく、新しいリストを作って `_tracker.UpdateCurrentValue(newList)` を呼びます。これで `ChangeTracker` が変更を検知できます。
+> **重要**: tracker は `_items` そのもの (参照) を追跡しているので、`_items` をその場で編集すれば `IsChanged` にすぐ反映されます (追加・削除・項目の編集のどれも検出されます)。`_items = new List<ToDoItem>(...)` のように変数を差し替えた場合は、`_tracker = TrackChanges(_items)` で tracker を作り直してください。tracker は変更を通知しないため、編集のたびに `UpdateDirtyState()` で表示と `canExecute` を更新します。
 
 Form 側で `Save` ボタンを追加 (Step 5 と同様の手順):
 

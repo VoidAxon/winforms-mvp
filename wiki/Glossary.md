@@ -19,7 +19,7 @@
 
 ### AcceptChanges
 
-`ChangeTracker<T>.AcceptChanges()`。現在値を新しいベースラインとして確定するメソッド。`IChangeTracking` インターフェイスのメンバー。
+`ChangeTracker<T>.AcceptChanges()`。追跡中のオブジェクトのスナップショットを撮り直し、`IsChanged` を `false` にするメソッド (保存後に呼ぶ)。`IChangeTracking` インターフェイスのメンバー。引数版 `AcceptChanges(T value)` は `value` を新しいスナップショットにする (追跡中のオブジェクトには触れない)。
 
 ### CanExecute
 
@@ -29,7 +29,7 @@
 
 ### ChangeTracker
 
-`ChangeTracker<T>` クラス。編集 / キャンセル用の変更追跡を提供する。`IChangeTracking` と `IRevertibleChangeTracking` を実装。
+`ChangeTracker<T>` クラス。データがスナップショット (読み込み時 / 最後の保存時) から変わったかを **検出するだけ** のクラス。データは保持せず、元に戻す機能もない。`IChangeTracking` を実装。Presenter では `TrackChanges(value)` で作る。
 
 詳細: [ChangeTracker](Reference-ChangeTracker)
 
@@ -99,9 +99,9 @@ UserControl 系の View を扱う Presenter 基底クラス。`ControlPresenterB
 
 ## I — N
 
-### IChangeTracking / IRevertibleChangeTracking
+### IChangeTracking
 
-.NET 標準のインターフェイス。`ChangeTracker<T>` がこれらを実装することで、`AcceptChanges()` / `RejectChanges()` を統一 API で扱える。
+.NET 標準のインターフェイス (`IsChanged` / `AcceptChanges()`)。`ChangeTracker<T>` が実装する。元に戻す `IRevertibleChangeTracking` は実装しない (復元は tracker の役割ではない)。
 
 ### IMessageService
 
@@ -224,10 +224,6 @@ MVP の中央コンポーネント。ユースケースロジックを持ち、V
 ### Push (方向)
 
 ウィンドウクローズモデルで、Presenter (`OnSave` / `OnCancel` 等) が起点となる方向。基底 `RequestClose(result, status)` / `RequestClose(status)` メソッドで通知する。
-
-### RejectChanges
-
-`ChangeTracker<T>.RejectChanges()`。現在値をベースラインに戻すメソッド。`IRevertibleChangeTracking` のメンバー。
 
 ### Service Locator
 

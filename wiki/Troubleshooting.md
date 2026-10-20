@@ -209,16 +209,26 @@ protected override bool CanClose(CloseReason reason)
 
 ### Save 後に「変更を破棄しますか?」と二重に聞かれる
 
-`WindowLifecycleController` が Push 起点の閉じを識別して Pull ゲートをスキップするため、この二重確認は **構造的に発生しません**。`AcceptChanges` の呼び出し順序にも依存しません。`AcceptChanges` はモデル状態を確定するために呼びます。
+**原因**: Push ハンドラが `RequestClose` の前にダーティ状態を確定させていない。
+
+**対処**: 保存後 (破棄の場合も) に `AcceptChanges` を呼んでから `RequestClose` する。これで `CanClose` がいつ評価されてもクリーンな状態を見ます。現在の `WindowLifecycleController` は Push 起点の閉じで Pull ゲートを 1 回省略しますが、これは実装の詳細なので頼らないでください。
 
 ```csharp
 private void OnSave()
 {
-    SaveData();
-    _changeTracker.AcceptChanges();            // model state only
+    SaveData(_order);
+    _changeTracker.AcceptChanges();            // finalize the dirty state first
     RequestClose(result, InteractionStatus.Ok);
 }
+
+private void OnDiscard()
+{
+    _changeTracker.AcceptChanges();            // stop tracking the discarded edits (not "saved")
+    RequestClose(InteractionStatus.Cancel);
+}
 ```
+
+書き方 2 (毎回 View から新しいモデルを作る) では `AcceptChanges(saved)` / `AcceptChanges(ReadModel())` を使います。
 
 詳細は [Window Closing Model — single-source-of-truth invariant](Concept-Window-Closing-Model#single-source-of-truth-invariant) を参照。
 
@@ -263,9 +273,20 @@ mvp.ChangeTracking.For(new ChangeTrackingPolicy<Order>(
 
 詳しくは [ChangeTracker § 解決順序](Reference-ChangeTracker#スナップショット-複製-の解決順序) 参照。
 
-### `RejectChanges()` を呼んでも元に戻らない
+### 編集しても `IsChanged` が `false` のまま
 
-**原因**: ポリシーまたは `IObjectCloner` で登録した複製 (例 手書きの `Clone()`) が浅いコピーになっている (参照型プロパティが共有されている)。既定のリフレクション深いコピーではこの問題は起きない。`ICloneable` は実装していても使われない。
+**原因 (上から順にチェック)**:
+
+1. `_order = _repository.Load(...)` のように変数を別のオブジェクトに差し替えた。tracker は作成時に渡されたオブジェクトを追跡し続ける → 差し替えたら `TrackChanges(_order)` で tracker を作り直す
+2. 編集値が View にしか無い (書き方 2)。`IsChanged` は追跡中のオブジェクトしか見ない → `IsChangedWith(ReadModel())` を使う
+3. 書き方 2 で、保存後に引数なしの `AcceptChanges()` を呼んだ。最初の古いオブジェクトを撮り直してしまう → `AcceptChanges(saved)` を使う
+4. ネストされたオブジェクトの編集だけが見えない場合: 下記「ネストされたオブジェクトの編集が検出されない」
+
+詳しくは [ChangeTracker § 2 つの使い方](Reference-ChangeTracker#2-つの使い方) 参照。
+
+### ネストされたオブジェクトの編集が検出されない
+
+**原因**: ポリシーまたは `IObjectCloner` で登録した複製 (例 手書きの `Clone()`) が浅いコピーになっている (参照型プロパティがスナップショットと共有されている)。既定のリフレクション深いコピーではこの問題は起きない。`ICloneable` は実装していても使われない。
 
 **対処**: ネストされたオブジェクトとコレクションも `Clone()` する (または登録をやめて既定の深いコピーを使う)。
 
