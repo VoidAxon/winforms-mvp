@@ -6,11 +6,9 @@ namespace WinformsMVP.Samples.EmailDemo.Models
     /// Email message data model.
     /// </summary>
     /// <remarks>
-    /// Implements <see cref="IEquatable{T}"/> for value-based equality so that
-    /// <see cref="WinformsMVP.Common.ChangeTracker{T}"/> can correctly detect when
-    /// <c>AcceptChanges</c> / <c>RejectChanges</c> have synchronized the current value
-    /// with the baseline (otherwise the default reference-equality comparison would
-    /// always report <c>IsChanged == true</c> after any clone).
+    /// Implements <see cref="IEquatable{T}"/> for value-based equality. The compose window does
+    /// not track this type for unsaved changes (it tracks only the fields the user edits), and
+    /// <see cref="WinformsMVP.Common.ChangeTracker{T}"/> never uses a type's own Equals anyway.
     /// </remarks>
     public class EmailMessage : ICloneable, IEquatable<EmailMessage>
     {

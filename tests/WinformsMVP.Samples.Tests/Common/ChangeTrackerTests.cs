@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Threading.Tasks;
 using Xunit;
 using WinformsMVP.Common;
 
@@ -9,13 +8,13 @@ namespace WinformsMVP.Samples.Tests.Common
     /// <summary>
     /// Unit tests for ChangeTracker<T>
     ///
-    /// Test coverage:
-    /// - Basic functionality (AcceptChanges, RejectChanges, IsChanged)
-    /// - UpdateCurrentValue() method
-    /// - IsChangedChanged event
-    /// - IsChanged caching
-    /// - Thread safety
-    /// - Deep copy requirements
+    /// Test coverage (the two usage styles have their own file, ChangeTrackerUsageStyleTests):
+    /// - Construction and snapshot independence
+    /// - AcceptChanges / AcceptChanges(value)
+    /// - Deep copy of nested objects
+    /// - IsChangedWith
+    /// - Custom comparers
+    /// - IsChanged computed on every read
     /// </summary>
     public class ChangeTrackerTests
     {
@@ -118,149 +117,27 @@ namespace WinformsMVP.Samples.Tests.Common
         [Fact]
         public void Constructor_WithNullInitialValue_ThrowsArgumentNullException()
         {
-            // Act & Assert
-            Assert.Throws<ArgumentNullException>(() => new ChangeTracker<TestModel>(null));
+            Assert.Throws<ArgumentNullException>(() => new ChangeTracker<TestModel>((TestModel)null));
         }
 
         [Fact]
-        public void Constructor_WithValidValue_InitializesCorrectly()
+        public void Constructor_WithValidValue_StartsUnchanged()
         {
-            // Arrange
-            var model = new TestModel { Id = 1, Name = "Test" };
+            var tracker = new ChangeTracker<TestModel>(new TestModel { Id = 1, Name = "Test" });
 
-            // Act
-            var tracker = new ChangeTracker<TestModel>(model);
-
-            // Assert
-            Assert.NotNull(tracker.CurrentValue);
-            Assert.Equal(1, tracker.CurrentValue.Id);
-            Assert.Equal("Test", tracker.CurrentValue.Name);
             Assert.False(tracker.IsChanged);
         }
 
         [Fact]
-        public void Constructor_CreatesIndependentCopy()
+        public void Constructor_TracksTheObject_SnapshotIsIndependent()
         {
-            // Arrange
-            var model = new TestModel { Id = 1, Name = "Original" };
-
-            // Act
-            var tracker = new ChangeTracker<TestModel>(model);
-            model.Name = "Modified";  // Modify the original object
-
-            // Assert
-            Assert.Equal("Original", tracker.CurrentValue.Name);  // tracker is not affected
-        }
-
-        #endregion
-
-        #region UpdateCurrentValue Tests
-
-        [Fact]
-        public void UpdateCurrentValue_WithValidValue_UpdatesCurrentValue()
-        {
-            // Arrange
             var model = new TestModel { Id = 1, Name = "Original" };
             var tracker = new ChangeTracker<TestModel>(model);
 
-            // Act
-            var newModel = new TestModel { Id = 2, Name = "Updated" };
-            tracker.UpdateCurrentValue(newModel);
+            model.Name = "Modified";   // the caller edits its own object
 
-            // Assert
-            Assert.Equal(2, tracker.CurrentValue.Id);
-            Assert.Equal("Updated", tracker.CurrentValue.Name);
-            Assert.True(tracker.IsChanged);
-        }
-
-        [Fact]
-        public void UpdateCurrentValue_WithNull_ThrowsArgumentNullException()
-        {
-            // Arrange
-            var model = new TestModel { Id = 1, Name = "Test" };
-            var tracker = new ChangeTracker<TestModel>(model);
-
-            // Act & Assert
-            Assert.Throws<ArgumentNullException>(() => tracker.UpdateCurrentValue(null));
-        }
-
-        #endregion
-
-        #region IsChangedChanged Event Tests
-
-        [Fact]
-        public void IsChangedChanged_WhenValueChanges_EventFires()
-        {
-            // Arrange
-            var model = new TestModel { Id = 1, Name = "Original" };
-            var tracker = new ChangeTracker<TestModel>(model);
-            var eventFired = false;
-
-            tracker.IsChangedChanged += (s, e) => eventFired = true;
-
-            // Act
-            var newModel = new TestModel { Id = 2, Name = "Updated" };
-            tracker.UpdateCurrentValue(newModel);
-
-            // Assert
-            Assert.True(eventFired);
-        }
-
-        [Fact]
-        public void IsChangedChanged_WhenAcceptChanges_EventFires()
-        {
-            // Arrange
-            var model = new TestModel { Id = 1, Name = "Original" };
-            var tracker = new ChangeTracker<TestModel>(model);
-
-            var newModel = new TestModel { Id = 2, Name = "Updated" };
-            tracker.UpdateCurrentValue(newModel);
-
-            var eventFired = false;
-            tracker.IsChangedChanged += (s, e) => eventFired = true;
-
-            // Act
-            tracker.AcceptChanges();
-
-            // Assert
-            Assert.True(eventFired);  // IsChanged changed from true → false
-        }
-
-        [Fact]
-        public void IsChangedChanged_WhenRejectChanges_EventFires()
-        {
-            // Arrange
-            var model = new TestModel { Id = 1, Name = "Original" };
-            var tracker = new ChangeTracker<TestModel>(model);
-
-            var newModel = new TestModel { Id = 2, Name = "Updated" };
-            tracker.UpdateCurrentValue(newModel);
-
-            var eventFired = false;
-            tracker.IsChangedChanged += (s, e) => eventFired = true;
-
-            // Act
-            tracker.RejectChanges();
-
-            // Assert
-            Assert.True(eventFired);  // IsChanged changed from true → false
-        }
-
-        [Fact]
-        public void IsChangedChanged_WhenNoStateChange_EventDoesNotFire()
-        {
-            // Arrange
-            var model = new TestModel { Id = 1, Name = "Original" };
-            var tracker = new ChangeTracker<TestModel>(model);
-
-            var eventFired = false;
-            tracker.IsChangedChanged += (s, e) => eventFired = true;
-
-            // Act - AcceptChanges with no changes
-            tracker.AcceptChanges();
-
-            // Assert
-            Assert.False(eventFired);  // Event does not fire because IsChanged state did not change
+            Assert.True(tracker.IsChanged);                                              // seen by the tracker
+            Assert.False(tracker.IsChangedWith(new TestModel { Id = 1, Name = "Original" }));   // snapshot untouched
         }
 
         #endregion
@@ -268,100 +145,36 @@ namespace WinformsMVP.Samples.Tests.Common
         #region AcceptChanges Tests
 
         [Fact]
-        public void AcceptChanges_AfterModification_SetsIsChangedToFalse()
+        public void AcceptChanges_MakesCurrentStateTheNewSnapshot()
         {
-            // Arrange
             var model = new TestModel { Id = 1, Name = "Original" };
             var tracker = new ChangeTracker<TestModel>(model);
+            model.Name = "Modified";
 
-            var newModel = new TestModel { Id = 2, Name = "Updated" };
-            tracker.UpdateCurrentValue(newModel);
+            tracker.AcceptChanges();
+
+            Assert.False(tracker.IsChanged);
+            Assert.True(tracker.IsChangedWith(new TestModel { Id = 1, Name = "Original" }));
+        }
+
+        [Fact]
+        public void AcceptChanges_SnapshotIsADeepCopy()
+        {
+            var model = new NestedModel { Title = "t", Child = new ChildModel { Value = "a" } };
+            var tracker = new ChangeTracker<NestedModel>(model);
+
+            tracker.AcceptChanges();
+            model.Child.Value = "b";
+
             Assert.True(tracker.IsChanged);
-
-            // Act
-            tracker.AcceptChanges();
-
-            // Assert
-            Assert.False(tracker.IsChanged);
         }
 
         [Fact]
-        public void AcceptChanges_CreatesNewBaseline()
+        public void AcceptChangesWithValue_NullThrows()
         {
-            // Arrange
-            var model = new TestModel { Id = 1, Name = "Original" };
-            var tracker = new ChangeTracker<TestModel>(model);
+            var tracker = new ChangeTracker<TestModel>(new TestModel());
 
-            tracker.UpdateCurrentValue(new TestModel { Id = 2, Name = "Updated" });
-            tracker.AcceptChanges();
-
-            // Act - further modification
-            tracker.UpdateCurrentValue(new TestModel { Id = 3, Name = "Modified Again" });
-
-            // Assert
-            Assert.True(tracker.IsChanged);  // Changed from the new baseline
-        }
-
-        [Fact]
-        public void AcceptChangesWithParameter_UpdatesBothCurrentAndOriginal()
-        {
-            // Arrange
-            var model = new TestModel { Id = 1, Name = "Original" };
-            var tracker = new ChangeTracker<TestModel>(model);
-
-            // Act
-            var newModel = new TestModel { Id = 10, Name = "Complete Reset" };
-            tracker.AcceptChanges(newModel);
-
-            // Assert
-            Assert.False(tracker.IsChanged);
-            Assert.Equal(10, tracker.CurrentValue.Id);
-            Assert.Equal("Complete Reset", tracker.CurrentValue.Name);
-        }
-
-        #endregion
-
-        #region RejectChanges Tests
-
-        [Fact]
-        public void RejectChanges_RestoresOriginalValue()
-        {
-            // Arrange
-            var model = new TestModel { Id = 1, Name = "Original" };
-            var tracker = new ChangeTracker<TestModel>(model);
-
-            tracker.UpdateCurrentValue(new TestModel { Id = 2, Name = "Updated" });
-            Assert.True(tracker.IsChanged);
-
-            // Act
-            tracker.RejectChanges();
-
-            // Assert
-            Assert.False(tracker.IsChanged);
-            Assert.Equal(1, tracker.CurrentValue.Id);
-            Assert.Equal("Original", tracker.CurrentValue.Name);
-        }
-
-        [Fact]
-        public void RejectChanges_MultipleModifications_RestoresToLastAccepted()
-        {
-            // Arrange
-            var model = new TestModel { Id = 1, Name = "Original" };
-            var tracker = new ChangeTracker<TestModel>(model);
-
-            tracker.UpdateCurrentValue(new TestModel { Id = 2, Name = "First Change" });
-            tracker.AcceptChanges();
-
-            tracker.UpdateCurrentValue(new TestModel { Id = 3, Name = "Second Change" });
-            tracker.UpdateCurrentValue(new TestModel { Id = 4, Name = "Third Change" });
-
-            // Act
-            tracker.RejectChanges();
-
-            // Assert
-            Assert.False(tracker.IsChanged);
-            Assert.Equal(2, tracker.CurrentValue.Id);  // Reverts to "First Change"
-            Assert.Equal("First Change", tracker.CurrentValue.Name);
+            Assert.Throws<ArgumentNullException>(() => tracker.AcceptChanges(null));
         }
 
         #endregion
@@ -371,41 +184,12 @@ namespace WinformsMVP.Samples.Tests.Common
         [Fact]
         public void DeepCopy_NestedObjects_AreIndependent()
         {
-            // Arrange
-            var model = new NestedModel
-            {
-                Title = "Parent",
-                Child = new ChildModel { Value = "Original Child" }
-            };
+            var model = new NestedModel { Title = "Parent", Child = new ChildModel { Value = "Original" } };
             var tracker = new ChangeTracker<NestedModel>(model);
 
-            // Act - Modify nested object
-            tracker.CurrentValue.Child.Value = "Modified Child";
+            model.Child.Value = "Modified";
 
-            // Assert - IsChanged is correctly detected
-            Assert.True(tracker.IsChanged);
-
-            // Act - RejectChanges
-            tracker.RejectChanges();
-
-            // Assert - Reverts to original value
-            Assert.Equal("Original Child", tracker.CurrentValue.Child.Value);
-        }
-
-        [Fact]
-        public void GetOriginalValue_ReturnsIndependentCopy()
-        {
-            // Arrange
-            var model = new TestModel { Id = 1, Name = "Original" };
-            var tracker = new ChangeTracker<TestModel>(model);
-
-            // Act
-            var original = tracker.GetOriginalValue();
-            original.Name = "Modified Copy";
-
-            // Assert - tracker's original is not affected
-            tracker.RejectChanges();
-            Assert.Equal("Original", tracker.CurrentValue.Name);
+            Assert.True(tracker.IsChanged);   // the snapshot's child was copied, not shared
         }
 
         #endregion
@@ -413,33 +197,19 @@ namespace WinformsMVP.Samples.Tests.Common
         #region IsChangedWith Tests
 
         [Fact]
-        public void IsChangedWith_ComparesAgainstOriginal()
+        public void IsChangedWith_ComparesAgainstSnapshot()
         {
-            // Arrange
-            var model = new TestModel { Id = 1, Name = "Original" };
-            var tracker = new ChangeTracker<TestModel>(model);
+            var tracker = new ChangeTracker<TestModel>(new TestModel { Id = 1, Name = "Original" });
 
-            // Act
-            var modifiedModel = new TestModel { Id = 2, Name = "Modified" };
-            var isChanged = tracker.IsChangedWith(modifiedModel);
-
-            // Assert
-            Assert.True(isChanged);
+            Assert.True(tracker.IsChangedWith(new TestModel { Id = 1, Name = "Different" }));
         }
 
         [Fact]
         public void IsChangedWith_SameValues_ReturnsFalse()
         {
-            // Arrange
-            var model = new TestModel { Id = 1, Name = "Original" };
-            var tracker = new ChangeTracker<TestModel>(model);
+            var tracker = new ChangeTracker<TestModel>(new TestModel { Id = 1, Name = "Test" });
 
-            // Act
-            var sameModel = new TestModel { Id = 1, Name = "Original" };
-            var isChanged = tracker.IsChangedWith(sameModel);
-
-            // Assert
-            Assert.False(isChanged);
+            Assert.False(tracker.IsChangedWith(new TestModel { Id = 1, Name = "Test" }));
         }
 
         #endregion
@@ -449,129 +219,40 @@ namespace WinformsMVP.Samples.Tests.Common
         [Fact]
         public void CustomComparer_UsedForChangeDetection()
         {
-            // Arrange - Custom comparer that only compares ID
-            Func<TestModel, TestModel, bool> comparer = (a, b) => a.Id == b.Id;
             var model = new TestModel { Id = 1, Name = "Original" };
-            var tracker = new ChangeTracker<TestModel>(model, comparer);
+            var tracker = new ChangeTracker<TestModel>(model, (a, b) => a.Id == b.Id);
 
-            // Act - Only change Name (ID remains the same)
-            tracker.UpdateCurrentValue(new TestModel { Id = 1, Name = "Modified" });
+            model.Name = "Modified";
 
-            // Assert - Custom comparer considers it unchanged because ID is the same
-            Assert.False(tracker.IsChanged);
+            Assert.False(tracker.IsChanged);   // the comparer ignores Name
         }
 
         [Fact]
         public void CustomComparer_DetectsRelevantChanges()
         {
-            // Arrange
-            Func<TestModel, TestModel, bool> comparer = (a, b) => a.Id == b.Id;
             var model = new TestModel { Id = 1, Name = "Original" };
-            var tracker = new ChangeTracker<TestModel>(model, comparer);
+            var tracker = new ChangeTracker<TestModel>(model, (a, b) => a.Id == b.Id);
 
-            // Act - Change ID
-            tracker.UpdateCurrentValue(new TestModel { Id = 2, Name = "Original" });
+            model.Id = 2;
 
-            // Assert - Custom comparer considers it changed because ID is different
             Assert.True(tracker.IsChanged);
         }
 
         #endregion
 
-        #region Thread Safety Tests
+        #region IsChanged Tests
 
         [Fact]
-        public void ThreadSafety_ConcurrentAccess_NoExceptions()
+        public void IsChanged_IsComputedOnEveryRead()
         {
-            // Arrange
-            var model = new TestModel { Id = 1, Name = "Original" };
+            var model = new TestModel { Id = 1, Name = "a" };
             var tracker = new ChangeTracker<TestModel>(model);
 
-            // Act - Concurrent access from multiple threads
-            var tasks = new List<Task>();
-            for (int i = 0; i < 10; i++)
-            {
-                int index = i;
-                tasks.Add(Task.Run(() =>
-                {
-                    if (index % 3 == 0)
-                    {
-                        tracker.UpdateCurrentValue(new TestModel { Id = index, Name = $"Thread {index}" });
-                    }
-                    else if (index % 3 == 1)
-                    {
-                        var isChanged = tracker.IsChanged;
-                    }
-                    else
-                    {
-                        tracker.AcceptChanges();
-                    }
-                }));
-            }
-
-            // Assert - Verify no exceptions are thrown
-            Task.WaitAll(tasks.ToArray());
-            Assert.True(true);  // OK if completed without exceptions
-        }
-
-        [Fact]
-        public void ThreadSafety_IsChangedCaching_ThreadSafe()
-        {
-            // Arrange
-            var model = new TestModel { Id = 1, Name = "Original" };
-            var tracker = new ChangeTracker<TestModel>(model);
-
-            // Act - Concurrent reads of IsChanged from multiple threads
-            var tasks = new List<Task>();
-            for (int i = 0; i < 20; i++)
-            {
-                tasks.Add(Task.Run(() =>
-                {
-                    var _ = tracker.IsChanged;  // Read from cache
-                }));
-            }
-
-            // Assert - Verify no exceptions are thrown
-            Task.WaitAll(tasks.ToArray());
-            Assert.True(true);
-        }
-
-        #endregion
-
-        #region IsChanged Caching Tests
-
-        [Fact]
-        public void IsChanged_Caching_DoesNotRecomputeUntilValueChanges()
-        {
-            // Arrange
-            var model = new TestModel { Id = 1, Name = "Original" };
-            var tracker = new ChangeTracker<TestModel>(model);
-
-            // Act - Call IsChanged multiple times
-            var result1 = tracker.IsChanged;
-            var result2 = tracker.IsChanged;
-            var result3 = tracker.IsChanged;
-
-            // Assert - Cache is working (operates quickly without exceptions)
-            Assert.False(result1);
-            Assert.False(result2);
-            Assert.False(result3);
-        }
-
-        [Fact]
-        public void IsChanged_CacheInvalidation_AfterUpdateCurrentValue()
-        {
-            // Arrange
-            var model = new TestModel { Id = 1, Name = "Original" };
-            var tracker = new ChangeTracker<TestModel>(model);
-
-            var _ = tracker.IsChanged;  // Create cache
-
-            // Act - Change value
-            tracker.UpdateCurrentValue(new TestModel { Id = 2, Name = "Updated" });
-
-            // Assert - Cache is invalidated and recalculated with new value
+            Assert.False(tracker.IsChanged);
+            model.Name = "b";
             Assert.True(tracker.IsChanged);
+            model.Name = "a";
+            Assert.False(tracker.IsChanged);
         }
 
         #endregion

@@ -170,20 +170,16 @@ namespace WinformsMVP.Samples.Tests.Common
         }
 
         [Fact]
-        public void Ignore_RaisesIsChangedChanged_WhenTheDirtyStateFlips()
+        public void Ignore_AfterAnEdit_MakesItNotChanged()
         {
-            var tracker = new ChangeTracker<Order>(NewOrder());
-            var edited = NewOrder();
-            edited.UpdatedAt = new DateTime(2026, 2, 2);
-            tracker.UpdateCurrentValue(edited);
+            var order = NewOrder();
+            var tracker = new ChangeTracker<Order>(order);
+            order.UpdatedAt = new DateTime(2026, 2, 2);
             Assert.True(tracker.IsChanged);
-            int raised = 0;
-            tracker.IsChangedChanged += (s, e) => raised++;
 
             tracker.Ignore(x => x.UpdatedAt);
 
             Assert.False(tracker.IsChanged);
-            Assert.Equal(1, raised);
         }
 
         [Fact]

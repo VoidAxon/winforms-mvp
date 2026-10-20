@@ -46,7 +46,11 @@ namespace WinformsMVP.Samples.EmailDemo
         WindowPresenterBase<IComposeEmailView, ComposeEmailParameters>
     {
         private readonly IEmailRepository _repository;
-        private ChangeTracker<EmailMessage> _changeTracker;
+        // Style 2 ("a new object each time"): the editable fields are read from the view into a new
+        // EmailEditState whenever they are needed, and compared against the tracker's snapshot with
+        // IsChangedWith. Only the three fields the user edits are tracked; the EmailMessage built
+        // for sending also carries a date, sender and folder, which are not edits.
+        private ChangeTracker<EmailEditState> _changeTracker;
         private ComposeMode _mode;
         private EmailMessage _originalEmail;
 
@@ -70,7 +74,7 @@ namespace WinformsMVP.Samples.EmailDemo
 
             // Save draft operation
             Dispatcher.Register(ComposeEmailActions.SaveDraft, OnSaveDraftAsync,
-                canExecute: () => _changeTracker?.IsChanged == true);
+                canExecute: () => HasUnsavedChanges);
 
             // Discard operation
             Dispatcher.Register(ComposeEmailActions.Discard, OnDiscard);
@@ -86,22 +90,33 @@ namespace WinformsMVP.Samples.EmailDemo
             // Initialize email content based on mode
             var email = CreateEmailFromMode();
 
-            // Use ChangeTracker to track changes (for save draft)
-            _changeTracker = new ChangeTracker<EmailMessage>(email);
-
             // Bind to View
             View.Mode = _mode;
             View.To = email.To;
             View.Subject = email.Subject;
             View.Body = email.Body;
 
-            // Subscribe to ChangeTracker change events
-            _changeTracker.IsChangedChanged += (s, e) =>
-            {
-                View.IsDirty = _changeTracker.IsChanged;
-                Dispatcher.RaiseCanExecuteChanged();
-            };
+            // Snapshot what the user starts from.
+            _changeTracker = TrackChanges(ReadEditState());
+            View.IsDirty = false;
         }
+
+        /// <summary>The fields the user edits, read from the view.</summary>
+        private sealed class EmailEditState
+        {
+            public string To { get; set; }
+            public string Subject { get; set; }
+            public string Body { get; set; }
+        }
+
+        private EmailEditState ReadEditState() => new EmailEditState
+        {
+            To = View.To,
+            Subject = View.Subject,
+            Body = View.Body
+        };
+
+        private bool HasUnsavedChanges => _changeTracker != null && _changeTracker.IsChangedWith(ReadEditState());
 
         /// <summary>
         /// Pull-direction close handler. Runs whenever the underlying Form is about to close
@@ -113,7 +128,8 @@ namespace WinformsMVP.Samples.EmailDemo
         ///   <item><description>Only normal user-driven closes are guarded; system shutdown /
         ///     task manager / parent-closing let the process exit without prompting.</description></item>
         ///   <item><description>Push-direction closes (after <c>OnSendAsync</c> / <c>OnDiscard</c>):
-        ///     <c>IsChanged</c> will be <c>false</c> here, so this handler allows the close.</description></item>
+        ///     those handlers accept the current content first, so there are no unsaved changes here
+        ///     and this handler allows the close.</description></item>
         ///   <item><description>User clicked X with unsaved changes: prompt Yes/No/Cancel. On Yes the
         ///     draft save is awaited (the window stays open meanwhile); if it fails the close is
         ///     blocked so the user does not lose the text.</description></item>
@@ -122,7 +138,7 @@ namespace WinformsMVP.Samples.EmailDemo
         protected override async Task<bool> CanCloseAsync(CloseReason reason)
         {
             if (reason != CloseReason.Normal) return true;
-            if (_changeTracker == null || !_changeTracker.IsChanged) return true;
+            if (!HasUnsavedChanges) return true;
 
             var result = Messages.ConfirmYesNoCancel(
                 "You have unsaved changes. Do you want to save as draft?",
@@ -142,22 +158,12 @@ namespace WinformsMVP.Samples.EmailDemo
         #region Event Handlers
 
         /// <summary>
-        /// Called when email data (To, Subject, Body) changes.
-        /// Updates the ChangeTracker and triggers CanExecute re-evaluation for Send/SaveDraft buttons.
+        /// Called when email data (To, Subject, Body) changes: refreshes the dirty indicator and
+        /// re-evaluates Send / SaveDraft (Send also depends on the fields being filled in).
         /// </summary>
         private void OnEmailDataChanged(object sender, EventArgs e)
         {
-            // Update ChangeTracker with current email values
-            var currentEmail = new EmailMessage
-            {
-                To = View.To,
-                Subject = View.Subject,
-                Body = View.Body
-            };
-
-            _changeTracker.UpdateCurrentValue(currentEmail);
-
-            // Trigger CanExecute update for Send and SaveDraft actions
+            View.IsDirty = HasUnsavedChanges;
             Dispatcher.RaiseCanExecuteChanged();
         }
 
@@ -179,12 +185,14 @@ namespace WinformsMVP.Samples.EmailDemo
 
             try
             {
-                var email = CreateEmailMessage();
-                bool success = await _repository.SendEmailAsync(email);
+                var sent = ReadEditState();
+                bool success = await _repository.SendEmailAsync(CreateEmailMessage(sent));
 
                 if (success)
                 {
-                    _changeTracker.AcceptChanges();  // Accept changes, mark as unmodified
+                    // What was sent is now the accepted content, so the close below is not
+                    // questioned by CanCloseAsync (unless the user edited while it was sending).
+                    _changeTracker.AcceptChanges(sent);
                     RequestClose(true, InteractionStatus.Ok);  // Return true indicating sent
                 }
                 else
@@ -214,25 +222,26 @@ namespace WinformsMVP.Samples.EmailDemo
 
         /// <summary>
         /// Saves the current content as a draft. Shared by the SaveDraft action and the
-        /// close prompt. Returns false (after telling the user) when the save failed.
+        /// close prompt. Returns true only when everything on screen is saved: false (after
+        /// telling the user) when the save failed, and false when the content changed while the
+        /// save ran.
         /// </summary>
         private async Task<bool> SaveDraftAsync()
         {
-            // Editing is locked while the save runs, so the snapshot being saved is what the user
-            // sees; otherwise edits made during the wait would be marked clean and lost on close.
             View.IsSaving = true;
             View.EnableInput = false;
 
             try
             {
-                var email = CreateEmailMessage();
-                await _repository.SaveDraftAsync(email);
+                // Save a snapshot of the fields; edits made meanwhile are compared against it
+                // afterwards and stay unsaved.
+                var submitted = ReadEditState();
+                await _repository.SaveDraftAsync(CreateEmailMessage(submitted));
 
-                // Accept only if nothing changed after the snapshot was taken.
-                if (email.To != View.To || email.Subject != View.Subject || email.Body != View.Body)
-                    return false;
-                _changeTracker.AcceptChanges();
-                return true;
+                _changeTracker.AcceptChanges(submitted);
+                View.IsDirty = HasUnsavedChanges;
+                Dispatcher.RaiseCanExecuteChanged();
+                return !View.IsDirty;
             }
             catch (Exception ex)
             {
@@ -248,15 +257,16 @@ namespace WinformsMVP.Samples.EmailDemo
 
         private void OnDiscard()
         {
-            if (_changeTracker.IsChanged)
+            if (HasUnsavedChanges)
             {
                 if (!Messages.ConfirmYesNo("Discard all changes?", "Confirm Discard"))
                 {
                     return;
                 }
-                // Finalize dirty state BEFORE RequestClose so that the Pull-direction
-                // CanClose handler sees IsChanged == false and does not re-prompt.
-                _changeTracker.RejectChanges();
+                // Finalize the dirty state BEFORE RequestClose so that the Pull-direction
+                // CanClose handler sees no unsaved changes and does not ask again. This ends the
+                // tracking of the discarded edits; it does not mean they were saved.
+                _changeTracker.AcceptChanges(ReadEditState());
             }
 
             RequestClose(InteractionStatus.Cancel);  // Return false indicating not sent — use no-result overload (null not inferrable)
@@ -303,14 +313,14 @@ namespace WinformsMVP.Samples.EmailDemo
             }
         }
 
-        private EmailMessage CreateEmailMessage()
+        private static EmailMessage CreateEmailMessage(EmailEditState content)
         {
             return new EmailMessage
             {
                 From = "me@mycompany.com",  // Current user
-                To = View.To,
-                Subject = View.Subject,
-                Body = View.Body,
+                To = content.To,
+                Subject = content.Subject,
+                Body = content.Body,
                 Date = DateTime.Now,
                 IsRead = true,
                 IsStarred = false,

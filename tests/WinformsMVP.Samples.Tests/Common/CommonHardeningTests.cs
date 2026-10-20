@@ -194,44 +194,13 @@ namespace WinformsMVP.Samples.Tests.Common
         [Fact]
         public void ChangeTracker_InPlaceEdit_IsSeenByIsChanged()
         {
-            var tracker = new ChangeTracker<Doc>(new Doc { Title = "a" });
+            var doc = new Doc { Title = "a" };
+            var tracker = new ChangeTracker<Doc>(doc);
             Assert.False(tracker.IsChanged);
 
-            tracker.CurrentValue.Title = "b";
+            doc.Title = "b";
 
             Assert.True(tracker.IsChanged);
-        }
-
-        [Fact]
-        public void ChangeTracker_UpdateCurrentValueAfterInPlaceEdit_RaisesIsChangedChanged()
-        {
-            var tracker = new ChangeTracker<Doc>(new Doc { Title = "a" });
-            int raised = 0;
-            tracker.IsChangedChanged += (s, e) => raised++;
-
-            var current = tracker.CurrentValue;
-            current.Title = "b";
-            tracker.UpdateCurrentValue(current);   // same reference, already edited
-
-            Assert.Equal(1, raised);
-        }
-
-        [Fact]
-        public void ChangeTracker_RaisesIsChangedChangedOutsideItsLock()
-        {
-            var tracker = new ChangeTracker<Doc>(new Doc { Title = "a" });
-            bool otherThreadCouldRead = false;
-            tracker.IsChangedChanged += (s, e) =>
-            {
-                // Mimics a handler that marshals to another thread and waits for it.
-                var t = new Thread(() => { var _ = tracker.IsChanged; otherThreadCouldRead = true; });
-                t.Start();
-                t.Join(TimeSpan.FromSeconds(5));
-            };
-
-            tracker.UpdateCurrentValue(new Doc { Title = "b" });
-
-            Assert.True(otherThreadCouldRead);
         }
 
         #endregion

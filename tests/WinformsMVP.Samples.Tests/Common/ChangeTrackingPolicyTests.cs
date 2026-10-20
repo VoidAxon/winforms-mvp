@@ -29,9 +29,10 @@ namespace WinformsMVP.Samples.Tests.Common
         [Fact]
         public void ArrayRoot_ElementEdit_IsDetected()
         {
-            var tracker = new ChangeTracker<Item[]>(new[] { new Item { Name = "a" } });
+            var items = new[] { new Item { Name = "a" } };
+            var tracker = new ChangeTracker<Item[]>(items);
 
-            tracker.CurrentValue[0].Name = "b";
+            items[0].Name = "b";
 
             Assert.True(tracker.IsChanged);   // Array.Clone() is shallow and must not be used
         }
@@ -39,25 +40,23 @@ namespace WinformsMVP.Samples.Tests.Common
         [Fact]
         public void CloneableRoot_IsNotTrusted()
         {
-            var tracker = new ChangeTracker<ShallowRoot>(new ShallowRoot { Child = new Item { Name = "a" } });
+            var root = new ShallowRoot { Child = new Item { Name = "a" } };
+            var tracker = new ChangeTracker<ShallowRoot>(root);
 
-            tracker.CurrentValue.Child.Name = "b";
+            root.Child.Name = "b";
 
             Assert.True(tracker.IsChanged);
         }
 
         [Fact]
-        public void PlainModel_NotChangedAfterConstruction_DetectsEdit_AndRejectRestores()
+        public void PlainModel_NotChangedAfterConstruction_DetectsEdit()
         {
-            var tracker = new ChangeTracker<Plain>(new Plain { Name = "a" });
+            var plain = new Plain { Name = "a" };
+            var tracker = new ChangeTracker<Plain>(plain);
             Assert.False(tracker.IsChanged);
 
-            tracker.CurrentValue.Name = "b";
+            plain.Name = "b";
             Assert.True(tracker.IsChanged);
-
-            tracker.RejectChanges();
-            Assert.False(tracker.IsChanged);
-            Assert.Equal("a", tracker.CurrentValue.Name);
         }
 
         [Fact]
@@ -69,7 +68,7 @@ namespace WinformsMVP.Samples.Tests.Common
                 (a, b) => { compares++; return a.Name == b.Name; });
 
             var tracker = new ChangeTracker<Item>(new Item { Name = "a" }, policy);
-            Assert.Equal(2, clones);   // current + original snapshots
+            Assert.Equal(1, clones);   // only the snapshot; the tracked object is not copied
 
             var changed = tracker.IsChanged;
             Assert.False(changed);
@@ -79,21 +78,23 @@ namespace WinformsMVP.Samples.Tests.Common
         [Fact]
         public void ComparerOnlyCtor_UsesBuiltInCloner()
         {
-            var tracker = new ChangeTracker<Item>(new Item { Id = 1, Name = "a" }, (a, b) => a.Id == b.Id);
+            var item = new Item { Id = 1, Name = "a" };
+            var tracker = new ChangeTracker<Item>(item, (a, b) => a.Id == b.Id);
 
-            tracker.CurrentValue.Name = "b";
+            item.Name = "b";
 
             Assert.False(tracker.IsChanged);       // comparer looks at Id only
-            tracker.RejectChanges();
-            Assert.Equal("a", tracker.CurrentValue.Name);   // but the snapshot was a real copy
+            item.Id = 2;
+            Assert.True(tracker.IsChanged);        // and the snapshot was a real copy
         }
 
         [Fact]
         public void EqualityComparerCtor_IsUsed()
         {
-            var tracker = new ChangeTracker<Item>(new Item { Id = 1, Name = "a" }, new IdComparer());
+            var item = new Item { Id = 1, Name = "a" };
+            var tracker = new ChangeTracker<Item>(item, new IdComparer());
 
-            tracker.CurrentValue.Name = "b";
+            item.Name = "b";
 
             Assert.False(tracker.IsChanged);
         }
@@ -141,9 +142,10 @@ namespace WinformsMVP.Samples.Tests.Common
         public void PolicyFrom_Engines_UsesThem()
         {
             var policy = ChangeTrackingPolicy<Item>.From(new CountingCloner(), new AlwaysEqual());
-            var tracker = new ChangeTracker<Item>(new Item { Name = "a" }, policy);
+            var item = new Item { Name = "a" };
+            var tracker = new ChangeTracker<Item>(item, policy);
 
-            tracker.CurrentValue.Name = "b";
+            item.Name = "b";
 
             Assert.False(tracker.IsChanged);
         }

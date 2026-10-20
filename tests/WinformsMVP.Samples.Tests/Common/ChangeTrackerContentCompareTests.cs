@@ -41,9 +41,10 @@ namespace WinformsMVP.Samples.Tests.Common
         [Fact]
         public void EditingAnEntityWithIdEquality_IsDetected()
         {
-            var tracker = new ChangeTracker<Order>(NewOrder());
+            var order = NewOrder();
+            var tracker = new ChangeTracker<Order>(order);
 
-            tracker.CurrentValue.Note = "edited";
+            order.Note = "edited";
 
             Assert.True(tracker.IsChanged);
         }
@@ -51,9 +52,10 @@ namespace WinformsMVP.Samples.Tests.Common
         [Fact]
         public void EditingANestedEntityWithIdEquality_IsDetected()
         {
-            var tracker = new ChangeTracker<Order>(NewOrder());
+            var order = NewOrder();
+            var tracker = new ChangeTracker<Order>(order);
 
-            tracker.CurrentValue.Customer.Name = "Bob";
+            order.Customer.Name = "Bob";
 
             Assert.True(tracker.IsChanged);
         }
@@ -66,7 +68,7 @@ namespace WinformsMVP.Samples.Tests.Common
             var tracker = new ChangeTracker<Order>(order);
             Assert.False(tracker.IsChanged);
 
-            foreach (var watcher in tracker.CurrentValue.Watchers) watcher.Name = "Dave";
+            foreach (var watcher in order.Watchers) watcher.Name = "Dave";
 
             Assert.True(tracker.IsChanged);
         }
@@ -85,10 +87,9 @@ namespace WinformsMVP.Samples.Tests.Common
             var tracker = new ChangeTracker<Order>(order);
             Assert.False(tracker.IsChanged);
 
-            foreach (var watcher in tracker.CurrentValue.Watchers) watcher.Name = "Dave";
+            foreach (var watcher in order.Watchers) watcher.Name = "Dave";
 
             Assert.True(tracker.IsChanged);
-            Assert.True(ObjectComparer.DeepEquals(order.Watchers, tracker.CurrentValue.Watchers)); // membership only
         }
 
         [Fact]
@@ -101,9 +102,10 @@ namespace WinformsMVP.Samples.Tests.Common
         [Fact]
         public void ExplicitComparer_OptsIntoIdentityEquality()
         {
-            var tracker = new ChangeTracker<Order>(NewOrder(), (a, b) => a.Equals(b));
+            var order = NewOrder();
+            var tracker = new ChangeTracker<Order>(order, (a, b) => a.Equals(b));
 
-            tracker.CurrentValue.Note = "edited";
+            order.Note = "edited";
 
             Assert.False(tracker.IsChanged);
         }

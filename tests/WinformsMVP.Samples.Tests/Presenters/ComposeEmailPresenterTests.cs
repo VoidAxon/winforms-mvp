@@ -420,10 +420,44 @@ namespace WinformsMVP.Samples.Tests.Presenters
             // Act
             await _mockView.Binder.DispatchAsync(ComposeEmailActions.SaveDraft);
 
-            // Assert - verify SaveDraft was called
+            // Assert - saved, and the saved content is now the accepted state
             Assert.Contains("SaveDraftAsync(Draft)", _mockRepository.MethodCalls);
-            // Note: IsDirty is cleared via ChangeTracker.AcceptChanges() which triggers IsChangedChanged event
-            // The dirty state is managed internally by ChangeTracker
+            Assert.False(_mockView.IsDirty);
+        }
+
+        /// <summary>
+        /// Test: an edit made while the draft save runs stays unsaved (the saved snapshot, not the
+        /// screen, becomes the accepted content).
+        /// </summary>
+        [Fact]
+        public async Task SaveDraft_EditDuringSave_RemainsDirty()
+        {
+            _mockView.To = "draft@example.com";
+            _mockView.Subject = "Draft";
+            _mockView.Body = "Body";
+            _mockView.SimulateEmailDataChange();
+            _mockRepository.OnSaveDraft = _ => _mockView.Subject = "Edited while saving";
+
+            await _mockView.Binder.DispatchAsync(ComposeEmailActions.SaveDraft);
+
+            Assert.Contains("SaveDraftAsync(Draft)", _mockRepository.MethodCalls);
+            Assert.True(_mockView.IsDirty);
+        }
+
+        /// <summary>
+        /// Test: with no edit during the save, the window has no unsaved changes afterwards, so a
+        /// close is not questioned.
+        /// </summary>
+        [Fact]
+        public async Task SaveDraft_NoEditDuringSave_BecomesClean()
+        {
+            _mockView.Subject = "Draft";
+            _mockView.SimulateEmailDataChange();
+
+            await _mockView.Binder.DispatchAsync(ComposeEmailActions.SaveDraft);
+
+            Assert.False(_mockView.IsDirty);
+            Assert.True(await _host.CanCloseAsync());
         }
 
         /// <summary>
@@ -457,6 +491,25 @@ namespace WinformsMVP.Samples.Tests.Presenters
         /// NOTE: OnDiscard checks ChangeTracker.IsChanged, which may be true even on initialization
         /// This test verifies the discard flow works correctly
         /// </summary>
+        /// <summary>
+        /// Test: after the user confirms the discard, the close goes through without a second
+        /// unsaved-changes prompt from the Pull-direction gate.
+        /// </summary>
+        [Fact]
+        public async Task Discard_AfterConfirm_ClosesWithoutSecondPrompt()
+        {
+            _mockView.Subject = "Unsaved";
+            _mockView.SimulateEmailDataChange();
+            _mockServices.MessageService.ConfirmYesNoResult = true;
+
+            _mockView.Binder.Dispatch(ComposeEmailActions.Discard);
+
+            Assert.True(_host.CloseRequested);
+            Assert.Equal(InteractionStatus.Cancel, _host.CloseStatus);
+            Assert.True(await _host.CanCloseAsync());
+            Assert.Equal(1, _mockServices.MessageService.Calls.Count(c => c.Type == MessageType.Confirm));
+        }
+
         [Fact]
         public void OnDiscard_WithoutUserChanges_RequestsClose()
         {
