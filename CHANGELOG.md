@@ -30,6 +30,7 @@
 - **`EventAggregator` の既定登録** — 両方の登録経路で、プロバイダごとに 1 つの `IEventAggregator` をシングルトン登録。`EventAggregator` は `IDisposable` (プロバイダと一緒に破棄)。
 - **`DefaultServiceProvider` は `IDisposable`** — ファクトリで自分が作ったシングルトンを破棄する (`RegisterInstance` で渡されたインスタンスは破棄しない)。`ServiceLocator` は自分で作ったプロバイダ (遅延生成の既定・`Configure` / `MvpApplication` で作ったもの) を置き換え時・`Reset` 時に破棄する。
 - サンプル: `CustomizationDemo` (ランチャーの "Framework Customization") — 1 つの `Configure` でダイアログ・トースト・変更追跡ポリシーを差し替え、Presenter は通常のコードのまま。
+- **型付き ActionKey `ViewAction<T>`** — `ViewAction.Create<T>(name)` / `ViewActionFactory.Create<T>(name)` でペイロード型を持つキーを作る。`ViewActionBinder.Add(key, control, c => T)`、`ViewActionDispatcher.Register(key, Action<T> / Func<T, Task> / Func<T, CancellationToken, Task>)`、`Dispatch` / `DispatchAsync` / `CanDispatch` の型付きオーバーロードにより、Form 側と Presenter 側の型不一致がコンパイルエラーになる。任意機能で、従来の `ViewAction` と混在可能。`ViewAction` への暗黙変換はなく、型なし API には `.Key` を使う。サンプルテストの `CapturingActionBinder` にも型付きの `Dispatch` / `DispatchAsync` / `CanDispatch` を追加。
 
 ### Changed (変更)
 

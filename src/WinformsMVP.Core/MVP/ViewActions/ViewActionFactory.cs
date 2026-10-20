@@ -33,6 +33,9 @@ namespace WinformsMVP.MVP.ViewActions
                 : ViewAction.Create($"{_qualifier}.{name}");
         }
 
+        /// <summary>Creates a qualified action key whose payload is a <typeparamref name="T"/>.</summary>
+        public ViewAction<T> Create<T>(string name) => new ViewAction<T>(Create(name));
+
         public override string ToString() => _qualifier;
     }
 }

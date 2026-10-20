@@ -242,6 +242,15 @@ namespace WinformsMVP.MVP.ViewActions
         }
 
         /// <summary>
+        /// Binds a control to a typed action: <paramref name="valueSelector"/> must produce the
+        /// key's payload type, so a mismatch with the presenter's <c>Register(key, (T v) =&gt; ...)</c>
+        /// is a compile error rather than a dispatch-time one.
+        /// </summary>
+        public void Add<TControl, T>(ViewAction<T> actionKey, TControl control, Func<TControl, T> valueSelector)
+            where TControl : Component
+            => Add<TControl, T>(actionKey.Key, control, valueSelector);
+
+        /// <summary>
         /// Binds all registered controls to their actions. A trigger first runs
         /// <paramref name="onActionTriggered"/> (the dispatch, when bound to a dispatcher), then raises
         /// <see cref="ActionTriggered"/>, so a failing notification subscriber cannot prevent the dispatch.
