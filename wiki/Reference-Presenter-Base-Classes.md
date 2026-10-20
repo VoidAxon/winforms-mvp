@@ -321,13 +321,13 @@ protected override void OnViewAttached()
 
 ### 出站イベント: 公開してよいもの / 禁じるもの
 
-圧縮するのは**入站の命令面**であって、出站の通知ではありません。**公開してはいけない**のは、内部状態を載せたイベント (`IsDirtyChanged`) や View イベントを再発行するイベント (`SelectionChanged`) — それらは本来 Model / Service / Store が持つべき観測点を Presenter に漏らします。下の NG / OK 例がちょうどこの境界を描きます。
+圧縮するのは**入站の命令面**であって、出站の通知ではありません。**公開してはいけない**のは、内部状態を載せたイベント (`IsDirtyChanged`) や View イベントを再発行するイベント (`SelectionChanged`) — それらは本来 Model / Service / 共有状態オブジェクトが持つべき観測点を Presenter に漏らします。下の NG / OK 例がちょうどこの境界を描きます。
 
 通知の性質ごとに手段を選びます:
 
 - **ウィンドウの結果通知 (上向き・単発)** → 基底 `RequestClose(result, status)` を呼ぶ (✅ 出力ポート。インターフェイス実装不要。フレームワークが `InteractionResult<TResult>` に変換して呼び出し元に返す)
 - **親子の連携 (親 → 子)** → **まず共有 Model / イベントを検討する**。直接命令は**窄い例外**で、本物の一回的コマンド (`Reset()` 等、他に関係者がなく子の状態問い合わせも不要) のときだけ使います。その場合も **handler は `private` のまま (硬線)**、露出形式は既定 `internal`、差し替え / テストの縫い目が要るときだけコマンドインターフェイス (**接口は強制しない**)。[Rule 10](Design-Rules#rule-10-view-にアクセスするのは-presenter-だけ) ・ [HowTo: Presenter 間の通信方法](HowTo-Communicate-Between-Presenters) 参照
-- **共有・観測されるステート (注文・認証等)** → ステートは Service / Store に持たせ、その変更通知イベントを発火
+- **共有・観測されるステート (注文・認証等)** → ステートは Service / 共有状態オブジェクトに持たせ、その変更通知イベントを発火
 - **モジュール横断の通知** → `IEventAggregator` で publish (購読トークンは `.DisposeWith(Disposables)`、UI スレッド整列)
 
 ### NG パターン
