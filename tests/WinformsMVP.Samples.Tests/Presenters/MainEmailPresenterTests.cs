@@ -44,14 +44,13 @@ namespace WinformsMVP.Samples.Tests.Presenters
             AddTestEmails();
 
             // 3. Create presenter and inject mock services BEFORE AttachView
-            _presenter = new MainEmailPresenter(_mockRepository)
-                .WithServiceProvider(_mockServices.Provider);
+            _presenter = new MainEmailPresenter(_mockRepository);
 
             // 4. Create mock view
             _mockView = new MockMainEmailView();
 
             // 5. Attach view and initialize
-            _host = PresenterTestHost.Start(_presenter, _mockView);
+            _host = PresenterTestHost.Start(_mockServices.Provider, _presenter, _mockView);
 
             // NOTE: Do NOT clear method calls here - initialization tests need them!
             // Individual tests should clear if needed before their Act phase

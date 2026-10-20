@@ -33,15 +33,14 @@ namespace WinformsMVP.Samples.Tests.Presenters
             // 1. Create mock services
             _mockServices = new MockServices();
 
-            // 2. Create presenter and inject mock services with WithServiceProvider
-            _presenter = new ToDoDemoPresenter()
-                .WithServiceProvider(_mockServices.Provider);
+            // 2. Create presenter (the mock services are given to it by PresenterTestHost.Start)
+            _presenter = new ToDoDemoPresenter();
 
             // 3. Create mock view
             _mockView = new MockToDoView();
 
             // 4. Attach view and initialize
-            PresenterTestHost.Start(_presenter, _mockView);
+            PresenterTestHost.Start(_mockServices.Provider, _presenter, _mockView);
 
             // Clear initialization call records (as needed)
             _mockServices.Reset();

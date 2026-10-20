@@ -189,20 +189,19 @@ namespace WinformsMVP.Samples.Tests.ViewActions
                 => CloseDecision ?? base.CanCloseAsync(reason);
         }
 
-        private static (OrderPresenter presenter, OrderView view, CapturingLogger log) NewPresenter()
+        private static (OrderPresenter presenter, OrderView view, CapturingLogger log, IServiceProvider services) NewPresenter()
         {
             var logs = new CapturingLoggerFactory();
             var services = new DefaultServiceProvider();
             services.RegisterInstance<ILoggerFactory>(logs);
-            var presenter = new OrderPresenter().WithServiceProvider(services);
-            return (presenter, new OrderView(), logs.Logger);
+            return (new OrderPresenter(), new OrderView(), logs.Logger, services);
         }
 
         [Fact]
         public async Task AsyncAction_ThroughTheViewsBinder_ClosesWhenDone()
         {
-            var (presenter, view, _) = NewPresenter();
-            var host = PresenterTestHost.Start(presenter, view);
+            var (presenter, view, _, services) = NewPresenter();
+            var host = PresenterTestHost.Start(services, presenter, view);
 
             var save = view.Binder.DispatchAsync(Save);
             Assert.False(view.Binder.CanDispatch(Save));
@@ -216,8 +215,8 @@ namespace WinformsMVP.Samples.Tests.ViewActions
         [Fact]
         public async Task DisposingThePresenter_CancelsTheRunningAction_Silently()
         {
-            var (presenter, view, log) = NewPresenter();
-            var host = PresenterTestHost.Start(presenter, view);
+            var (presenter, view, log, services) = NewPresenter();
+            var host = PresenterTestHost.Start(services, presenter, view);
 
             var save = view.Binder.DispatchAsync(Save);
             host.Dispose();     // the window closed mid-save
@@ -231,9 +230,9 @@ namespace WinformsMVP.Samples.Tests.ViewActions
         [Fact]
         public async Task OnInitializeAsync_RunsAfterInitialize_AndCanBeAwaited()
         {
-            var (presenter, view, _) = NewPresenter();
+            var (presenter, view, _, services) = NewPresenter();
             presenter.LoadGate = new TaskCompletionSource<bool>();
-            var host = PresenterTestHost.Start(presenter, view);
+            var host = PresenterTestHost.Start(services, presenter, view);
 
             Assert.Equal("loading", view.Status);       // Start returned without waiting
             presenter.LoadGate.SetResult(true);
@@ -245,9 +244,9 @@ namespace WinformsMVP.Samples.Tests.ViewActions
         [Fact]
         public async Task OnInitializeAsync_Failure_IsLogged()
         {
-            var (presenter, view, log) = NewPresenter();
+            var (presenter, view, log, services) = NewPresenter();
             presenter.LoadFailure = new InvalidOperationException("db down");
-            var host = PresenterTestHost.Start(presenter, view);
+            var host = PresenterTestHost.Start(services, presenter, view);
 
             await host.Initialized;   // does not fault
 
@@ -257,9 +256,9 @@ namespace WinformsMVP.Samples.Tests.ViewActions
         [Fact]
         public async Task OnInitializeAsync_CancelledByDispose_IsSilent()
         {
-            var (presenter, view, log) = NewPresenter();
+            var (presenter, view, log, services) = NewPresenter();
             presenter.LoadGate = new TaskCompletionSource<bool>();
-            var host = PresenterTestHost.Start(presenter, view);
+            var host = PresenterTestHost.Start(services, presenter, view);
 
             host.Dispose();
             await host.Initialized;
@@ -271,10 +270,10 @@ namespace WinformsMVP.Samples.Tests.ViewActions
         [Fact]
         public async Task CanCloseAsync_AnswerIsAwaited()
         {
-            var (presenter, view, _) = NewPresenter();
+            var (presenter, view, _, services) = NewPresenter();
             var decision = new TaskCompletionSource<bool>();
             presenter.CloseDecision = decision.Task;
-            var host = PresenterTestHost.Start(presenter, view);
+            var host = PresenterTestHost.Start(services, presenter, view);
 
             Assert.Null(host.CanClose());               // pending
             var answer = host.CanCloseAsync();
@@ -286,9 +285,9 @@ namespace WinformsMVP.Samples.Tests.ViewActions
         [Fact]
         public async Task CanCloseAsync_Faulted_BlocksNormalButAllowsShutdown()
         {
-            var (presenter, view, log) = NewPresenter();
+            var (presenter, view, log, services) = NewPresenter();
             presenter.CloseDecision = Faulted();
-            var host = PresenterTestHost.Start(presenter, view);
+            var host = PresenterTestHost.Start(services, presenter, view);
 
             Assert.False(await host.CanCloseAsync(CloseReason.Normal));
             Assert.True(await host.CanCloseAsync(CloseReason.SystemShutdown));

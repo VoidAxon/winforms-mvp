@@ -49,15 +49,16 @@ MockServices                    (モックサービスを束ね DefaultServicePr
    ├── MockFileService          (in-memory ファイルシステム)
    ├── LoggerFactory            (既定は NullLoggerFactory・出力なし)
    └── MockWindowNavigator      (子ウィンドウ表示の検証)
-   .Provider                    (DefaultServiceProvider — presenter.WithServiceProvider(mock.Provider) に渡す)
+   .Provider                    (DefaultServiceProvider — PresenterTestHost.Start(mock.Provider, presenter, view) に渡す)
 
 Mock<IXxxView>                  (View インターフェイス用のモック — CapturingActionBinder を公開する)
 CapturingActionBinder           (フレームワークが View に渡す dispatcher を捕捉。テストから Dispatch する入口)
-PresenterTestHost               (WinformsMVP.Testing — WinformsMVP.Core に同梱。モック View をアタッチして実際の初期化を走らせ、RequestClose を記録し、CanClose / CanCloseAsync ゲートを駆動する)
+PresenterTestHost               (WinformsMVP.Testing — WinformsMVP.Core に同梱。モック View をアタッチして実際の初期化を走らせ、RequestClose を記録し、CanClose / CanCloseAsync ゲートを駆動する。Start(services, ...) でその Presenter だけのフレームワークサービスを渡せる)
+TestServices.Create()           (WinformsMVP.Testing — 無出力の ILoggerFactory だけを登録した DefaultServiceProvider。ここにフェイクを登録して Start に渡す)
 業務依存 (IXxxRepository 等)     (Presenter のコンストラクタに注入。フレームワークサービスとは別経路)
 ```
 
-モックは `WinformsMVP.Samples.Tests/Mocks/` 配下にあります (`PresenterTestHost` だけはパッケージ同梱)。**業務依存 (Repository など) は `MockServices` には含まれません** — それらは Presenter のコンストラクタに直接注入します (下記参照)。
+モックは `WinformsMVP.Samples.Tests/Mocks/` 配下にあります (`PresenterTestHost` と `TestServices` だけはパッケージ同梱)。**業務依存 (Repository など) は `MockServices` には含まれません** — それらは Presenter のコンストラクタに直接注入します (下記参照)。
 
 ---
 
@@ -78,13 +79,14 @@ public class UserEditorPresenterTests
         _repository   = new MockUserRepository();
         _view         = new MockUserEditorView();
 
-        // フレームワークサービスは WithServiceProvider 経由、業務依存 (Repository) はコンストラクタ経由
-        _presenter = new UserEditorPresenter(_repository)
-            .WithServiceProvider(_mockServices.Provider);
+        // 業務依存 (Repository) はコンストラクタ経由
+        _presenter = new UserEditorPresenter(_repository);
 
+        // フレームワークサービスは Start の第 1 引数で渡す (この Presenter だけに効く。グローバルな
+        // ServiceLocator.Current は触らないので、テストを並列に走らせてよい)。
         // View のアタッチ + 実際の初期化 (RegisterViewActions → binder 自動バインド → OnInitialize)。
         // Presenter の AttachView / Initialize は明示的インターフェイス実装なので直接は呼べない。
-        PresenterTestHost.Start(_presenter, _view);
+        PresenterTestHost.Start(_mockServices.Provider, _presenter, _view);
 
         // 初期化時の呼び出し記録をクリアして純粋なテスト実行に集中
         _mockServices.Reset();
@@ -133,7 +135,16 @@ public CapturingActionBinder Binder { get; } = new CapturingActionBinder();
 public IViewActionBinder ActionBinder => Binder;
 ```
 
-> **業務依存はコンストラクタ、フレームワークサービスは `WithServiceProvider`。** `MockServices` が束ねるのは Message/Dialog/File/Navigator (+ Logger) の **フレームワークサービス** だけです。`IUserRepository` のような業務依存は Presenter のコンストラクタに注入します (`new UserEditorPresenter(_repository)`)。実例は [`MainEmailPresenterTests.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/tests/WinformsMVP.Samples.Tests/Presenters/MainEmailPresenterTests.cs) の `new MainEmailPresenter(_mockRepository).WithServiceProvider(_mockServices.Provider)` を参照。
+> **業務依存はコンストラクタ、フレームワークサービスは `PresenterTestHost.Start(services, ...)`。** `MockServices` が束ねるのは Message/Dialog/File/Navigator (+ Logger) の **フレームワークサービス** だけです。`IUserRepository` のような業務依存は Presenter のコンストラクタに注入します (`new UserEditorPresenter(_repository)`)。実例は [`MainEmailPresenterTests.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/tests/WinformsMVP.Samples.Tests/Presenters/MainEmailPresenterTests.cs) を参照。
+
+> **自分でプロバイダを組むときは `TestServices.Create()` から始めます。** どの Presenter もアタッチ時に `ILoggerFactory` を必要とするため、それだけを登録済みで返します。渡したプロバイダにないサービスはエラーになり、グローバルの既定サービスで補われることはありません (テストが何に依存しているかがコードに現れるように)。プロバイダは呼び出し側の所有で、ホストは破棄しません。Presenter がコンストラクタで `Logger` や `Messages` を使っていると、`Start(services, ...)` は `InvalidOperationException` になります — その処理は `OnViewAttached` / `OnInitialize` に移してください。
+
+```csharp
+var messages = new FakeMessageService();
+var services = TestServices.Create();                    // ILoggerFactory (無出力) だけ登録済み
+services.RegisterInstance<IMessageService>(messages);
+using (var host = PresenterTestHost.Start(services, new OrderPresenter(repo), view)) { ... }
+```
 
 ---
 
@@ -306,11 +317,10 @@ private class RecordingLoggerFactory : ILoggerFactory
 public void OnSave_LogsSuccess()
 {
     var loggerFactory = new RecordingLoggerFactory();
-    var sp = new DefaultServiceProvider();
-    sp.RegisterInstance<WinformsMVP.Logging.ILoggerFactory>(loggerFactory);
+    var sp = TestServices.Create();
+    sp.RegisterInstance<WinformsMVP.Logging.ILoggerFactory>(loggerFactory);   // 無出力のものを置き換える
 
-    var presenter = new MyPresenter().WithServiceProvider(sp);
-    PresenterTestHost.Start(presenter, _view);
+    PresenterTestHost.Start(sp, new MyPresenter(), _view);
 
     _view.Binder.Dispatch(StandardActions.Save);
 
@@ -509,8 +519,8 @@ public void TestEverything()
 ```csharp
 public MyTests()
 {
-    _presenter = new MyPresenter().WithServiceProvider(_mockServices.Provider);
-    PresenterTestHost.Start(_presenter, _view);
+    _presenter = new MyPresenter();
+    PresenterTestHost.Start(_mockServices.Provider, _presenter, _view);
 
     // 初期化で発生した呼び出し記録をクリア
     _mockServices.Reset();

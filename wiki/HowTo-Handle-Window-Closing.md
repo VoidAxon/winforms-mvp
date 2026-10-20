@@ -364,8 +364,7 @@ private readonly PresenterTestHost _host;
 
 public WindowClosingDemoPresenterTests()
 {
-    var presenter = new WindowClosingDemoPresenter().WithServiceProvider(_platform.Provider);
-    _host = PresenterTestHost.Start(presenter, _view);   // アタッチ + 初期化 + RequestClose の記録
+    _host = PresenterTestHost.Start(_platform.Provider, new WindowClosingDemoPresenter(), _view);   // アタッチ + 初期化 + RequestClose の記録
 }
 ```
 

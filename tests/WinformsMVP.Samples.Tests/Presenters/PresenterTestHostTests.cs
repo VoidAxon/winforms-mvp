@@ -4,6 +4,8 @@ using WinformsMVP.MVP.Presenters;
 using WinformsMVP.MVP.ViewActions;
 using WinformsMVP.MVP.Views;
 using WinformsMVP.Samples.Tests.Mocks;
+using WinformsMVP.Logging;
+using WinformsMVP.Services;
 using WinformsMVP.Testing;
 using Xunit;
 
@@ -208,6 +210,136 @@ namespace WinformsMVP.Samples.Tests.Presenters
                 RequestClose("saved", InteractionStatus.Ok);
                 return Allow;
             }
+        }
+
+        // ---- Start(services, ...): framework services for this presenter only ----
+
+        private sealed class GreetingPresenter : WindowPresenterBase<IEditView>
+        {
+            protected override void OnViewAttached() { }
+            protected override void OnInitialize() => Messages.ShowInfo("hello");
+        }
+
+        private sealed class GreetingParamPresenter : WindowPresenterBase<IEditView, string>
+        {
+            protected override void OnViewAttached() { }
+            protected override void OnInitialize(string text) => Messages.ShowInfo(text);
+        }
+
+        private sealed class ServicesInConstructorPresenter : WindowPresenterBase<IEditView>
+        {
+            public ServicesInConstructorPresenter() { Logger.LogInformation("constructed"); }
+            protected override void OnViewAttached() { }
+        }
+
+        private sealed class RecordingConfigurer : IDispatcherConfigurer
+        {
+            public int Calls;
+            public void Configure(ViewActionDispatcher dispatcher) => Calls++;
+        }
+
+        private sealed class OtherLoggerFactory : ILoggerFactory
+        {
+            public ILogger CreateLogger(string categoryName) => NullLogger.Instance;
+            public ILogger CreateLogger(Type type) => NullLogger.Instance;
+        }
+
+        private static DefaultServiceProvider ServicesWith(MockMessageService messages)
+        {
+            var services = TestServices.Create();
+            services.RegisterInstance<IMessageService>(messages);
+            return services;
+        }
+
+        [Fact]
+        public void StartWithServices_PresenterUsesThoseServices_NotTheGlobalOnes()
+        {
+            var local = new MockMessageService();
+            using (PresenterTestHost.Start(ServicesWith(local), new GreetingPresenter(), new EditView()))
+            {
+                Assert.Single(local.Calls);
+                Assert.Equal("hello", local.Calls[0].Message);
+            }
+        }
+
+        [Fact]
+        public void StartWithServicesAndParameters_PresenterUsesThoseServices()
+        {
+            var local = new MockMessageService();
+            PresenterTestHost.Start(ServicesWith(local), new GreetingParamPresenter(), new EditView(), "hi");
+            Assert.Equal("hi", local.Calls[0].Message);
+        }
+
+        [Fact]
+        public void StartWithServices_TwoHostsKeepTheirOwnServices()
+        {
+            var first = new MockMessageService();
+            var second = new MockMessageService();
+
+            PresenterTestHost.Start(ServicesWith(first), new GreetingPresenter(), new EditView());
+            PresenterTestHost.Start(ServicesWith(second), new GreetingPresenter(), new EditView());
+
+            Assert.Single(first.Calls);
+            Assert.Single(second.Calls);
+        }
+
+        [Fact]
+        public void StartWithServices_IsInPlaceBeforeTheViewIsAttached()
+        {
+            // The dispatcher is configured while the view is attached (before OnViewAttached).
+            var configurer = new RecordingConfigurer();
+            var services = TestServices.Create();
+            services.RegisterInstance<IDispatcherConfigurer>(configurer);
+
+            PresenterTestHost.Start(services, new EditPresenter(), new EditView());
+
+            Assert.Equal(1, configurer.Calls);
+        }
+
+        [Fact]
+        public void StartWithServices_WithoutLoggerFactory_ThrowsAndLeavesThePresenterUnstarted()
+        {
+            var presenter = new GreetingPresenter();
+            var ex = Assert.Throws<InvalidOperationException>(
+                () => PresenterTestHost.Start(new DefaultServiceProvider(), presenter, new EditView()));
+            Assert.Contains("ILoggerFactory", ex.Message);
+            Assert.Contains("TestServices.Create", ex.Message);
+
+            var local = new MockMessageService();
+            PresenterTestHost.Start(ServicesWith(local), presenter, new EditView());   // still usable
+            Assert.Single(local.Calls);
+        }
+
+        [Fact]
+        public void StartWithServices_PresenterThatAlreadyUsedServices_Throws()
+        {
+            var ex = Assert.Throws<InvalidOperationException>(
+                () => PresenterTestHost.Start(TestServices.Create(), new ServicesInConstructorPresenter(), new EditView()));
+            Assert.Contains("constructor", ex.Message);
+        }
+
+        [Fact]
+        public void StartWithServices_NullServices_Throws()
+            => Assert.Throws<ArgumentNullException>(
+                () => PresenterTestHost.Start((IServiceProvider)null, new GreetingPresenter(), new EditView()));
+
+        [Fact]
+        public void StartWithServices_DisposingTheHostLeavesTheServicesUsable()
+        {
+            var services = TestServices.Create();
+            PresenterTestHost.Start(services, new EditPresenter(), new EditView()).Dispose();
+            Assert.NotNull(services.GetService(typeof(ILoggerFactory)));   // caller-owned: not disposed
+        }
+
+        [Fact]
+        public void TestServicesCreate_HasANullLoggerFactoryThatCanBeReplaced()
+        {
+            var services = TestServices.Create();
+            Assert.Same(NullLoggerFactory.Instance, services.GetService(typeof(ILoggerFactory)));
+
+            var mine = new OtherLoggerFactory();
+            services.RegisterInstance<ILoggerFactory>(mine);
+            Assert.Same(mine, services.GetService(typeof(ILoggerFactory)));
         }
 
         [Fact]

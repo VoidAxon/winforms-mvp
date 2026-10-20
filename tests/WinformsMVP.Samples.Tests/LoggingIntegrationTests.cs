@@ -33,12 +33,11 @@ namespace WinformsMVP.Samples.Tests
         public void Logger_ShouldBeAvailableInPresenter()
         {
             var mockServices = new MockServices();
-            var presenter = new LoggingDemoPresenter()
-                .WithServiceProvider(mockServices.Provider);
+            var presenter = new LoggingDemoPresenter();
 
             var view = new MockLoggingDemoView();
 
-            PresenterTestHost.Start(presenter, view);
+            PresenterTestHost.Start(mockServices.Provider, presenter, view);
 
             Assert.NotNull(view.LogOutput);
         }
@@ -51,12 +50,11 @@ namespace WinformsMVP.Samples.Tests
             provider.RegisterInstance<ILoggerFactory>(loggerFactory);
             provider.RegisterInstance<IMessageService>(new MockMessageService());
 
-            var presenter = new LoggingDemoPresenter()
-                .WithServiceProvider(provider);
+            var presenter = new LoggingDemoPresenter();
 
             var view = new MockLoggingDemoView { UserName = "TestUser" };
 
-            PresenterTestHost.Start(presenter, view);
+            PresenterTestHost.Start(provider, presenter, view);
 
             Assert.NotEmpty(loggerFactory.Logger.Entries);
 
@@ -75,12 +73,11 @@ namespace WinformsMVP.Samples.Tests
             provider.RegisterInstance<ILoggerFactory>(loggerFactory);
             provider.RegisterInstance<IMessageService>(new MockMessageService());
 
-            var presenter = new LoggingDemoPresenter()
-                .WithServiceProvider(provider);
+            var presenter = new LoggingDemoPresenter();
 
             var view = new MockLoggingDemoView();
 
-            PresenterTestHost.Start(presenter, view);
+            PresenterTestHost.Start(provider, presenter, view);
 
             view.UserName = "Alice";
 
@@ -101,12 +98,11 @@ namespace WinformsMVP.Samples.Tests
             provider.RegisterInstance<ILoggerFactory>(loggerFactory);
             provider.RegisterInstance<IMessageService>(new MockMessageService());
 
-            var presenter = new LoggingDemoPresenter()
-                .WithServiceProvider(provider);
+            var presenter = new LoggingDemoPresenter();
 
             var view = new MockLoggingDemoView();
 
-            PresenterTestHost.Start(presenter, view);
+            PresenterTestHost.Start(provider, presenter, view);
 
             view.UserName = "Bob";
 
@@ -129,12 +125,11 @@ namespace WinformsMVP.Samples.Tests
             provider.RegisterInstance<ILoggerFactory>(loggerFactory);
             provider.RegisterInstance<IMessageService>(new MockMessageService());
 
-            var presenter = new LoggingDemoPresenter()
-                .WithServiceProvider(provider);
+            var presenter = new LoggingDemoPresenter();
 
             var view = new MockLoggingDemoView { UserName = "TestUser" };
 
-            PresenterTestHost.Start(presenter, view);
+            PresenterTestHost.Start(provider, presenter, view);
 
             view.Binder.Dispatch(LoggingActions.LogDebug);
             view.Binder.Dispatch(LoggingActions.LogInfo);
@@ -198,12 +193,11 @@ namespace WinformsMVP.Samples.Tests
         public void Presenter_ProcessedCount_ShouldIncrement()
         {
             var mockServices = new MockServices();
-            var presenter = new LoggingDemoPresenter()
-                .WithServiceProvider(mockServices.Provider);
+            var presenter = new LoggingDemoPresenter();
 
             var view = new MockLoggingDemoView { UserName = "Charlie" };
 
-            PresenterTestHost.Start(presenter, view);
+            PresenterTestHost.Start(mockServices.Provider, presenter, view);
 
             view.Binder.Dispatch(LoggingActions.LogStructured);
             view.Binder.Dispatch(LoggingActions.LogStructured);
@@ -216,12 +210,11 @@ namespace WinformsMVP.Samples.Tests
         public void Presenter_ClearLog_ShouldResetCount()
         {
             var mockServices = new MockServices();
-            var presenter = new LoggingDemoPresenter()
-                .WithServiceProvider(mockServices.Provider);
+            var presenter = new LoggingDemoPresenter();
 
             var view = new MockLoggingDemoView { UserName = "David" };
 
-            PresenterTestHost.Start(presenter, view);
+            PresenterTestHost.Start(mockServices.Provider, presenter, view);
 
             view.Binder.Dispatch(LoggingActions.LogStructured);
             view.Binder.Dispatch(LoggingActions.LogStructured);

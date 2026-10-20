@@ -105,6 +105,8 @@ using (var host = PresenterTestHost.Start(new EditPresenter(repo), view))
 ```
 If initialization throws, `Start` disposes the presenter and rethrows. `host.CanClose` throws for control presenters (they have no close gate).
 
+Framework services (`Messages`, `Navigator`, `Toasts`, `Logger`, ...) for one presenter under test: pass a provider as the first argument — `PresenterTestHost.Start(services, presenter, view[, parameters])`. Start from `TestServices.Create()` (a `DefaultServiceProvider` with only a silent `ILoggerFactory`, which every presenter needs at attach) and register the fakes the presenter uses; anything missing is an error, never a fallback to the global `ServiceLocator.Current`, so tests do not touch global state and can run in parallel. The provider stays caller-owned. A presenter that already used framework services in its constructor is rejected (move that code to `OnViewAttached` / `OnInitialize`). The binding seam (`IPresenterServicesBinding`) is internal; there is no public per-presenter setter.
+
 The framework enforces these rules at compile time via Roslyn analyzers in [src/WinformsMVP.Analyzers/](src/WinformsMVP.Analyzers/).
 
 ## Architecture
