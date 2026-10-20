@@ -30,7 +30,8 @@ namespace WinformsMVP.Samples.CustomizationDemo
         protected override void OnInitialize()
         {
             var customer = new Customer { Name = "Contoso", LastViewed = System.DateTime.Now };
-            // Uses the policy registered for Customer at startup (LastViewed is not an edit).
+            // The tracker only detects changes; it keeps its own baseline copy. It uses the policy
+            // registered for Customer at startup (LastViewed is not an edit).
             _tracker = TrackChanges(customer);
             View.CustomerName = customer.Name;
         }
@@ -42,9 +43,8 @@ namespace WinformsMVP.Samples.CustomizationDemo
 
         private void OnCheckChanges()
         {
-            _tracker.CurrentValue.Name = View.CustomerName;
-            _tracker.CurrentValue.LastViewed = System.DateTime.Now;
-            View.ShowStatus(_tracker.IsChanged
+            var edited = new Customer { Name = View.CustomerName, LastViewed = System.DateTime.Now };
+            View.ShowStatus(_tracker.IsChangedWith(edited)
                 ? "Changed (the name differs)."
                 : "Not changed (only LastViewed moved, which the policy ignores).");
         }

@@ -365,13 +365,14 @@ using WinformsMVP.Common;
 
 public class ToDoPresenter : WindowPresenterBase<IToDoView>
 {
-    private ChangeTracker<List<ToDoItem>> _tracker;
+    private List<ToDoItem> _items;                    // データは Presenter が持つ
+    private ChangeTracker<List<ToDoItem>> _tracker;  // トラッカーは変更の検出だけ
 
     protected override void OnInitialize()
     {
-        var items = LoadInitialItems();
-        _tracker = new ChangeTracker<List<ToDoItem>>(items);
-        View.Items = _tracker.CurrentValue;
+        _items = LoadInitialItems();
+        _tracker = TrackChanges(_items);              // 基準となるコピーを内部に保持
+        View.Items = _items;
         UpdateDirtyState();
 
         _tracker.IsChangedChanged += (s, e) =>
@@ -401,10 +402,9 @@ public class ToDoPresenter : WindowPresenterBase<IToDoView>
 
     private void OnAdd()
     {
-        var newList = _tracker.CurrentValue.ToList();
-        newList.Add(new ToDoItem { Title = View.NewTaskTitle.Trim() });
-        _tracker.UpdateCurrentValue(newList);
-        View.Items = _tracker.CurrentValue;
+        _items.Add(new ToDoItem { Title = View.NewTaskTitle.Trim() });
+        _tracker.UpdateCurrentValue(_items);           // 比較し直し、状態が変われば IsChangedChanged
+        View.Items = _items;
         View.NewTaskTitle = string.Empty;
     }
 
@@ -412,8 +412,8 @@ public class ToDoPresenter : WindowPresenterBase<IToDoView>
 
     private void OnSave()
     {
-        SaveToStorage(_tracker.CurrentValue);
-        _tracker.AcceptChanges();                       // ← 確定
+        SaveToStorage(_items);
+        _tracker.AcceptChanges(_items);                 // ← 保存した内容を新しい基準に
         Messages.ShowInfo("Saved successfully!", "Save");
     }
 
