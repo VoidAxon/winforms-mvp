@@ -15,7 +15,10 @@ namespace WinformsMVP.Services.Implementations
 
             // Messages, toasts, dialogs, change tracking, events, logging: the builder's defaults,
             // the same list AddWinformsMVP and MvpApplication.Configure start from.
-            new WinformsMVP.Configuration.WinformsMvpBuilder().Apply((DefaultServiceProvider)registry);
+            // Only ServiceLocator calls this hook, always with its own DefaultServiceProvider.
+            var provider = registry as DefaultServiceProvider
+                ?? throw new System.ArgumentException("Expected the framework's DefaultServiceProvider.", nameof(registry));
+            new WinformsMVP.Configuration.WinformsMvpBuilder().Apply(provider);
         }
     }
 }

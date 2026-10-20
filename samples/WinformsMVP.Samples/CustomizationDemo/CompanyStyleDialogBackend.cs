@@ -12,6 +12,7 @@ namespace WinformsMVP.Samples.CustomizationDemo
     {
         public MessageDialogResult Show(MessageDialogRequest request)
         {
+            using (var font = new Font("Segoe UI", 10f))
             using (var form = new Form
             {
                 Text = request.Caption,
@@ -22,7 +23,7 @@ namespace WinformsMVP.Samples.CustomizationDemo
                 StartPosition = request.Location.HasValue ? FormStartPosition.Manual : FormStartPosition.CenterParent,
                 ClientSize = new Size(380, 150),
                 BackColor = Color.White,
-                Font = new Font("Segoe UI", 10f),
+                Font = font,
             })
             {
                 if (request.Location.HasValue) form.Location = request.Location.Value;

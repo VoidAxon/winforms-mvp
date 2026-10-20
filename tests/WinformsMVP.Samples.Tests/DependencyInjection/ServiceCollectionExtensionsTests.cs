@@ -99,7 +99,7 @@ namespace WinformsMVP.Samples.Tests.DependencyInjection
             var services = new ServiceCollection();
             services.AddWinformsMVP(new ViewMappingRegister());
 
-            var provider = services.BuildServiceProvider();
+            using var provider = services.BuildServiceProvider();
 
             Assert.IsType<WinFormsToastService>(provider.GetService<IWinFormsToastService>());
             var forwarder = Assert.IsType<ToastServiceForwarder>(provider.GetService<IToastService>());

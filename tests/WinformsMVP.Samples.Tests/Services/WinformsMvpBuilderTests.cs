@@ -182,26 +182,28 @@ namespace WinformsMVP.Samples.Tests.Services
         [Fact]
         public void Toasts_Use_ReplacesBothToastInterfaces()
         {
-            var mine = new WinFormsToastService(new ToastHostOptions());
+            using (var mine = new WinFormsToastService(new ToastHostOptions()))   // caller-owned
+            {
+                var sp = MvpApplication.Configure(framework: mvp => mvp.Toasts.Use(mine));
 
-            var sp = MvpApplication.Configure(framework: mvp => mvp.Toasts.Use(mine));
-
-            Assert.Same(mine, sp.Resolve<IWinFormsToastService>());
-            Assert.Same(mine, ((ToastServiceForwarder)sp.Resolve<IToastService>()).Target);
+                Assert.Same(mine, sp.Resolve<IWinFormsToastService>());
+                Assert.Same(mine, ((ToastServiceForwarder)sp.Resolve<IToastService>()).Target);
+            }
         }
 
         [Fact]
         public void DirectToastRegistration_ReachesPresentersToo()
         {
-            var a = new WinFormsToastService(new ToastHostOptions());
-            var b = new WinFormsToastService(new ToastHostOptions());
+            using (var a = new WinFormsToastService(new ToastHostOptions()))
+            using (var b = new WinFormsToastService(new ToastHostOptions()))
+            {
+                var sp = MvpApplication.Configure(
+                    framework: mvp => mvp.Toasts.Use(a),
+                    services: reg => reg.RegisterInstance<IWinFormsToastService>(b));
 
-            var sp = MvpApplication.Configure(
-                framework: mvp => mvp.Toasts.Use(a),
-                services: reg => reg.RegisterInstance<IWinFormsToastService>(b));
-
-            Assert.Same(b, sp.Resolve<IWinFormsToastService>());
-            Assert.Same(b, ((ToastServiceForwarder)sp.Resolve<IToastService>()).Target);
+                Assert.Same(b, sp.Resolve<IWinFormsToastService>());
+                Assert.Same(b, ((ToastServiceForwarder)sp.Resolve<IToastService>()).Target);
+            }
         }
 
         [Fact]
@@ -268,7 +270,7 @@ namespace WinformsMVP.Samples.Tests.Services
 
             var services = new ServiceCollection();
             services.AddWinformsMVP(new ViewMappingRegister(), Customize);
-            var di = services.BuildServiceProvider();
+            using var di = services.BuildServiceProvider();
 
             foreach (var type in types)
             {

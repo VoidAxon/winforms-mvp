@@ -123,8 +123,10 @@ namespace WinformsMVP.Samples.Tests.Services
                     }).Wait();   // the caller's font is disposed before the UI thread builds the toast
                     PumpUntil(() => svc.Manager.LiveToasts.Count == 2);
 
+                    Assert.Equal(2, svc.Manager.LiveToasts.Count);   // the toast was built, not dropped
                     var toast = svc.Manager.LiveToasts.Last();
-                    Assert.Equal(12f, toast.Font.Size);   // a disposed Font throws on Size
+                    Assert.Equal("Arial", toast.Font.Name);
+                    Assert.True(toast.Font.GetHeight() > 0);   // GDI+ call: throws if the font was disposed
                 }
             });
         }

@@ -432,7 +432,9 @@ namespace WinformsMVP.Samples
         private void LaunchCustomizationDemo()
         {
             // An application does this once in Program.cs. The launcher switches the whole
-            // configuration for this demo and restores the defaults when it closes.
+            // configuration for this demo and restores the defaults when it closes. Each Configure
+            // disposes the previous services, so a demo still open from before (e.g. the Toast demo,
+            // which holds its toast service) stops showing toasts until it is reopened.
             MvpApplication.Configure(framework: CustomizationDemoSetup.Configure);
 
             var view = new CustomizationDemoForm();

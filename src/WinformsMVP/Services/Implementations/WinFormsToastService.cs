@@ -23,6 +23,12 @@ namespace WinformsMVP.Services.Implementations
     /// logged: a toast is non-critical feedback and never fails the caller.
     /// </para>
     /// <para>
+    /// The service binds once, to the first such thread, and stays there. In an application with
+    /// more than one UI thread, or with a worker thread that owns WinForms controls (and therefore a
+    /// WinForms context) but runs no message loop, create and first use the service on the main
+    /// UI thread — the default registration resolves it lazily, typically from a presenter there.
+    /// </para>
+    /// <para>
     /// Per-call <see cref="ToastOptions"/> (font included) are copied before <c>Show</c> returns,
     /// so a caller may dispose its font immediately.
     /// </para>
