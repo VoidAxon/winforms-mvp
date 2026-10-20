@@ -127,6 +127,12 @@ namespace WinformsMVP.Services.Implementations
                           || reason == WinformsMVP.Common.CloseReason.TaskManager);
                 return;
             }
+            // A fresh close attempt starts from the default (user X => Cancel): a result an earlier
+            // gate allowed must not leak in when that close was cancelled elsewhere (another
+            // FormClosing handler, another window during Application.Exit).
+            _pendingResult = null;
+            _pendingStatus = InteractionStatus.Cancel;
+
             var gate = new object();
             bool sync = true;
             bool? decision = null;
