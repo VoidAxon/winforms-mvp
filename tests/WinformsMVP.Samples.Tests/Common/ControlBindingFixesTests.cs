@@ -46,12 +46,18 @@ namespace WinformsMVP.Samples.Tests.Common
             public string Upper() => Name?.ToUpperInvariant();
         }
 
-        // Bindings activate once the control has a BindingContext (a form gives its children one).
+        // Bindings become active only on created controls with a BindingContext, so the host is
+        // shown (as other WinForms tests here do), off-screen.
         private static Form Host(params Control[] controls)
         {
-            var form = new Form();
+            var form = new Form
+            {
+                ShowInTaskbar = false,
+                StartPosition = FormStartPosition.Manual,
+                Location = new System.Drawing.Point(-32000, -32000),
+            };
             form.Controls.AddRange(controls);
-            form.BindingContext = new BindingContext();
+            form.Show();
             return form;
         }
 
