@@ -59,11 +59,6 @@ namespace WinformsMVP.MVP.ViewActions
             = new List<ActiveSubscription>();
         private readonly Dictionary<ViewAction, List<Component>> _actionToControls = new Dictionary<ViewAction, List<Component>>();
         private ViewActionDispatcher _dispatcher;
-        private Action<ViewAction, object> _onActionTriggered;   // dispatch callback of the current Bind; null = events only
-        private bool _bound;
-        // Keyed by action and payload type (null = untyped) so CommandFor(key) and CommandFor<T>(key)
-        // each keep their own parameter rules.
-        private readonly Dictionary<(ViewAction, Type), ViewActionCommand> _commands = new Dictionary<(ViewAction, Type), ViewActionCommand>();
 
         /// <summary>
         /// Raised when an action is triggered from a bound control. With <see cref="Bind(ViewActionDispatcher)"/>
@@ -256,69 +251,6 @@ namespace WinformsMVP.MVP.ViewActions
             => Add<TControl, T>(actionKey.Key, control, valueSelector);
 
         /// <summary>
-        /// The <see cref="System.Windows.Input.ICommand"/> for <paramref name="actionKey"/> — e.g. for
-        /// WinForms' <c>ButtonBase.Command</c> / <c>ToolStripItem.Command</c> (.NET 7+). Executing it
-        /// triggers the action like a bound control: it dispatches once the binder is bound to a
-        /// dispatcher, and raises <see cref="ActionTriggered"/>. CanExecute follows the action's
-        /// canExecute (false before binding). One instance per key (the typed and untyped commands of a key are separate instances). Give a control either a
-        /// <c>Command</c> or an <c>Add</c> binding for an action, not both, or it triggers twice.
-        /// Create it on the UI thread (e.g. in the form constructor): CanExecuteChanged is raised there.
-        /// </summary>
-        public System.Windows.Input.ICommand CommandFor(ViewAction actionKey)
-            => GetCommand(actionKey, null, parameter => parameter);
-
-        /// <summary>
-        /// The <see cref="System.Windows.Input.ICommand"/> for a typed action; the command parameter
-        /// is the payload and must be a <typeparamref name="T"/> (null passes <c>default(T)</c>).
-        /// </summary>
-        public System.Windows.Input.ICommand CommandFor<T>(ViewAction<T> actionKey)
-            => GetCommand(actionKey.Key, typeof(T), parameter =>
-            {
-                if (parameter == null) return default(T);
-                if (parameter is T) return parameter;
-                throw new ArgumentException(
-                    $"Command for '{actionKey.Name}' expects a {typeof(T).Name} parameter, got {parameter.GetType().Name}.",
-                    nameof(parameter));
-            });
-
-        private ViewActionCommand GetCommand(ViewAction actionKey, Type payloadType, Func<object, object> payload)
-        {
-            if (actionKey.Name == null)
-                throw new ArgumentException(
-                    "default(ViewAction) is not a valid action key; create keys with ViewAction.Create(...).");
-            if (!_commands.TryGetValue((actionKey, payloadType), out var command))
-            {
-                command = new ViewActionCommand(this, actionKey, payload);
-                _commands[(actionKey, payloadType)] = command;
-            }
-            return command;
-        }
-
-        // Shared by bound controls and commands: dispatch (when bound to a dispatcher), then notify.
-        internal void Trigger(ViewAction key, object payload, bool hasValue = true)
-        {
-            if (!_bound) return;
-            _onActionTriggered?.Invoke(key, payload);
-            ActionTriggered?.Invoke(this, hasValue
-                ? new ActionRequestEventArgs<object>(key, payload)
-                : new ActionRequestEventArgs(key));
-        }
-
-        // Explicit mode (Bind() without a dispatcher) leaves availability to the view, as it does for
-        // bound controls, so a command stays executable there instead of disabling its control.
-        internal bool CanTrigger(ViewAction key)
-        {
-            if (!_bound) return false;
-            return _onActionTriggered == null || _dispatcher == null || _dispatcher.CanDispatch(key);
-        }
-
-        private void RaiseCommandsCanExecuteChanged()
-        {
-            foreach (var command in _commands.Values)
-                command.RaiseCanExecuteChanged();
-        }
-
-        /// <summary>
         /// Binds all registered controls to their actions. A trigger first runs
         /// <paramref name="onActionTriggered"/> (the dispatch, when bound to a dispatcher), then raises
         /// <see cref="ActionTriggered"/>, so a failing notification subscriber cannot prevent the dispatch.
@@ -327,8 +259,6 @@ namespace WinformsMVP.MVP.ViewActions
         private void Bind(Action<ViewAction, object> onActionTriggered)
         {
             Unbind();
-            _onActionTriggered = onActionTriggered;
-            _bound = true;
 
             _actionToControls.Clear();
             var actionMap = new Dictionary<object, ActionBinding>();
@@ -358,9 +288,13 @@ namespace WinformsMVP.MVP.ViewActions
                         ? binding.ValueSelector((Component)sender)
                         : null;
 
+                    onActionTriggered?.Invoke(key, payload);
+
                     // Value bindings raise a value-carrying ActionRequestEventArgs<T> so the payload
                     // survives the explicit hop through the view's ActionRequest event.
-                    Trigger(key, payload, hasValue: binding.ValueSelector != null);
+                    ActionTriggered?.Invoke(this, binding.ValueSelector != null
+                        ? new ActionRequestEventArgs<object>(key, payload)
+                        : new ActionRequestEventArgs(key));
                 }
             });
 
@@ -395,7 +329,6 @@ namespace WinformsMVP.MVP.ViewActions
         public void Bind()
         {
             Bind(onActionTriggered: null);
-            RaiseCommandsCanExecuteChanged();
         }
 
         /// <summary>
@@ -460,8 +393,6 @@ namespace WinformsMVP.MVP.ViewActions
         /// </summary>
         public void UpdateCanExecuteStates()
         {
-            RaiseCommandsCanExecuteChanged();
-
             if (_dispatcher == null)
                 return;
 
@@ -509,11 +440,6 @@ namespace WinformsMVP.MVP.ViewActions
                 sub.Unsubscribe();
             }
             _activeSubscriptions.Clear();
-
-            // Commands stop triggering until the next Bind.
-            _bound = false;
-            _onActionTriggered = null;
-            RaiseCommandsCanExecuteChanged();
         }
 
         private void ApplyBindingStrategy(Component control, Delegate handler)
