@@ -79,13 +79,17 @@ namespace WinformsMVP.Common
         {
             if (ReferenceEquals(a, b)) return true;
 
-            // An ignored type is left out whatever the other side holds (null, another type), so this
-            // runs before the null and runtime-type checks; it also covers object-typed members and
-            // collection elements, whose declared type says nothing.
-            if (visited.Ignores != null
-                && ((a != null && visited.Ignores.SkipsType(a.GetType()))
-                    || (b != null && visited.Ignores.SkipsType(b.GetType()))))
-                return true;
+            // A value of an ignored type is not compared: it equals null or any other ignored value
+            // (e.g. a different derived type). It is not a wildcard — replacing it with something
+            // else is a change, and set matching stays order-independent. This runs before the null
+            // and runtime-type checks, so it also covers object-typed members and collection elements.
+            if (visited.Ignores != null)
+            {
+                bool aIgnored = a != null && visited.Ignores.SkipsType(a.GetType());
+                bool bIgnored = b != null && visited.Ignores.SkipsType(b.GetType());
+                if (aIgnored || bIgnored)
+                    return (aIgnored || a == null) && (bIgnored || b == null);
+            }
 
             if (a == null || b == null) return false;
 

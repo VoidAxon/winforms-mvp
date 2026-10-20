@@ -258,6 +258,30 @@ namespace WinformsMVP.Samples.Tests.Common
             Assert.False(tracker.IsChangedWith(edited));
         }
 
+        public class SetHolder
+        {
+            public HashSet<object> Tags { get; set; } = new HashSet<object>();
+        }
+
+        [Fact]
+        public void IgnoreType_DoesNotTurnIgnoredValuesIntoWildcards_InSets()
+        {
+            var original = new SetHolder { Tags = new HashSet<object> { new Audit { By = "a" }, "y", "x" } };
+            var tracker = new ChangeTracker<SetHolder>(original).IgnoreType<Audit>();
+
+            var edited = new SetHolder { Tags = new HashSet<object> { "x", new Audit { By = "b" }, "y" } };
+
+            Assert.False(tracker.IsChangedWith(edited));   // same content, different order
+        }
+
+        [Fact]
+        public void IgnoreType_ReplacingAnIgnoredValueWithSomethingElse_IsAChange()
+        {
+            var tracker = new ChangeTracker<Holder>(new Holder { Payload = new Audit() }).IgnoreType<Audit>();
+
+            Assert.True(tracker.IsChangedWith(new Holder { Payload = "not an audit" }));
+        }
+
         [Fact]
         public void IgnoreOwner_OnStructWithCustomEquality_IsHonored()
         {
