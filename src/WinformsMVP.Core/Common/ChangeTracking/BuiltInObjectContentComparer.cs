@@ -13,6 +13,7 @@ namespace WinformsMVP.Common
         private BuiltInObjectContentComparer() { }
 
         /// <inheritdoc />
-        public bool ContentEquals(object left, object right) => ObjectComparer.ContentEquals(left, right);
+        public bool ContentEquals(object left, object right, ChangeTrackingIgnores ignores)
+            => ObjectComparer.ContentEquals(left, right, ignores);
     }
 }

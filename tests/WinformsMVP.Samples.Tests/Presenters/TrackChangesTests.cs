@@ -61,7 +61,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
 
         private sealed class AlwaysEqual : IObjectContentComparer
         {
-            public bool ContentEquals(object left, object right) => true;
+            public bool ContentEquals(object left, object right, ChangeTrackingIgnores ignores) => true;
         }
 
         private sealed class CountingCloner : IObjectCloner

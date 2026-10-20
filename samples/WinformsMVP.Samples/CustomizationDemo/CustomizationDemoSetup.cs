@@ -21,13 +21,19 @@ namespace WinformsMVP.Samples.CustomizationDemo
             mvp.Toasts.Position = ToastPosition.TopRight;
             mvp.Toasts.UseRenderer(new BrandToastRenderer());
 
-            // Change detection for one model type. A third-party compare library would plug in the
-            // same way through mvp.ChangeTracking.UseComparer(adapter), e.g.:
+            // A third-party compare library plugs in through mvp.ChangeTracking.UseComparer(adapter);
+            // the adapter maps the tracker's ignores onto the library's settings, e.g. CompareNETObjects:
             //   sealed class CompareNetObjectsComparer : IObjectContentComparer
-            //   { public bool ContentEquals(object a, object b) => new CompareLogic().Compare(a, b).AreEqual; }
-            mvp.ChangeTracking.For(new ChangeTrackingPolicy<CustomizationDemoPresenter.Customer>(
-                c => new CustomizationDemoPresenter.Customer { Name = c.Name, LastViewed = c.LastViewed },
-                (a, b) => a.Name == b.Name));
+            //   {
+            //       public bool ContentEquals(object a, object b, ChangeTrackingIgnores ignores)
+            //       {
+            //           var config = new ComparisonConfig();
+            //           foreach (var m in ignores.Members)     config.MembersToIgnore.Add(m.Owner.Name + "." + m.Name);
+            //           foreach (var n in ignores.MemberNames) config.MembersToIgnore.Add(n);
+            //           foreach (var t in ignores.Types)       config.TypesToIgnore.Add(t);
+            //           return new CompareLogic(config).Compare(a, b).AreEqual;
+            //       }
+            //   }
         }
     }
 

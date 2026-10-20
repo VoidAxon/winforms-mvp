@@ -144,11 +144,17 @@ public sealed class CompanyStyleDialogBackend : IMessageDialogBackend
 フレームワーク側の小さなインターフェイスに数行のアダプターを書くだけです。Core パッケージは外部ライブラリに依存しません。
 
 ```csharp
-// CompareNETObjects
+// CompareNETObjects: each kind of ignore maps onto one of its settings
 public sealed class CompareNetObjectsComparer : IObjectContentComparer
 {
-    private readonly CompareLogic _logic = new CompareLogic();
-    public bool ContentEquals(object left, object right) => _logic.Compare(left, right).AreEqual;
+    public bool ContentEquals(object left, object right, ChangeTrackingIgnores ignores)
+    {
+        var config = new ComparisonConfig();
+        foreach (var m in ignores.Members)     config.MembersToIgnore.Add(m.Owner.Name + "." + m.Name);
+        foreach (var n in ignores.MemberNames) config.MembersToIgnore.Add(n);
+        foreach (var t in ignores.Types)       config.TypesToIgnore.Add(t);
+        return new CompareLogic(config).Compare(left, right).AreEqual;
+    }
 }
 
 // Force.DeepCloner

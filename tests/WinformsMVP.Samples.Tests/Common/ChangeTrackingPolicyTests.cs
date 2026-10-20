@@ -132,9 +132,9 @@ namespace WinformsMVP.Samples.Tests.Common
             var copy = (Item)BuiltInObjectCloner.Instance.DeepClone(src);
 
             Assert.NotSame(src, copy);
-            Assert.True(BuiltInObjectContentComparer.Instance.ContentEquals(src, copy));
+            Assert.True(BuiltInObjectContentComparer.Instance.ContentEquals(src, copy, ChangeTrackingIgnores.None));
             copy.Name = "b";
-            Assert.False(BuiltInObjectContentComparer.Instance.ContentEquals(src, copy));
+            Assert.False(BuiltInObjectContentComparer.Instance.ContentEquals(src, copy, ChangeTrackingIgnores.None));
         }
 
         [Fact]
@@ -156,7 +156,7 @@ namespace WinformsMVP.Samples.Tests.Common
 
         private sealed class AlwaysEqual : IObjectContentComparer
         {
-            public bool ContentEquals(object left, object right) => true;
+            public bool ContentEquals(object left, object right, ChangeTrackingIgnores ignores) => true;
         }
     }
 }

@@ -30,7 +30,7 @@ namespace WinformsMVP.Samples.Tests.Services
 
         private sealed class AlwaysEqual : IObjectContentComparer
         {
-            public bool ContentEquals(object left, object right) => true;
+            public bool ContentEquals(object left, object right, ChangeTrackingIgnores ignores) => true;
         }
 
         public class Order { public string Name { get; set; } }

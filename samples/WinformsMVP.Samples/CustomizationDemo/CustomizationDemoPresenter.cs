@@ -12,7 +12,7 @@ namespace WinformsMVP.Samples.CustomizationDemo
         public class Customer
         {
             public string Name { get; set; }
-            public System.DateTime LastViewed { get; set; }   // ignored by the configured comparer
+            public System.DateTime LastViewed { get; set; }   // ignored on this screen
         }
 
         private ChangeTracker<Customer> _tracker;
@@ -30,9 +30,9 @@ namespace WinformsMVP.Samples.CustomizationDemo
         protected override void OnInitialize()
         {
             var customer = new Customer { Name = "Contoso", LastViewed = System.DateTime.Now };
-            // The tracker only detects changes; it keeps its own baseline copy. It uses the policy
-            // registered for Customer at startup (LastViewed is not an edit).
-            _tracker = TrackChanges(customer);
+            // The tracker only detects changes; it keeps its own baseline copy. On this screen,
+            // LastViewed is not an edit.
+            _tracker = TrackChanges(customer).Ignore(c => c.LastViewed);
             View.CustomerName = customer.Name;
         }
 
@@ -46,7 +46,7 @@ namespace WinformsMVP.Samples.CustomizationDemo
             var edited = new Customer { Name = View.CustomerName, LastViewed = System.DateTime.Now };
             View.ShowStatus(_tracker.IsChangedWith(edited)
                 ? "Changed (the name differs)."
-                : "Not changed (only LastViewed moved, which the policy ignores).");
+                : "Not changed (only LastViewed moved, which this screen ignores).");
         }
     }
 }

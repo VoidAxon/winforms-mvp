@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq.Expressions;
 
 namespace WinformsMVP.Common
 {
@@ -34,6 +35,8 @@ namespace WinformsMVP.Common
         private T _currentValue;
         private readonly Func<T, T> _clone;
         private readonly Func<T, T, bool> _comparer;
+        private readonly bool _supportsIgnores;
+        private ChangeTrackingIgnores _ignores = ChangeTrackingIgnores.None;   // replaced under _lock
         private readonly object _lock = new object();
 
         /// <summary>
@@ -122,7 +125,11 @@ namespace WinformsMVP.Common
                 throw new ArgumentNullException(nameof(policy));
 
             _clone = policy.Clone;
-            _comparer = policy.ContentEquals;
+            var ignoring = policy.ContentEqualsIgnoring;
+            _supportsIgnores = ignoring != null;
+            _comparer = ignoring != null
+                ? (a, b) => ignoring(a, b, _ignores)
+                : policy.ContentEquals;
             _currentValue = _clone(initialValue);
             _originalValue = _clone(initialValue);
         }
@@ -237,6 +244,76 @@ namespace WinformsMVP.Common
                 throw new ArgumentNullException(nameof(newValue));
 
             Mutate(() => _currentValue = newValue);
+        }
+
+        // ----------------------------------------------------------------------------------
+        // Ignoring members (screen level: this tracker only)
+        // ----------------------------------------------------------------------------------
+
+        /// <summary>What this tracker leaves out of its comparison.</summary>
+        public ChangeTrackingIgnores Ignores
+        {
+            get { lock (_lock) { return _ignores; } }
+        }
+
+        /// <summary>
+        /// Leaves members of <typeparamref name="T"/> out of change detection, e.g.
+        /// <c>Ignore(x =&gt; x.UpdatedAt)</c>. Each expression names one property or field of
+        /// <typeparamref name="T"/> itself; for a member of a nested type use
+        /// <see cref="Ignore{TOwner}"/>. Returns this tracker.
+        /// </summary>
+        /// <exception cref="ArgumentException">An expression is a path, a method call, an indexer, or a computed property.</exception>
+        /// <exception cref="InvalidOperationException">This tracker compares with a hand-written comparer.</exception>
+        public ChangeTracker<T> Ignore(params Expression<Func<T, object>>[] members) => Ignore<T>(members);
+
+        /// <summary>
+        /// Leaves members of <typeparamref name="TOwner"/> out of change detection wherever an object of
+        /// that type appears (collection elements included), e.g.
+        /// <c>Ignore&lt;OrderLine&gt;(l =&gt; l.CachedTotal)</c>. Returns this tracker.
+        /// </summary>
+        /// <exception cref="ArgumentException">An expression is a path, a method call, an indexer, or a computed property.</exception>
+        /// <exception cref="InvalidOperationException">This tracker compares with a hand-written comparer.</exception>
+        public ChangeTracker<T> Ignore<TOwner>(params Expression<Func<TOwner, object>>[] members)
+        {
+            if (members == null) throw new ArgumentNullException(nameof(members));
+            EnsureSupportsIgnores();
+            var resolved = new IgnoredMember[members.Length];
+            for (int i = 0; i < members.Length; i++) resolved[i] = ChangeTrackingIgnores.Resolve(members[i]);
+            Mutate(() => { foreach (var m in resolved) _ignores = _ignores.WithMember(m); });
+            return this;
+        }
+
+        /// <summary>
+        /// Leaves members with these names out of change detection on every type (a hand-written
+        /// backing field such as <c>_updatedAt</c> counts as <c>UpdatedAt</c>). Returns this tracker.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">This tracker compares with a hand-written comparer.</exception>
+        public ChangeTracker<T> IgnoreMember(params string[] names)
+        {
+            if (names == null) throw new ArgumentNullException(nameof(names));
+            foreach (var name in names)
+                if (string.IsNullOrEmpty(name)) throw new ArgumentException("Member names must not be empty.", nameof(names));
+            EnsureSupportsIgnores();
+            Mutate(() => { foreach (var n in names) _ignores = _ignores.WithMemberName(n); });
+            return this;
+        }
+
+        /// <summary>Leaves values of <typeparamref name="TType"/> (and derived types) out of change detection. Returns this tracker.</summary>
+        /// <exception cref="InvalidOperationException">This tracker compares with a hand-written comparer.</exception>
+        public ChangeTracker<T> IgnoreType<TType>()
+        {
+            EnsureSupportsIgnores();
+            Mutate(() => _ignores = _ignores.WithType(typeof(TType)));
+            return this;
+        }
+
+        private void EnsureSupportsIgnores()
+        {
+            if (!_supportsIgnores)
+                throw new InvalidOperationException(
+                    "This tracker compares with a hand-written comparer (a comparer argument or a " +
+                    "ChangeTrackingPolicy built from delegates), which cannot be told what to ignore. " +
+                    "Leave the members out in that comparer, or create the tracker without one.");
         }
 
         // ----------------------------------------------------------------------------------

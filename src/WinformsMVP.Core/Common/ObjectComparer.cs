@@ -19,7 +19,7 @@ namespace WinformsMVP.Common
 
         public static bool DeepEquals(object a, object b)
         {
-            return AreEqual(a, b, new Visited(contentMode: false));
+            return AreEqual(a, b, new Visited(contentMode: false, ignores: null));
         }
 
         public static bool ContentEquals<T>(T a, T b) => ContentEquals((object)a, (object)b);
@@ -32,15 +32,23 @@ namespace WinformsMVP.Common
         /// </summary>
         public static bool ContentEquals(object a, object b)
         {
-            return AreEqual(a, b, new Visited(contentMode: true));
+            return AreEqual(a, b, new Visited(contentMode: true, ignores: null));
         }
 
-        // Cycle-detection set that also carries the comparison mode down the recursion.
+        /// <summary><see cref="ContentEquals(object, object)"/>, leaving out what <paramref name="ignores"/> lists.</summary>
+        internal static bool ContentEquals(object a, object b, ChangeTrackingIgnores ignores)
+        {
+            var effective = ignores == null || ignores.IsEmpty ? null : ignores;
+            return AreEqual(a, b, new Visited(contentMode: true, ignores: effective));
+        }
+
+        // Cycle-detection set that also carries the comparison mode (and any ignores) down the recursion.
         private sealed class Visited : HashSet<RefPair>
         {
             public readonly bool ContentMode;
-            public Visited(bool contentMode) { ContentMode = contentMode; }
-            public Visited(Visited source) : base(source) { ContentMode = source.ContentMode; }
+            public readonly ChangeTrackingIgnores Ignores;   // null = nothing ignored
+            public Visited(bool contentMode, ChangeTrackingIgnores ignores) { ContentMode = contentMode; Ignores = ignores; }
+            public Visited(Visited source) : base(source) { ContentMode = source.ContentMode; Ignores = source.Ignores; }
         }
 
         private static bool TrustsEquals(Type type, Visited visited)
@@ -64,6 +72,8 @@ namespace WinformsMVP.Common
 
             var type = a.GetType();
             if (type != b.GetType()) return false;
+
+            if (visited.Ignores != null && visited.Ignores.SkipsType(type)) return true;
 
             if (TrustsEquals(type, visited))
                 return a.Equals(b);
@@ -202,6 +212,7 @@ namespace WinformsMVP.Common
             foreach (var field in DeepReflection.GetFields(type))
             {
                 if (typeof(Delegate).IsAssignableFrom(field.FieldType)) continue;
+                if (visited.Ignores != null && visited.Ignores.SkipsField(type, field)) continue;
                 if (!AreEqual(field.GetValue(a), field.GetValue(b), visited)) return false;
             }
             return true;

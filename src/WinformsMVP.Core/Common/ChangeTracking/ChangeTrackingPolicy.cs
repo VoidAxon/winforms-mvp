@@ -29,12 +29,24 @@ namespace WinformsMVP.Common
         /// <summary>Content comparison used by <c>IsChanged</c>.</summary>
         public Func<T, T, bool> ContentEquals { get; }
 
+        /// <summary>
+        /// The comparison with ignores applied, when the policy is backed by an
+        /// <see cref="IObjectContentComparer"/>; <c>null</c> for a hand-written <see cref="ContentEquals"/>,
+        /// which cannot be told what to ignore.
+        /// </summary>
+        internal Func<T, T, ChangeTrackingIgnores, bool> ContentEqualsIgnoring { get; private set; }
+
         /// <summary>A policy backed by application-wide engines.</summary>
         internal static ChangeTrackingPolicy<T> From(IObjectCloner cloner, IObjectContentComparer comparer)
         {
             if (cloner == null) throw new ArgumentNullException(nameof(cloner));
             if (comparer == null) throw new ArgumentNullException(nameof(comparer));
-            return new ChangeTrackingPolicy<T>(v => (T)cloner.DeepClone(v), (a, b) => comparer.ContentEquals(a, b));
+            return new ChangeTrackingPolicy<T>(
+                v => (T)cloner.DeepClone(v),
+                (a, b) => comparer.ContentEquals(a, b, ChangeTrackingIgnores.None))
+            {
+                ContentEqualsIgnoring = (a, b, ignores) => comparer.ContentEquals(a, b, ignores),
+            };
         }
 
         /// <summary>The built-in engines (reflection deep copy, content comparison).</summary>

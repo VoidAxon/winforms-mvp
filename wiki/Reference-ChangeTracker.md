@@ -13,6 +13,7 @@
 - [スナップショット (複製) の解決順序](#スナップショット-複製-の解決順序)
 - [比較の解決順序](#比較の解決順序)
 - [第三者ライブラリの差し込み](#第三者ライブラリの差し込み)
+- [項目を比較から外す (画面ごと)](#項目を比較から外す-画面ごと)
 - [使い方の最小例](#使い方の最小例)
 - [なぜ深いコピーが必要か](#なぜ深いコピーが必要か)
 - [主要 API](#主要-api)
@@ -105,10 +106,17 @@ public sealed class DeepClonerAdapter : IObjectCloner
     public object DeepClone(object value) => value?.DeepClone();
 }
 
-// 例: CompareNETObjects を使うアダプタ
+// 例: CompareNETObjects を使うアダプタ (画面ごとの Ignore をライブラリの設定に対応付ける)
 public sealed class CompareNetObjectsComparer : IObjectContentComparer
 {
-    public bool ContentEquals(object a, object b) => new CompareLogic().Compare(a, b).AreEqual;
+    public bool ContentEquals(object left, object right, ChangeTrackingIgnores ignores)
+    {
+        var config = new ComparisonConfig();
+        foreach (var m in ignores.Members)     config.MembersToIgnore.Add(m.Owner.Name + "." + m.Name);
+        foreach (var n in ignores.MemberNames) config.MembersToIgnore.Add(n);
+        foreach (var t in ignores.Types)       config.TypesToIgnore.Add(t);
+        return new CompareLogic(config).Compare(left, right).AreEqual;
+    }
 }
 
 MvpApplication.Configure(framework: mvp =>
@@ -132,6 +140,25 @@ MvpApplication.Configure(framework: mvp =>
 設定入口の全体は [フレームワークをカスタマイズする](HowTo-Customize-Framework) を参照してください。
 
 ---
+
+## 項目を比較から外す (画面ごと)
+
+画面によっては、変更として扱いたくない項目があります (更新日時、最終閲覧者、キャッシュ値など)。tracker を作るときに指定します。指定はその tracker だけに効きます。
+
+```csharp
+_tracker = TrackChanges(order)
+    .Ignore(x => x.UpdatedAt)                  // Order の UpdatedAt
+    .Ignore<OrderLine>(l => l.CachedTotal)     // OrderLine の CachedTotal (コレクション内の要素も含め、どこに出てきても)
+    .IgnoreMember("LastViewedBy")              // どの型でも、この名前のメンバー
+    .IgnoreType<AuditInfo>();                  // この型の値は比較しない
+```
+
+- 式は **その型のメンバー 1 段だけ** (`x => x.A`)。`x => x.Customer.Name` のようなパスはエラーになり、`Ignore<Customer>(c => c.Name)` と書くよう案内されます。メソッド呼び出し・インデクサー・計算プロパティ (値を持つフィールドがない) もエラーです。
+- 自動プロパティのほか、`_name` / `m_name` のような手書きのバッキングフィールドを持つプロパティ (`BindableBase.SetProperty(ref _name, value)` など) も対象にできます。
+- 新しく追加したプロパティは何もしなくても比較されます (除外漏れで変更を見逃すことがない)。
+- `Ignore` の後に変更の有無が変わると、`IsChangedChanged` が発火します。
+- この 3 種類 (型のメンバー・メンバー名・型) は、CompareNETObjects や ObjectsComparer などの比較ライブラリが共通して持つ除外方法です。比較エンジンを差し替えた場合、tracker の除外設定は `ChangeTrackingIgnores` として `IObjectContentComparer.ContentEquals` に渡されるので、アダプタでライブラリの設定に対応付けます (上の例)。
+- 比較関数を自分で渡した tracker (`new ChangeTracker<T>(value, comparer)`、デリゲートで作った `ChangeTrackingPolicy<T>`) では `Ignore` は `InvalidOperationException` になります。その比較関数の中で除外してください。
 
 ## 使い方の最小例
 
