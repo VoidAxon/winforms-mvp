@@ -127,7 +127,7 @@ register.RegisterFromAssembly(typeof(SomeFormInOtherDll).Assembly);
 2. `View.ActionBinder` プロパティが `null` を返している
 
    ```csharp
-   public ViewActionBinder ActionBinder => _binder;   // ← 戻り値が _binder か
+   public IViewActionBinder ActionBinder => _binder;   // ← 戻り値が _binder か
    ```
 
    `null` を返すと **Explicit パターン** になり、自動 Bind が走らない (詳しくは [ViewAction システム § Implicit vs Explicit](Reference-ViewAction-System#implicit-パターン-vs-explicit-パターン))。

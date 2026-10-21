@@ -321,7 +321,6 @@ public interface IMainView : IWindowView
     string UserName { get; }
     bool HasUserName { get; }
 
-    ViewActionBinder ActionBinder { get; }
     event EventHandler UserNameChanged;
 }
 ```
@@ -369,7 +368,7 @@ public class MainForm : Form, IMainView
 
     private readonly ViewActionBinder _binder;
 
-    public ViewActionBinder ActionBinder => _binder;
+    public IViewActionBinder ActionBinder => _binder;
     public event EventHandler UserNameChanged;
 
     public MainForm()

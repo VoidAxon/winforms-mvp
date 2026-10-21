@@ -105,7 +105,6 @@ new AboutForm().ShowDialog();
 public interface IAboutView : IWindowView
 {
     string Version { get; set; }
-    ViewActionBinder ActionBinder { get; }
 }
 
 // Presenter
@@ -126,7 +125,7 @@ public class AboutPresenter : WindowPresenterBase<IAboutView>
 public partial class AboutForm : Form, IAboutView
 {
     private ViewActionBinder _binder;
-    public ViewActionBinder ActionBinder => _binder;
+    public IViewActionBinder ActionBinder => _binder;
 
     public AboutForm()
     {
@@ -298,7 +297,7 @@ public static class MyActions
 public partial class MyForm : Form, IMyView
 {
     private ViewActionBinder _binder;
-    public ViewActionBinder ActionBinder => _binder;
+    public IViewActionBinder ActionBinder => _binder;
 
     public MyForm()
     {
@@ -327,6 +326,8 @@ public class MyPresenter : WindowPresenterBase<IMyView>
 ```
 
 `CanExecute` で自動 Enabled 制御も追加できます。詳しくは [ViewAction システム](Reference-ViewAction-System) 参照。
+
+レガシーアプリが既に基底 Form (`AppForm` など) を持っているなら、そこに `ViewActionBinder` を置けば、各画面は `new ViewActionBinder()` も `ActionBinder` の実装も書かずに `Binder.Add(...)` だけで済みます。手順は [ViewAction システム § アプリに基底 Form があるとき](Reference-ViewAction-System#アプリに基底-form-があるとき-binder-を基底クラスに置く) を参照。基底クラスの継承関係は変えません。
 
 ---
 

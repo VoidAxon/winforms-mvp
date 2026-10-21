@@ -43,7 +43,6 @@ WPF 風のコマンドバインドとサービス抽象 (`IMessageService` / `ID
 public interface IUserEditorView : IWindowView
 {
     string UserName { get; set; }
-    ViewActionBinder ActionBinder { get; }
 }
 
 // 2. Presenter（WinForms 知識ゼロ）
@@ -65,7 +64,7 @@ public class UserEditorPresenter : WindowPresenterBase<IUserEditorView>
 public class UserEditorForm : Form, IUserEditorView
 {
     private ViewActionBinder _binder;
-    public ViewActionBinder ActionBinder => _binder;
+    public IViewActionBinder ActionBinder => _binder;
 
     public UserEditorForm()
     {

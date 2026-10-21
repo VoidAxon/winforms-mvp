@@ -567,7 +567,7 @@ public class UserEditorForm : Form, IUserEditorView
         _binder.Add(StandardActions.Save, _btnSave);
     }
 
-    public ViewActionBinder ActionBinder => _binder;
+    public IViewActionBinder ActionBinder => _binder;
 
     public void BindModel(UserModel model)
     {
@@ -585,7 +585,6 @@ public class UserEditorForm : Form, IUserEditorView
 public interface IUserEditorView : IWindowView
 {
     void BindModel(UserModel model);
-    ViewActionBinder ActionBinder { get; }
 }
 ```
 

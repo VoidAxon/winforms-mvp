@@ -123,7 +123,6 @@ namespace MyTodoApp
         bool HasUnsavedChanges { get; set; }
 
         // ActionBinder
-        ViewActionBinder ActionBinder { get; }
 
         // 状態変化イベント (CanExecute 再評価用)
         event EventHandler SelectionChanged;
@@ -268,7 +267,7 @@ namespace MyTodoApp
             _binder.Add(ToDoActions.ToggleComplete, _btnToggle);
         }
 
-        public ViewActionBinder ActionBinder => _binder;
+        public IViewActionBinder ActionBinder => _binder;
         public event EventHandler SelectionChanged;
         public event EventHandler InputChanged;
 
