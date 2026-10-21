@@ -145,9 +145,13 @@ private bool TrySave()
     Validation.ShowAll();                 // 未訪問の項目のアイコンも出す
     if (Validation.HasErrors)
     {
-        var field = FieldOrder.First(f => Validation.GetErrors(f).Count > 0);
+        // 画面の順で最初のエラー。並び順にない項目やフォームレベルのエラー
+        // (.NET Framework の [Compare] など) だけのときも、何か 1 つは必ず出す
+        var field = FieldOrder.FirstOrDefault(f => Validation.GetErrors(f).Count > 0)
+                    ?? Validation.Errors.Keys.First();
         Messages.ShowWarning(Validation.GetErrors(field)[0]);
-        View.FocusError(field);           // どのコントロールかは Form が決める
+        if (field != ValidationState.FormLevel)
+            View.FocusError(field);       // どのコントロールかは Form が決める
         return false;
     }
     ...
@@ -163,7 +167,8 @@ private bool TrySave()
 ```csharp
 private CustomerEditModel ReadModel() => new CustomerEditModel
 {
-    Name = _input.Name, Kana = _input.Kana, ContractDate = _input.ContractDate,
+    // 入力モデルの項目はすべて入れる (漏れた項目だけの変更は「保存しますか？」が出ずに失われる)
+    Name = _input.Name, Kana = _input.Kana, Memo = _input.Memo, ContractDate = _input.ContractDate,
     TagIds = _input.TagIds.ToList(), ContactId = _contactId, Lines = _lines.Select(Copy).ToList(),
 };
 
