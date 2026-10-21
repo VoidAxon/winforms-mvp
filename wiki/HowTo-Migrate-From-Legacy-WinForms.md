@@ -287,9 +287,11 @@ public partial class MyForm : Form
 // ActionKey 定義
 public static class MyActions
 {
-    public static readonly ViewAction Save   = ViewAction.Create("My.Save");
-    public static readonly ViewAction Cancel = ViewAction.Create("My.Cancel");
-    public static readonly ViewAction Delete = ViewAction.Create("My.Delete");
+    private static readonly ViewActionFactory Factory = ViewAction.Factory.WithQualifier("My");
+
+    public static readonly ViewAction Save   = Factory.Create(nameof(Save));
+    public static readonly ViewAction Cancel = Factory.Create(nameof(Cancel));
+    public static readonly ViewAction Delete = Factory.Create(nameof(Delete));
 }
 
 // Form (View 実装)

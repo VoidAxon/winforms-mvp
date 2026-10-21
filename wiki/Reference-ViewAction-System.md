@@ -31,7 +31,7 @@ WPF の `ICommand` を WinForms 向けに持ち込んだものと考えるとほ
 
 | コンポーネント | 役割 |
 |--------------|------|
-| `ViewAction` | アクションの **不変な識別子** (struct)。`ViewAction.Create("Module.Save")` で作る |
+| `ViewAction` | アクションの **不変な識別子** (struct)。画面の Actions クラスで `ViewAction.Factory.WithQualifier("Module")` の Factory から作る (単発なら `ViewAction.Create("Module.Save")`) |
 | `ViewActionBinder` | UI コントロール (Button、MenuItem 等) を ViewAction にマッピングする (View 側) |
 | `ViewActionDispatcher` | ViewAction をハンドラに振り分ける (Presenter 側)。`CanExecute` 判定も担う |
 
@@ -66,11 +66,15 @@ WPF の `ICommand` を WinForms 向けに持ち込んだものと考えるとほ
 ```csharp
 public static class UserEditorActions
 {
-    public static readonly ViewAction Save   = ViewAction.Create("UserEditor.Save");
-    public static readonly ViewAction Delete = ViewAction.Create("UserEditor.Delete");
-    public static readonly ViewAction Cancel = ViewAction.Create("UserEditor.Cancel");
+    private static readonly ViewActionFactory Factory = ViewAction.Factory.WithQualifier("UserEditor");
+
+    public static readonly ViewAction Save   = Factory.Create(nameof(Save));     // "UserEditor.Save"
+    public static readonly ViewAction Delete = Factory.Create(nameof(Delete));
+    public static readonly ViewAction Cancel = Factory.Create(nameof(Cancel));
 }
 ```
+
+プレフィックス (画面名) は 1 回だけ書き、名前は `nameof` で付けます。文字列の重複がなく、1 つだけ画面名を書き間違えることもありません。
 
 ### Step 2: View インターフェイスで `ActionBinder` を公開する
 
@@ -194,30 +198,37 @@ Dispatcher.Register(StandardActions.Save, OnSave);
 // モジュール固有のアクションだけ静的クラスで宣言する
 public static class UserEditorActions
 {
-    public static readonly ViewAction EditUser       = ViewAction.Create("UserEditor.Edit");
-    public static readonly ViewAction AddUser        = ViewAction.Create("UserEditor.Add");
-    public static readonly ViewAction ChangePassword = ViewAction.Create("UserEditor.ChangePassword");
+    private static readonly ViewActionFactory Factory = ViewAction.Factory.WithQualifier("UserEditor");
+
+    public static readonly ViewAction EditUser       = Factory.Create(nameof(EditUser));
+    public static readonly ViewAction AddUser        = Factory.Create(nameof(AddUser));
+    public static readonly ViewAction ChangePassword = Factory.Create(nameof(ChangePassword));
 }
 ```
 
 **命名規約**: `Module.Action` 形式 (ドット区切り)。これにより文字列が衝突せず、ログでも判別しやすくなります。
 
-### `ViewActionFactory` でプレフィックスを共通化
+### `ViewActionFactory` と `ViewAction.Create` の使い分け
 
-同じプレフィックスを繰り返したくない場合は、Factory を使います。
+**画面の Actions クラスは Factory で書く (推奨)。** プレフィックスを 1 回だけ書き、各キーは `nameof` で名前を付けます。テンプレート (`dotnet new mvp-window` 等) もこの形です。
 
 ```csharp
 public static class MainActions
 {
-    private static readonly ViewActionFactory Factory =
-        ViewAction.Factory.WithQualifier("Main");
+    private static readonly ViewActionFactory Factory = ViewAction.Factory.WithQualifier("Main");
 
-    public static readonly ViewAction New     = Factory.Create("New");
-    public static readonly ViewAction Open    = Factory.Create("Open");
-    public static readonly ViewAction Save    = Factory.Create("Save");
+    public static readonly ViewAction New  = Factory.Create(nameof(New));
+    public static readonly ViewAction Open = Factory.Create(nameof(Open));
+    public static readonly ViewAction<string> OpenRecent = Factory.Create<string>(nameof(OpenRecent));   // 型付き
 }
-// 生成される ActionKey: "Main.New", "Main.Open", "Main.Save"
+// 生成される ActionKey: "Main.New", "Main.Open", "Main.OpenRecent"
 ```
+
+`WithQualifier` は階層も作れます (`ViewAction.Factory.WithQualifier("Sales", "OrderEdit")` → `"Sales.OrderEdit.Save"`)。
+
+**`ViewAction.Create("Scope.Name")` は単発のキーに使う。** 複数画面で共有する 1 つのキーなど、Factory を置くほどでもない場合です。
+
+静的フィールドは記述順に初期化されるので、`Factory` はキーより**前に**宣言してください。
 
 ---
 

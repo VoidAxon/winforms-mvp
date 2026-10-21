@@ -91,6 +91,7 @@
 ### Documentation (ドキュメント)
 
 - Navigator は流れるような書き方 (`Navigator.For(p).WithParam(x).ShowAsModal<TResult>()` / `.ShowWindow<TResult>(owner:, keySelector:, onClosed:)`) を最初に案内する。Wiki に [大きな編集画面を作る](wiki/HowTo-Build-Large-Edit-Screen.md) (Supervising Controller: バインドする入力モデル + 明示的な View メンバー、コントロールごとの注意点、登録失敗時のメッセージとフォーカス、変更検出と閉じる、テスト、Passive View + DTO の代案) を追加。
+- 画面の Actions クラスは `ViewAction.Factory.WithQualifier("Screen")` + `Factory.Create(nameof(Save))` で書く形を推奨 (プレフィックスは 1 回、名前は `nameof`)。`ViewAction.Create("Scope.Name")` は単発のキー用。テンプレート (`winformsmvp` / `mvp-window` / `mvp-control` / `winformsmvp-tests`) の Actions クラスもこの形に変更 (既存 API のみ、古い `--mvp-version` でもコンパイル可)。
 
 ### Removed (削除)
 

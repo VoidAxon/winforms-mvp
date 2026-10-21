@@ -51,7 +51,9 @@ namespace MvpApp.Tests
 
         public static class GreetingActions
         {
-            public static readonly ViewAction Ok = ViewAction.Create("Greeting.Ok");
+            private static readonly ViewActionFactory Factory = ViewAction.Factory.WithQualifier("Greeting");
+
+            public static readonly ViewAction Ok = Factory.Create(nameof(Ok));
         }
 
         public sealed class GreetingPresenter : WindowPresenterBase<IGreetingView>
