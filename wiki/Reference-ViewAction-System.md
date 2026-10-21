@@ -542,6 +542,32 @@ Dispatcher.Register(
     canExecute: () => _isUserLoggedIn);
 ```
 
+### 一覧のダブルクリック (行を開く)
+
+「行のダブルクリック = 編集」は **グリッドを Binder に登録しません**。登録したコントロールの `Enabled` は `canExecute` に従うので、「編集」(選択行があるときだけ実行可) にグリッドを登録すると、未選択の間はグリッドごと無効になり、行を選ぶことすらできなくなります。
+
+View が意味のあるイベントを出し、Presenter がそれを同じアクションとしてディスパッチします。`Dispatch` は `canExecute` を確認するので、ボタンと同じ条件で動きます:
+
+```csharp
+// View インターフェイス
+event EventHandler RecordActivated;
+
+// Form: 見出し行 (RowIndex = -1) のダブルクリックは除く
+private void Grid_CellDoubleClick(object sender, DataGridViewCellEventArgs e)
+{
+    if (e.RowIndex >= 0) RecordActivated?.Invoke(this, EventArgs.Empty);
+}
+
+// Presenter
+protected override void OnViewAttached()
+{
+    SubscribeViewEvent(h => View.RecordActivated += h, h => View.RecordActivated -= h,
+                       () => Dispatcher.Dispatch(RecordListActions.Edit));
+}
+```
+
+`ListBox` / `ListView` の `DoubleClick`、`Enter` キーでの決定も同じ書き方です。
+
 ### カスタムコントロールに対応する
 
 デフォルトに無いコントロールや、別のイベントで発火させたい場合は `RegisterStrategy<T>()` で登録します。オーバーロードは 2 つあり、コントロールのイベントのデリゲート型で使い分けます。

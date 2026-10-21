@@ -136,6 +136,18 @@ navigator.ShowWindow(new UserEditorPresenter());
    dotnet add package WinformsMVP --prerelease
    ```
 
+### ソースをプロジェクト参照で使う場合
+
+このリポジトリを clone して `ProjectReference` で参照すると、**MVP アナライザーは入りません** (アナライザーは `WinformsMVP.Core` の NuGet パッケージに同梱されるため)。何も警告されないまま、Presenter で WinForms 型を使ってもビルドが通ってしまいます。Presenter を含むプロジェクトに、アナライザーのプロジェクト参照を 1 行足してください (`samples/` も同じ書き方です):
+
+```xml
+<ItemGroup>
+  <ProjectReference Include="path\to\winforms-mvp\src\WinformsMVP\WinformsMVP.csproj" />
+  <ProjectReference Include="path\to\winforms-mvp\src\WinformsMVP.Analyzers\WinformsMVP.Analyzers.csproj"
+                    OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+</ItemGroup>
+```
+
 ### プロジェクトテンプレート (`WinformsMVP.Templates`)
 
 新規アプリはテンプレートから始めるのがおすすめです。テンプレートパッケージも同じ方法 (GitHub Packages フィード、またはダウンロードした `.nupkg`) で入手できます:
