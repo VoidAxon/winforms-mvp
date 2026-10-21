@@ -275,6 +275,23 @@ namespace WinformsMVP.Samples.Tests.ViewActions
             Assert.IsType<OperationCanceledException>(Assert.Single(context.Pump()));
         }
 
+        [Fact]
+        public async Task SubscriberThrowsOperationCanceledAfterAnAsyncHandler_DispatchAsyncStillCompletes()
+        {
+            var (dispatcher, _) = NewDispatcher();
+            var handler = new TaskCompletionSource<bool>();
+            dispatcher.Register(Save, () => (Task)handler.Task);
+            dispatcher.ActionExecuted += (s, e) => throw new OperationCanceledException("subscriber");
+
+            var task = dispatcher.DispatchAsync(Save);
+            handler.SetResult(true);
+
+            var finished = await Task.WhenAny(task, Task.Delay(5000));
+            Assert.Same(task, finished);                              // never left pending
+            await Assert.ThrowsAsync<OperationCanceledException>(() => task);
+            Assert.True(dispatcher.CanDispatch(Save));
+        }
+
         // ---- unchanged: CanExecute failures stay diagnostic ----
 
         [Fact]

@@ -517,10 +517,11 @@ namespace WinformsMVP.MVP.ViewActions
             bool succeeded)
         {
             var result = new TaskCompletionSource<bool>();
+            // FinishWhenDone never throws (it returns what failed), so the bridge always completes.
             FinishWhenDone(actionKey, entry, pending, context, succeeded).ContinueWith(t =>
             {
-                if (t.IsFaulted) result.SetException(t.Exception.InnerException);   // Finish itself threw
-                else if (t.Result != null && succeeded) result.SetException(t.Result.SourceException);
+                var failure = t.Status == TaskStatus.RanToCompletion ? t.Result : null;
+                if (failure != null && succeeded) result.SetException(failure.SourceException);
                 else result.SetResult(true);
             }, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
             return result.Task;
@@ -537,7 +538,16 @@ namespace WinformsMVP.MVP.ViewActions
             {
                 // Observed and reported in Finish.
             }
-            return Finish(actionKey, entry, pending, context, succeeded);
+            try
+            {
+                return Finish(actionKey, entry, pending, context, succeeded);
+            }
+            catch (Exception ex)
+            {
+                // An ActionExecuted / CanExecuteChanged subscriber threw (even an OperationCanceledException):
+                // a failure of this dispatch, never a cancelled or pending task.
+                return ExceptionDispatchInfo.Capture(ex);
+            }
         }
 
         /// <summary>Restores the action after its handler ended; returns the failure to propagate
