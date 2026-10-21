@@ -434,9 +434,6 @@ tracker はスレッドセーフではありません (内部ロックはあり�
 // Pull direction: override CanClose (details in [Window Closing Model](Concept-Window-Closing-Model))
 protected override bool CanClose(CloseReason reason)
 {
-    if (reason == CloseReason.SystemShutdown || reason == CloseReason.TaskManager)
-        return true;
-
     if (_tracker.IsChanged &&
         !Messages.ConfirmYesNo("Discard unsaved changes?", "Confirm"))
     {

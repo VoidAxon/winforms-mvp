@@ -28,6 +28,12 @@ namespace WinformsMVP.Services.Implementations
         private bool _closeRequestedBeforeShow;
         private bool _gatePending;             // async CanClose has not answered yet
         private bool _gateRunning;             // CanClose is running synchronously right now
+        private readonly SessionEndingHook _sessionHook = new SessionEndingHook();
+
+        // Windows asks the application to end the session (WM_QUERYENDSESSION) while this counter is
+        // non-zero. WinForms closes owned / MDI child windows first and tells them "FormOwnerClosing",
+        // so without it a child would prompt during a shutdown. UI-thread only.
+        [ThreadStatic] private static int s_sessionEnding;
 
         // A push made while the gate is deciding (X -> "Save changes?" -> Yes -> saved) is the
         // result of that close: held here and applied only if the gate allows.
@@ -62,6 +68,26 @@ namespace WinformsMVP.Services.Implementations
             _form.FormClosing += OnFormClosing;
             _form.FormClosed += OnFormClosed;
             _form.Shown += OnFormShown;
+            _form.HandleCreated += OnHandleCreated;
+            _form.HandleDestroyed += OnHandleDestroyed;
+            if (_form.IsHandleCreated) _sessionHook.AssignHandle(_form.Handle);
+        }
+
+        private void OnHandleCreated(object sender, EventArgs e) => _sessionHook.AssignHandle(_form.Handle);
+        private void OnHandleDestroyed(object sender, EventArgs e) => _sessionHook.ReleaseHandle();
+
+        /// <summary>Marks the WM_QUERYENDSESSION processing of this window (and so of its owned windows).</summary>
+        private sealed class SessionEndingHook : NativeWindow
+        {
+            private const int WM_QUERYENDSESSION = 0x0011;
+
+            protected override void WndProc(ref Message m)
+            {
+                if (m.Msg != WM_QUERYENDSESSION) { base.WndProc(ref m); return; }
+                s_sessionEnding++;
+                try { base.WndProc(ref m); }
+                finally { s_sessionEnding--; }
+            }
         }
 
         /// <summary>True if a Push arrived before the form had a handle (e.g. RequestClose in
@@ -114,8 +140,14 @@ namespace WinformsMVP.Services.Implementations
         {
             if (_suppressGate) { _suppressGate = false; return; }
 
+            // Already refused (an owned window's "Cancel" reaches its owner as e.Cancel = true):
+            // there is nothing to ask, and answering "allow" would override that veto.
+            if (e.Cancel) return;
+
             var winFormsReason = e.CloseReason;
             var reason = CloseReasonMap.From(winFormsReason);
+            if (reason == WinformsMVP.Common.CloseReason.ParentClosing && s_sessionEnding > 0)
+                reason = WinformsMVP.Common.CloseReason.SystemShutdown;   // the owner is closing because the session ends
 
             if (_gatePending)
             {
@@ -236,6 +268,9 @@ namespace WinformsMVP.Services.Implementations
             _form.FormClosing -= OnFormClosing;
             _form.FormClosed -= OnFormClosed;
             _form.Shown -= OnFormShown;
+            _form.HandleCreated -= OnHandleCreated;
+            _form.HandleDestroyed -= OnHandleDestroyed;
+            _sessionHook.ReleaseHandle();
             Converge();
         }
 

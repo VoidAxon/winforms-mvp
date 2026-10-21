@@ -66,11 +66,7 @@ namespace WinformsMVP.Samples.WindowClosingDemo
 
         protected override bool CanClose(CloseReason reason)
         {
-            // Bypass the prompt on system-level shutdowns: the process is leaving anyway,
-            // and a modal MessageBox here will hang application exit.
-            if (reason == CloseReason.SystemShutdown || reason == CloseReason.TaskManager)
-                return true;
-
+            // System shutdown / Task Manager never reach here (the framework allows them without asking).
             // Normal user-driven close (X / Alt+F4 / Form.Close()).
             if (!IsDirty) return true;
 

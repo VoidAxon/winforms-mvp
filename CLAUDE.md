@@ -202,14 +202,14 @@ Closing policy lives in the Presenter; Forms write zero closing code.
 ```csharp
 protected override async Task<bool> CanCloseAsync(CloseReason reason)
 {
-    if (reason != CloseReason.Normal || !_tracker.IsChanged) return true;
+    if (!_tracker.IsChanged) return true;
     var answer = Messages.ConfirmYesNoCancel("Save changes?");
     if (answer == ConfirmResult.Cancel) return false;
     if (answer == ConfirmResult.No) return true;
     return await SaveAsync();   // lock input while saving; false (after telling the user) blocks the close
 }
 ```
-Never block `CloseReason.SystemShutdown` or `CloseReason.TaskManager` (return `true` immediately for those). While the task is pending the window stays open and repeat close attempts are held off (not re-asked), but system shutdown / Task Manager closes go through; an async allow re-issues owner / MDI-parent / `Application.Exit` closes that were held. A faulted or cancelled `CanCloseAsync` blocks the close (system-level closes still allowed) and is logged. See `samples/.../EmailDemo/ComposeEmailPresenter.cs`.
+`CloseReason.SystemShutdown` and `CloseReason.TaskManager` never reach `CanClose` / `CanCloseAsync`: the framework allows them without asking, so presenters write no reason check. During a Windows shutdown this also covers owned / MDI child windows (WinForms tells them `FormOwnerClosing`; the framework recognizes the shutdown). Known limit: when Task Manager closes an owner, its owned children still see `ParentClosing` and may prompt — WinForms exposes no public way to tell that close apart, and a prompt loses nothing. Every other reason — `Normal`, `ParentClosing` (the owner closes), `Unknown` — reaches the presenter and gets the same unsaved-changes prompt; never write `if (reason != CloseReason.Normal) return true;`, which loses an owned child's edits when its owner closes. An owned child's veto cancels the owner's close. While the task is pending the window stays open and repeat close attempts are held off (not re-asked), but system shutdown / Task Manager closes go through; an async allow re-issues owner / MDI-parent / `Application.Exit` closes that were held. A faulted or cancelled `CanCloseAsync` blocks the close (system-level closes still allowed) and is logged. See `samples/.../EmailDemo/ComposeEmailPresenter.cs`.
 
 **Save on close with a result:** to tell the caller that X → "Save?" → Yes saved (refresh a list, return the edited value), call `RequestClose(result, status)` inside `CanClose` / `CanCloseAsync` (after the save) and return `true`. While the gate is deciding, `RequestClose` sets the result of *that* close instead of closing again; if the gate returns `false` the result is dropped and the window stays open. Without it, a gate-driven close reports `Cancel` with no result. A `RequestClose` from elsewhere (e.g. a Save button) while an async gate is pending also waits for the gate's answer. `PresenterTestHost` follows the same rules: such a result is recorded only when `host.CanClose()` / `CanCloseAsync()` allows, and a repeat check while an async gate is pending gets the pending answer without re-asking the presenter (system shutdown / Task Manager return `true`).
 

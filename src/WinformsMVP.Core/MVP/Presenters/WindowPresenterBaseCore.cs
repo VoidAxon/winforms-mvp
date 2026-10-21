@@ -96,6 +96,14 @@ namespace WinformsMVP.MVP.Presenters
         }
         void ICloseParticipant.CanCloseGate(CloseReason reason, Action<bool> proceed)
         {
+            // A system-level close is never blocked and never prompted, so the presenter is not asked:
+            // CanClose / CanCloseAsync need no reason check of their own.
+            if (reason == CloseReason.SystemShutdown || reason == CloseReason.TaskManager)
+            {
+                proceed(true);
+                return;
+            }
+
             // A synchronous throw from CanCloseAsync itself propagates: the framework blocks the
             // close and logs it. A faulted task is answered here, the same way, whenever it faults.
             var decision = CanCloseAsync(reason) ?? Task.FromResult(true);

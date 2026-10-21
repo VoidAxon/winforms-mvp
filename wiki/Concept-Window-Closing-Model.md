@@ -84,10 +84,6 @@ Presenter で `CanClose(CloseReason reason)` をオーバーライドするこ�
 ```csharp
 protected override bool CanClose(CloseReason reason)
 {
-    // Never block system-level shutdowns — a modal dialog here can freeze application exit.
-    if (reason == CloseReason.SystemShutdown || reason == CloseReason.TaskManager)
-        return true;
-
     if (!_changeTracker.IsChanged) return true;
 
     bool discard = Messages.ConfirmYesNo("Discard unsaved changes?", "Confirm");
@@ -104,8 +100,6 @@ protected override bool CanClose(CloseReason reason)
 ```csharp
 protected override async Task<bool> CanCloseAsync(CloseReason reason)
 {
-    // Never block system-level shutdowns.
-    if (reason != CloseReason.Normal) return true;
     if (!_changeTracker.IsChanged) return true;
 
     var answer = Messages.ConfirmYesNoCancel("Save changes as a draft?", "Unsaved Changes");

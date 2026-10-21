@@ -191,9 +191,6 @@ View.InputChanged += (s, e) => Dispatcher.RaiseCanExecuteChanged();
 ```csharp
 protected override bool CanClose(CloseReason reason)
 {
-    if (reason == CloseReason.SystemShutdown || reason == CloseReason.TaskManager)
-        return true;
-
     if (_changeTracker.IsChanged && !Messages.ConfirmYesNo("Discard?", "Confirm"))
         return false;
 
@@ -241,9 +238,6 @@ private void OnDiscard()
 ```csharp
 protected override bool CanClose(CloseReason reason)
 {
-    if (reason == CloseReason.SystemShutdown || reason == CloseReason.TaskManager)
-        return true;   // never block
-
     if (_changeTracker.IsChanged && !Messages.ConfirmYesNo(...))
         return false;
 
