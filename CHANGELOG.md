@@ -10,6 +10,9 @@
 
 ### Added (追加)
 
+- **`SubscribeViewEvent`** (全 Presenter, protected) — `SubscribeViewEvent(h => View.X += h, h => View.X -= h, () => ...)` と型付きの `SubscribeViewEvent<TEventArgs>(..., e => ...)`。View イベントの購読を 1 行で書き、Presenter の破棄で解除する (`+=` と対になる `-=` を書かなくてよい)。破棄が始まった後に届いたイベント (破棄中のコントロールが発火するもの、破棄前に取得された呼び出しリストからのもの) は無視する。戻り値の token で早めに解除できる (2 回の解除も安全)。null 引数・破棄済みの Presenter は何も購読せずに例外。テンプレートは古い `--mvp-version` でもコンパイルできるよう従来の書き方のまま。
+- **`PresenterTestHost.Start(services, presenter, view[, parameters])` / `TestServices.Create()`** — アプリのテストプロジェクトから、1 つの Presenter にだけ偽のフレームワークサービス (`Messages` / `Navigator` / `Logger` など) を渡せる。グローバルな `ServiceLocator.Current` には触れないので、テストを並列に実行できる。プロバイダは View のアタッチ前に結びつけ、足りないサービスはエラー (グローバルへのフォールバックなし)。プロバイダは呼び出し側のもの (破棄しない)。`TestServices.Create()` は無音の `ILoggerFactory` だけを持つ `DefaultServiceProvider`。コンストラクタで既にサービスを使った Presenter は拒否する。内部の `SetServiceProvider` は内部インターフェイス `IPresenterServicesBinding` に置き換え。
+
 - **`ComboBox.BindText`** — 自由入力のコンボ (`DropDown` / `Simple`) の `Text` をバインド (`Bind` は従来どおり `SelectedValue`)。
 - **`DateTimePicker.Bind` の `DateTime?` 版** — `ShowCheckBox = true` の picker で、チェックなし = `null`。範囲外の日付は例外 (丸めない)。戻り値は `IDisposable`、picker の破棄で自動解除。
 - **`ValidationState.ErrorsInOrder(params fieldOrder)` / `ControlErrorDisplay.TryFocusError(field)`** — 登録失敗時に画面の順で最初のエラーをメッセージで出し、閉じたらその項目にフォーカスを移す (タブページも選ぶ)。`ErrorsInOrder` は全エラーを返し、並び順にない項目とフォームレベルのエラーも後ろに付く。
@@ -37,6 +40,9 @@
 - **型付き ActionKey `ViewAction<T>`** — `ViewAction.Create<T>(name)` / `ViewActionFactory.Create<T>(name)` でペイロード型を持つキーを作る。`ViewActionBinder.Add(key, control, c => T)`、`ViewActionDispatcher.Register(key, Action<T> / Func<T, Task> / Func<T, CancellationToken, Task>)`、`Dispatch` / `DispatchAsync` / `CanDispatch` の型付きオーバーロードにより、Form 側と Presenter 側の型不一致がコンパイルエラーになる。任意機能で、従来の `ViewAction` と混在可能。`ViewAction` への暗黙変換はなく、型なし API には `.Key` を使う。サンプルテストの `CapturingActionBinder` にも型付きの `Dispatch` / `DispatchAsync` / `CanDispatch` を追加。
 
 ### Changed (変更)
+
+- **ViewAction ハンドラの未処理例外は `Application.ThreadException` まで伝わる** (BREAKING) — 従来はログに出して握りつぶしていた (既定のロガーは無音なので、DB が止まるとボタンが無反応に見えた)。ログ出力とアクションの復帰 (再有効化・`CanExecuteChanged`) の後、通常の WinForms のイベントハンドラと同じく例外を伝える: 同期の失敗は `Dispatch` から元のスタックのまま再スロー (バインドしたコントロールの `Click` の外へ)、`await` 後の失敗はディスパッチ時の `SynchronizationContext` にポスト (`async void` と同じ)、`DispatchAsync` のタスクはその例外で fault する (テストは `await Assert.ThrowsAsync<...>(() => view.Binder.DispatchAsync(...))`)。キャンセルは従来どおり無音、`CanExecute` の例外は従来どおりログのみで無効扱い。例外を **catch** したミドルウェアは処理済みとみなす (伝えない。`ctx.Exception` は監査用に残る)。再スローまたは別の例外を投げたミドルウェアはその例外を伝える。アプリテンプレートの `Program.cs` は `Application.SetUnhandledExceptionMode(CatchException)` と `ThreadException` ハンドラを設定する。
+- **システムによるクローズは `CanClose` / `CanCloseAsync` を呼ばない** (挙動の変更) — `SystemShutdown` / `TaskManager` のクローズはフレームワークが許可し、Presenter に問い合わせない。Presenter は `if (reason != CloseReason.Normal) return true;` を書かない (この行は所有されたウィンドウの `ParentClosing` でも保存確認を飛ばし、owner を閉じると編集が黙って失われていた)。`Normal` / `ParentClosing` / `Unknown` は Presenter に届く。所有された子ウィンドウの拒否 (Cancel) は owner のクローズを取り消す (従来は owner のゲートが上書きして閉じていた)。Windows のシャットダウン中 (`WM_QUERYENDSESSION` の処理中) は、所有された子・MDI 子の `ParentClosing` を `SystemShutdown` として扱い、確認を出さない。既知の制約: タスクマネージャーが owner を閉じたとき、所有された子には `ParentClosing` が届き確認が出ることがある (WinForms に区別する公開手段がない。確認が出ても失うものはない)。シャットダウン中に `CanClose` で処理をしていた Presenter は、その時点で呼ばれなくなる。
 
 - **`BindProperty` (短い形式) と型ごとの `Bind` は書式を有効にしてバインド** (BREAKING, 挙動のみ) — 従来の `formattingEnabled: false` では WinForms が「同じ型かサブクラス」の値しか受け付けず、インターフェイス型のプロパティ (`IReadOnlyList<int>` に `List<int>`) が実行時に「値を指定した型にフォーマットできません」になっていた。移行時の注意: 数値・日付の表示と解析は現在のカルチャ、`null` / `DBNull` は `NullValue` で表示 (テキストは空)、変換できない入力は例外にならずモデルが直前の値のまま (`BindingComplete` で検出し、エラー中の保存を止める)、`FormatString` / `Format` / `Parse` が有効になる。以前の動きは `BindProperty(model, expr, prop, DataSourceUpdateMode.OnPropertyChanged, formattingEnabled: false)`。
 
@@ -79,6 +85,10 @@
   - `Label.Bind` を実際に単方向 (`DataSourceUpdateMode.Never`) にし、書式を有効化、`Binding` を返す。以前は双方向で、コードで `label.Text` を書き換えるとモデルに書き戻されていた。
   - `BindRadioGroup` が `IDisposable` を返し、グループ内の RadioButton が破棄されると自動で解除される。以前はモデルの `PropertyChanged` の購読が残り続け (モデルがフォームより長生きするとリーク)、同じボタンを再バインドするとハンドラが重複していた。再バインドは前のバインドを置き換える。
 
+### Documentation (ドキュメント)
+
+- Navigator は流れるような書き方 (`Navigator.For(p).WithParam(x).ShowAsModal<TResult>()` / `.ShowWindow<TResult>(owner:, keySelector:, onClosed:)`) を最初に案内する。Wiki に [大きな編集画面を作る](wiki/HowTo-Build-Large-Edit-Screen.md) (Supervising Controller: バインドする入力モデル + 明示的な View メンバー、コントロールごとの注意点、登録失敗時のメッセージとフォーカス、変更検出と閉じる、テスト、Passive View + DTO の代案) を追加。
+
 ### Removed (削除)
 
 - **`ChangeTracker` の `CurrentValue` / `UpdateCurrentValue` / `RejectChanges` (`IRevertibleChangeTracking`) / `GetOriginalValue` / `IsChangedChanged`** (BREAKING) — データは呼び出し側が持つ。変更通知は無く、データが変わる箇所で `IsChanged` を読む。画面に留まったまま元に戻す場合はリポジトリから読み直し、新しい tracker を作る。
@@ -90,6 +100,8 @@
 - 未使用の `PresenterBase<TView, TParameters>`。
 
 ### Fixed (修正)
+
+- **`CanClose` / `CanCloseAsync` の中の `RequestClose`** — ✕ →「保存しますか？」→ はい で保存した結果を呼び出し側に返せなかった (ゲートを通ったクローズは常に結果なしの `Cancel`。ゲートの中で `RequestClose` を呼ぶと `FormClosing` の中から閉じ直し、ゲートがブロックしても閉じていた)。ゲートの判定中 (同期の `CanClose` の実行中、または `CanCloseAsync` の待機中) の `RequestClose(result, status)` は **そのクローズ** の結果として保持され、許可されれば結果付きで閉じ、ブロックされれば捨てる。新しいクローズ試行は既定 (`Cancel`) から始まる。`PresenterTestHost` も同じ規則 (`host.CanClose()` / `CanCloseAsync()` が許可したときだけ結果を記録。非同期ゲートの待機中の再確認は Presenter に再質問せず保留中の答えを返す)。
 
 - **Navigator** — `IInitializable<TParam>` のみを実装する Presenter をパラメータなしのオーバーロードで表示すると `InvalidOperationException` (従来は未初期化のままボタンが効かないウィンドウが開いた)。owner と Presenter の形はウィンドウ生成前に検証し、失敗時は Presenter と Form を破棄。キー付きウィンドウは `Initialize` 前に登録 (再入表示で二重に開かない)、閉じたウィンドウは自分のキーだけを削除。
 - **クローズ結果** (Navigator と `Connect` で共通) — `Ok` で `TResult` と型が合わない結果、または `TResult` が非 null 許容値型なのに結果なしの場合は `Ok(default)` ではなく `InteractionStatus.Error` (メッセージ付き)。`RequestClose(message, InteractionStatus.Error)` / `RequestClose(exception, InteractionStatus.Error)` のメッセージ/例外が `InteractionResult.ErrorMessage` / `Exception` に入る。
