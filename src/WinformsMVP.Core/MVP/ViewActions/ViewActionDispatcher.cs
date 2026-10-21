@@ -656,11 +656,14 @@ namespace WinformsMVP.MVP.ViewActions
 
         /// <summary>DispatchAsync after a middleware failed around a started handler: fault with the
         /// middleware's failure once the handler has finished.</summary>
-        private static async Task AfterHandler(Task tracking, ExceptionDispatchInfo failure)
+        private static Task AfterHandler(Task tracking, ExceptionDispatchInfo failure)
         {
-            try { await tracking; }
-            catch { /* the handler's own failure was logged; report the pipeline's */ }
-            failure.Throw();
+            // Bridged like AwaitHandler, so an OperationCanceledException failure faults the task.
+            // The handler's own failure was logged; the pipeline's is the one reported.
+            var result = new TaskCompletionSource<bool>();
+            tracking.ContinueWith(_ => result.SetException(failure.SourceException),
+                CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+            return result.Task;
         }
 
         private DispatchDelegate CompilePipeline()

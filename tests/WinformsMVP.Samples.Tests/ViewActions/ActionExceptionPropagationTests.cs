@@ -310,6 +310,21 @@ namespace WinformsMVP.Samples.Tests.ViewActions
             Assert.Equal("subscriber", ex.Message);
         }
 
+        [Fact]
+        public async Task MiddlewareThrowsOperationCanceledAfterStartingAnAsyncHandler_DispatchAsyncFaults()
+        {
+            var (dispatcher, _) = NewDispatcher();
+            var handler = new TaskCompletionSource<bool>();
+            dispatcher.Register(Save, () => (Task)handler.Task);
+            dispatcher.Use((ctx, next) => { next(ctx); throw new OperationCanceledException("middleware"); });
+
+            var task = dispatcher.DispatchAsync(Save);
+            handler.SetResult(true);
+
+            await Assert.ThrowsAsync<OperationCanceledException>(() => task);
+            Assert.True(task.IsFaulted);
+        }
+
         // ---- unchanged: CanExecute failures stay diagnostic ----
 
         [Fact]
