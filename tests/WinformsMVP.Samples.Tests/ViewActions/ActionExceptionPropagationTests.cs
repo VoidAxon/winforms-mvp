@@ -292,6 +292,24 @@ namespace WinformsMVP.Samples.Tests.ViewActions
             Assert.True(dispatcher.CanDispatch(Save));
         }
 
+        [Fact]
+        public async Task SubscriberThrows_AfterAHandledMiddlewareFailure_StillFaultsDispatchAsync()
+        {
+            var (dispatcher, _) = NewDispatcher();
+            var handler = new TaskCompletionSource<bool>();
+            dispatcher.Register(Save, () => (Task)handler.Task);
+            dispatcher.Use((ctx, next) => { next(ctx); ctx.Exception = new ApplicationException("handled by middleware"); });
+            bool handlerDone = false;
+            dispatcher.CanExecuteChanged += (s, e) => { if (handlerDone) throw new InvalidOperationException("subscriber"); };
+
+            var task = dispatcher.DispatchAsync(Save);
+            handlerDone = true;
+            handler.SetResult(true);
+
+            var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => task);
+            Assert.Equal("subscriber", ex.Message);
+        }
+
         // ---- unchanged: CanExecute failures stay diagnostic ----
 
         [Fact]

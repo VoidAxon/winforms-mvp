@@ -498,7 +498,7 @@ namespace WinformsMVP.MVP.ViewActions
 
             CanExecuteChanged?.Invoke(this, EventArgs.Empty);   // the action is now running: disable it
             var tracking = AwaitHandler(actionKey, entry, pending, context, succeeded);
-            if (delivery.Awaitable || !succeeded) return tracking;
+            if (delivery.Awaitable) return tracking;   // (!succeeded: it faults only for a subscriber's failure)
 
             // Dispatch's caller has returned: a later failure goes to the dispatching context.
             tracking.ContinueWith(t => delivery.FailLater(ExceptionDispatchInfo.Capture(t.Exception.InnerException)),
@@ -520,15 +520,17 @@ namespace WinformsMVP.MVP.ViewActions
             // FinishWhenDone never throws (it returns what failed), so the bridge always completes.
             FinishWhenDone(actionKey, entry, pending, context, succeeded).ContinueWith(t =>
             {
-                var failure = t.Status == TaskStatus.RanToCompletion ? t.Result : null;
-                if (failure != null && succeeded) result.SetException(failure.SourceException);
+                var (handlerFailure, subscriberFailure) = t.Status == TaskStatus.RanToCompletion ? t.Result : (null, null);
+                // A subscriber's failure always counts; the handler's is the pipeline's to report when it failed.
+                if (subscriberFailure != null) result.SetException(subscriberFailure.SourceException);
+                else if (handlerFailure != null && succeeded) result.SetException(handlerFailure.SourceException);
                 else result.SetResult(true);
             }, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
             return result.Task;
         }
 
-        private async Task<ExceptionDispatchInfo> FinishWhenDone(ViewAction actionKey, ActionHandlerEntry entry, Task pending,
-            DispatchContext context, bool succeeded)
+        private async Task<(ExceptionDispatchInfo Handler, ExceptionDispatchInfo Subscriber)> FinishWhenDone(
+            ViewAction actionKey, ActionHandlerEntry entry, Task pending, DispatchContext context, bool succeeded)
         {
             try
             {
@@ -540,13 +542,13 @@ namespace WinformsMVP.MVP.ViewActions
             }
             try
             {
-                return Finish(actionKey, entry, pending, context, succeeded);
+                return (Finish(actionKey, entry, pending, context, succeeded), null);
             }
             catch (Exception ex)
             {
                 // An ActionExecuted / CanExecuteChanged subscriber threw (even an OperationCanceledException):
                 // a failure of this dispatch, never a cancelled or pending task.
-                return ExceptionDispatchInfo.Capture(ex);
+                return (null, ExceptionDispatchInfo.Capture(ex));
             }
         }
 
