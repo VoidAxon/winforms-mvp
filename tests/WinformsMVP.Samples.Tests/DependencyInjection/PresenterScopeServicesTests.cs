@@ -49,10 +49,11 @@ namespace WinformsMVP.Samples.Tests.DependencyInjection
             public EagerPresenter(ScopedDependency dependency)
             {
                 Dependency = dependency;
-                Messages.ShowInfo("too early");
+                Resolved = Messages;   // resolved only (showing a real message box would block the test run)
             }
 
             public ScopedDependency Dependency { get; }
+            public IMessageService Resolved { get; }
             protected override void OnViewAttached() { }
         }
 
