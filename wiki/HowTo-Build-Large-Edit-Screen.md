@@ -113,8 +113,7 @@ void ICustomerEditView.Bind(CustomerEditInput input)
     txtName.Bind(input, x => x.Name);                                   // WinForms の TextBox
     poisonKana.BindProperty(input, x => x.Kana, nameof(Control.Text));  // TextBox を継承しない他社製コントロール
     dtpContract.Bind(input, x => x.ContractDate);                       // DateTime? なら ShowCheckBox = true で未入力を表す
-    tagPicker.BindProperty(input, x => x.TagIds, nameof(TagPicker.CheckedIds),
-        DataSourceUpdateMode.OnPropertyChanged, formattingEnabled: true);   // 4 章
+    tagPicker.BindProperty(input, x => x.TagIds, nameof(TagPicker.CheckedIds));   // IReadOnlyList<int> (4 章)
 }
 ```
 
@@ -125,9 +124,9 @@ void ICustomerEditView.Bind(CustomerEditInput input)
 | `TextBox` を継承しない他社製のテキストボックス | `BindProperty(model, x => x.Name, nameof(Control.Text))`。型ごとの `Bind` は WinForms の型にしか付いていません |
 | 自由入力のコンボボックス (`DropDown`) | `cboMethod.BindText(model, x => x.Method)`。`ComboBox.Bind` は **`SelectedValue`** (一覧から選ぶ `DropDownList` 用) です |
 | 「未入力」がある日付 (`DateTime?`) | `ShowCheckBox = true` にして `dtpDue.Bind(model, x => x.DueDate)`。チェックなし = `null`。値はモデルで変えます (コードで `Checked` を書き換えてもモデルには届きません) |
-| インターフェイス型のプロパティ (`IReadOnlyList<int>` など) | `formattingEnabled: true` を指定します。既定の `false` では、WinForms は「同じ型かサブクラス」の値しか受け付けず、`List<int>` を入れると実行時に「値を指定した型にフォーマットできません」になります |
+| インターフェイス型のプロパティ (`IReadOnlyList<int>` など) | そのままバインドできます (`BindProperty` / `Bind` は書式を有効にしてバインドします)。`formattingEnabled: false` を指定すると、WinForms は「同じ型かサブクラス」の値しか受け付けず、`List<int>` を入れると実行時に「値を指定した型にフォーマットできません」になります |
 | 自作のコントロール | バインドで値を書き戻すには「プロパティ名 + `Changed`」のイベント (`CheckedIdsChanged`) が必要です (WinForms の規約)。例は [Data Binding](Reference-Data-Binding#自作他社製コントロール) |
-| 変換に失敗した入力 | `formattingEnabled: true` のとき、変換できない入力ではモデルは **直前の有効な値のまま** です。`Binding.BindingComplete` で検出し、エラー中の登録を止めてください |
+| 変換に失敗した入力 | 変換できない入力 (数値欄の `abc`) ではモデルは **直前の有効な値のまま** です。`Binding.BindingComplete` で検出し、エラー中の登録を止めてください |
 
 ## 5. 検証と登録
 

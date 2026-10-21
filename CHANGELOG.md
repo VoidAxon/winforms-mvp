@@ -10,6 +10,10 @@
 
 ### Added (追加)
 
+- **`ComboBox.BindText`** — 自由入力のコンボ (`DropDown` / `Simple`) の `Text` をバインド (`Bind` は従来どおり `SelectedValue`)。
+- **`DateTimePicker.Bind` の `DateTime?` 版** — `ShowCheckBox = true` の picker で、チェックなし = `null`。範囲外の日付は例外 (丸めない)。戻り値は `IDisposable`、picker の破棄で自動解除。
+- **`ValidationState.ErrorsInOrder(params fieldOrder)` / `ControlErrorDisplay.TryFocusError(field)`** — 登録失敗時に画面の順で最初のエラーをメッセージで出し、閉じたらその項目にフォーカスを移す (タブページも選ぶ)。`ErrorsInOrder` は全エラーを返し、並び順にない項目とフォームレベルのエラーも後ろに付く。
+
 - **非同期アクションハンドラ** — `ViewActionDispatcher.Register` に `Func<Task>` / `Func<CancellationToken, Task>` / `Func<T, Task>` / `Func<T, CancellationToken, Task>` のオーバーロードを追加。`async` ラムダ・`async Task` メソッドはこれらに束縛される (従来は `async void` の `Action` オーバーロードに束縛されていた)。実行中のアクションは `CanDispatch == false` (バインド済みコントロールは無効化) で、重複トリガーは無視。開始時・終了時に全 `CanExecute` を再評価し、完了時に `ActionExecuted` を発火。`await` 後の失敗も含めて例外はログ出力してアクションを再有効化。トークンは Presenter の破棄 (ウィンドウを閉じる) でキャンセルされ、それによるキャンセルはエラー扱いしない。想定内のエラーはハンドラ内で `try`/`catch` して `Messages` で伝える。
 - **`ViewActionDispatcher.DispatchAsync(key[, payload])`** — 非同期ハンドラの完了で完了するタスクを返す (ハンドラの失敗では fault しない)。主にテスト用。
 - **`DispatchContext.Completion` / `DispatchContext.CancellationToken`** — ミドルウェアが包むのはハンドラの同期部分のみ。`Completion` (ハンドラのタスク) を観察すれば非同期処理全体を計測・監査できる。非同期ハンドラの開始後にミドルウェアが例外を投げても、ハンドラは完了まで追跡される (その間アクションは無効、`ActionExecuted` は発火しない)。
@@ -33,6 +37,8 @@
 - **型付き ActionKey `ViewAction<T>`** — `ViewAction.Create<T>(name)` / `ViewActionFactory.Create<T>(name)` でペイロード型を持つキーを作る。`ViewActionBinder.Add(key, control, c => T)`、`ViewActionDispatcher.Register(key, Action<T> / Func<T, Task> / Func<T, CancellationToken, Task>)`、`Dispatch` / `DispatchAsync` / `CanDispatch` の型付きオーバーロードにより、Form 側と Presenter 側の型不一致がコンパイルエラーになる。任意機能で、従来の `ViewAction` と混在可能。`ViewAction` への暗黙変換はなく、型なし API には `.Key` を使う。サンプルテストの `CapturingActionBinder` にも型付きの `Dispatch` / `DispatchAsync` / `CanDispatch` を追加。
 
 ### Changed (変更)
+
+- **`BindProperty` (短い形式) と型ごとの `Bind` は書式を有効にしてバインド** (BREAKING, 挙動のみ) — 従来の `formattingEnabled: false` では WinForms が「同じ型かサブクラス」の値しか受け付けず、インターフェイス型のプロパティ (`IReadOnlyList<int>` に `List<int>`) が実行時に「値を指定した型にフォーマットできません」になっていた。移行時の注意: 数値・日付の表示と解析は現在のカルチャ、`null` / `DBNull` は `NullValue` で表示 (テキストは空)、変換できない入力は例外にならずモデルが直前の値のまま (`BindingComplete` で検出し、エラー中の保存を止める)、`FormatString` / `Format` / `Parse` が有効になる。以前の動きは `BindProperty(model, expr, prop, DataSourceUpdateMode.OnPropertyChanged, formattingEnabled: false)`。
 
 - **メッセージボックスとトーストを別サービスに分割** (BREAKING) — `IMessageService` はモーダルダイアログ 6 メソッドのみ (`ShowToast` を削除)。Presenter は `Toasts.Show(...)`、View 側でオプション付きなら `IWinFormsToastService`。`MessageService` / `DialogProvider` はオプションとバックエンドをコンストラクタで受け取る。
 - **`ChangeTracker` のコンストラクタ** (BREAKING) — `(T)` / `(T, Func<T,T,bool>)` / `(T, IEqualityComparer<T>)` / `(T, ChangeTrackingPolicy<T>)`。省略可能だった `comparer = null` 引数は別オーバーロードになった。リテラルの `null` を渡すとオーバーロードが曖昧でコンパイルエラーになる (`new ChangeTracker<T>(value)` に書き換える)。型付きの `null` は `ArgumentNullException`。`new ChangeTracker<T>` は起動時の設定を使わない (組み込みエンジンと引数のみ)。

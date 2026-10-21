@@ -12,9 +12,16 @@ namespace WinformsMVP.Common.Extensions
     {
         /// <summary>
         /// Two-way binding of <paramref name="controlPropertyName"/> to a model property, written back
-        /// on every change (<see cref="DataSourceUpdateMode.OnPropertyChanged"/>), no formatting.
-        /// A previous binding of the same control property is replaced.
+        /// on every change (<see cref="DataSourceUpdateMode.OnPropertyChanged"/>), with formatting
+        /// enabled: values convert through the formatting pipeline (an interface-typed property such
+        /// as <c>IReadOnlyList&lt;int&gt;</c> accepts a <c>List&lt;int&gt;</c>), and input that cannot
+        /// be converted leaves the model at its last valid value and is reported through the returned
+        /// binding's <c>BindingComplete</c>. A previous binding of the same control property is replaced.
         /// </summary>
+        /// <remarks>
+        /// The typed <c>Bind</c> helpers use this overload. For the old WinForms conversion (exact type
+        /// or subclass only), pass <c>formattingEnabled: false</c> to the other overload.
+        /// </remarks>
         public static Binding BindProperty<TControl, TViewModel, TValue>(
             this TControl control,
             TViewModel viewModel,
@@ -23,7 +30,7 @@ namespace WinformsMVP.Common.Extensions
             where TControl : Control
             where TViewModel : INotifyPropertyChanged
             => control.BindProperty(viewModel, propertyExpression, controlPropertyName,
-                DataSourceUpdateMode.OnPropertyChanged, formattingEnabled: false);
+                DataSourceUpdateMode.OnPropertyChanged, formattingEnabled: true);
 
         /// <summary>
         /// Binds <paramref name="controlPropertyName"/> to a model property with an explicit update
