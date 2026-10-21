@@ -1,6 +1,6 @@
 # HowTo: 入力項目の多い編集画面を作る (Supervising Controller)
 
-入力項目が数十ある編集画面を、View インターフェイスを肥大化させずに作る方法です。結論は **Supervising Controller**: 普通の入力項目はフォームが入力モデルにデータバインドし、Presenter はモデルを操作します。選択肢の一覧・選択行・組み立てた表示など、バインドに向かないものだけを View のメンバーにします。
+入力項目が数十ある編集画面を、View インターフェイスを肥大化させずに作る方法です。結論は **Supervising Controller**: 画面のデータは **1 つの入力モデル** に置き、普通の入力項目はフォームがそのモデルにデータバインドし、Presenter はモデルを操作します。選択肢の一覧・選択行・組み立てた表示など、バインドに向かないものだけを View のメンバーにします。変更検出もこのモデル 1 つを追跡します。
 
 > 位置づけは [MVP パターンとは](Concept-MVP-Pattern) の「使い分けの目安」を参照してください。Passive View と Supervising Controller は連続したスペクトラムで、同じ画面の中で意図的に混ぜて構いません。
 
@@ -25,15 +25,16 @@
 
 | 置き場所 | 何を | 例 |
 |---|---|---|
-| **入力モデル** (バインド) | 利用者がそのまま入力する値 | 氏名、カナ、日付、時刻、メモ、コード値の選択 |
-| **View のメンバー** (明示) | バインドに向かないもの | 選択肢の一覧 (`SetXxxOptions`)、一覧の選択行、複数の値を組み立てた表示 (`ShowXxx`)、表示中のタブ、フォーカス移動 |
-| **Presenter の状態** | 画面の外から選ばれて決まるもの | 別画面で選んだ顧客・担当者、明細の一覧 |
+| **入力モデル** (1 つ) | 画面で編集するデータすべて。利用者がそのまま入力する値はフォームがバインドし、別画面で選んで決まる値は Presenter が設定する | 氏名、カナ、日付、メモ (バインド)。別画面で選んだ担当者の ID、明細の一覧 (Presenter が設定) |
+| **View のメンバー** (明示) | バインドに向かないもの | 選択肢の一覧 (`ShowTags`)、一覧の選択行、複数の値を組み立てた表示 (`ShowContact`)、表示中のタブ、フォーカス移動 |
+
+画面のデータを入力モデルと Presenter のフィールドに分けると、変更検出のために両方を集めた「読み取り用の型」が別に要ります。1 つのモデルにまとめれば、`ChangeTracker` はそのモデルを追跡するだけです (Entity Framework のエンティティや `DataRow` と同じく、元の値は追跡する側が持ちます)。
 
 項目数ではなく、**ふるまいの複雑さ** で決めてください。条件で表示が変わる項目や、Presenter がテストで観測したい UI 副作用は、明示メンバーにした方が分かりやすいことがあります。
 
 ## 2. 入力モデルと View インターフェイス
 
-入力モデルは `BindableBase` を継承し、**保存用のエンティティとは別** に作ります (画面の編集セッションの契約です)。
+入力モデルは `BindableBase` を継承し、**保存用のエンティティとは別** に作ります (画面の編集セッションの契約です)。別画面で選ぶ値 (担当者、明細) もこのモデルに置きます。
 
 ```csharp
 public sealed class CustomerEditInput : BindableBase
@@ -58,44 +59,56 @@ public sealed class CustomerEditInput : BindableBase
             if (!sorted.SequenceEqual(_tagIds)) SetProperty(ref _tagIds, sorted);
         }
     }
+
+    // 別画面で選ぶ値: フォームはバインドせず、Presenter が設定して View のメソッドで表示する
+    private int _contactId;
+    private readonly List<OrderLine> _lines = new List<OrderLine>();
+    public int ContactId { get => _contactId; set => SetProperty(ref _contactId, value); }
+    public List<OrderLine> Lines => _lines;   // Presenter がリスト自体を編集する (追加・削除は通知されない)
 }
 ```
 
-View インターフェイスは「モデルを渡す」メンバーと、バインドに向かないものだけです:
+View インターフェイスは「モデルを渡す」メンバーと、バインドに向かないものだけです。メソッド名は技術的な操作 (`Bind`、`SetXxxOptions`) ではなく業務の言葉で付けます ([設計ルール 15](Design-Rules#rule-15-ドメイン駆動の命名)):
 
 ```csharp
 public interface ICustomerEditView : IWindowView, IValidatableView
 {
-    void Bind(CustomerEditInput input);                 // フォームがコントロールをバインドする
-    void SetTagOptions(IReadOnlyList<Tag> tags);
+    void ShowCustomer(CustomerEditInput input);         // 編集する顧客を表示 (フォームがコントロールをバインドする)
+    void ShowTags(IReadOnlyList<Tag> tags);             // 選択肢
     void ShowContact(ContactDisplay contact);           // 別画面で選んだ担当者の表示
-    int? SelectedLineIndex { get; }
-    void FocusError(string field);                      // 登録失敗時のフォーカス移動 (5 章)
+    void ShowLines(IReadOnlyList<OrderLine> lines);
+    OrderLine SelectedLine { get; }
+    void FocusField(string field);                      // 登録失敗時のフォーカス移動 (5 章)
     event EventHandler LineSelectionChanged;
 }
 ```
 
 ## 3. 読み込みとバインド
 
-Presenter が入力モデルを持ち、値を入れてから `View.Bind` に渡します。選択肢は先に設定してください (選択肢がないと値を選べないコントロールがあります)。
+Presenter が入力モデルを持ち、値を入れてから `View.ShowCustomer` に渡します。選択肢は先に設定してください (選択肢がないと値を選べないコントロールがあります)。Presenter が使うのは業務サービス (`ICustomerService` など) で、データアクセス (repository) を直接は受け取りません。
 
 ```csharp
 private readonly CustomerEditInput _input = new CustomerEditInput();
+private ChangeTracker<CustomerEditInput> _tracker;
 
 protected override void OnInitialize(CustomerEditParameters p)
 {
-    var customer = _repository.Get(p.CustomerId);
-    View.SetTagOptions(_masters.GetTags());
+    var customer = _customers.Find(p.CustomerId);
+    View.ShowTags(_customers.GetTags());
 
     _input.Name = customer.Name;
     _input.Kana = customer.Kana;
     _input.ContractDate = customer.ContractDate;
     _input.TagIds = customer.TagIds;
-    View.Bind(_input);
+    _input.ContactId = customer.ContactId;
+    _input.Lines.AddRange(customer.Lines);
+    View.ShowCustomer(_input);
+    View.ShowContact(ToDisplay(_input.ContactId));
+    View.ShowLines(_input.Lines);
 
     // モデルは Presenter 自身のもので寿命も同じ: 解除は不要
     _input.PropertyChanged += (s, e) => Revalidate();
-    _tracker = TrackChanges(ReadModel());
+    _tracker = TrackChanges(_input);   // このモデルをそのまま追跡する (6 章)
 }
 ```
 
@@ -108,7 +121,7 @@ private void OnAppendTemplate() => _input.Memo += PickTemplate();
 フォーム側:
 
 ```csharp
-void ICustomerEditView.Bind(CustomerEditInput input)
+void ICustomerEditView.ShowCustomer(CustomerEditInput input)
 {
     txtName.Bind(input, x => x.Name);                                   // WinForms の TextBox
     poisonKana.BindProperty(input, x => x.Kana, nameof(Control.Text));  // TextBox を継承しない他社製コントロール
@@ -148,7 +161,7 @@ private bool TrySave()
         // (.NET Framework の [Compare] など) も後ろに付くので、何か 1 つは必ず出る
         var first = Validation.ErrorsInOrder(FieldOrder)[0];
         Messages.ShowWarning(first.Message);
-        View.FocusError(first.Field);     // どのコントロールかは Form が決める
+        View.FocusField(first.Field);     // どのコントロールかは Form が決める
         return false;
     }
     ...
@@ -158,26 +171,19 @@ private bool TrySave()
 Form 側は、エラー表示の対応付けでそのままフォーカスを移せます (タブページも選ばれます。`FormLevel` や未マップの項目では何もしません):
 
 ```csharp
-void ICustomerEditView.FocusError(string field) => _errors.TryFocusError(field);
+void ICustomerEditView.FocusField(string field) => _errors.TryFocusError(field);
 ```
 
 「登録」ボタンはエラー中も有効のままにします (押したときに未訪問の項目のエラーを見せるため)。
 
 ## 6. 変更検出と閉じる
 
-変更検出はモデルのスナップショットで行います。Presenter が持つ状態 (別画面で選んだ担当者・明細) も含めた読み取り用の型を作ると、1 つの `ChangeTracker` で済みます:
+変更検出は入力モデルそのものを追跡します (`TrackChanges(_input)`)。`ChangeTracker` は作成時にモデルの深いコピーを取り、`IsChanged` で中身を比べます。明細リストの追加・削除のように通知のない変更も、元に戻した変更も正しく判定されます (イベントのような委譲は比較・コピーの対象外です)。読み取り用の型を別に作る必要はありません:
 
 ```csharp
-private CustomerEditModel ReadModel() => new CustomerEditModel
-{
-    // 入力モデルの項目はすべて入れる (漏れた項目だけの変更は「保存しますか？」が出ずに失われる)
-    Name = _input.Name, Kana = _input.Kana, Memo = _input.Memo, ContractDate = _input.ContractDate,
-    TagIds = _input.TagIds.ToList(), ContactId = _contactId, Lines = _lines.Select(Copy).ToList(),
-};
-
 protected override bool CanClose(CloseReason reason)
 {
-    if (!_tracker.IsChangedWith(ReadModel())) return true;
+    if (!_tracker.IsChanged) return true;
     switch (Messages.ConfirmYesNoCancel("保存しますか？"))
     {
         case ConfirmResult.Cancel: return false;
@@ -190,19 +196,24 @@ protected override bool CanClose(CloseReason reason)
 }
 ```
 
-保存に成功したら `_tracker.AcceptChanges(model)`。詳しくは [ChangeTracker](Reference-ChangeTracker) と [ウィンドウクローズを扱う](HowTo-Handle-Window-Closing) を参照してください。
+保存に成功したら `_tracker.AcceptChanges()` (今の内容を「保存済み」として撮り直す)。
+
+- 時刻をコントロールが秒まで持つ場合は、モデルの setter で分に丸めておきます (秒だけの違いを変更と見なさないため)。
+- 画面のデータが本当に複数の場所に分かれる場合 (例: 2 つの独立したモデルを 1 つの画面で編集する) は、毎回組み立てた値を比べる使い方 (`IsChangedWith(x)` / `AcceptChanges(x)`) もあります。
+
+詳しくは [ChangeTracker](Reference-ChangeTracker) と [ウィンドウクローズを扱う](HowTo-Handle-Window-Closing) を参照してください。
 
 ## 7. テスト
 
-フェイク View は `Bind` で受け取ったモデルを持つだけです。テストはモデルの値を直接変えます (実際のバインドと同じく `PropertyChanged` が飛ぶので、Presenter の再検証も走ります):
+フェイク View は `ShowCustomer` で受け取ったモデルを持つだけです。テストはモデルの値を直接変えます (実際のバインドと同じく `PropertyChanged` が飛ぶので、Presenter の再検証も走ります):
 
 ```csharp
 private sealed class FakeView : ICustomerEditView
 {
     public CustomerEditInput Input { get; private set; }
-    public void Bind(CustomerEditInput input) => Input = input;
+    public void ShowCustomer(CustomerEditInput input) => Input = input;
     public string FocusedField { get; private set; }
-    public void FocusError(string field) => FocusedField = field;
+    public void FocusField(string field) => FocusedField = field;
     ...
 }
 
