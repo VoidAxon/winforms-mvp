@@ -70,20 +70,26 @@ protected override void OnViewAttached()
 // No _bind field, no null guard, no Cleanup override.
 ```
 
-### View イベント(`+=` / `-=`)も同じ流儀で
+### View イベントは `SubscribeViewEvent` で 1 行に
 
-イベント購読自体は `IDisposable` ではないので、`Disposable.Create` で包みます:
+View のイベントは基底の `SubscribeViewEvent` で購読します。`+=` と、それに対応する `-=` を 1 行で書け、Presenter の破棄時に自動で解除されます:
 
 ```csharp
 protected override void OnViewAttached()
 {
-    EventHandler handler = (s, e) => _category.Select(View.SelectedCategory);
-    View.CategorySelected += handler;
-    Disposable.Create(() => View.CategorySelected -= handler).DisposeWith(Disposables);
+    SubscribeViewEvent(h => View.CategorySelected += h, h => View.CategorySelected -= h,
+                       () => _category.Select(View.SelectedCategory));
+    SubscribeViewEvent<SearchArgs>(h => View.SearchRequested += h, h => View.SearchRequested -= h,
+                                   e => Search(e.Text));   // EventHandler<T> は引数を受け取る
 }
 ```
 
-detach 時にバッグが解放されると同時に、すべての `-=` が自動実行されます。解除漏れは構造的に起きません。
+- **解除漏れが起きない**: 返り値のトークンは自動で `Disposables` に入ります(早めに解除したいときだけトークンを `Dispose`)。
+- **破棄の途中で届いたイベントは無視**: ウィンドウを閉じるとき、フレームワークは Presenter を先に破棄し、そのあと Form(とコントロール)を破棄します。コントロールが破棄の途中で `SelectionChanged` などを発火しても、破棄が始まった Presenter のハンドラーは呼ばれません。
+- **ハンドラーはラムダで書ける**: `-=` のために名前付きメソッド(`object sender, EventArgs e`)を用意する必要がありません。
+- ハンドラーは発火したスレッドで同期的に呼ばれ、例外は発火元へ伝わります。
+
+以前の書き方(`+=` と `Disposable.Create(() => View.X -= handler).DisposeWith(Disposables)`)も引き続き動きますが、上の 2 点(解除漏れ・破棄中のイベント)を自分で守る必要があります。
 
 ### Before / After(実例:CascadeDemo)
 
