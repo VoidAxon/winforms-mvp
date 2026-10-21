@@ -342,6 +342,46 @@ namespace WinformsMVP.Samples.Tests.Presenters
             Assert.Same(mine, services.GetService(typeof(ILoggerFactory)));
         }
 
+        // ---- system-level closes never reach the presenter ----
+
+        private sealed class CountingGatePresenter : WindowPresenterBase<IEditView>
+        {
+            public int SyncCalls, AsyncCalls;
+            protected override void OnViewAttached() { }
+            protected override bool CanClose(CloseReason reason) { SyncCalls++; return false; }
+            protected override System.Threading.Tasks.Task<bool> CanCloseAsync(CloseReason reason)
+            {
+                AsyncCalls++;
+                return base.CanCloseAsync(reason);
+            }
+        }
+
+        [Theory]
+        [InlineData(CloseReason.SystemShutdown)]
+        [InlineData(CloseReason.TaskManager)]
+        public void SystemClose_IsAllowedWithoutAskingThePresenter(CloseReason reason)
+        {
+            var presenter = new CountingGatePresenter();
+            var host = PresenterTestHost.Start(presenter, new EditView());
+
+            Assert.True(host.CanClose(reason));
+            Assert.Equal(0, presenter.AsyncCalls);
+            Assert.Equal(0, presenter.SyncCalls);
+        }
+
+        [Theory]
+        [InlineData(CloseReason.Normal)]
+        [InlineData(CloseReason.ParentClosing)]
+        [InlineData(CloseReason.Unknown)]
+        public void OtherCloses_AskThePresenter(CloseReason reason)
+        {
+            var presenter = new CountingGatePresenter();
+            var host = PresenterTestHost.Start(presenter, new EditView());
+
+            Assert.False(host.CanClose(reason));   // the presenter vetoes
+            Assert.Equal(1, presenter.SyncCalls);
+        }
+
         [Fact]
         public void Dispose_DisposesThePresenter()
         {

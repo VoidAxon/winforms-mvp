@@ -220,6 +220,68 @@ namespace WinformsMVP.Samples.Tests.Services
             Assert.Equal(InteractionStatus.Cancel, results[0].Item2);
         }
 
+        // ---- owned windows ----
+
+        [Fact]
+        public void OwnedChildVeto_IsNotOverriddenByTheOwnersGate()
+        {
+            var (owner, presenter, results, _) = Build();
+            int ownerGateRuns = 0;
+            presenter.SyncDecision = _ => { ownerGateRuns++; return true; };
+            var child = new Form();
+            child.FormClosing += (s, e) => e.Cancel = true;   // e.g. "Save changes?" -> Cancel
+
+            owner.Show();
+            child.Show(owner);
+            owner.Close();
+
+            Assert.True(owner.Visible);
+            Assert.True(child.Visible);
+            Assert.Empty(results);
+            Assert.Equal(0, ownerGateRuns);   // the close was already refused: nothing to ask
+            child.Dispose();
+            owner.Dispose();
+        }
+
+        [Fact]
+        public void SessionEnding_OwnedChildIsTreatedAsShutdown_NotAsked()
+        {
+            var (owner, ownerPresenter, _, _) = Build();
+            var (child, childPresenter, _, _) = Build();
+            var asked = new List<CloseReason>();
+            childPresenter.SyncDecision = r => { asked.Add(r); return r != CloseReason.Normal && r != CloseReason.ParentClosing; };
+
+            owner.Show();
+            child.Show(owner);
+            var answer = SendMessage(owner.Handle, WM_QUERYENDSESSION, IntPtr.Zero, IntPtr.Zero);
+
+            Assert.DoesNotContain(CloseReason.ParentClosing, asked);   // WinForms says FormOwnerClosing; it is a shutdown
+            Assert.NotEqual(IntPtr.Zero, answer);                       // the session may end
+            child.Dispose();
+            owner.Dispose();
+        }
+
+        [Fact]
+        public void OwnerClosedByTheUser_OwnedChildIsAskedAsParentClosing()
+        {
+            var (owner, _, _, _) = Build();
+            var (child, childPresenter, childResults, _) = Build();
+            var asked = new List<CloseReason>();
+            childPresenter.SyncDecision = r => { asked.Add(r); return true; };
+
+            owner.Show();
+            child.Show(owner);
+            owner.Close();
+
+            Assert.Contains(CloseReason.ParentClosing, asked);
+            Assert.Single(childResults);
+        }
+
+        private const int WM_QUERYENDSESSION = 0x0011;
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+
         [Fact]
         public void PushWhileAsyncGatePending_WaitsForAllow_ThenConvergesWithPushedResult()
         {
