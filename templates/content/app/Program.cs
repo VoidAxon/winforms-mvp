@@ -18,6 +18,12 @@ namespace MyMvpApp
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
 
+            // An exception nobody handled ends up here — including one thrown by a ViewAction handler
+            // (the framework logs it, then lets it propagate like any WinForms event handler's).
+            Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
+            Application.ThreadException += (s, e) =>
+                MessageBox.Show(e.Exception.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+
             // One startup call: framework customization, then your business services.
             // Every framework service (messages, toasts, dialogs, navigator, ...) has a default.
             MvpApplication.Configure(

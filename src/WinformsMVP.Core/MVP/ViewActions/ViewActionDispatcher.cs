@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.ExceptionServices;
 using System.Threading;
 using System.Threading.Tasks;
 using WinformsMVP.Common.Events;
@@ -287,25 +288,81 @@ namespace WinformsMVP.MVP.ViewActions
         /// when it completes). Returns immediately; use <see cref="DispatchAsync"/> to await an
         /// asynchronous handler.
         /// </summary>
+        /// <remarks>
+        /// A handler exception is logged and then propagates like an ordinary WinForms event handler's,
+        /// so <c>Application.ThreadException</c> sees it: a synchronous failure is rethrown from this
+        /// call (after the action is re-enabled); a failure after an <c>await</c> is posted to the
+        /// <see cref="SynchronizationContext"/> current at dispatch, like <c>async void</c> (the thread
+        /// pool when there is none). Cancellation stays silent, and a middleware that catches the
+        /// exception has handled it.
+        /// </remarks>
         /// <param name="actionKey">The action key to dispatch</param>
         /// <param name="payload">Optional payload to pass to the handler</param>
         public void Dispatch(ViewAction actionKey, object payload = null)
         {
-            DispatchCore(actionKey, payload);
+            DispatchCore(actionKey, payload, awaitable: false);
         }
 
         /// <summary>
         /// Dispatches like <see cref="Dispatch"/> and returns a task that completes when the handler
-        /// has finished (immediately for synchronous handlers or when nothing runs). Handler
-        /// failures are handled exactly as for <see cref="Dispatch"/> (logged), so the task does
-        /// not fault for them. Mainly for tests and for code that must sequence after an action.
+        /// has finished (immediately for synchronous handlers or when nothing runs). A handler
+        /// exception faults the task instead of being thrown or posted (it is still logged).
+        /// Mainly for tests and for code that must sequence after an action.
         /// </summary>
         public Task DispatchAsync(ViewAction actionKey, object payload = null)
         {
-            return DispatchCore(actionKey, payload);
+            return DispatchCore(actionKey, payload, awaitable: true);
         }
 
-        private Task DispatchCore(ViewAction actionKey, object payload)
+        /// <summary>How a failure leaves the dispatcher: a faulted task (DispatchAsync), or thrown /
+        /// posted (Dispatch).</summary>
+        private sealed class Delivery
+        {
+            public Delivery(bool awaitable, SynchronizationContext context)
+            {
+                Awaitable = awaitable;
+                Context = context;
+            }
+
+            public bool Awaitable { get; }
+            public SynchronizationContext Context { get; }
+
+            /// <summary>The failure of a dispatch that is still on the caller's stack.</summary>
+            public Task FailNow(ExceptionDispatchInfo failure)
+            {
+                if (Awaitable) return Faulted(failure);
+                failure.Throw();
+                return null;   // unreachable
+            }
+
+            /// <summary>The failure of a dispatch whose caller has returned (after an await).</summary>
+            public void FailLater(ExceptionDispatchInfo failure)
+            {
+                // Like async void: rethrown in the message loop, where Application.ThreadException sees it.
+                if (Context != null)
+                {
+                    try
+                    {
+                        Context.Post(state => ((ExceptionDispatchInfo)state).Throw(), failure);
+                        return;
+                    }
+                    catch (Exception postFailure)
+                    {
+                        failure = ExceptionDispatchInfo.Capture(new AggregateException(failure.SourceException, postFailure));
+                    }
+                }
+                ThreadPool.QueueUserWorkItem(state => ((ExceptionDispatchInfo)state).Throw(), failure);
+            }
+
+            public static Task Faulted(ExceptionDispatchInfo failure)
+            {
+                var tcs = new TaskCompletionSource<bool>();
+                tcs.SetException(failure.SourceException);
+                return tcs.Task;
+            }
+        }
+
+        private Task DispatchCore(ViewAction actionKey, object payload, bool awaitable)
         {
             if (actionKey.Name == null)
             {
@@ -357,6 +414,7 @@ namespace WinformsMVP.MVP.ViewActions
             // Marked before the handler starts so a re-entrant trigger during its synchronous part
             // is ignored too; cleared when it completes.
             if (entry.Handler.IsAsync) entry.IsRunning = true;
+            var delivery = new Delivery(awaitable, SynchronizationContext.Current);
 
             // Fast path: no middleware registered. Zero allocation, zero indirection.
             // Behavior here MUST stay equivalent to the slow path with no middleware —
@@ -365,30 +423,41 @@ namespace WinformsMVP.MVP.ViewActions
             if (_middlewares == null)
             {
                 Task pending;
-                if (!TryExecuteHandlerDirect(actionKey, entry, payload, out pending))
+                if (!TryExecuteHandlerDirect(actionKey, entry, payload, out pending, out var failure))
                 {
                     entry.IsRunning = false;
                     // The handler threw part-way and may have changed state: re-query CanExecute.
                     CanExecuteChanged?.Invoke(this, EventArgs.Empty);
-                    return Task.CompletedTask;
+                    return failure == null ? Task.CompletedTask : delivery.FailNow(failure);
                 }
-                return Complete(actionKey, entry, pending, context: null);
+                return Complete(actionKey, entry, pending, context: null, delivery);
             }
 
-            return DispatchThroughPipeline(actionKey, entry, payload);
+            return DispatchThroughPipeline(actionKey, entry, payload, delivery);
         }
 
-        private bool TryExecuteHandlerDirect(ViewAction actionKey, ActionHandlerEntry entry, object payload, out Task pending)
+        /// <param name="failure">The handler's exception to propagate; null for a cancellation.</param>
+        private bool TryExecuteHandlerDirect(ViewAction actionKey, ActionHandlerEntry entry, object payload, out Task pending,
+            out ExceptionDispatchInfo failure)
         {
             try
             {
                 pending = entry.Handler.Execute(payload, Lifetime);
+                failure = null;
                 return true;
+            }
+            catch (OperationCanceledException) when (Lifetime.IsCancellationRequested)
+            {
+                pending = null;
+                failure = null;
+                _logger.LogDebug("ViewActionDispatcher: {ActionKey} was cancelled because its owner was disposed", actionKey);
+                return false;
             }
             catch (Exception ex)
             {
                 pending = null;
                 LogHandlerFailure(actionKey, ex);
+                failure = ExceptionDispatchInfo.Capture(ex);
                 return false;
             }
         }
@@ -411,7 +480,7 @@ namespace WinformsMVP.MVP.ViewActions
         /// start (a middleware threw after calling next): the handler is still tracked to its end,
         /// but no ActionExecuted is raised.</param>
         private Task Complete(ViewAction actionKey, ActionHandlerEntry entry, Task pending, DispatchContext context,
-            bool succeeded = true)
+            Delivery delivery, bool succeeded = true)
         {
             if (pending == null)
             {
@@ -422,16 +491,46 @@ namespace WinformsMVP.MVP.ViewActions
 
             if (pending.IsCompleted)
             {
-                Finish(actionKey, entry, pending, context, succeeded);
-                return Task.CompletedTask;
+                var failure = Finish(actionKey, entry, pending, context, succeeded);
+                // !succeeded: the pipeline failed around this handler and reports its own failure.
+                return failure == null || !succeeded ? Task.CompletedTask : delivery.FailNow(failure);
             }
 
             CanExecuteChanged?.Invoke(this, EventArgs.Empty);   // the action is now running: disable it
-            return AwaitHandler(actionKey, entry, pending, context, succeeded);
+            var tracking = AwaitHandler(actionKey, entry, pending, context, succeeded);
+            if (delivery.Awaitable) return tracking;   // (!succeeded: it faults only for a subscriber's failure)
+
+            // Dispatch's caller has returned: a later failure goes to the dispatching context.
+            tracking.ContinueWith(t => delivery.FailLater(ExceptionDispatchInfo.Capture(t.Exception.InnerException)),
+                CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
+            return tracking;
         }
 
-        private async Task AwaitHandler(ViewAction actionKey, ActionHandlerEntry entry, Task pending, DispatchContext context,
+        /// <summary>
+        /// Completes when the handler has finished and been finished; faults with its failure (unless
+        /// <paramref name="succeeded"/> is false: the pipeline reports its own). Built on a
+        /// TaskCompletionSource so that a failure which is an OperationCanceledException still faults
+        /// the task instead of cancelling it.
+        /// </summary>
+        private Task AwaitHandler(ViewAction actionKey, ActionHandlerEntry entry, Task pending, DispatchContext context,
             bool succeeded)
+        {
+            var result = new TaskCompletionSource<bool>();
+            // FinishWhenDone never throws (it returns what failed), so the bridge always completes.
+            FinishWhenDone(actionKey, entry, pending, context, succeeded).ContinueWith(t =>
+            {
+                var (handlerFailure, subscriberFailure) = t.Status == TaskStatus.RanToCompletion ? t.Result : (null, null);
+                // A subscriber's failure always counts; the handler's is the pipeline's to report when it failed.
+                if (subscriberFailure != null) result.SetException(subscriberFailure.SourceException);
+                else if (handlerFailure != null && succeeded) result.SetException(handlerFailure.SourceException);
+                else result.SetResult(true);
+            }, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+            return result.Task;
+        }
+
+        private async Task<(ExceptionDispatchInfo Handler, ExceptionDispatchInfo Subscriber)> FinishWhenDone(
+            ViewAction actionKey, ActionHandlerEntry entry, Task pending, DispatchContext context, bool succeeded)
         {
             try
             {
@@ -441,10 +540,21 @@ namespace WinformsMVP.MVP.ViewActions
             {
                 // Observed and reported in Finish.
             }
-            Finish(actionKey, entry, pending, context, succeeded);
+            try
+            {
+                return (Finish(actionKey, entry, pending, context, succeeded), null);
+            }
+            catch (Exception ex)
+            {
+                // An ActionExecuted / CanExecuteChanged subscriber threw (even an OperationCanceledException):
+                // a failure of this dispatch, never a cancelled or pending task.
+                return (null, ExceptionDispatchInfo.Capture(ex));
+            }
         }
 
-        private void Finish(ViewAction actionKey, ActionHandlerEntry entry, Task completed, DispatchContext context,
+        /// <summary>Restores the action after its handler ended; returns the failure to propagate
+        /// (null for success and cancellation).</summary>
+        private ExceptionDispatchInfo Finish(ViewAction actionKey, ActionHandlerEntry entry, Task completed, DispatchContext context,
             bool succeeded)
         {
             entry.IsRunning = false;
@@ -454,11 +564,13 @@ namespace WinformsMVP.MVP.ViewActions
                 if (!succeeded)
                 {
                     CanExecuteChanged?.Invoke(this, EventArgs.Empty);
-                    return;
+                    return null;
                 }
                 ActionExecuted?.Invoke(this, new ActionExecutedEventArgs(actionKey));
-                return;
+                return null;
             }
+
+            ExceptionDispatchInfo failure = null;
 
             if (completed.IsCanceled && Lifetime.IsCancellationRequested)
             {
@@ -481,52 +593,77 @@ namespace WinformsMVP.MVP.ViewActions
                 {
                     LogHandlerFailure(actionKey, error);
                     if (context != null && context.Exception == null) context.Exception = error;
+                    failure = ExceptionDispatchInfo.Capture(error);
                 }
             }
 
             CanExecuteChanged?.Invoke(this, EventArgs.Empty);
+            return failure;
         }
 
-        private Task DispatchThroughPipeline(ViewAction actionKey, ActionHandlerEntry entry, object payload)
+        private Task DispatchThroughPipeline(ViewAction actionKey, ActionHandlerEntry entry, object payload, Delivery delivery)
         {
             // Compile once per dispatcher; invalidated by Use() calls.
             var pipeline = _compiledPipeline ?? (_compiledPipeline = CompilePipeline());
 
             var context = new DispatchContext(actionKey, payload, entry.PayloadType, entry.Handler, Lifetime);
 
+            ExceptionDispatchInfo thrown = null;
             try
             {
                 pipeline(context);
             }
+            catch (OperationCanceledException) when (Lifetime.IsCancellationRequested)
+            {
+                _logger.LogDebug("ViewActionDispatcher: {ActionKey} was cancelled because its owner was disposed", actionKey);
+            }
             catch (Exception ex)
             {
-                // Last-resort safety net: no middleware caught the exception.
-                // Equivalent to the fast path's behavior — log and swallow.
+                // No middleware caught the exception (or one threw its own).
                 LogHandlerFailure(actionKey, ex);
                 context.Exception = ex;
+                thrown = ExceptionDispatchInfo.Capture(ex);
             }
 
-            // Only continue if the handler ran (or started) AND no exception is recorded (either
-            // thrown and uncaught, or recorded by a middleware that chose to absorb it but flag it).
+            // Only an exception that escaped the pipeline propagates. A middleware that caught it has
+            // handled it (e.g. showed its own dialog); ctx.Exception stays a record for auditing.
+            var failure = thrown;
+
             if (context.HandlerExecuted && context.Exception == null)
             {
                 var completion = context.Completion;
                 return Complete(actionKey, entry,
-                    entry.Handler.IsAsync ? completion : null, context);
+                    entry.Handler.IsAsync ? completion : null, context, delivery);
             }
 
             // A middleware failed after an asynchronous handler started: keep tracking the handler
             // (it is still running, must stay disabled, and its own failure must be observed).
             if (context.HandlerExecuted && entry.Handler.IsAsync)
-                return Complete(actionKey, entry, context.Completion, context, succeeded: false);
+            {
+                var tracking = Complete(actionKey, entry, context.Completion, context, delivery, succeeded: false);
+                if (failure == null) return tracking;   // a middleware recorded a failure but handled it
+                return delivery.Awaitable ? AfterHandler(tracking, failure) : delivery.FailNow(failure);
+            }
 
             entry.IsRunning = false;
-            if (context.Exception != null)
+            if (failure != null || context.HandlerFailed)
             {
-                // Mirror the fast path: a failed handler may have changed state.
+                // Mirror the fast path: a failed handler may have changed state (also when handled).
                 CanExecuteChanged?.Invoke(this, EventArgs.Empty);
             }
-            return Task.CompletedTask;
+            return failure == null ? Task.CompletedTask : delivery.FailNow(failure);
+        }
+
+        /// <summary>DispatchAsync after a middleware failed around a started handler: fault with the
+        /// middleware's failure once the handler has finished.</summary>
+        private static Task AfterHandler(Task tracking, ExceptionDispatchInfo failure)
+        {
+            // Bridged like AwaitHandler, so an OperationCanceledException failure faults the task.
+            // The handler's own failure was logged; the pipeline's is the one reported.
+            var result = new TaskCompletionSource<bool>();
+            tracking.ContinueWith(_ => result.SetException(failure.SourceException),
+                CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+            return result.Task;
         }
 
         private DispatchDelegate CompilePipeline()
@@ -546,6 +683,7 @@ namespace WinformsMVP.MVP.ViewActions
                 catch (Exception ex)
                 {
                     ctx.Exception = ex;
+                    ctx.HandlerFailed = true;
                     throw;
                 }
                 ctx.HandlerExecuted = true;

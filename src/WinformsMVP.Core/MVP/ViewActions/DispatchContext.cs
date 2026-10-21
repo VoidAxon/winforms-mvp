@@ -60,6 +60,9 @@ namespace WinformsMVP.MVP.ViewActions
         /// </summary>
         public Exception Exception { get; set; }
 
+        /// <summary>The handler threw (even if a middleware then cleared <see cref="Exception"/>).</summary>
+        internal bool HandlerFailed { get; set; }
+
         internal IViewActionHandler Handler { get; }
 
         /// <summary>The token passed to an asynchronous handler (cancelled when the owner is disposed).</summary>

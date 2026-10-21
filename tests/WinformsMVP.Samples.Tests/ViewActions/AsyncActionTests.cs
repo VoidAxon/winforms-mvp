@@ -50,7 +50,7 @@ namespace WinformsMVP.Samples.Tests.ViewActions
         }
 
         [Fact]
-        public async Task AsyncHandler_FailureAfterAwait_IsLoggedAndReEnables()
+        public async Task AsyncHandler_FailureAfterAwait_IsLoggedReEnablesAndFaultsDispatchAsync()
         {
             var logger = new CapturingLogger();
             var dispatcher = new ViewActionDispatcher { Logger = logger };
@@ -62,7 +62,7 @@ namespace WinformsMVP.Samples.Tests.ViewActions
             });
             dispatcher.ActionExecuted += (s, e) => executed++;
 
-            await dispatcher.DispatchAsync(Save);          // does not fault
+            await Assert.ThrowsAsync<InvalidOperationException>(() => dispatcher.DispatchAsync(Save));
 
             Assert.True(dispatcher.CanDispatch(Save));
             Assert.Equal(0, executed);
@@ -122,8 +122,9 @@ namespace WinformsMVP.Samples.Tests.ViewActions
             Assert.Equal(1, runs);
 
             gate.SetResult(true);
-            await dispatch;
+            var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => dispatch);   // after the handler finished
 
+            Assert.Equal("audit failed", ex.Message);
             Assert.True(dispatcher.CanDispatch(Save));
             Assert.Equal(0, executed);                     // the dispatch failed overall
         }
