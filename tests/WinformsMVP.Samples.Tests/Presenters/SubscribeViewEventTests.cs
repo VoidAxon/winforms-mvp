@@ -58,12 +58,16 @@ namespace WinformsMVP.Samples.Tests.Presenters
                                                e => LastSearch = e.Text);
             }
 
-            // A test double's own forwarding to the protected helper (what a presenter's code would call).
-            public IDisposable Subscribe(Action<EventHandler> add, Action<EventHandler> remove, Action handler)
-                => SubscribeViewEvent(add, remove, handler);
+            // The test double's own calls to the protected helper (what a presenter's code would do).
+            // Delegate fields, not public methods: presenters keep no public methods (analyzer MVP006).
+            public readonly Func<Action<EventHandler>, Action<EventHandler>, Action, IDisposable> Subscribe;
+            public readonly Func<Action<EventHandler<SearchArgs>>, Action<EventHandler<SearchArgs>>, Action<SearchArgs>, IDisposable> SubscribeSearch;
 
-            public IDisposable Subscribe<T>(Action<EventHandler<T>> add, Action<EventHandler<T>> remove, Action<T> handler)
-                => SubscribeViewEvent(add, remove, handler);
+            public ListPresenter()
+            {
+                Subscribe = (add, remove, handler) => SubscribeViewEvent(add, remove, handler);
+                SubscribeSearch = (add, remove, handler) => SubscribeViewEvent(add, remove, handler);
+            }
 
             protected override void Cleanup() => DuringCleanup?.Invoke();
         }
@@ -145,7 +149,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
         public void HandlerException_Propagates()
         {
             var (presenter, view, _) = Start();
-            presenter.Subscribe<SearchArgs>(h => view.SearchRequested += h, h => view.SearchRequested -= h,
+            presenter.SubscribeSearch(h => view.SearchRequested += h, h => view.SearchRequested -= h,
                                             e => throw new InvalidOperationException("boom"));
 
             Assert.Throws<InvalidOperationException>(() => view.Search("x"));
