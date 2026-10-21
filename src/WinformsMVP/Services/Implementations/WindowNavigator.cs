@@ -60,8 +60,9 @@ namespace WinformsMVP.Services.Implementations
 
         /// <summary>
         /// Shows the presenter's window non-modally. With a <paramref name="keySelector"/>, a key
-        /// that already maps to an open window activates that window instead: the new presenter is
-        /// disposed and its <paramref name="onClosed"/> is never called.
+        /// that already maps to an open window of the same presenter type (runtime type) activates
+        /// that window instead: the new presenter is disposed and its <paramref name="onClosed"/> is
+        /// never called. Keys of different presenter types never collide.
         /// </summary>
         public IWindowView ShowWindow<TPresenter, TResult>(
             TPresenter presenter,
@@ -231,9 +232,11 @@ namespace WinformsMVP.Services.Implementations
         }
 
         /// <summary>
-        /// Singleton-per-key activation. If <paramref name="keySelector"/> yields a key already
-        /// mapped to a live form, that form is activated, the freshly created presenter is disposed,
-        /// and the existing view is returned (non-null). Otherwise returns null and outputs the key.
+        /// Singleton-per-key activation. Keys are scoped by the presenter's runtime type: the
+        /// registry key is (presenter type, selected key), so two screens that both use, say, a
+        /// record id never activate each other's window. If that key maps to a live form, the form
+        /// is activated, the freshly created presenter is disposed, and the existing view is
+        /// returned (non-null). Otherwise returns null and outputs the scoped key.
         /// </summary>
         private IWindowView TryActivateExisting<TPresenter>(
             TPresenter presenter, Func<TPresenter, object> keySelector, out object instanceKey)
@@ -242,8 +245,9 @@ namespace WinformsMVP.Services.Implementations
             instanceKey = null;
             if (keySelector == null) return null;
 
-            instanceKey = keySelector(presenter);
-            if (instanceKey == null) return null;
+            var key = keySelector(presenter);
+            if (key == null || presenter == null) return null;   // a null presenter is rejected by PrepareForm
+            instanceKey = (presenter.GetType(), key);
 
             lock (_lock)
             {

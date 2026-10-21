@@ -24,12 +24,12 @@ var picked = Navigator.For(new StaffPickerPresenter(_masters)).ShowAsModal<Staff
 Navigator.For(new CustomerEditPresenter(_repository))
          .WithParam(new CustomerEditParameters { CustomerId = id })
          .ShowWindow<int>(owner: View,
-             keySelector: _ => ("CustomerEdit", id),
+             keySelector: _ => id,
              onClosed: r => { if (r.IsOk) Reload(); });
 ```
 
 - モーダルは閉じるまで戻らず、`InteractionResult<T>` (`IsOk` / `IsCancelled` / `IsError`、`Value`) を返します。非モーダルはすぐ戻り、結果は `onClosed` で受け取ります。
-- `keySelector` が返すキーのウィンドウがすでに開いていれば、そのウィンドウをアクティブにします。このとき新しい Presenter は破棄され、その `onClosed` は登録されません。キーの表は全ウィンドウ共通なので、`("CustomerEdit", id)` のように画面の区別を含めてください。
+- `keySelector` が返すキーのウィンドウがすでに開いていれば、そのウィンドウをアクティブにします。このとき新しい Presenter は破棄され、その `onClosed` は登録されません。キーは Presenter の型ごとに分かれています (内部では `(Presenter の実行時の型, キー)`)。別の画面が同じレコード ID をキーにしても、互いのウィンドウを開いてしまうことはありません。同じ Presenter 型 + 同じキーのときだけ既存のウィンドウを使います (Presenter の派生クラスは別の型として扱われます)。
 - `owner` を渡すと、そのウィンドウに所属します (常に手前に表示され、オーナーと一緒に最小化・クローズされます。オーナーを閉じると、所属するウィンドウの `CanClose` が `ParentClosing` で呼ばれます)。
 
 `ShowWindowAsModal<TPresenter, TParam, TResult>(...)` などの直接呼び出し形式も同じ機能で、以下のリファレンスはこちらで説明しています。

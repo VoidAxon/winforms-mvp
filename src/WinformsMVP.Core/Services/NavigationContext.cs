@@ -56,10 +56,11 @@ namespace WinformsMVP.Services
         /// <summary>
         /// Shows the presenter as a non-modal window.
         /// </summary>
-        /// <param name="keySelector">Optional singleton key. When non-null and a window with
-        /// the same key is already open, that window is activated instead of creating a new
-        /// one. The lambda receives the strongly-typed presenter, so presenter properties can
-        /// be accessed without casts.</param>
+        /// <param name="keySelector">Optional singleton key. When non-null and a window of the
+        /// same presenter type (runtime type) with the same key is already open, that window is
+        /// activated instead of creating a new one; other presenter types keep their own keys. The
+        /// lambda receives the strongly-typed presenter, so presenter properties can be accessed
+        /// without casts.</param>
         public IWindowView ShowWindow(
             IWindowView owner = null,
             Func<TPresenter, object> keySelector = null)

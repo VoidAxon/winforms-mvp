@@ -8,6 +8,7 @@ using WinformsMVP.MVP.Presenters;
 using WinformsMVP.MVP.ViewActions;
 using WinformsMVP.MVP.Views;
 using WinformsMVP.Samples.Tests.Mocks;
+using WinformsMVP.Services;
 using WinformsMVP.Services.Implementations;
 using Xunit;
 using CloseReason = WinformsMVP.Common.CloseReason;
@@ -41,6 +42,16 @@ namespace WinformsMVP.Samples.Tests.Presenters
             public bool Initialized;
             protected override void OnViewAttached() { }
             protected override void OnInitialize(int parameters) => Initialized = true;
+            protected override void Cleanup() => Disposed = true;
+        }
+
+        /// <summary>Another screen on the same view type (its window keys are its own).</summary>
+        private sealed class OtherPresenter : WindowPresenterBase<IHardView>
+        {
+            public int InitCount;
+            public bool Disposed;
+            protected override void OnViewAttached() { }
+            protected override void OnInitialize() => InitCount++;
             protected override void Cleanup() => Disposed = true;
         }
 
@@ -244,6 +255,72 @@ namespace WinformsMVP.Samples.Tests.Presenters
                 Assert.True(inner.Disposed);
             }
             finally { ((Form)view).Close(); }
+        }
+
+        [Fact]
+        public void ShowWindow_SameKeyInAnotherPresenterType_OpensItsOwnWindow()
+        {
+            var navigator = NewNavigator();
+            var other = new OtherPresenter();
+            int editClosed = 0, otherClosed = 0;
+
+            var edit = navigator.ShowWindow<ScriptedPresenter, object>(new ScriptedPresenter(), keySelector: _ => 42, onClosed: _ => editClosed++);
+            var second = navigator.ShowWindow<OtherPresenter, object>(other, keySelector: _ => 42, onClosed: _ => otherClosed++);
+            try
+            {
+                Assert.NotSame(edit, second);
+                Assert.False(other.Disposed);
+                Assert.Equal(1, other.InitCount);
+            }
+            finally
+            {
+                ((Form)edit).Close();
+                ((Form)second).Close();
+            }
+            Assert.Equal(1, editClosed);
+            Assert.Equal(1, otherClosed);
+        }
+
+        [Fact]
+        public void ShowWindow_SameRuntimeType_ActivatesExisting_WhateverTheStaticType()
+        {
+            var navigator = NewNavigator();
+            var view = navigator.ShowWindow(new ScriptedPresenter(), keySelector: _ => 42);
+            var viaBase = new ScriptedPresenter();
+            var viaInterface = new ScriptedPresenter();
+            var viaFluent = new ScriptedPresenter();
+            var withParam = new ParamPresenter();
+            try
+            {
+                Assert.Same(view, navigator.ShowWindow<WindowPresenterBase<IHardView>>(viaBase, keySelector: _ => 42));
+                Assert.Same(view, navigator.ShowWindow<IPresenter>(viaInterface, keySelector: _ => 42));
+                Assert.Same(view, navigator.For(viaFluent).ShowWindow(keySelector: _ => 42));
+                Assert.True(viaBase.Disposed);
+                Assert.True(viaInterface.Disposed);
+                Assert.True(viaFluent.Disposed);
+
+                var paramView = navigator.ShowWindow(withParam, 7, keySelector: _ => 42);   // another type: its own window
+                try { Assert.NotSame(view, paramView); }
+                finally { ((Form)paramView).Close(); }
+            }
+            finally { ((Form)view).Close(); }
+        }
+
+        [Fact]
+        public void ShowWindow_ClosingOneScreensWindow_KeepsTheOtherScreensKey()
+        {
+            var navigator = NewNavigator();
+            var edit = navigator.ShowWindow(new ScriptedPresenter(), keySelector: _ => 42);
+            var other = navigator.ShowWindow(new OtherPresenter(), keySelector: _ => 42);
+            ((Form)other).Close();
+
+            var again = new ScriptedPresenter();
+            try
+            {
+                Assert.Same(edit, navigator.ShowWindow(again, keySelector: _ => 42));
+                Assert.True(again.Disposed);
+            }
+            finally { ((Form)edit).Close(); }
         }
 
         [Fact]
