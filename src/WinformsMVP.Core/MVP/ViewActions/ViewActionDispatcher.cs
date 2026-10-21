@@ -492,12 +492,13 @@ namespace WinformsMVP.MVP.ViewActions
             if (pending.IsCompleted)
             {
                 var failure = Finish(actionKey, entry, pending, context, succeeded);
-                return failure == null ? Task.CompletedTask : delivery.FailNow(failure);
+                // !succeeded: the pipeline failed around this handler and reports its own failure.
+                return failure == null || !succeeded ? Task.CompletedTask : delivery.FailNow(failure);
             }
 
             CanExecuteChanged?.Invoke(this, EventArgs.Empty);   // the action is now running: disable it
             var tracking = AwaitHandler(actionKey, entry, pending, context, succeeded);
-            if (delivery.Awaitable) return tracking;
+            if (delivery.Awaitable || !succeeded) return tracking;
 
             // Dispatch's caller has returned: a later failure goes to the dispatching context.
             tracking.ContinueWith(t => delivery.FailLater(ExceptionDispatchInfo.Capture(t.Exception.InnerException)),
@@ -506,9 +507,27 @@ namespace WinformsMVP.MVP.ViewActions
             return tracking;
         }
 
-        /// <summary>Completes when the handler has finished and been finished; faults with its failure.</summary>
-        private async Task AwaitHandler(ViewAction actionKey, ActionHandlerEntry entry, Task pending, DispatchContext context,
+        /// <summary>
+        /// Completes when the handler has finished and been finished; faults with its failure (unless
+        /// <paramref name="succeeded"/> is false: the pipeline reports its own). Built on a
+        /// TaskCompletionSource so that a failure which is an OperationCanceledException still faults
+        /// the task instead of cancelling it.
+        /// </summary>
+        private Task AwaitHandler(ViewAction actionKey, ActionHandlerEntry entry, Task pending, DispatchContext context,
             bool succeeded)
+        {
+            var result = new TaskCompletionSource<bool>();
+            FinishWhenDone(actionKey, entry, pending, context, succeeded).ContinueWith(t =>
+            {
+                if (t.IsFaulted) result.SetException(t.Exception.InnerException);   // Finish itself threw
+                else if (t.Result != null && succeeded) result.SetException(t.Result.SourceException);
+                else result.SetResult(true);
+            }, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+            return result.Task;
+        }
+
+        private async Task<ExceptionDispatchInfo> FinishWhenDone(ViewAction actionKey, ActionHandlerEntry entry, Task pending,
+            DispatchContext context, bool succeeded)
         {
             try
             {
@@ -518,7 +537,7 @@ namespace WinformsMVP.MVP.ViewActions
             {
                 // Observed and reported in Finish.
             }
-            Finish(actionKey, entry, pending, context, succeeded)?.Throw();
+            return Finish(actionKey, entry, pending, context, succeeded);
         }
 
         /// <summary>Restores the action after its handler ended; returns the failure to propagate

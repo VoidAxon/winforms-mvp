@@ -229,6 +229,52 @@ namespace WinformsMVP.Samples.Tests.ViewActions
             Assert.True(dispatcher.CanDispatch(Save));
         }
 
+        // ---- edge cases ----
+
+        [Fact]
+        public async Task MiddlewareThrowsAfterAnAlreadyFaultedHandler_ItsExceptionPropagates_OnBothApis()
+        {
+            var (dispatcher, _) = NewDispatcher();
+            dispatcher.Use((ctx, next) => { next(ctx); throw new ApplicationException("middleware"); });
+            dispatcher.Register(Save, () => Task.FromException(new InvalidOperationException("handler")));
+
+            Assert.Throws<ApplicationException>(() => dispatcher.Dispatch(Save));
+            await Assert.ThrowsAsync<ApplicationException>(() => dispatcher.DispatchAsync(Save));
+            Assert.True(dispatcher.CanDispatch(Save));
+        }
+
+        [Fact]
+        public async Task DispatchAsync_HandlerFaultedLaterWithOperationCanceled_Faults()
+        {
+            // An OperationCanceledException that is not the owner's disposal is a failure, not a cancellation.
+            var (dispatcher, _) = NewDispatcher();
+            var handler = new TaskCompletionSource<bool>();
+            dispatcher.Register(Save, () => (Task)handler.Task);
+
+            var task = dispatcher.DispatchAsync(Save);
+            handler.SetException(new OperationCanceledException("timeout"));
+
+            await Assert.ThrowsAsync<OperationCanceledException>(() => task);
+            Assert.True(task.IsFaulted);
+        }
+
+        [Fact]
+        public void Dispatch_HandlerFaultedLaterWithOperationCanceled_IsPosted()
+        {
+            var (dispatcher, _) = NewDispatcher();
+            var handler = new TaskCompletionSource<bool>();
+            dispatcher.Register(Save, () => (Task)handler.Task);
+            var context = new QueueContext();
+
+            var previous = SynchronizationContext.Current;
+            SynchronizationContext.SetSynchronizationContext(context);
+            try { dispatcher.Dispatch(Save); }
+            finally { SynchronizationContext.SetSynchronizationContext(previous); }
+
+            handler.SetException(new OperationCanceledException("timeout"));
+            Assert.IsType<OperationCanceledException>(Assert.Single(context.Pump()));
+        }
+
         // ---- unchanged: CanExecute failures stay diagnostic ----
 
         [Fact]
