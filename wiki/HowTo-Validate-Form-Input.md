@@ -23,6 +23,7 @@
   - [4. Presenter: Validate / Check / Reset](#4-presenter-validate--check--reset)
   - [エラーが表示されるタイミング](#エラーが表示されるタイミング)
   - [送信ボタンは無効化しない](#送信ボタンは無効化しない)
+  - [送信に失敗したとき: メッセージ + アイコン + フォーカス](#送信に失敗したとき-メッセージ--アイコン--フォーカス)
   - [Presenter のルール: SetError / ClearError](#presenter-のルール-seterror--clearerror)
   - [ValidationState API](#validationstate-api)
 - [クロスフィールド検証の注意点](#クロスフィールド検証の注意点)
@@ -229,6 +230,44 @@ private void OnSave()
 
 `Validation.HasErrors` (表示済みかどうかに関係なく、どれかのルールが失敗していれば `true`) は読めますが、送信の `canExecute` には使いません。検証以外の条件 (変更があるか、処理中か等) で `canExecute` を使うのは問題ありません。`Validation` が変わるたびに `canExecute` は自動で再評価されます。
 
+### 送信に失敗したとき: メッセージ + アイコン + フォーカス
+
+推奨は **メッセージボックスで最初のエラーを知らせ、閉じたらその項目にフォーカスを移す** 書き方です。アイコンだけでは、ボタンを押しても何も起きなかったように見えます (WinForms の業務画面の慣習にも合います)。
+
+Presenter — 画面の並び順を渡して `ErrorsInOrder` で取り出します:
+
+```csharp
+private static readonly string[] FieldOrder =
+{
+    nameof(RegistrationModel.UserName), nameof(RegistrationModel.Email),
+    nameof(RegistrationModel.Password), nameof(RegistrationModel.ConfirmPassword), nameof(RegistrationModel.Age),
+};
+
+private void OnSubmit()
+{
+    var model = ReadModel();
+    if (!Validation.Check(model))                 // アイコンは全項目に出る
+    {
+        var first = Validation.ErrorsInOrder(FieldOrder)[0];
+        Messages.ShowWarning(first.Message);      // 閉じるまで戻らない
+        View.FocusError(first.Field);             // どのコントロールかは Form が決める
+        return;
+    }
+    // ...
+}
+```
+
+Form — `FocusError` は表示部品の対応付けをそのまま使います:
+
+```csharp
+void IRegistrationView.FocusError(string field) => _errors.TryFocusError(field);
+```
+
+- `ErrorsInOrder(fieldOrder)` は **すべての** エラーを (項目, メッセージ) の並びで返します。並び順にない項目は名前順で後ろに、`FormLevel` は最後に付くので、`Check` が `false` なら `[0]` は必ずあります (フォームレベルのエラーだけのときも黙りません)。全部を一覧で出すなら `string.Join(Environment.NewLine, errors.Select(e => e.Message))`。
+- `TryFocusError(field)` はマップしたコントロールを含む `TabPage` を選んでからフォーカスします。`FormLevel`・未マップ・無効なコントロールでは何もせず `false` を返します。折りたたみパネルや独自のタブなどは Form 側で開いてから呼びます。
+- フォーカスは **メッセージを閉じた後** に移します。`ShowErrors` (入力のたびに呼ばれる) で自動的に動かすと、入力中にカーソルを奪うことになります。
+- アイコンだけで済ませる画面は、`if (!Validation.Check(model)) return;` のままで構いません。
+
 ### Presenter のルール: SetError / ClearError
 
 Model の属性で表せないルール (DB での重複チェック、外部サービス、画面状態に依存する条件) は Presenter から追加します。Model のエラーと同じフィールド名で合成され、同じタイミングで表示されます。
@@ -261,6 +300,7 @@ private void CheckUserNameAvailable(RegistrationModel model)
 | `HasErrors` | どれかのルールが失敗していれば `true` (表示の有無とは無関係) |
 | `RevealAll` | `Check` / `ShowAll` 後、`Reset` まで `true` |
 | `Errors` / `GetErrors(field)` | 現在のエラー (フィールド名 → メッセージ一覧。Model のルールが先、Presenter のルールが後) |
+| `ErrorsInOrder(params fieldOrder)` | 全エラーを画面の順の (項目, メッセージ) で返す。並び順にない項目は名前順で後ろ、`FormLevel` は最後 (並び順に入れればその位置)。スナップショット |
 | `FormLevel` | フィールドに属さないエラーのキー (`""`) |
 | `ErrorsChanged` / `WasReset` | 変更通知 (フレームワークが View への接続に使う) |
 

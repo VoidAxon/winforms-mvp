@@ -146,16 +146,20 @@ private bool TrySave()
     if (Validation.HasErrors)
     {
         // 画面の順で最初のエラー。並び順にない項目やフォームレベルのエラー
-        // (.NET Framework の [Compare] など) だけのときも、何か 1 つは必ず出す
-        var field = FieldOrder.FirstOrDefault(f => Validation.GetErrors(f).Count > 0)
-                    ?? Validation.Errors.Keys.First();
-        Messages.ShowWarning(Validation.GetErrors(field)[0]);
-        if (field != ValidationState.FormLevel)
-            View.FocusError(field);       // どのコントロールかは Form が決める
+        // (.NET Framework の [Compare] など) も後ろに付くので、何か 1 つは必ず出る
+        var first = Validation.ErrorsInOrder(FieldOrder)[0];
+        Messages.ShowWarning(first.Message);
+        View.FocusError(first.Field);     // どのコントロールかは Form が決める
         return false;
     }
     ...
 }
+```
+
+Form 側は、エラー表示の対応付けでそのままフォーカスを移せます (タブページも選ばれます。`FormLevel` や未マップの項目では何もしません):
+
+```csharp
+void ICustomerEditView.FocusError(string field) => _errors.TryFocusError(field);
 ```
 
 「登録」ボタンはエラー中も有効のままにします (押したときに未訪問の項目のエラーを見せるため)。

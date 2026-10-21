@@ -62,6 +62,35 @@ namespace WinformsMVP.Common.Validation.Core
         }
 
         /// <summary>
+        /// Every current error as (field, message) pairs in the screen's order, for a failed submit:
+        /// show the first message and move the focus to its field (or list them all).
+        /// </summary>
+        /// <param name="fieldOrder">
+        /// Field names in the order they appear on the screen. Their errors come first; names
+        /// without errors and repeats are ignored. Errors of other fields follow by field name
+        /// (ordinal), then <see cref="FormLevel"/> unless it is listed. No error is ever left out,
+        /// so a failed submit always has a message to show.
+        /// </param>
+        /// <returns>A snapshot; within a field, model rules come before presenter rules.</returns>
+        public IReadOnlyList<(string Field, string Message)> ErrorsInOrder(params string[] fieldOrder)
+        {
+            if (fieldOrder == null) throw new ArgumentNullException(nameof(fieldOrder));
+            if (fieldOrder.Any(f => f == null)) throw new ArgumentNullException(nameof(fieldOrder), "A field name is null.");
+
+            var unlisted = _modelErrors.Keys.Concat(_customErrors.Keys)
+                .Where(f => f != FormLevel)
+                .Except(fieldOrder, StringComparer.Ordinal)
+                .OrderBy(f => f, StringComparer.Ordinal);
+            var order = fieldOrder.Concat(unlisted).Concat(new[] { FormLevel }).Distinct(StringComparer.Ordinal);
+
+            var result = new List<(string Field, string Message)>();
+            foreach (var field in order)
+                foreach (var message in GetErrors(field))
+                    result.Add((field, message));
+            return result;
+        }
+
+        /// <summary>
         /// Re-runs the model's DataAnnotations rules (including class-level attributes and
         /// <c>IValidatableObject</c>) and replaces the errors they produced. Errors set with
         /// <see cref="SetError"/> are kept.
