@@ -244,7 +244,7 @@ namespace WinformsMVP.Samples.Tests.ViewActions
         // ----- Exception handling -----
 
         [Fact]
-        public void Handler_Throws_NoMiddlewareCatches_BuiltinSafetyNetLogsAndSwallows()
+        public void Handler_Throws_NoMiddlewareCatches_LogsAndPropagates()
         {
             var dispatcher = new ViewActionDispatcher();
             var logger = new CapturingLogger();
@@ -256,7 +256,7 @@ namespace WinformsMVP.Samples.Tests.ViewActions
 
             var ex = Record.Exception(() => dispatcher.Dispatch(TestAction));
 
-            Assert.Null(ex);
+            Assert.IsType<InvalidOperationException>(ex);
             Assert.Single(logger.Entries);
             Assert.Equal(LogLevel.Error, logger.Entries[0].Level);
             Assert.IsType<InvalidOperationException>(logger.Entries[0].Exception);
@@ -274,7 +274,7 @@ namespace WinformsMVP.Samples.Tests.ViewActions
                 catch (Exception ex)
                 {
                     caughtByMiddleware = ex;
-                    ctx.Exception = ex; // mark as handled
+                    ctx.Exception = ex; // caught = handled; ctx.Exception stays a record
                 }
             });
 
@@ -342,7 +342,7 @@ namespace WinformsMVP.Samples.Tests.ViewActions
             }
 
             dispatcher.Register(TestAction, () => throw new InvalidOperationException("boom"));
-            dispatcher.Dispatch(TestAction);
+            Assert.Throws<InvalidOperationException>(() => dispatcher.Dispatch(TestAction));
 
             Assert.Single(logger.Entries);
             Assert.Equal(LogLevel.Error, logger.Entries[0].Level);

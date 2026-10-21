@@ -88,7 +88,7 @@ namespace WinformsMVP.Samples.Tests.ViewActions
         }
 
         [Fact]
-        public void Strict_HandlerThrows_IsStillCaughtAndDoesNotEscape()
+        public void Strict_HandlerThrows_PropagatesLikeInNormalMode()
         {
             var entered = false;
             var dispatcher = new ViewActionDispatcher { ValidationMode = DispatchValidationMode.Strict };
@@ -98,9 +98,9 @@ namespace WinformsMVP.Samples.Tests.ViewActions
                 throw new InvalidOperationException("boom");
             });
 
-            // Strict mode targets misconfiguration, NOT handler bugs: the handler exception is
-            // still caught and logged (centralized error handling), so it must not escape.
-            dispatcher.Dispatch(Action);
+            // Strict mode targets misconfiguration, NOT handler bugs: a handler exception is logged
+            // and propagates exactly as in the default mode (to Application.ThreadException).
+            Assert.Throws<InvalidOperationException>(() => dispatcher.Dispatch(Action));
 
             Assert.True(entered);
         }

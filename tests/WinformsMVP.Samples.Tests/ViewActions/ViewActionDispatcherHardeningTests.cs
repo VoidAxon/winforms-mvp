@@ -39,10 +39,10 @@ namespace WinformsMVP.Samples.Tests.ViewActions
             Assert.NotSame(capture, dispatcher.Logger);
         }
 
-        // ----- Handler exceptions are caught and logged -----
+        // ----- Handler exceptions are logged, then propagate -----
 
         [Fact]
-        public void Dispatch_HandlerThrows_LogsErrorAndSuppressesActionExecuted()
+        public void Dispatch_HandlerThrows_LogsErrorSuppressesActionExecutedAndPropagates()
         {
             var dispatcher = new ViewActionDispatcher();
             var logger = new CapturingLogger();
@@ -55,7 +55,7 @@ namespace WinformsMVP.Samples.Tests.ViewActions
 
             var ex = Record.Exception(() => dispatcher.Dispatch(TestAction));
 
-            Assert.Null(ex);
+            Assert.IsType<InvalidOperationException>(ex);
             Assert.False(actionExecutedRaised);
             Assert.Single(logger.Entries);
             Assert.Equal(LogLevel.Error, logger.Entries[0].Level);
