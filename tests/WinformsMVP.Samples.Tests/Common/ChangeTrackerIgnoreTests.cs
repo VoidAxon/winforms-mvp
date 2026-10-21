@@ -36,8 +36,8 @@ namespace WinformsMVP.Samples.Tests.Common
             public int Total => Lines.Count;   // computed: no field
         }
 
-        // Hand-written backing fields, as with BindableBase.SetProperty(ref _name, value).
-        public class Bindable
+        // Hand-written backing fields, as with NotifyingObject.SetProperty(ref _name, value).
+        public class BackedFields
         {
             private string _name;
             private int m_count;
@@ -120,18 +120,18 @@ namespace WinformsMVP.Samples.Tests.Common
         [Fact]
         public void Ignore_HandWrittenBackingField_IsFoundByConvention()
         {
-            var tracker = new ChangeTracker<Bindable>(new Bindable { Name = "a", Count = 1 })
+            var tracker = new ChangeTracker<BackedFields>(new BackedFields { Name = "a", Count = 1 })
                 .Ignore(x => x.Name, x => x.Count);
 
-            Assert.False(tracker.IsChangedWith(new Bindable { Name = "b", Count = 2 }));
+            Assert.False(tracker.IsChangedWith(new BackedFields { Name = "b", Count = 2 }));
         }
 
         [Fact]
         public void IgnoreMember_MatchesHandWrittenBackingFields()
         {
-            var tracker = new ChangeTracker<Bindable>(new Bindable { Name = "a" }).IgnoreMember("Name");
+            var tracker = new ChangeTracker<BackedFields>(new BackedFields { Name = "a" }).IgnoreMember("Name");
 
-            Assert.False(tracker.IsChangedWith(new Bindable { Name = "b" }));
+            Assert.False(tracker.IsChangedWith(new BackedFields { Name = "b" }));
         }
 
         [Fact]

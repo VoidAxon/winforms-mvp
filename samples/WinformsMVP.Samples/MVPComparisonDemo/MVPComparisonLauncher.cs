@@ -126,7 +126,7 @@ namespace WinformsMVP.Samples.MVPComparisonDemo
             var supervisingDesc = new Label
             {
                 Text = "Characteristics:\n\n" +
-                       "✓ Uses BindableBase (INotifyPropertyChanged)\n\n" +
+                       "✓ Uses NotifyingObject (INotifyPropertyChanged)\n\n" +
                        "✓ Automatic data binding\n\n" +
                        "✓ Less boilerplate code\n\n" +
                        "✓ Automatic UI synchronization\n\n" +

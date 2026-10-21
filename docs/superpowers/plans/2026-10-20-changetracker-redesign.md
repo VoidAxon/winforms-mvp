@@ -127,6 +127,6 @@
 - [ ] **Step 4: 提交** — `docs/samples: ChangeTracker detection-only API, two usage styles`；`codex review`。
 - [ ] **Step 5: 使用指南 Artifact**（`action: "read"` 取回线上版本后修改，中日两种语言都改）：
   - 第 3 步与"变更追踪"一节改为新 API，两种写法各一个例子（写法 1：`IsChanged` / `AcceptChanges()`；写法 2：`IsChangedWith(x)` / `AcceptChanges(x)`），注明写法 2 不要用无参 `AcceptChanges()`。
-  - 新增一节"选择被动视图还是监督控制器"：Fowler / 微软 p&p 的分工（简单同步交给数据绑定、Presenter 负责操作和复杂画面逻辑）、取舍对比表、与本框架功能的对应表；同一个"客户编辑"画面分别写两种模式的 View 接口 / Form / Presenter（监督控制器版：`void ShowCustomer(Customer)` + `textBox.Bind(model, x => x.Name)`，Model 继承 `BindableBase`，ChangeTracker 写法 1，`Validation.Validate(_customer)`）；注明"五步做对话框"用的是被动视图。注明数据绑定现有的限制（类型转换失败没有提示）。
+  - 新增一节"选择被动视图还是监督控制器"：Fowler / 微软 p&p 的分工（简单同步交给数据绑定、Presenter 负责操作和复杂画面逻辑）、取舍对比表、与本框架功能的对应表；同一个"客户编辑"画面分别写两种模式的 View 接口 / Form / Presenter（监督控制器版：`void ShowCustomer(Customer)` + `textBox.Bind(model, x => x.Name)`，Model 继承 `NotifyingObject`，ChangeTracker 写法 1，`Validation.Validate(_customer)`）；注明"五步做对话框"用的是被动视图。注明数据绑定现有的限制（类型转换失败没有提示）。
   - ViewAction 一节新增"第三方控件（C1 Input 等）"：未注册时退回 `Control.Click`；用 `RegisterStrategy<T>(attach, detach)` 注册值变化事件，非 `EventHandler` 事件用 `RegisterStrategy<T>(Func<T, Delegate, Action>)`；`Add(action, control, c => 值)` 带值；`canExecute` 的可用切换对所有 `Control` 有效；建议应用里写 `AppActionBinder : ViewActionBinder` 在构造函数集中注册。C1 的事件名注明"以所用版本的文档为准"（经典 `C1.Win.C1Input` 为 `ValueChanged`）。
   - 目录加入新的两节；发布到原链接。

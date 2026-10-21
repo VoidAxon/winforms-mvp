@@ -4,7 +4,12 @@ using System.Runtime.CompilerServices;
 
 namespace WinformsMVP.MVP.Models
 {
-    public class BindableBase : INotifyPropertyChanged
+    /// <summary>
+    /// Base class for a model that raises <see cref="PropertyChanged"/> when a property changes — typically a
+    /// screen's input model, which the form binds to (Supervising Controller). Write each property as
+    /// <c>set => SetProperty(ref _field, value)</c>. Not thread-safe: change it on the UI thread.
+    /// </summary>
+    public class NotifyingObject : INotifyPropertyChanged
     {
         public event PropertyChangedEventHandler PropertyChanged;
 

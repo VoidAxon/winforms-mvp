@@ -90,14 +90,14 @@ public class UserModel : INotifyPropertyChanged
 
 C# 8.0+ の場合は record や `INotifyPropertyChanged` 自動生成ライブラリ ([Fody](https://github.com/Fody/PropertyChanged)、[CommunityToolkit.Mvvm](https://github.com/CommunityToolkit/dotnet)) と併用すると省力化できます。
 
-### フレームワーク提供の `BindableBase`
+### フレームワーク提供の `NotifyingObject`
 
-繰り返しの `INotifyPropertyChanged` 実装を省くため、フレームワークは `BindableBase` 基底クラスを提供します (`WinformsMVP.MVP.Models` 名前空間)。
+繰り返しの `INotifyPropertyChanged` 実装を省くため、フレームワークは `NotifyingObject` 基底クラスを提供します (`WinformsMVP.MVP.Models` 名前空間)。
 
 ```csharp
 using WinformsMVP.MVP.Models;
 
-public class UserModel : BindableBase
+public class UserModel : NotifyingObject
 {
     private string _name;
     public string Name
@@ -423,7 +423,7 @@ using WinformsMVP.MVP.Models;
 
 public enum Priority { Low, Medium, High }
 
-public class TaskModel : BindableBase
+public class TaskModel : NotifyingObject
 {
     private Priority _priority;
     public Priority Priority
@@ -470,7 +470,7 @@ pairs.BindRadioGroup(model, m => m.Priority);   // 戻り値 IDisposable は任�
 ### 注意点
 
 - **書き戻しのタイミング**: `Bind()` は `OnPropertyChanged` (入力のたび)。数値の入力途中 (`"1,"` など) も変換を試みます。`OnValidation` にすると、フォーカスを離れるまでモデルは古い値なので、保存ボタンの前に確定させる設計が必要です。
-- **スレッド**: バインドしたモデルは UI スレッドで変更します (`BindableBase` はスレッド切り替えをしません)。
+- **スレッド**: バインドしたモデルは UI スレッドで変更します (`NotifyingObject` はスレッド切り替えをしません)。
 - **サードパーティ製コントロール**: バインドするプロパティ名と、値が変わったときの通知 (`XxxChanged` イベント) があるかを、使うバージョンで確認します (次節)。
 
 ### 自作・他社製コントロール

@@ -9,14 +9,14 @@ namespace WinformsMVP.Samples.MVPComparisonDemo.SupervisingController
     /// User model for Supervising Controller pattern.
     ///
     /// In Supervising Controller:
-    /// - Model inherits from BindableBase (implements INotifyPropertyChanged)
+    /// - Model inherits from NotifyingObject (implements INotifyPropertyChanged)
     /// - Model contains business data and simple validation
     /// - View can bind directly to the model
     /// - Presenter focuses on complex logic and coordination
     ///
     /// This reduces boilerplate code for simple property synchronization.
     /// </summary>
-    public class UserModel : BindableBase, ICloneable
+    public class UserModel : NotifyingObject, ICloneable
     {
         private string _name;
         private string _email;

@@ -6,7 +6,7 @@ namespace WinformsMVP.Samples.EmailDemo
     /// ViewModel for compose email form
     /// Demonstrates Supervising Controller pattern with data binding
     /// </summary>
-    public class ComposeEmailViewModel : BindableBase
+    public class ComposeEmailViewModel : NotifyingObject
     {
         private string _to;
         private string _subject;
