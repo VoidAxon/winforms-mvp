@@ -92,6 +92,7 @@
 ### Documentation (ドキュメント)
 
 - Navigator は流れるような書き方 (`Navigator.For(p).WithParam(x).ShowAsModal<TResult>()` / `.ShowWindow<TResult>(owner:, keySelector:, onClosed:)`) を最初に案内する。Wiki に [大きな編集画面を作る](wiki/HowTo-Build-Large-Edit-Screen.md) (Supervising Controller: バインドする入力モデル + 明示的な View メンバー、コントロールごとの注意点、登録失敗時のメッセージとフォーカス、変更検出と閉じる、テスト、Passive View + DTO の代案) を追加。
+- アプリに基底 Form があるなら `ViewActionBinder` をそこに置く書き方を案内 (`protected ViewActionBinder Binder` + `IActionableView.ActionBinder` の明示的実装。各画面は `Binder.Add(...)` だけ)。フレームワークは基底 Form を提供しない (単一継承のため)。あわせて、View インターフェイスで `ViewActionBinder ActionBinder { get; }` を宣言し直し、Form で `public ViewActionBinder ActionBinder` と書いていたコード例 (README・wiki、コンパイルできない) を、継承された `IViewActionBinder ActionBinder` に合わせて修正。
 - 画面の Actions クラスは `ViewAction.Factory.WithQualifier("Screen")` + `Factory.Create(nameof(Save))` で書く形を推奨 (プレフィックスは 1 回、名前は `nameof`)。`ViewAction.Create("Scope.Name")` は単発のキー用。テンプレート (`winformsmvp` / `mvp-window` / `mvp-control` / `winformsmvp-tests`) の Actions クラスもこの形に変更 (既存 API のみ、古い `--mvp-version` でもコンパイル可)。
 
 ### Removed (削除)

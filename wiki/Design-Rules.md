@@ -256,7 +256,7 @@ public class MyForm : Form, IMyView
         set => _nameTextBox.Text = value;
     }
 
-    public ViewActionBinder ActionBinder { get; private set; }
+    public IViewActionBinder ActionBinder { get; } = new ViewActionBinder();
 }
 ```
 

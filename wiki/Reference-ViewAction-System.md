@@ -76,7 +76,7 @@ public static class UserEditorActions
 
 プレフィックス (画面名) は 1 回だけ書き、名前は `nameof` で付けます。文字列の重複がなく、1 つだけ画面名を書き間違えることもありません。
 
-### Step 2: View インターフェイスで `ActionBinder` を公開する
+### Step 2: View インターフェイスを定義する
 
 ```csharp
 public interface IUserEditorView : IWindowView
@@ -85,6 +85,8 @@ public interface IUserEditorView : IWindowView
     bool HasSelectedUser { get; }
 }
 ```
+
+`ActionBinder` (`IViewActionBinder`) は `IWindowView` (`IActionableView`) から継承されるので、View インターフェイスに書き直しません。
 
 ### Step 3: Form 内部で `ViewActionBinder` を構成する
 
@@ -95,7 +97,7 @@ public class UserEditorForm : Form, IUserEditorView
     private Button _btnDelete;
     private ViewActionBinder _binder;
 
-    public ViewActionBinder ActionBinder => _binder;
+    public IViewActionBinder ActionBinder => _binder;
 
     public UserEditorForm()
     {
@@ -114,6 +116,36 @@ public class UserEditorForm : Form, IUserEditorView
     // ... プロパティ実装
 }
 ```
+
+### アプリに基底 Form があるとき: Binder を基底クラスに置く
+
+画面ごとに `new ViewActionBinder()` と `ActionBinder` の実装を書くのが煩わしければ、アプリの**既存の基底 Form** に 2 行足します。
+
+```csharp
+public class AppForm : Form, IActionableView   // アプリが既に持っている基底 Form (PoisonForm 等の派生でもよい)
+{
+    // ... 既存のコード ...
+
+    protected ViewActionBinder Binder { get; } = new ViewActionBinder();
+    IViewActionBinder IActionableView.ActionBinder => Binder;
+}
+
+public partial class UserEditorForm : AppForm, IUserEditorView
+{
+    public UserEditorForm()
+    {
+        InitializeComponent();
+        Binder.Add(UserEditorActions.Save,   _btnSave);    // new も ActionBinder の実装も不要
+        Binder.Add(UserEditorActions.Delete, _btnDelete);
+    }
+}
+```
+
+- `IUserEditorView` が `IWindowView` 経由で要求する `ActionBinder` には、基底クラスの明示的実装がそのまま使われます。
+- `Binder` は `protected` なので View インターフェイスには現れず、WFO1000 (公開プロパティの `DesignerSerializationVisibility`) も出ません。
+- Explicit パターン (後述) の画面は、基底クラスを使わずに `ActionBinder => null` を自分で書きます。
+
+フレームワークは基底 Form を提供しません。C# は単一継承なので、PoisonForm・XtraForm などのサードパーティ Form や、レガシーアプリが既に持っている基底 Form と両立できなくなるためです。この 2 行はアプリ側の基底クラスに置いてください。
 
 ### Step 4: Presenter でハンドラを登録する
 
@@ -634,7 +666,7 @@ View が `ActionRequest` イベントを明示的に発火し、Presenter が明
 
 ```csharp
 // View 側
-public ViewActionBinder ActionBinder => null;  // ← 自動 Bind を抑止
+public IViewActionBinder ActionBinder => null;  // ← 自動 Bind を抑止
 
 public event EventHandler<ActionRequestEventArgs> ActionRequest;
 

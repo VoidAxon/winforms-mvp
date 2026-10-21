@@ -195,7 +195,6 @@ public interface IUserEditorView : IWindowView
 {
     string UserName { get; set; }
     string Email { get; set; }
-    ViewActionBinder ActionBinder { get; }
 }
 
 // Presenter (WinForms 知識ゼロ・テスト可能)
