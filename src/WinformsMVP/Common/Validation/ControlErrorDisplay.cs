@@ -58,6 +58,31 @@ namespace WinformsMVP.Common.Validation
         /// <inheritdoc />
         public void Reset() => _visited.Clear();
 
+        /// <summary>
+        /// Moves the focus to the control mapped to <paramref name="field"/>, first selecting the
+        /// <see cref="TabPage"/>s that hold it. Call it after the error message was dismissed, e.g.
+        /// from a view method <c>FocusError(field)</c> that the presenter calls on a failed submit.
+        /// </summary>
+        /// <returns>
+        /// False, without changing the focus, for <see cref="ValidationState.FormLevel"/>, an
+        /// unmapped field or a disabled control; false also when the control cannot take the focus
+        /// (e.g. hidden). Other containers (a collapsed panel, a custom tab control) are the form's
+        /// to open before calling this.
+        /// </returns>
+        public bool TryFocusError(string field)
+        {
+            if (field == null) throw new ArgumentNullException(nameof(field));
+            if (field == ValidationState.FormLevel || !_controls.TryGetValue(field, out var control) || !control.Enabled)
+                return false;
+
+            for (var child = control; child.Parent != null; child = child.Parent)
+            {
+                if (child is TabPage page && child.Parent is TabControl tabs && tabs.SelectedTab != page)
+                    tabs.SelectedTab = page;
+            }
+            return control.CanFocus && control.Focus();
+        }
+
         /// <summary>Shows <paramref name="message"/> on <paramref name="control"/>; an empty message clears it.</summary>
         protected abstract void SetControlError(Control control, string message);
 
