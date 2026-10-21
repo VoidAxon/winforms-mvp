@@ -90,10 +90,6 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView, EditUserPara
     // ── Pull direction: X / Alt+F4 ───────────────────────────────────────────
     protected override bool CanClose(CloseReason reason)
     {
-        // Never block system-level shutdowns.
-        if (reason == CloseReason.SystemShutdown || reason == CloseReason.TaskManager)
-            return true;
-
         if (!HasUnsavedChanges) return true;
 
         return Messages.ConfirmYesNo("Discard unsaved changes?", "Confirm");
@@ -199,26 +195,24 @@ public class CustomerListPresenter : WindowPresenterBase<ICustomerListView>
 
 ---
 
-## シナリオ 5: システムシャットダウンを絶対にブロックしない
+## シナリオ 5: システムシャットダウンはフレームワークが許可する
 
-モーダルダイアログが開いていると Windows がシャットダウンできません。`SystemShutdown` と `TaskManager` は必ず即座に許可してください:
+モーダルダイアログが開いていると Windows がシャットダウンできません。そのため `SystemShutdown`（Windows のシャットダウン・ログオフ）と `TaskManager`（タスク マネージャーからの終了）では、**フレームワークが Presenter に問い合わせずにクローズを許可します**。`CanClose` / `CanCloseAsync` は呼ばれないので、Presenter に理由の判定を書く必要はありません:
 
 ```csharp
 protected override bool CanClose(CloseReason reason)
 {
-    if (reason == CloseReason.SystemShutdown || reason == CloseReason.TaskManager)
-        return true;   // must not block
-
-    if (reason == CloseReason.ParentClosing)
-        return true;   // usually allow owner-propagated close
-
-    // Only Normal (X / Alt+F4) gets the dirty-check prompt.
-    if (_changeTracker.IsChanged && !Messages.ConfirmYesNo("Discard changes?", "Confirm"))
-        return false;
-
-    return true;
+    // System shutdown / Task Manager never get here.
+    if (!_changeTracker.IsChanged) return true;
+    return Messages.ConfirmYesNo("Discard changes?", "Confirm");
 }
 ```
+
+それ以外の理由はすべて Presenter に届きます。`ParentClosing`（オーナー / MDI 親が閉じるので子も閉じる）でも未保存の確認が出るのが正しい動作です。以前のように `if (reason != CloseReason.Normal) return true;` と書くと、オーナーを閉じたときに子ウィンドウの編集内容が確認なしに失われます。
+
+- オーナー付きの子ウィンドウ（`Navigator.ShowWindow(presenter, owner: View)`）でキャンセルが選ばれると、オーナーのクローズも取り消されます（フレームワークはオーナー側のゲートで子の拒否を上書きしません）。
+- シャットダウン中は、WinForms がオーナー付きの子ウィンドウに `FormOwnerClosing` を渡しますが、フレームワークはこれもシャットダウンとして扱い、確認を出しません。
+- シャットダウン時の自動保存のような処理は `CanClose` に置かないでください（呼ばれません）。編集中に保存する設計にします。
 
 ---
 
@@ -231,8 +225,6 @@ protected override bool CanClose(CloseReason reason)
 ```csharp
 protected override async Task<bool> CanCloseAsync(CloseReason reason)
 {
-    // System shutdown / Task Manager / parent closing: never block, never prompt.
-    if (reason != CloseReason.Normal) return true;
     if (!HasUnsavedChanges) return true;   // _changeTracker.IsChangedWith(ReadEditState())
 
     var result = Messages.ConfirmYesNoCancel(
@@ -288,7 +280,7 @@ X → 「保存しますか？」→ はい → 保存、のあとで呼び出�
 ```csharp
 protected override bool CanClose(CloseReason reason)
 {
-    if (reason != CloseReason.Normal || !_tracker.IsChangedWith(ReadModel())) return true;
+    if (!_tracker.IsChangedWith(ReadModel())) return true;
 
     var answer = Messages.ConfirmYesNoCancel("保存しますか？");
     if (answer == ConfirmResult.Cancel) return false;

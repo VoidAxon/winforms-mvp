@@ -452,10 +452,6 @@ Pull 方向 (× ボタン) のクローズ要求に対して、未保存があ�
 ```csharp
 protected override bool CanClose(CloseReason reason)
 {
-    // Never block system-level shutdowns.
-    if (reason == CloseReason.SystemShutdown || reason == CloseReason.TaskManager)
-        return true;
-
     if (_tracker.IsChanged &&
         !Messages.ConfirmYesNo("Discard unsaved changes?", "Confirm"))
     {

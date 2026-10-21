@@ -10,8 +10,10 @@ namespace WinformsMVP.Common
     /// deciding whether to veto the close:
     /// <list type="bullet">
     ///   <item><description><see cref="Normal"/>: standard close path — perform dirty-data checks here.</description></item>
-    ///   <item><description><see cref="SystemShutdown"/> / <see cref="TaskManager"/>: do not prompt; let the process exit.</description></item>
-    ///   <item><description><see cref="ParentClosing"/>: usually pass through silently.</description></item>
+    ///   <item><description><see cref="SystemShutdown"/> / <see cref="TaskManager"/>: never reach the presenter;
+    ///     the framework allows them without asking.</description></item>
+    ///   <item><description><see cref="ParentClosing"/> / <see cref="Unknown"/>: reach the presenter like
+    ///     <see cref="Normal"/> — prompt for unsaved changes there too, or the owner's close loses them.</description></item>
     /// </list>
     /// </remarks>
     public enum CloseReason

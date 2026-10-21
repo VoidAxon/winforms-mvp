@@ -137,7 +137,6 @@ namespace WinformsMVP.Samples.EmailDemo
         /// </remarks>
         protected override async Task<bool> CanCloseAsync(CloseReason reason)
         {
-            if (reason != CloseReason.Normal) return true;
             if (!HasUnsavedChanges) return true;
 
             var result = Messages.ConfirmYesNoCancel(
