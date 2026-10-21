@@ -65,6 +65,7 @@ NUGET
   grep -q "^namespace DemoApp$" "$dir/DemoApp/CustomerPanelPresenter.cs"
   grep -q "^namespace DemoApp.Dialogs$" "$dir/DemoApp/Dialogs/ConfirmPresenter.cs"
   grep -q "WindowPresenterBase<IOrderEditView, int>" "$dir/DemoApp/OrderEditPresenter.cs"
+  grep -q 'WithQualifier("OrderEdit")' "$dir/DemoApp/OrderEditActions.cs"
   # Program.cs: high-DPI setup only where the API exists.
   if [ "$framework" = "net472" ]; then
     ! grep -q "SetHighDpiMode" "$dir/DemoApp/Program.cs"

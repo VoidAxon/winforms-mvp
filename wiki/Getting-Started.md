@@ -302,11 +302,13 @@ using WinformsMVP.MVP.ViewActions;
 
 public static class MainActions
 {
-    public static readonly ViewAction Greet = ViewAction.Create("Main.Greet");
+    private static readonly ViewActionFactory Factory = ViewAction.Factory.WithQualifier("Main");
+
+    public static readonly ViewAction Greet = Factory.Create(nameof(Greet));   // "Main.Greet"
 }
 ```
 
-`ViewAction` は不変な「アクション識別子」です。文字列リテラル直書きを避け、必ず静的クラスで定数として宣言します。
+`ViewAction` は不変な「アクション識別子」です。文字列リテラル直書きを避け、必ず静的クラスで定数として宣言します。画面名 (`"Main"`) は Factory に 1 回だけ書き、各アクションは `nameof` で名前を付けます。
 
 ### 4.2 View インターフェイス
 

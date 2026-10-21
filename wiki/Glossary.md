@@ -15,7 +15,7 @@
 
 ### ActionKey
 
-`ViewAction` の別名。アクションの不変識別子。`ViewAction.Create("Module.Save")` で生成する。
+`ViewAction` の別名。アクションの不変識別子。画面の Actions クラスでは `ViewActionFactory` から生成する (単発なら `ViewAction.Create("Module.Save")`)。
 
 ### AcceptChanges
 
@@ -265,7 +265,7 @@ Presenter 側でアクションをハンドラに振り分けるコンポーネ�
 
 ### ViewActionFactory
 
-`ViewAction.Factory.WithQualifier("Prefix")` で生成する Factory オブジェクト。同じプレフィックスを繰り返したくないときに使う。
+`ViewAction.Factory.WithQualifier("Prefix")` で生成する Factory オブジェクト。画面の Actions クラスの推奨形: プレフィックスを 1 回だけ書き、`Factory.Create(nameof(Save))` でキーを作る。
 
 詳細: [ViewAction システム § ActionKey の定義方針](Reference-ViewAction-System#actionkey-の定義方針)
 
