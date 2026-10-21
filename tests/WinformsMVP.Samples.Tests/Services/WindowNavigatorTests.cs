@@ -66,11 +66,17 @@ namespace WinformsMVP.Samples.Tests.Services
             public IViewActionBinder ActionBinder { get; } = new CapturingActionBinder();
         }
 
-        /// <summary>Presenter whose <c>OnInitialize</c> throws, exercising the init-failure path.</summary>
+        /// <summary>Presenter whose <c>OnInitialize</c> throws when asked to, exercising the init-failure path.</summary>
         private sealed class ThrowingInitPresenter : WindowPresenterBase<ITestNavView>
         {
+            public bool Throw = true;
+            public bool Disposed { get; private set; }
             protected override void OnViewAttached() { }
-            protected override void OnInitialize() => throw new InvalidOperationException("boom in init");
+            protected override void OnInitialize()
+            {
+                if (Throw) throw new InvalidOperationException("boom in init");
+            }
+            protected override void Cleanup() => Disposed = true;
         }
 
         #endregion
@@ -164,12 +170,13 @@ namespace WinformsMVP.Samples.Tests.Services
             Assert.Throws<InvalidOperationException>(
                 () => navigator.ShowWindow<ThrowingInitPresenter>(failing, keySelector: _ => key));
 
-            // The stale (disposed) form must have been pruned, so the next show creates a new one.
-            var second = new TestNavPresenter();
+            // The stale (disposed) form must have been pruned, so the next show (same presenter type,
+            // same key: the same window scope) creates a new one.
+            var second = new ThrowingInitPresenter { Throw = false };
             IWindowView view = null;
             try
             {
-                view = navigator.ShowWindow<TestNavPresenter>(second, keySelector: _ => key);
+                view = navigator.ShowWindow<ThrowingInitPresenter>(second, keySelector: _ => key);
 
                 Assert.NotNull(view);
                 Assert.False(second.Disposed,
