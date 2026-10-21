@@ -27,6 +27,7 @@
   - [PictureBox (画像 URL)](#picturebox-画像-url)
 - [RadioButton グループバインド](#radiobutton-グループバインド)
 - [複雑なバインド](#複雑なバインド)
+  - [自作・他社製コントロール](#自作他社製コントロール)
 - [双方向バインドと単方向バインド](#双方向バインドと単方向バインド)
 - [更新タイミング (`DataSourceUpdateMode`)](#更新タイミング-datasourceupdatemode)
 - [使用例: 完全な Form](#使用例-完全な-form)
@@ -250,7 +251,7 @@ lblTotal.Bind(model, m => m.Total).FormatString = "N0";   // 戻り値は Bindin
 
 ### ComboBox
 
-ComboBox は **3 つの API** があります。用途に応じて使い分けます。
+ComboBox は **4 つの API** があります。用途に応じて使い分けます。
 
 ```csharp
 // 1. SelectedValue (enum やキー値の選択に推奨)
@@ -261,6 +262,9 @@ comboBox.BindSelectedItem(model, m => m.SelectedUser);
 
 // 3. SelectedIndex (インデックス値)
 comboBox.BindSelectedIndex(model, m => m.SelectedTabIndex);
+
+// 4. Text (自由入力: DropDown / Simple スタイル)
+comboBox.BindText(model, m => m.Method);
 ```
 
 | API | バインド対象 | 用途 |
@@ -268,6 +272,7 @@ comboBox.BindSelectedIndex(model, m => m.SelectedTabIndex);
 | `Bind` | `SelectedValue` | enum、キー値 |
 | `BindSelectedItem` | `SelectedItem` | 項目オブジェクト |
 | `BindSelectedIndex` | `SelectedIndex` | インデックス |
+| `BindText` | `Text` | 一覧にない文字も入力できるコンボ (`DropDown` / `Simple`)。入力のたびに書き戻し、書式は有効。戻り値は `Binding` |
 
 ComboBox の選択肢自体は `DataSource` か `Items.AddRange` で設定します。
 
@@ -287,6 +292,21 @@ datePicker.Bind(model, m => m.BirthDate);
 | バインド対象 | `Value` プロパティ |
 | 双方向 | ✅ |
 | 型 | `DateTime` |
+
+**未入力がある日付 (`DateTime?`)** は、チェックボックス付きの picker にバインドします。チェックなし = `null` です。
+
+```csharp
+dtpDue.ShowCheckBox = true;            // デザイナーで設定してもよい。false なら InvalidOperationException
+dtpDue.Bind(model, m => m.DueDate);    // DateTime? のプロパティ。戻り値は IDisposable
+```
+
+| | |
+|---|---|
+| モデル → 画面 | `null` はチェックを外す (表示中の日付はそのまま残る)。日付は `Value` に入れてチェックを付ける |
+| 画面 → モデル | ユーザーがチェックや日付を変えると `Checked ? Value : null` を書き戻す |
+| 範囲外の日付 | `MinDate`..`MaxDate` の外は `ArgumentOutOfRangeException` (`Bind` 時、またはモデルの setter から)。picker は変わらず、丸めもしない |
+| 値を変えるとき | **モデル** を変える。コードで `dtpDue.Checked = false` としてもユーザー操作ではないので、モデルに届くとは限らない |
+| 解除 | picker の破棄で自動解除。もう一度 `Bind` するか、`Value` / `Checked` を `BindProperty` / `Bind` でバインドすると置き換わる。早めに外すときだけ戻り値を `Dispose` |
 
 ### TrackBar
 
@@ -434,7 +454,50 @@ pairs.BindRadioGroup(model, m => m.Priority);   // 戻り値 IDisposable は任�
 
 - **書き戻しのタイミング**: `Bind()` は `OnPropertyChanged` (入力のたび)。数値の入力途中 (`"1,"` など) も変換を試みます。`OnValidation` にすると、フォーカスを離れるまでモデルは古い値なので、保存ボタンの前に確定させる設計が必要です。
 - **スレッド**: バインドしたモデルは UI スレッドで変更します (`BindableBase` はスレッド切り替えをしません)。
-- **サードパーティ製コントロール**: バインドするプロパティ名と、値が変わったときの通知 (`XxxChanged` イベント) があるかを、使うバージョンで確認します。
+- **サードパーティ製コントロール**: バインドするプロパティ名と、値が変わったときの通知 (`XxxChanged` イベント) があるかを、使うバージョンで確認します (次節)。
+
+### 自作・他社製コントロール
+
+型ごとの `Bind` は WinForms 標準の型にだけあります。それ以外は `BindProperty` でプロパティ名を指定します:
+
+```csharp
+poisonName.BindProperty(model, m => m.Name, nameof(Control.Text));
+tagPicker.BindProperty(model, m => m.TagIds, nameof(TagPicker.CheckedIds),
+    DataSourceUpdateMode.OnPropertyChanged, formattingEnabled: true);   // インターフェイス型の値は formattingEnabled: true
+```
+
+WinForms のバインドが **画面 → モデル** に書き戻すのは、コントロールが変更を通知したときだけです。通知の規約は「プロパティ名 + `Changed`」のイベント (`CheckedIdsChanged`) か `INotifyPropertyChanged` です。自作のコントロールでは、値が変わったら必ずイベントを発火します:
+
+```csharp
+public partial class TagPicker : UserControl
+{
+    private IReadOnlyList<int> _checkedIds = Array.Empty<int>();
+
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public IReadOnlyList<int> CheckedIds
+    {
+        get => _checkedIds;
+        set
+        {
+            _checkedIds = value ?? Array.Empty<int>();
+            SyncCheckBoxes();                                 // 画面に反映
+            CheckedIdsChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    public event EventHandler CheckedIdsChanged;              // この名前でバインドが購読する
+
+    private void OnItemChecked(object sender, EventArgs e)    // ユーザー操作
+    {
+        _checkedIds = ReadCheckedIds();
+        CheckedIdsChanged?.Invoke(this, EventArgs.Empty);
+    }
+}
+```
+
+イベントがないと、モデル → 画面は動きますが、ユーザーの操作はモデルに届きません (検証や変更検知が古い値のまま動きます)。他社製コントロールでイベント名が規約と違うときは、派生クラスで `XxxChanged` を追加するか、Form でイベントを受けてモデルに書き込みます。
+
+モデル側の文字列は、空文字と `null` を同じ意味で扱うなら setter で揃えておくと、変更検知の誤検出を防げます: `set => SetProperty(ref _name, value ?? "");`
 
 ---
 

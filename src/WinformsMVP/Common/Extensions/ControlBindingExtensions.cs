@@ -58,6 +58,12 @@ namespace WinformsMVP.Common.Extensions
 
             var dataMember = GetPropertyName(propertyExpression);
 
+            // A native Value / Checked binding and the nullable-date binding would both drive the picker.
+            if (control is DateTimePicker picker &&
+                (controlPropertyName == nameof(DateTimePicker.Value) || controlPropertyName == nameof(DateTimePicker.Checked)) &&
+                NullableDateBindings.TryGetValue(picker, out var nullableDate))
+                nullableDate.Dispose();
+
             // Remove only a previous binding for the SAME control property, so that multiple
             // properties on one control (e.g. Text + ReadOnly, or a button's Text + Enabled) can
             // coexist. Clearing the whole DataBindings collection would wipe unrelated bindings.
@@ -152,6 +158,139 @@ namespace WinformsMVP.Common.Extensions
         }
 
         /// <summary>
+        /// Two-way binds a nullable date to a <see cref="DateTimePicker"/> whose checkbox means
+        /// "has a date": <c>null</c> unchecks it (the displayed date is kept), a date sets
+        /// <see cref="DateTimePicker.Value"/> and checks it, and the user's ticks and date edits are
+        /// written back (<c>Checked ? Value : null</c>).
+        /// </summary>
+        /// <remarks>
+        /// Requires <see cref="DateTimePicker.ShowCheckBox"/> = true and a writable
+        /// <c>DateTime?</c> property. A date outside <c>MinDate</c>..<c>MaxDate</c> throws
+        /// <see cref="ArgumentOutOfRangeException"/> (from <c>Bind</c>, or from the model setter
+        /// that raised the change) and leaves the picker unchanged — it is never clamped.
+        /// Change the value through the model: a programmatic <c>picker.Checked = ...</c> is not a
+        /// user edit and may not reach the model. Binding the picker again (this overload, or a
+        /// <c>Value</c> / <c>Checked</c> binding) replaces this binding; it ends by itself when the
+        /// picker is disposed. Dispose the returned handle only to unbind earlier. Change the model
+        /// on the UI thread.
+        /// </remarks>
+        public static IDisposable Bind<TViewModel>(this DateTimePicker dateTimePicker, TViewModel viewModel, Expression<Func<TViewModel, DateTime?>> propertyExpression)
+            where TViewModel : INotifyPropertyChanged
+        {
+            if (dateTimePicker == null) throw new ArgumentNullException(nameof(dateTimePicker));
+            if (viewModel == null) throw new ArgumentNullException(nameof(viewModel));
+            if (propertyExpression == null) throw new ArgumentNullException(nameof(propertyExpression));
+            if (!dateTimePicker.ShowCheckBox)
+                throw new InvalidOperationException(
+                    "Binding a nullable date needs DateTimePicker.ShowCheckBox = true: the checkbox is what represents 'no date'.");
+
+            var propertyName = GetPropertyName(propertyExpression);
+            var propInfo = viewModel.GetType().GetProperty(propertyName);
+            if (propInfo == null || propInfo.PropertyType != typeof(DateTime?) || !propInfo.CanRead || propInfo.GetSetMethod() == null)
+                throw new ArgumentException($"'{propertyName}' must be a public readable and writable DateTime? property.", nameof(propertyExpression));
+
+            return new NullableDateBinding(dateTimePicker, viewModel, propInfo);
+        }
+
+        // Each picker's current nullable-date binding, so binding it again replaces the old one.
+        // Weak keys: the table never keeps a picker alive.
+        private static readonly ConditionalWeakTable<DateTimePicker, IDisposable> NullableDateBindings =
+            new ConditionalWeakTable<DateTimePicker, IDisposable>();
+
+        private sealed class NullableDateBinding : IDisposable
+        {
+            private readonly DateTimePicker _picker;
+            private readonly INotifyPropertyChanged _model;
+            private readonly System.Reflection.PropertyInfo _property;
+            private bool _syncing;
+            private bool _disposed;
+
+            public NullableDateBinding(DateTimePicker picker, INotifyPropertyChanged model, System.Reflection.PropertyInfo property)
+            {
+                _picker = picker;
+                _model = model;
+                _property = property;
+
+                var initial = ReadModel();   // reject an out-of-range date before anything changes
+
+                if (NullableDateBindings.TryGetValue(picker, out var previous))
+                    previous.Dispose();
+                for (int i = picker.DataBindings.Count - 1; i >= 0; i--)
+                {
+                    var name = picker.DataBindings[i].PropertyName;
+                    if (name == nameof(DateTimePicker.Value) || name == nameof(DateTimePicker.Checked))
+                        picker.DataBindings.RemoveAt(i);
+                }
+                NullableDateBindings.Add(picker, this);
+
+                Apply(initial);   // before subscribing: the initial writes are not user input
+
+                _picker.ValueChanged += OnPickerValueChanged;
+                _picker.Disposed += OnPickerDisposed;
+                _model.PropertyChanged += OnModelPropertyChanged;
+            }
+
+            private DateTime? ReadModel()
+            {
+                var value = (DateTime?)_property.GetValue(_model, null);
+                if (value.HasValue && (value.Value < _picker.MinDate || value.Value > _picker.MaxDate))
+                    throw new ArgumentOutOfRangeException(_property.Name, value.Value,
+                        $"{_property.Name} is outside the picker's range {_picker.MinDate:d} - {_picker.MaxDate:d}.");
+                return value;
+            }
+
+            private void Apply(DateTime? value)
+            {
+                _syncing = true;
+                try
+                {
+                    if (value.HasValue)
+                    {
+                        _picker.Value = value.Value;
+                        _picker.Checked = true;
+                    }
+                    else
+                    {
+                        _picker.Checked = false;   // keeps the displayed date for when the user ticks it again
+                    }
+                }
+                finally
+                {
+                    _syncing = false;
+                }
+            }
+
+            private void OnPickerValueChanged(object sender, EventArgs e)
+            {
+                if (_syncing) return;
+                DateTime? value = _picker.Checked ? _picker.Value : (DateTime?)null;
+                if (!Equals(_property.GetValue(_model, null), value))
+                    _property.SetValue(_model, value, null);
+            }
+
+            private void OnModelPropertyChanged(object sender, PropertyChangedEventArgs e)
+            {
+                // null / empty name = "all properties changed"
+                if (string.IsNullOrEmpty(e.PropertyName) || e.PropertyName == _property.Name)
+                    Apply(ReadModel());
+            }
+
+            private void OnPickerDisposed(object sender, EventArgs e) => Dispose();
+
+            public void Dispose()
+            {
+                if (_disposed) return;
+                _disposed = true;
+
+                _model.PropertyChanged -= OnModelPropertyChanged;
+                _picker.ValueChanged -= OnPickerValueChanged;
+                _picker.Disposed -= OnPickerDisposed;
+                if (NullableDateBindings.TryGetValue(_picker, out var current) && ReferenceEquals(current, this))
+                    NullableDateBindings.Remove(_picker);
+            }
+        }
+
+        /// <summary>
         /// Bind TrackBar.Value to a ViewModel property
         /// </summary>
         public static void Bind<TViewModel>(this TrackBar trackBar, TViewModel viewModel, Expression<Func<TViewModel, int>> propertyExpression)
@@ -212,6 +351,20 @@ namespace WinformsMVP.Common.Extensions
             where TViewModel : INotifyPropertyChanged
         {
             pictureBox.BindProperty(viewModel, propertyExpression, nameof(pictureBox.ImageLocation));
+        }
+
+        /// <summary>
+        /// Two-way binds the text of an editable combo box (<see cref="ComboBoxStyle.DropDown"/> /
+        /// <see cref="ComboBoxStyle.Simple"/>): typed text that is not in the list is kept, and it is
+        /// written back on every change. For a pick-from-list combo
+        /// (<see cref="ComboBoxStyle.DropDownList"/>) bind the selection instead —
+        /// <see cref="Bind{TViewModel, TValue}(ComboBox, TViewModel, Expression{Func{TViewModel, TValue}})"/>
+        /// binds <c>SelectedValue</c>.
+        /// </summary>
+        public static Binding BindText<TViewModel>(this ComboBox comboBox, TViewModel viewModel, Expression<Func<TViewModel, string>> propertyExpression)
+            where TViewModel : INotifyPropertyChanged
+        {
+            return comboBox.BindProperty(viewModel, propertyExpression, nameof(comboBox.Text), DataSourceUpdateMode.OnPropertyChanged);
         }
 
         /// <summary>
