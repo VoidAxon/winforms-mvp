@@ -175,18 +175,16 @@ Samples: `ViewActionExample.cs` (implicit), `ViewActionExplicitEventExample.cs` 
 
 ### Navigation (`IWindowNavigator`)
 
+Prefer the fluent form — it infers the presenter and parameter types, so only `TResult` is written:
 ```csharp
-// Modal
-var r = navigator.ShowWindowAsModal<TPresenter, TResult>(presenter);
-var r = navigator.ShowWindowAsModal<TPresenter, TParam, TResult>(presenter, parameters);
-// Non-modal (keySelector → singleton-per-key)
-var w = navigator.ShowWindow<TPresenter>(presenter, keySelector: p => documentId);
+// Modal: returns InteractionResult<TResult> when the window closes
+var r = Navigator.For(new CustomerSearchPresenter(repo)).WithParam(keyword).ShowAsModal<Customer>();
+// Non-modal: returns at once; owner = owned window, keySelector = one window per key, onClosed = result
+Navigator.For(editPresenter).WithParam(parameters)
+         .ShowWindow<int>(owner: View, keySelector: _ => ("CustomerEdit", id), onClosed: r => { if (r.IsOk) Reload(); });
 ```
+The key table is shared by every window type, so include the screen in the key. A key that is already open activates that window; the new presenter is disposed and its `onClosed` is not registered. The direct methods (`ShowWindowAsModal<TPresenter, TParam, TResult>(presenter, parameters)`, `ShowWindow<TPresenter>(presenter, keySelector: ...)`) do the same with every type argument written out.
 
-Fluent API infers all type args except `TResult`:
-```csharp
-var ok = Navigator.For(presenter).WithParam(parameters).ShowAsModal<bool>();
-```
 `WithParam` tightens the constraint so passing a param the presenter can't consume fails to compile. A presenter that implements only `IInitializable<TParam>` (no parameterless initialization) shown through a parameterless overload throws `InvalidOperationException` instead of opening uninitialized. See [wiki/Reference-WindowNavigator.md](wiki/Reference-WindowNavigator.md).
 
 ### Window closing — two-direction model

@@ -579,5 +579,6 @@ public void ValidationState_GroupsErrorsByField()
 - [HowTo: Presenter をテストする](HowTo-Test-A-Presenter) — テストパターン詳細
 - [Presenter 基底クラス](Reference-Presenter-Base-Classes) — `Validation` を含む基底クラスのメンバー
 - [HowTo: エラーを扱う](HowTo-Handle-Errors) — 検証以外のエラー処理
+- [入力項目の多い編集画面を作る](HowTo-Build-Large-Edit-Screen) — バインドした入力モデルの検証と、登録失敗時のメッセージ・フォーカス
 - サンプル:
   - `samples/WinformsMVP.Samples/ValidationDemo/` — `RegistrationModel` (DataAnnotations + `[CustomValidation]`)、`ValidationDemoPresenter` (`Validate` / `Check` / `Reset` / `SetError`)、`ValidationDemoForm` (`ErrorProviderDisplay`) の完全実装
