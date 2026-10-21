@@ -77,7 +77,7 @@ TextBox NameTextBox { get; }             bool HasSelection { get; }
 - `private`: action handlers (`OnSave`), helpers.
 - A Presenter should expose **zero public events**. For cross-presenter notifications use a Service event or `IEventAggregator`. For push-direction close results, call the base `RequestClose(result, status)` / `RequestClose(status)` — no interface to implement, no extension method.
 
-Subscriptions registered via `.DisposeWith(Disposables)` (event tokens, `Cascade.Bind` unsubscribers, `Disposable.Create(() => view.Event -= handler)` wrappers) are released automatically after `Cleanup()`; presenters normally need no `Cleanup` override for unsubscription.
+Subscribe to view events with the protected `SubscribeViewEvent(h => View.X += h, h => View.X -= h, handler)` (and `SubscribeViewEvent<TEventArgs>(..., e => ...)` for `EventHandler<T>`): one line instead of a `+=` plus a matching `-=`, unsubscribed when the presenter is disposed, and silent once disposal has begun (windows dispose the presenter first, then the form, whose controls can still raise events while torn down). Subscriptions registered via `.DisposeWith(Disposables)` (event tokens, `Cascade.Bind` unsubscribers, `Disposable.Create(() => view.Event -= handler)` wrappers) are released automatically after `Cleanup()`; presenters normally need no `Cleanup` override for unsubscription.
 
 **Testing rule:** never widen visibility for tests. Drive the Presenter through its real entry points so the same `CanExecute` / close logic runs. `AttachView` / `Initialize` are explicit interface implementations (not callable as `presenter.Initialize()`); tests host the presenter with `WinformsMVP.Testing.PresenterTestHost` (in `WinformsMVP.Core`):
 ```csharp

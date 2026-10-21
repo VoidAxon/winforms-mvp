@@ -287,12 +287,17 @@ protected override void OnViewAttached()
 {
     Events.Subscribe<OrderShipped>(OnShipped).DisposeWith(Disposables);
 
-    EventHandler handler = OnSelectionChanged;
-    View.SelectionChanged += handler;
-    Disposable.Create(() => View.SelectionChanged -= handler).DisposeWith(Disposables);
+    // View のイベントは SubscribeViewEvent で(解除は自動、破棄が始まった後のイベントは無視)
+    SubscribeViewEvent(h => View.SelectionChanged += h, h => View.SelectionChanged -= h,
+                       () => Dispatcher.RaiseCanExecuteChanged());
 }
 // Cleanup の override は不要
 ```
+
+| メンバー | 説明 |
+|---|---|
+| `protected IDisposable SubscribeViewEvent(Action<EventHandler> add, Action<EventHandler> remove, Action handler)` | View の `EventHandler` イベントを購読。Presenter の破棄時に自動で解除し、破棄が始まった後に届いたイベントは無視する。返り値で早めに解除できる |
+| `protected IDisposable SubscribeViewEvent<TEventArgs>(Action<EventHandler<TEventArgs>> add, Action<EventHandler<TEventArgs>> remove, Action<TEventArgs> handler)` | `EventHandler<TEventArgs>` 版。ハンドラーはイベント引数を受け取る |
 
 詳細は [購読ライフサイクルの管理](HowTo-Manage-Presenter-Subscriptions) を参照してください。
 

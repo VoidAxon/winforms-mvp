@@ -421,6 +421,77 @@ namespace WinformsMVP.MVP.Presenters
         }
 
         /// <summary>
+        /// Subscribes to a view event and unsubscribes when this presenter is disposed — one line
+        /// instead of a <c>+=</c> plus a matching <c>-=</c> in a <c>Disposable.Create</c>:
+        /// <code>
+        /// SubscribeViewEvent(h => View.SelectionChanged += h, h => View.SelectionChanged -= h,
+        ///                    () => Dispatcher.RaiseCanExecuteChanged());
+        /// </code>
+        /// Once disposal begins the handler is no longer called, even by an event raised while the
+        /// view's controls are torn down (which happens after the presenter's <c>Cleanup</c>). The
+        /// returned token unsubscribes earlier; disposing it again is a no-op. The handler runs
+        /// synchronously on the raising thread, and its exceptions propagate to the raiser.
+        /// </summary>
+        /// <exception cref="ArgumentNullException">An argument is null (nothing is attached).</exception>
+        /// <exception cref="ObjectDisposedException">The presenter is already disposed (nothing is attached).</exception>
+        protected IDisposable SubscribeViewEvent(Action<EventHandler> add, Action<EventHandler> remove, Action handler)
+        {
+            if (add == null) throw new ArgumentNullException(nameof(add));
+            if (remove == null) throw new ArgumentNullException(nameof(remove));
+            if (handler == null) throw new ArgumentNullException(nameof(handler));
+            if (_isDisposed) throw new ObjectDisposedException(GetType().Name);
+
+            var subscription = new ViewEventSubscription<EventHandler>(remove);
+            subscription.Attach(add, (sender, e) => { if (subscription.IsActive && !_isDisposed) handler(); });
+            return subscription.DisposeWith(Disposables);
+        }
+
+        /// <summary>
+        /// <see cref="SubscribeViewEvent(Action{EventHandler}, Action{EventHandler}, Action)"/> for an
+        /// <see cref="EventHandler{TEventArgs}"/> event; the handler receives the event arguments.
+        /// </summary>
+        protected IDisposable SubscribeViewEvent<TEventArgs>(Action<EventHandler<TEventArgs>> add,
+            Action<EventHandler<TEventArgs>> remove, Action<TEventArgs> handler)
+        {
+            if (add == null) throw new ArgumentNullException(nameof(add));
+            if (remove == null) throw new ArgumentNullException(nameof(remove));
+            if (handler == null) throw new ArgumentNullException(nameof(handler));
+            if (_isDisposed) throw new ObjectDisposedException(GetType().Name);
+
+            var subscription = new ViewEventSubscription<EventHandler<TEventArgs>>(remove);
+            subscription.Attach(add, (sender, e) => { if (subscription.IsActive && !_isDisposed) handler(e); });
+            return subscription.DisposeWith(Disposables);
+        }
+
+        /// <summary>Removes the exact delegate it attached, once.</summary>
+        private sealed class ViewEventSubscription<THandler> : IDisposable where THandler : Delegate
+        {
+            private Action<THandler> _remove;
+            private THandler _handler;
+
+            public ViewEventSubscription(Action<THandler> remove) { _remove = remove; }
+
+            public bool IsActive { get; private set; }
+
+            public void Attach(Action<THandler> add, THandler handler)
+            {
+                _handler = handler;
+                add(handler);
+                IsActive = true;
+            }
+
+            public void Dispose()
+            {
+                if (!IsActive) return;
+                IsActive = false;   // before remove: an event raised meanwhile is ignored
+                var remove = _remove;
+                _remove = null;
+                remove(_handler);
+                _handler = null;
+            }
+        }
+
+        /// <summary>
         /// Override to clean up resources when the presenter is disposed.
         /// Subscriptions registered via <c>.DisposeWith(Disposables)</c> are released automatically
         /// after this method returns; no override is needed for those.

@@ -23,9 +23,8 @@ namespace WinformsMVP.Samples.ValidationDemo
 
         protected override void OnViewAttached()
         {
-            EventHandler onDataChanged = (s, e) => Revalidate();
-            View.DataChanged += onDataChanged;
-            Disposable.Create(() => View.DataChanged -= onDataChanged).DisposeWith(Disposables);
+            // One line: unsubscribed when the presenter is disposed, and silent once disposal begins.
+            SubscribeViewEvent(h => View.DataChanged += h, h => View.DataChanged -= h, Revalidate);
         }
 
         protected override void RegisterViewActions()
