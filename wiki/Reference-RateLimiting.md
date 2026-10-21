@@ -16,6 +16,7 @@
 - [ライフサイクルと破棄](#ライフサイクルと破棄)
 - [バックプレッシャー (積み上がり・並行実行の防止)](#バックプレッシャー-積み上がり並行実行の防止)
 - [画面クローズ後に「幽霊コールバック」が走らない保証](#画面クローズ後に幽霊コールバックが走らない保証)
+- [非同期のアクション](#非同期のアクション)
 - [エラー処理](#エラー処理)
 - [主要 API](#主要-api)
 - [関連ページ](#関連ページ)
@@ -170,7 +171,7 @@ interval=10ms / action=50ms / 高頻度 Signal の場合:
 1. **未発火のタイマー** → `Dispose` がタイマーを停止。走りません。
 2. **既に UI キューへ `Post` 済みのコールバック** → 実際に実行される瞬間に `_disposed` を **再チェック** し、破棄済みならスキップします。
 3. **UI スレッドは単一スレッド** → `Dispose` を UI スレッドで呼ぶ限り、その瞬間に UI スレッドが同じコールバックを実行中ということはあり得ません (すでに完了済みか、まだ始まっておらず再チェックで弾かれるか、のどちらか)。
-4. **最後の保険** → 万一コールバックが走って例外を投げても、内部でガードされ (`onError` へ転送、なければ `ILoggerFactory` 経由でログ出力して握り潰し)、**プロセスは落ちません**。
+4. **最後の保険** → 万一コールバックが走って例外を投げても、`onError` があればそこへ、なければ UI スレッドの未処理例外ハンドラ (`Application.ThreadException`) へ伝わります。スレッドプール上 (コンテキストなし) ではログ出力して握り潰すので、**プロセスは落ちません**。
 
 → **UI スレッドで `Dispose` (または `DisposeWith` による自動解放) する限り、クローズ後にコールバックがコントロールへ触れることはありません。**
 
@@ -178,9 +179,30 @@ interval=10ms / action=50ms / 高頻度 Signal の場合:
 
 ---
 
-## エラー処理
+## 非同期のアクション
 
-タイマーのコールバックはスレッドプールスレッドで走るため、未捕捉例外はプロセスを終了させます。これを防ぐため、アクションは常にガードされます。
+検索など非同期の処理は `Func<CancellationToken, Task>` (または `Func<Task>`) を渡します。`async` ラムダはこれらのオーバーロードに束縛されるので、`async void` にはなりません。
+
+```csharp
+// 入力が 300ms 止まったら検索。新しい入力が来たら、実行中の検索はキャンセルされる
+_search = RateLimit.Debounce(300, async ct =>
+{
+    View.ShowPatients(await _patients.SearchAsync(View.Keyword, ct));
+}).DisposeWith(Disposables);
+
+SubscribeViewEvent(h => View.KeywordChanged += h, h => View.KeywordChanged -= h, () => _search.Signal());
+```
+
+- **実行中** はタスクが完了するまで。実行は重ならず、その間の発火は完了後の 1 回にまとめられます。
+- **`cancelPrevious: true` (既定)**: 実行中に新しい発火が来ると、実行中の処理のトークンをキャンセルし、終わり次第最新の 1 回を実行します (検索のように「最新だけが意味を持つ」処理)。`false` なら実行中の処理を最後まで走らせてから 1 回実行します (下書き保存など、途中で止めたくない処理)。
+- **`Dispose()`** (`DisposeWith(Disposables)` による自動解放を含む) は実行中の処理のトークンもキャンセルします。Presenter の `Lifetime` と同じく、ウィンドウを閉じれば止まります。
+- レート制限器が要求したキャンセルによる `OperationCanceledException` はエラーとして扱いません。
+- `Flush()` は保留中の実行を呼び出しスレッドで今すぐ**開始**します (完了は待ちません)。
+- アクションは捕捉した `SynchronizationContext` (UI スレッド) で開始し、`await` の後も UI スレッドに戻るので、View をそのまま更新できます。
+
+---
+
+## エラー処理
 
 ```csharp
 _search = RateLimit.Debounce(300, OnSearchSettled,
@@ -188,8 +210,12 @@ _search = RateLimit.Debounce(300, OnSearchSettled,
 ```
 
 - `onError` を渡せば、アクションが投げた例外はそこへ転送されます。
-- `onError` が `null` の場合、例外は `ServiceLocator` の `ILoggerFactory` (カテゴリ `WinformsMVP.Common.RateLimit`) で **エラーログに出力されてから握り潰され** (プロセス保護優先)、タイマー/UI ポンプは死にません。
-- `onError` 自身が投げても、それも握り潰されます。
+- `onError` が `null` の場合、例外は**捕捉した `SynchronizationContext` 上でそのまま伝わります**。WinForms では `Application.ThreadException` に届きます (ViewAction のハンドラや非同期ハンドラと同じ扱い)。黙って消えることはありません。
+- `SynchronizationContext` がない場合 (ワーカースレッドで生成した等) は、タイマーのスレッドプールスレッドで未捕捉例外を投げるとプロセスが終了するため、`ServiceLocator` の `ILoggerFactory` (カテゴリ `WinformsMVP.Common.RateLimit`) でエラーログに出力してから握り潰します。
+- `Flush()` はアクションを呼び出しスレッドで実行するので、例外は呼び出し元に伝わります。
+- `onError` 自身が投げた例外は握り潰されます。
+
+> **注意**: 例外を投げるだけのラムダ (`() => throw ...`) は `Func<Task>` にも変換できるため、非同期のオーバーロードが選ばれます。同期版を明示したいときは `(Action)(() => throw ...)` と書きます。
 
 ---
 
@@ -203,6 +229,10 @@ namespace WinformsMVP.Common
         public Debouncer(TimeSpan delay, Action action,
             Action<Exception> onError = null,
             SynchronizationContext synchronizationContext = null);
+        public Debouncer(TimeSpan delay, Func<CancellationToken, Task> action,   // Func<Task> 版もある
+            Action<Exception> onError = null,
+            SynchronizationContext synchronizationContext = null,
+            bool cancelPrevious = true);
 
         public void Signal();   // 活動を記録し、待機期間を (再) 開始
         public void Cancel();   // 保留中の発火を破棄 (オブジェクトは生存)
@@ -215,6 +245,10 @@ namespace WinformsMVP.Common
         public Throttler(TimeSpan interval, Action action,
             Action<Exception> onError = null,
             SynchronizationContext synchronizationContext = null);
+        public Throttler(TimeSpan interval, Func<CancellationToken, Task> action,   // Func<Task> 版もある
+            Action<Exception> onError = null,
+            SynchronizationContext synchronizationContext = null,
+            bool cancelPrevious = true);
 
         public void Signal();   // 先頭で即発火、または末尾発火を予約
         public void Flush();    // 保留中の末尾発火を呼び出しスレッドで同期実行
@@ -227,6 +261,7 @@ namespace WinformsMVP.Common
         public static Debouncer Debounce(TimeSpan delay, Action action, ...);
         public static Throttler Throttle(int milliseconds, Action action, ...);
         public static Throttler Throttle(TimeSpan interval, Action action, ...);
+        // それぞれ Func<Task> / Func<CancellationToken, Task> (+ cancelPrevious) 版もある
     }
 }
 ```

@@ -9,6 +9,10 @@ namespace WinformsMVP.Common
     /// </summary>
     /// <remarks>
     /// <para>
+    /// The <c>Action</c> overloads use this runner; the <c>Func&lt;CancellationToken, Task&gt;</c> overloads use
+    /// <see cref="AsyncCoalescingRunner"/>.
+    /// </para>
+    /// <para>
     /// While an action is in flight (posted to the context but not yet finished), any further
     /// <see cref="Request"/> does not enqueue another invocation — it only records that one more
     /// run is due. When the in-flight action completes, at most one trailing run is dispatched.
@@ -20,7 +24,7 @@ namespace WinformsMVP.Common
     /// SynchronizationContext to serialize callbacks.
     /// </para>
     /// </remarks>
-    internal sealed class CoalescingRunner
+    internal sealed class CoalescingRunner : IRateLimitRunner
     {
         private readonly object _gate = new object();
         private readonly Action _action;
@@ -81,7 +85,10 @@ namespace WinformsMVP.Common
         /// </summary>
         public void RunInlineNow()
         {
-            RateLimitedInvoke.Run(_action, null, _onError, _isLive, null);
+            RateLimitedInvoke.RunHere(_action, _onError, _isLive);
         }
+
+        /// <summary>A synchronous action cannot be interrupted: nothing to cancel.</summary>
+        public void CancelInFlight() { }
     }
 }
