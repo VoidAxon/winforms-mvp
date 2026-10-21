@@ -30,8 +30,13 @@ namespace WinformsMVP.DependencyInjection
         /// disposed together with the presenter. Resolving from the root provider instead would make
         /// the container keep every transient (disposable) presenter — and its View and transient
         /// dependencies — alive until the application exits. Scoped services therefore live per
-        /// presenter (per window). This applies to presenters deriving from the framework presenter
-        /// bases; other <see cref="IPresenter"/> implementations resolve from the provider directly.
+        /// presenter (per window). The presenter's framework services (<c>Messages</c>,
+        /// <c>Navigator</c>, <c>Logger</c>, ...) are resolved from that same scope, not from
+        /// <c>ServiceLocator.Current</c>, so register them in the container (<c>AddWinformsMVP</c>).
+        /// A presenter that uses them in its constructor is rejected (use them from
+        /// <c>OnViewAttached</c> / <c>OnInitialize</c>, or inject the service). This applies to
+        /// presenters deriving from the framework presenter bases; other <see cref="IPresenter"/>
+        /// implementations resolve from the provider directly.
         /// </remarks>
         public TPresenter Create<TPresenter>() where TPresenter : IPresenter
         {
@@ -46,6 +51,11 @@ namespace WinformsMVP.DependencyInjection
             try
             {
                 var presenter = scope.ServiceProvider.GetRequiredService<TPresenter>();
+                // Framework services from the same scope as the constructor dependencies. A failure
+                // (the presenter used them in its constructor) disposes the scope, and with it the
+                // presenter the scope created.
+                if (presenter is IPresenterServicesBinding binding)
+                    binding.BindServices(scope.ServiceProvider);
                 ((IPresenterResourceOwner)presenter).OwnUntilDisposed(scope);
                 return presenter;
             }
