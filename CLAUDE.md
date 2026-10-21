@@ -181,9 +181,9 @@ Prefer the fluent form — it infers the presenter and parameter types, so only 
 var r = Navigator.For(new CustomerSearchPresenter(repo)).WithParam(keyword).ShowAsModal<Customer>();
 // Non-modal: returns at once; owner = owned window, keySelector = one window per key, onClosed = result
 Navigator.For(editPresenter).WithParam(parameters)
-         .ShowWindow<int>(owner: View, keySelector: _ => ("CustomerEdit", id), onClosed: r => { if (r.IsOk) Reload(); });
+         .ShowWindow<int>(owner: View, keySelector: _ => id, onClosed: r => { if (r.IsOk) Reload(); });
 ```
-The key table is shared by every window type, so include the screen in the key. A key that is already open activates that window; the new presenter is disposed and its `onClosed` is not registered. The direct methods (`ShowWindowAsModal<TPresenter, TParam, TResult>(presenter, parameters)`, `ShowWindow<TPresenter>(presenter, keySelector: ...)`) do the same with every type argument written out.
+Keys are scoped by the presenter's runtime type (internally `(presenter.GetType(), key)`), so two screens can both key by a record id; the same presenter type with the same key activates the open window; the new presenter is disposed and its `onClosed` is not registered. The direct methods (`ShowWindowAsModal<TPresenter, TParam, TResult>(presenter, parameters)`, `ShowWindow<TPresenter>(presenter, keySelector: ...)`) do the same with every type argument written out.
 
 `WithParam` tightens the constraint so passing a param the presenter can't consume fails to compile. A presenter that implements only `IInitializable<TParam>` (no parameterless initialization) shown through a parameterless overload throws `InvalidOperationException` instead of opening uninitialized. See [wiki/Reference-WindowNavigator.md](wiki/Reference-WindowNavigator.md).
 
