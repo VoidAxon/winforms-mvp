@@ -6,8 +6,39 @@
 
 ---
 
+## 推奨の書き方 (Fluent)
+
+ウィンドウを開くときは、まず **Fluent 形式** を使ってください。Presenter とパラメータの型は引数から推論され、書くのは **結果の型だけ** です。パラメータの型が Presenter に合わなければコンパイルエラーになります。
+
+```csharp
+// モーダル: 結果を受け取る
+var result = Navigator.For(new CustomerSearchPresenter(_repository))
+                      .WithParam(keyword)
+                      .ShowAsModal<Customer>();
+if (result.IsOk) Show(result.Value);
+
+// モーダル: パラメータなし
+var picked = Navigator.For(new StaffPickerPresenter(_masters)).ShowAsModal<Staff>();
+
+// 非モーダル: このウィンドウに所属させ、同じ顧客は 1 枚だけ、閉じたら結果を受け取る
+Navigator.For(new CustomerEditPresenter(_repository))
+         .WithParam(new CustomerEditParameters { CustomerId = id })
+         .ShowWindow<int>(owner: View,
+             keySelector: _ => ("CustomerEdit", id),
+             onClosed: r => { if (r.IsOk) Reload(); });
+```
+
+- モーダルは閉じるまで戻らず、`InteractionResult<T>` (`IsOk` / `IsCancelled` / `IsError`、`Value`) を返します。非モーダルはすぐ戻り、結果は `onClosed` で受け取ります。
+- `keySelector` が返すキーのウィンドウがすでに開いていれば、そのウィンドウをアクティブにします。このとき新しい Presenter は破棄され、その `onClosed` は登録されません。キーの表は全ウィンドウ共通なので、`("CustomerEdit", id)` のように画面の区別を含めてください。
+- `owner` を渡すと、そのウィンドウに所属します (常に手前に表示され、オーナーと一緒に最小化・クローズされます。オーナーを閉じると、所属するウィンドウの `CanClose` が `ParentClosing` で呼ばれます)。
+
+`ShowWindowAsModal<TPresenter, TParam, TResult>(...)` などの直接呼び出し形式も同じ機能で、以下のリファレンスはこちらで説明しています。
+
+---
+
 ## 目次
 
+- [推奨の書き方 (Fluent)](#推奨の書き方-fluent)
 - [基本コンセプト](#基本コンセプト)
 - [Modal ウィンドウ](#modal-ウィンドウ)
 - [Non-Modal ウィンドウ](#non-modal-ウィンドウ)
@@ -217,7 +248,7 @@ Navigator.For(presenter).WithParam(parameters).ShowWindow();
 | 既存テスト/モックへの影響 | — | なし (同じインスタンスメソッドに委譲) |
 | リフレクション/実行時キャスト | なし | なし |
 
-実装: [`WindowNavigatorFluentExtensions.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/src/WinformsMVP/Services/WindowNavigatorFluentExtensions.cs)、[`NavigationContext.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/src/WinformsMVP/Services/NavigationContext.cs)。
+実装: [`WindowNavigatorFluentExtensions.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/src/WinformsMVP.Core/Services/WindowNavigatorFluentExtensions.cs)、[`NavigationContext.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/src/WinformsMVP.Core/Services/NavigationContext.cs)。
 
 ---
 

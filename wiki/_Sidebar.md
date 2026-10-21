@@ -35,6 +35,7 @@
 
 - [Presenter 間の通信](HowTo-Communicate-Between-Presenters)
 - [フォーム入力を検証する](HowTo-Validate-Form-Input)
+- [入力項目の多い編集画面を作る](HowTo-Build-Large-Edit-Screen)
 - [非同期処理を扱う](HowTo-Handle-Async-Operations)
 - [マスター/詳細パターン](HowTo-Implement-Master-Detail)
 - [連鎖選択 (カスケード) を扱う](HowTo-Handle-Cascading-Selection)

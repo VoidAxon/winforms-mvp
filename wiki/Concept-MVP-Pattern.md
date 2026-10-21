@@ -134,6 +134,8 @@ Passive View 寄りに書くことも可能で、必要に応じて `View.SetXxx
 
 > ⚠️ **避けたいパターン**: 同じフォーム内で **原則なく** 両スタイルが混在 —「ある項目はバインド、似た別項目は setter」のような一貫性のない書き方は保守性が下がります。**「混ぜる」と「無秩序に混ぜる」は別物** であり、チーム内で判断基準を明文化しておくことが重要です。
 
+入力項目の多い編集画面を Supervising Controller で組む具体的な手順は [入力項目の多い編集画面を作る](HowTo-Build-Large-Edit-Screen) にまとめています。
+
 つまり「**モデル名は語彙であってドグマではない**」が本フレームワークの立場です。Passive View と Supervising Controller は、コードレビューや設計議論で「このフォームはどっち寄りにする?」を相手に伝えるための共通言語として使ってください。
 
 > 📚 詳しくは [Martin Fowler — GUI Architectures](https://martinfowler.com/eaaDev/uiArchs.html) (Supervising Controller / Passive View の原典) を参照してください。
