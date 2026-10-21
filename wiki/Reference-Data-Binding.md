@@ -126,7 +126,7 @@ public class UserModel : BindableBase
 任意のコントロールの任意のプロパティをバインドする汎用 API です。
 
 ```csharp
-// 双方向、変更のたびに書き戻し (OnPropertyChanged)、書式なし
+// 双方向、変更のたびに書き戻し (OnPropertyChanged)、書式あり (formattingEnabled: true)
 public static Binding BindProperty<TControl, TViewModel, TValue>(
     this TControl control,
     TViewModel viewModel,
@@ -173,7 +173,24 @@ price.BindingComplete += (s, e) =>                                      // "abc"
 };
 ```
 
-> ⚠️ 変換に失敗するとモデルは **直前の有効な値のまま** になります。モデルの検証 (`Validation.Validate`) だけでは画面上の不正な入力に気づけないので、`BindingComplete` で別に表示し、エラー中の保存は止めてください。`BindingComplete` は `formattingEnabled: true` のときだけ発火します (第 1 形式と専用 `Bind()` は `false`)。
+> ⚠️ 変換に失敗するとモデルは **直前の有効な値のまま** になります。モデルの検証 (`Validation.Validate`) だけでは画面上の不正な入力に気づけないので、`BindingComplete` で別に表示し、エラー中の保存は止めてください。`BindingComplete` は `formattingEnabled: true` のときだけ発火します (第 1 形式と専用 `Bind()` も `true`。`Bind()` の `Binding` は `control.DataBindings[nameof(control.Text)]` で取れます)。
+
+#### 書式の既定値 (`formattingEnabled: true`)
+
+第 1 形式と専用 `Bind()` は書式を有効にしてバインドします。WinForms の書式なしの変換は「同じ型かサブクラス」しか受け付けないため、インターフェイス型のプロパティ (`IReadOnlyList<int>` に `List<int>`) が実行時に「値を指定した型にフォーマットできません」になるからです。書式ありでは次のようになります:
+
+| 場面 | 動き |
+|---|---|
+| 変換 | 型の変換は `TypeConverter` / `IConvertible` を通る。数値・日付の表示と解析は **現在のカルチャ** (`FormatInfo` で指定可) |
+| `null` / `DBNull` | `NullValue` で表示 (既定はテキストなら空)。画面 → モデルの空入力は `DataSourceNullValue` |
+| 変換できない入力 | 例外にならず、モデルは直前の有効な値のまま。`BindingComplete` で知らせる |
+| `FormatString` / `Format` / `Parse` | 有効になる |
+
+以前の動き (書式なし) が必要なら、第 2 形式で `formattingEnabled: false` を指定します:
+
+```csharp
+txtCode.BindProperty(model, m => m.Code, nameof(txtCode.Text), DataSourceUpdateMode.OnPropertyChanged, formattingEnabled: false);
+```
 
 ### こんなときに
 
@@ -463,7 +480,7 @@ pairs.BindRadioGroup(model, m => m.Priority);   // 戻り値 IDisposable は任�
 ```csharp
 poisonName.BindProperty(model, m => m.Name, nameof(Control.Text));
 tagPicker.BindProperty(model, m => m.TagIds, nameof(TagPicker.CheckedIds),
-    DataSourceUpdateMode.OnPropertyChanged, formattingEnabled: true);   // インターフェイス型の値は formattingEnabled: true
+    DataSourceUpdateMode.OnPropertyChanged);   // 書式は既定で有効 (インターフェイス型の値も変換できる)
 ```
 
 WinForms のバインドが **画面 → モデル** に書き戻すのは、コントロールが変更を通知したときだけです。通知の規約は「プロパティ名 + `Changed`」のイベント (`CheckedIdsChanged`) か `INotifyPropertyChanged` です。自作のコントロールでは、値が変わったら必ずイベントを発火します:
