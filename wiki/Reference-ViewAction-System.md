@@ -323,10 +323,10 @@ public enum DispatchValidationMode
 |------|---------------|--------|
 | 未登録キーのディスパッチ | ログのみ | **例外** |
 | ペイロード型不一致 | ログのみ | **例外** |
-| ハンドラが例外を投げた | catch してログ | catch してログ (**変化なし**) |
+| ハンドラが例外を投げた | ログ後に再スロー | ログ後に再スロー (**変化なし**) |
 | `CanExecute` が `false` (無効状態) | 何もしない | 何もしない (**変化なし**) |
 
-Strict が対象とするのは **設定ミスだけ** です。ハンドラ/`CanExecute` の例外は常に捕捉・ログされ (集中エラーハンドリングを維持)、無効化されたアクション (`CanExecute == false`) はエラー扱いしません。
+Strict が対象とするのは **設定ミスだけ** です。ハンドラの例外はどちらのモードでもログ出力後に再スローされ (`Application.ThreadException` へ)、`CanExecute` の例外は常にログ出力して「無効」とみなします。無効化されたアクション (`CanExecute == false`) はエラー扱いしません。
 
 なお、次の配線ミスはモードに関係なく **常に登録時点で例外** になります:
 
@@ -432,12 +432,12 @@ private async Task OnRefreshAsync(CancellationToken ct)
 
 - **実行中はアクションを無効化** — ハンドラの実行中は `CanDispatch` が `false` になり、バインド済みコントロールはグレーアウトします。連打などの重複トリガーは無視されます。開始時と終了時に全 `CanExecute` が再評価されるので、ビジーフラグや手動の `RaiseCanExecuteChanged()` は不要です (他のアクションも同時に止めたいときだけ、`canExecute` が参照するフラグを持ちます — `samples/.../AsyncDemo/AsyncDemoPresenter.cs` 参照)。
 - **完了時に `ActionExecuted`** — 同期ハンドラと同じく、ハンドラが正常に終わった時点で発火します。
-- **失敗はログ出力して再有効化** — `await` の後で起きた例外も含め、未処理の例外はログに出してアクションを再び有効にします。ユーザーに見せるべきエラーは、ハンドラ内で `try`/`catch` して `Messages` で伝えてください。
+- **失敗はログ出力・再有効化のあと再スロー** — 未処理の例外はログに出してアクションを再び有効にし、そのあと通常の WinForms のイベントハンドラと同じように外へ伝わります (`Application.ThreadException` で受けられます)。同期部分の例外は `Dispatch` からそのまま、`await` の後で起きた例外は `Dispatch` を呼んだときの `SynchronizationContext` に投げ直されます (`async void` と同じ)。想定内のエラーはハンドラ内で `try`/`catch` して `Messages` で伝え、想定外のものは `Program.cs` の `Application.ThreadException` で受けます。
 - **破棄時のキャンセルは静か** — トークンは Presenter の `Lifetime` で、Presenter の破棄 (ウィンドウを閉じる) と同時にキャンセルされます。これによる `OperationCanceledException` はエラー扱いされません。ユーザーの「キャンセル」ボタンを実装する場合は `CancellationTokenSource.CreateLinkedTokenSource(ct)` でリンクします。
 
 ### 完了を待つ: `DispatchAsync`
 
-`Dispatch` は非同期ハンドラの完了を待たずに戻ります。完了を待ちたい場合 (主にテスト、またはアクションの後に処理を続けたいコード) は `DispatchAsync` を使います。ハンドラの失敗は `Dispatch` と同様にログ出力されるだけで、返るタスクは fault しません。
+`Dispatch` は非同期ハンドラの完了を待たずに戻ります。完了を待ちたい場合 (主にテスト、またはアクションの後に処理を続けたいコード) は `DispatchAsync` を使います。ハンドラが失敗すると、例外を投げ直す代わりに **返るタスクがその例外で fault** します (テストでは `await Assert.ThrowsAsync<...>(() => view.Binder.DispatchAsync(...))`)。非同期ハンドラのテストは `Dispatch` ではなく `DispatchAsync` で書いてください — `Dispatch` の場合、`await` 後の例外はコンテキストに投げ直されるだけで、テストの失敗にならないことがあります。
 
 ```csharp
 await Dispatcher.DispatchAsync(CustomerActions.Refresh);
@@ -779,7 +779,7 @@ Dispatcher.Use((ctx, next) =>
 | `Payload` | `object` | 読み取り専用 (型変換禁止) |
 | `ExpectedPayloadType` | `Type` | パラメータなしハンドラの場合は `null` |
 | `HandlerExecuted` | `bool` | 末端ハンドラが呼ばれたとき `true` (非同期ハンドラは開始した時点) |
-| `Exception` | `Exception` | 安全網またはミドルウェアが捕捉した例外 |
+| `Exception` | `Exception` | ハンドラが投げた例外 (ハンドラを抜けた時点で設定される記録) |
 | `Completion` | `Task` | 非同期ハンドラのタスク (同期ハンドラでは完了済み)。非同期処理全体の計測・監査用 |
 | `CancellationToken` | `CancellationToken` | 非同期ハンドラに渡されたトークン (Presenter 破棄時にキャンセル) |
 
@@ -787,7 +787,7 @@ Dispatcher.Use((ctx, next) =>
 
 ### 例外フロー
 
-ハンドラの例外はミドルウェアチェーンを上方向に伝播します。捕捉したい場合は `next(context)` を `try`/`catch` で囲みます (例: `ErrorDialogMiddleware`)。誰も捕捉しない場合はフレームワークの安全網がログを出力し、`context.Exception` に記録します。`ActionExecuted` イベントは「ハンドラが完走 **かつ** `context.Exception` が `null`」のときだけ発火します。
+ハンドラの例外はミドルウェアチェーンを上方向に伝播します。捕捉したい場合は `next(context)` を `try`/`catch` で囲みます (例: `ErrorDialogMiddleware`)。**ミドルウェアが `catch` した例外は処理済み** とみなされ、それ以上は伝わりません (`context.Exception` は記録として残ります)。誰も捕捉しない場合はフレームワークがログを出力し、`Dispatch` の呼び出し元へ再スローします (`Application.ThreadException` へ)。ミドルウェアが別の例外を投げた場合は、その例外が伝わります。`ActionExecuted` イベントは「ハンドラが完走 **かつ** `context.Exception` が `null`」のときだけ発火します。
 
 ハンドラが投げた例外は、**ハンドラを抜けた時点で** `context.Exception` に設定されます。そのため外側のミドルウェアは、例外を捕捉しなくても `finally` ブロックで `context.Exception` を参照できます (監査・計測向け)。また、例外を投げたハンドラの後には `CanExecuteChanged` が発火し、コントロールの有効/無効状態が更新されます。
 

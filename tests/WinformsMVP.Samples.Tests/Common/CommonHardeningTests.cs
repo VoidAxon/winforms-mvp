@@ -52,7 +52,7 @@ namespace WinformsMVP.Samples.Tests.Common
             int refreshes = 0;
             dispatcher.CanExecuteChanged += (s, e) => refreshes++;
 
-            dispatcher.Dispatch(Save);
+            Assert.Throws<InvalidOperationException>(() => dispatcher.Dispatch(Save));   // after the refresh
 
             Assert.Equal(1, refreshes);
         }
@@ -76,7 +76,7 @@ namespace WinformsMVP.Samples.Tests.Common
             int refreshes = 0;
             dispatcher.CanExecuteChanged += (s, e) => refreshes++;
 
-            dispatcher.Dispatch(Save);
+            Assert.Throws<InvalidOperationException>(() => dispatcher.Dispatch(Save));
 
             Assert.IsType<InvalidOperationException>(seenInFinally);
             Assert.False(executedInFinally);
