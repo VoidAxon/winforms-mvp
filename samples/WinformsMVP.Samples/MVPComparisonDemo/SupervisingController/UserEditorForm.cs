@@ -62,7 +62,7 @@ namespace WinformsMVP.Samples.MVPComparisonDemo.SupervisingController
             // Pattern Description
             var descLabel = new Label
             {
-                Text = "Supervising Controller: View binds to Model (BindableBase).\n" +
+                Text = "Supervising Controller: View binds to Model (NotifyingObject).\n" +
                        "UI updates automatically when model changes!",
                 Location = new Point(20, 55),
                 Size = new Size(540, 40),

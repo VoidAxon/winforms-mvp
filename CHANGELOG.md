@@ -41,6 +41,7 @@
 
 ### Changed (変更)
 
+- **`BindableBase` → `NotifyingObject`** (BREAKING) — `WinformsMVP.MVP.Models` の INotifyPropertyChanged 基底クラスの名前だけを変更 (`SetProperty` / `OnPropertyChanged` は同じ)。`BindableBase` は Prism の名前で XAML バインディング (MVVM) を連想させるが、このクラスがするのはプロパティ変更の通知だけ。旧名は残さない。**移行**: `: BindableBase` を `: NotifyingObject` に置き換える。
 - **ウィンドウのキーは Presenter の型ごと** (BREAKING, 挙動のみ) — `ShowWindow(..., keySelector)` のキーの表は全ウィンドウ共通で、2 つの画面が同じレコード ID (`int`) をキーにすると、別の画面のウィンドウをアクティブにし、新しい Presenter を破棄していた (`onClosed` も登録されない)。内部のキーを `(Presenter の実行時の型, キー)` にした。同じ Presenter 型 + 同じキーのときだけ既存のウィンドウを使い、別の型は同じキーでもそれぞれのウィンドウを開く。静的な型 (具象 / 基底クラス / `IPresenter`、直接呼び出し / 流れるような書き方) によらず実行時の型で判定する。Presenter の派生クラス (プロキシを含む) は別の型として扱う。異なる Presenter 型の間でわざとキーを共有していた場合は、別々のウィンドウが開くようになる。`("CustomerEdit", id)` のように画面名を含めたキーはそのまま動く。
 - **`IPresenterFactory.Create<T>()` で作った Presenter のフレームワークサービスはその Presenter の DI スコープから解決** (BREAKING, 挙動のみ) — `ServiceProviderPresenterFactory` は Presenter ごとにスコープを作っていたが、便利プロパティ (`Messages` / `Navigator` / `Toasts` / `Dialogs` / `Files` / `Logger` / `TrackChanges` の設定) は `ServiceLocator.Current` から解決していた。同じスコープから解決するようにし、コンストラクタ依存と便利プロパティが同じインスタンスになる (Scoped で登録したフレームワークサービスもウィンドウごと)。移行時の注意: フレームワークサービスはコンテナに登録する (`AddWinformsMVP`)。登録がなければアクセス時に例外 (`ServiceLocator.Current` には戻らない)。コンストラクタで便利プロパティを使う Presenter は `Create` が `InvalidOperationException` で拒否する (`OnViewAttached` / `OnInitialize` に移すか、サービスをコンストラクタで受け取る)。カスタムの `IPresenter` やスコープ非対応のプロバイダの経路は従来どおり。
 

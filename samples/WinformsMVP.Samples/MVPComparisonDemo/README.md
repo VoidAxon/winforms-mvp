@@ -78,7 +78,7 @@ public string UserName
 ### 2. 控制监视 (Supervising Controller)
 
 **特点：**
-- 使用 **BindableBase** (实现INotifyPropertyChanged)
+- 使用 **NotifyingObject** (实现INotifyPropertyChanged)
 - View通过**数据绑定**连接到Model
 - Model包含简单的验证逻辑
 - Presenter专注于**协调和复杂逻辑**
@@ -88,7 +88,7 @@ public string UserName
 ```
 SupervisingController/
 ├── IUserEditorView.cs         - View接口（暴露Model）
-├── UserModel.cs               - Model（继承BindableBase）
+├── UserModel.cs               - Model（继承NotifyingObject）
 ├── UserEditorPresenter.cs     - Presenter（协调逻辑）
 └── UserEditorForm.cs          - Form实现（设置数据绑定）
 ```
@@ -107,8 +107,8 @@ SupervisingController/
 **关键代码示例：**
 
 ```csharp
-// Model - 继承BindableBase，包含数据和简单验证
-public class UserModel : BindableBase
+// Model - 继承NotifyingObject，包含数据和简单验证
+public class UserModel : NotifyingObject
 {
     private string _name;
 
@@ -199,12 +199,12 @@ private void SetupDataBindings()
 
 ## 技术要点
 
-### BindableBase的使用
+### NotifyingObject的使用
 
-`BindableBase` 是框架提供的基类，位于 `WinformsMVP.MVP.Models` 命名空间：
+`NotifyingObject` 是框架提供的基类，位于 `WinformsMVP.MVP.Models` 命名空间：
 
 ```csharp
-public class UserModel : BindableBase
+public class UserModel : NotifyingObject
 {
     private string _name;
 

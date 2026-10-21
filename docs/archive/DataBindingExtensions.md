@@ -466,7 +466,7 @@ public static void BindRadioGroup<TViewModel, TValue>(
 public enum Gender { Male, Female, Other }
 
 // Model
-public class UserModel : BindableBase
+public class UserModel : NotifyingObject
 {
     private Gender _gender;
     public Gender Gender
@@ -504,7 +504,7 @@ using WinformsMVP.Core.Models;
 
 public enum UserRole { Admin, User, Guest }
 
-public class UserModel : BindableBase
+public class UserModel : NotifyingObject
 {
     private string _name;
     private string _email;
@@ -613,7 +613,7 @@ private void ClearAllBindings()
 public enum Theme { Light, Dark, Auto }
 public enum Language { English, Japanese, Chinese }
 
-public class SettingsModel : BindableBase
+public class SettingsModel : NotifyingObject
 {
     private Theme _theme;
     private Language _language;
@@ -688,7 +688,7 @@ private void SetupDataBindings()
 
 ### Q1: 绑定后为什么UI不更新？
 
-**A:** 确保Model继承了`BindableBase`并使用`SetProperty`：
+**A:** 确保Model继承了`NotifyingObject`并使用`SetProperty`：
 
 ```csharp
 // ❌ 错误 - 不会触发PropertyChanged
@@ -784,7 +784,7 @@ _listBox.DataSource = model.Items;
 
 ### 使用原则
 
-1. **Model必须继承BindableBase** - 否则不会触发PropertyChanged
+1. **Model必须继承NotifyingObject** - 否则不会触发PropertyChanged
 2. **使用SetProperty设置属性** - 自动触发通知
 3. **类型匹配** - 注意控件属性类型和Model属性类型
 4. **及时清除绑定** - 避免内存泄漏

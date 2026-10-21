@@ -34,10 +34,10 @@
 
 ## 2. 入力モデルと View インターフェイス
 
-入力モデルは `BindableBase` を継承し、**保存用のエンティティとは別** に作ります (画面の編集セッションの契約です)。別画面で選ぶ値 (担当者、明細) もこのモデルに置きます。
+入力モデルは `NotifyingObject` を継承し、**保存用のエンティティとは別** に作ります (画面の編集セッションの契約です)。別画面で選ぶ値 (担当者、明細) もこのモデルに置きます。
 
 ```csharp
-public sealed class CustomerEditInput : BindableBase
+public sealed class CustomerEditInput : NotifyingObject
 {
     private string _name = "", _kana = "", _memo = "";
     private DateTime _contractDate;
