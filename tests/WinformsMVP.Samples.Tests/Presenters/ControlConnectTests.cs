@@ -115,5 +115,33 @@ namespace WinformsMVP.Samples.Tests.Presenters
 
             Assert.True(presenter.CleanedUp);
         }
+
+        private sealed class DisposingPresenter : ControlPresenterBase<IFakeControlView>
+        {
+            public bool CleanedUp;
+            protected override void OnViewAttached() { }
+            protected override void OnInitialize() => ((Control)View).Dispose();   // the control goes away mid-initialization
+            protected override void Cleanup() => CleanedUp = true;
+        }
+
+        [Fact]
+        public void Connect_DisposedControl_Throws_WithoutAttaching()
+        {
+            var view = new ControlBackedView();
+            view.Dispose();
+            var presenter = new DepUsingPresenter(new FakeDependency());
+
+            Assert.Throws<ObjectDisposedException>(() => presenter.Connect(view));
+            Assert.Null(presenter.Observed);
+        }
+
+        [Fact]
+        public void Connect_ControlDisposedDuringInitialize_DisposesThePresenter()
+        {
+            var presenter = new DisposingPresenter();
+
+            Assert.Throws<ObjectDisposedException>(() => presenter.Connect(new ControlBackedView()));
+            Assert.True(presenter.CleanedUp);
+        }
     }
 }

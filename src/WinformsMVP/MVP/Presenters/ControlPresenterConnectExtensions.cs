@@ -26,14 +26,13 @@ namespace WinformsMVP.MVP.Presenters
         {
             if (presenter == null) throw new ArgumentNullException(nameof(presenter));
 
-            // Construct first: validates `view is Control` before any side effect (no half-attach).
+            // Construct first: validates `view is Control` (and not disposed) before any side effect.
             var controller = new ControlLifecycleController(view, presenter);
-            Run(presenter, () =>
+            Run(presenter, controller, () =>
             {
                 ((IViewAttacher<TView>)presenter).AttachView(view);
                 ((IInitializable)presenter).Initialize();
             });
-            controller.WireControlEvents();   // teardown bridge wired after Initialize
         }
 
         /// <summary>
@@ -46,24 +45,27 @@ namespace WinformsMVP.MVP.Presenters
             if (presenter == null) throw new ArgumentNullException(nameof(presenter));
 
             var controller = new ControlLifecycleController(view, presenter);
-            Run(presenter, () =>
+            Run(presenter, controller, () =>
             {
                 ((IViewAttacher<TView>)presenter).AttachView(view);
                 ((IInitializable<TParam>)presenter).Initialize(param);
             });
-            controller.WireControlEvents();
         }
 
-        // A presenter whose attach/initialize failed can never run: dispose it (releasing anything
-        // OnViewAttached subscribed) and rethrow, matching WindowNavigator's failure contract.
-        private static void Run(IDisposable presenter, Action connect)
+        // The teardown bridge is wired BEFORE attach/initialize, so a control disposed while the
+        // presenter initializes still tears it down. A presenter whose attach/initialize failed can
+        // never run: dispose it (releasing anything OnViewAttached subscribed) and rethrow, matching
+        // WindowNavigator's failure contract.
+        private static void Run(IDisposable presenter, ControlLifecycleController controller, Action connect)
         {
+            controller.WireControlEvents();
             try { connect(); }
             catch
             {
                 presenter.Dispose();
                 throw;
             }
+            controller.ThrowIfControlDisposed();
         }
     }
 }

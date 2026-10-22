@@ -248,7 +248,10 @@ namespace WinformsMVP.MVP.Presenters
                     GetType().Name + " has no view attached. Attach a view (AttachView / Connect) before Initialize.");
 
             _initialized = true;
+            // Each stage stops when the previous one disposed the presenter (its control was disposed
+            // meanwhile): nothing is bound or started on a disposed presenter.
             registerViewActions();
+            if (_isDisposed) return;
 
             // Bind after actions are registered. Views outside the ViewAction system simply
             // don't implement IActionableView.
@@ -257,8 +260,10 @@ namespace WinformsMVP.MVP.Presenters
                 _boundBinder = actionable.ActionBinder;
                 _boundBinder.Bind(_dispatcher);
             }
+            if (_isDisposed) return;
 
             onInitialize();
+            if (_isDisposed) return;
             _initializationTask = RunInitializeAsync();
         }
 
