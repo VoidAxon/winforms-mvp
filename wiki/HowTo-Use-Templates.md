@@ -8,7 +8,7 @@
 | WinformsMVP Application | `winformsmvp` | プロジェクト | `Program.Main` (サービス登録・View 登録) + メインウィンドウ |
 | WinformsMVP Window | `mvp-window` | アイテム | View インターフェイス + Actions + Presenter + Form |
 | WinformsMVP UserControl | `mvp-control` | アイテム | View インターフェイス + Actions + Presenter + UserControl |
-| WinformsMVP Presenter Tests | `winformsmvp-tests` | プロジェクト | xUnit テストプロジェクト + `CapturingActionBinder` + サンプルテスト |
+| WinformsMVP Presenter Tests | `winformsmvp-tests` | プロジェクト | xUnit テストプロジェクト (`WinformsMVP.Testing` 参照済み) + サンプルテスト |
 
 ---
 
@@ -154,14 +154,13 @@ dotnet new winformsmvp-tests -n MyApp.Tests [--framework net10.0-windows|net472]
 | オプション | 既定値 | 説明 |
 |-----------|-------|------|
 | `-f`, `--framework` | `net10.0-windows` | アプリと同じターゲットを指定する |
-| `--mvp-version` | `*-*` | 参照する `WinformsMVP` のバージョン |
+| `--mvp-version` | `*-*` | 参照する `WinformsMVP` / `WinformsMVP.Testing` のバージョン |
 | `--app-project` | (なし) | テスト対象アプリへの相対パス。指定すると `ProjectReference` が追加される |
 
 生成されるファイル:
 
-- `MyApp.Tests.csproj` — xUnit 2.9 + `WinformsMVP`
-- `CapturingActionBinder.cs` — モック View 用の `IViewActionBinder`。フレームワークが渡す Dispatcher を捕まえ、`Dispatch` / `DispatchAsync` / `CanDispatch` で実際のフォームと同じ経路からアクションを起動する
-- `ExamplePresenterTests.cs` — `PresenterTestHost.Start(presenter, view)` → `await host.Initialized` → `view.Binder.DispatchAsync(...)` → `host.CloseStatus` / `host.CloseResult` を検証する例。自分の Presenter と View に置き換えて使う
+- `MyApp.Tests.csproj` — xUnit 2.9 + `WinformsMVP` + `WinformsMVP.Testing` (`PresenterTestHost`、`TestServices`、モック View 用の `CapturingActionBinder`、フレームワークサービスのフェイク。バージョンは `--mvp-version` と同じ)
+- `ExamplePresenterTests.cs` — `TestServices.CreateFakes()` → `PresenterTestHost.Start(fakes.Provider, presenter, view)` → `await host.Initialized` → `view.Binder.DispatchAsync(...)` → `host.CloseStatus` / `host.CloseResult` を検証する例。自分の Presenter と View に置き換えて使う
 
 テストの書き方は [HowTo: Presenter をテストする](HowTo-Test-A-Presenter) を参照してください。
 

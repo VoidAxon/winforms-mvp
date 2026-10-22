@@ -177,7 +177,7 @@ View インターフェイスと Form クラスの紐付けを管理するレジ
 
 ### Mock
 
-テスト用のモックオブジェクト。`MockMessageService`、`MockDialogProvider` 等の個別 Mock サービスを `DefaultServiceProvider` に登録し、各 Presenter テストで Mock View と一緒に使う。
+テスト用のモックオブジェクト。View インターフェイスのモック (Mock View) はテスト側で書き、フレームワークサービスは `WinformsMVP.Testing` パッケージのフェイク (`TestServices.CreateFakes()` → `FakeMessageService`、`FakeDialogProvider`、`FakeWindowNavigator` 等) を `PresenterTestHost.Start(fakes.Provider, presenter, view)` で渡して一緒に使う。
 
 詳細: [HowTo: Presenter をテストする](HowTo-Test-A-Presenter)
 

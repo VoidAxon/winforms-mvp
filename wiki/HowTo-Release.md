@@ -1,6 +1,6 @@
 # HowTo: リリースする（GitHub Releases + GitHub Packages）
 
-このページは、`WinformsMVP.Core` / `WinformsMVP` / `WinformsMVP.DependencyInjection` / `WinformsMVP.Templates` の NuGet パッケージを
+このページは、`WinformsMVP.Core` / `WinformsMVP` / `WinformsMVP.DependencyInjection` / `WinformsMVP.Testing` / `WinformsMVP.Templates` の NuGet パッケージを
 **GitHub Packages** に発行し、`.nupkg` を **GitHub Release** に添付するまでの、
 メンテナ向けの完全な手順です。仕組みの説明・初回セットアップ・利用者側の使い方・
 トラブルシュート・後片付けまで含みます。
@@ -50,10 +50,10 @@ git push origin v1.0.0
    ハイフンの有無で `IS_PRERELEASE` を決めます。
 3. **Restore / Build (Release)** — `-p:Version=$VERSION` 付きでソリューションをビルド。
 4. **Test (gate)** — テストスイートを実行。**1 件でも失敗するとリリースは中断します。**
-5. **Pack** — `WinformsMVP.Core` / `WinformsMVP` / `WinformsMVP.DependencyInjection` / `WinformsMVP.Templates` の 4 つを
+5. **Pack** — `WinformsMVP.Core` / `WinformsMVP` / `WinformsMVP.DependencyInjection` / `WinformsMVP.Testing` / `WinformsMVP.Templates` の 5 つを
    同じ `-p:Version` でパック (テンプレートパッケージ `templates/WinformsMVP.Templates.csproj` は `dotnet new` 用の
    テンプレート型パッケージで、生成されるプロジェクトは既定で最新の `WinformsMVP` (`*-*`) を参照します)。
-   `WinformsMVP` は `WinformsMVP.Core` を、DI パッケージは `WinformsMVP` を
+   `WinformsMVP` と `WinformsMVP.Testing` は `WinformsMVP.Core` を、DI パッケージは `WinformsMVP` を
    ProjectReference 参照しているため、**同一バージョンへの依存**が自動的に記録されます。
 6. **Assert analyzer is bundled** — `WinformsMVP.Core` パッケージ内に
    `analyzers/dotnet/cs/WinformsMVP.Analyzers.dll` が含まれているかを検証し、

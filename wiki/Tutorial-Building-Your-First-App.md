@@ -473,20 +473,19 @@ Presenter は WinForms に依存しないので、UI なしでテストできま
 ```csharp
 public class ToDoPresenterTests
 {
-    private readonly MockServices _mockServices;
+    private readonly FakeServices _fakes = TestServices.CreateFakes();   // WinformsMVP.Testing パッケージ
     private readonly MockToDoView _view;
     private readonly ToDoPresenter _presenter;
 
     public ToDoPresenterTests()
     {
-        _mockServices = new MockServices();
         _view = new MockToDoView();
-        _presenter = new ToDoPresenter().WithServiceProvider(_mockServices.Provider);
+        _presenter = new ToDoPresenter();
 
-        // View のアタッチ + 実際の初期化 (WinformsMVP.Testing.PresenterTestHost)
-        PresenterTestHost.Start(_presenter, _view);
+        // フェイクのフレームワークサービスを渡し、View のアタッチ + 実際の初期化を行う
+        PresenterTestHost.Start(_fakes.Provider, _presenter, _view);
 
-        _mockServices.Reset();
+        _fakes.Messages.ClearCalls();
     }
 
     [Fact]
@@ -515,11 +514,11 @@ public class ToDoPresenterTests
     {
         _view.SelectedItem = _view.Items[0];
         _view.RaiseSelectionChanged();
-        _mockServices.MessageService.ConfirmYesNoResult = true;
+        _fakes.Messages.EnqueueYesNo(true);   // 次の ConfirmYesNo に Yes と答える
 
         _view.Binder.Dispatch(ToDoActions.Delete);
 
-        Assert.True(_mockServices.MessageService.ConfirmDialogShown);
+        Assert.Contains(_fakes.Messages.Calls, m => m.Kind == MessageKind.YesNo);
         Assert.DoesNotContain(_view.Items, i => i.Title == "Read the framework docs");
     }
 
@@ -535,12 +534,12 @@ public class ToDoPresenterTests
         _view.Binder.Dispatch(ToDoActions.Save);
 
         Assert.False(_view.HasUnsavedChanges);                           // clean
-        Assert.True(_mockServices.MessageService.InfoMessageShown);
+        Assert.Contains(_fakes.Messages.Calls, m => m.Kind == MessageKind.Info);
     }
 }
 ```
 
-Mock View はインターフェイスを実装するだけのシンプルなクラスです。詳細は [HowTo: Presenter をテストする](HowTo-Test-A-Presenter) を参照。
+Mock View はインターフェイスを実装するだけのシンプルなクラスです (`public CapturingActionBinder Binder { get; } = new CapturingActionBinder(); public IViewActionBinder ActionBinder => Binder;` でアクションを Dispatch できるようにします)。詳細は [HowTo: Presenter をテストする](HowTo-Test-A-Presenter) を参照。
 
 ---
 

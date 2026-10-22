@@ -466,36 +466,36 @@ provider.UseWinformsMVP();   // ServiceLocator.Current = provider
 
 ## モックでのテスト
 
-> ⚠️ **各 `Mock*` サービス (`MockMessageService`、`MockDialogProvider`、`MockFileService`、`MockWindowNavigator`)・`MockServices` は、いずれもテストプロジェクト用のヘルパーで `WinformsMVP` パッケージには同梱されていません** (`tests/WinformsMVP.Samples.Tests/Mocks/`)。自分のテストプロジェクトにコピーして使ってください。Presenter にサービスを渡すには `PresenterTestHost.Start(services, presenter, view)` を使います (パッケージ同梱)。
+> **パッケージ:** フェイクと `PresenterTestHost` / `TestServices` は `WinformsMVP.Testing` パッケージ (`netstandard2.0`、`WinformsMVP.Core` のみに依存) にあります。テストプロジェクトから参照してください (`dotnet new winformsmvp-tests` は参照済み)。フェイクは任意で、自作のフェイクや Moq と混ぜて使えます。
 
-テスト用サービスは `PresenterTestHost.Start` の第 1 引数で、その Presenter だけに渡します。グローバルな `ServiceLocator.Current` を差し替える必要はないので、テストを並列に実行できます。`TestServices.Create()` は無出力の `ILoggerFactory` (どの Presenter もアタッチ時に必要) だけを登録したプロバイダを返します。
+テスト用サービスは `PresenterTestHost.Start` の第 1 引数で、その Presenter だけに渡します。グローバルな `ServiceLocator.Current` を差し替える必要はないので、テストを並列に実行できます。`TestServices.CreateFakes()` は下表のフェイクをすべて登録したプロバイダ (`fakes.Provider`) を返します。`TestServices.Create()` は無出力の `ILoggerFactory` (どの Presenter もアタッチ時に必要) だけを登録したプロバイダを返します (自作のフェイクだけで組むとき)。
 
 ```csharp
 [Fact]
 public void OnSave_ShowsSuccessMessage()
 {
-    // テスト用サービスプロバイダを用意する
-    var mockMessages = new MockMessageService();
-    var sp = TestServices.Create();                 // ILoggerFactory (無出力) だけ登録済み
-    sp.RegisterInstance<IMessageService>(mockMessages);
-    // ... Presenter が使う他のサービスも登録 (未登録のものはエラー。グローバルでは補われない)
+    var fakes = TestServices.CreateFakes();         // フレームワークサービスのフェイクを登録済み
+    // 自前の実装に差し替えるなら Start の前に: fakes.Provider.RegisterInstance<IFileService>(myFiles);
 
-    PresenterTestHost.Start(sp, new MyPresenter(), mockView);   // アタッチ + 実際の初期化
+    PresenterTestHost.Start(fakes.Provider, new MyPresenter(), mockView);   // アタッチ + 実際の初期化
     mockView.Binder.Dispatch(StandardActions.Save);
 
-    Assert.True(mockMessages.InfoMessageShown);
-    Assert.True(mockMessages.HasCall(MessageType.Info, "Saved"));
+    Assert.Contains(fakes.Messages.Calls, m => m.Kind == MessageKind.Info && m.Text.Contains("Saved"));
 }
 ```
 
-主な検証フラグ:
+主なフェイク:
 
-| サービスのモック | 検証用プロパティ |
-|---------------|--------------|
-| `MockMessageService` | `InfoMessageShown` / `WarningMessageShown` / `ErrorMessageShown` / `ConfirmDialogShown` / `Calls` / `GetLastCall().Message` / `HasCall(type, contains)` / `ConfirmYesNoResult` (= 戻り値設定) |
-| `MockDialogProvider` | `OpenFileDialogResult` / `SaveFileDialogResult` / `FolderBrowserDialogResult` / `PrintPreviewDialogResult` (= 戻り値設定。`string` は空/null で `Cancel`) |
-| `MockFileService` | `AddFile(path, contents)` (= 事前投入) / `Exists` / `ReadAllText` / `WriteAllText` / `Clear()` |
-| `MockWindowNavigator` | `ShowModalCalls` / `LastPresenter` / `LastParameters` / `ShowModalBoolResult` (= 戻り値設定) / `ShowModalInteractionResult` |
+| `FakeServices` のプロパティ | 型 | 主なメンバー |
+|---------------|------|--------------|
+| `Messages` | `FakeMessageService` | `Calls` (`Kind` / `Text` / `Caption` / `IsConfirmation`)、答えの用意: `EnqueueYesNo` / `EnqueueOkCancel` / `EnqueueYesNoCancel` → `YesNoHandler` / `OkCancelHandler` / `YesNoCancelHandler` → `AnswerUnscripted(yes)`、`ClearCalls()` / `ResetScripts()` |
+| `Toasts` | `FakeToastService` | `Calls` (`Text` / `Type` / `Duration`)、`ClearCalls()` |
+| `Dialogs` | `FakeDialogProvider` | `EnqueueOpenFile` / `EnqueueOpenMultipleFiles` / `EnqueueSaveFile` / `EnqueueFolderBrowser` / `EnqueueColor`、`OpenFileHandler` 等 (オプションを受け取る関数)、`CancelUnscripted()`、`Calls` (`Kind` / `Options`) |
+| `Files` | `InMemoryFileService` | どの OS でも Windows のパス規則 (基準フォルダ `C:\test`)、`SeedFile(path, text)` / `SeedFile(path, bytes)` / `SeedDirectory`、`FilePaths` / `DirectoryPaths`、`Failure` (操作ごとに例外を注入) |
+| `Navigator` | `FakeWindowNavigator` | モーダル: `RespondTo<TPresenter, TResult>(r => ...)` / `RespondTo<TPresenter>(...)`、`LastModalParameters<T>()`、`CancelUnscripted()`。非モーダル: `Windows` (`FakeWindow.CloseWithResult(value)` / `Close()` / `CloseWithError(...)`)。`Calls` |
+| `Logs` | `RecordingLoggerFactory` | `Entries` (`Category` / `Level` / `Exception` / `Message` / `Template` / `Args`)、`Clear()` |
+
+答えを用意していない確認ダイアログ・ファイルダイアログ・モーダルウィンドウは `UnscriptedInteractionException` になります (想定外の問い合わせが黙って片方の分岐に進まないように)。フェイクのサービスメソッドは `virtual` なので、1 操作だけ上書きした派生クラスも作れます。
 
 詳しいテストパターンは [HowTo: Presenter をテストする](HowTo-Test-A-Presenter) を参照してください。
 

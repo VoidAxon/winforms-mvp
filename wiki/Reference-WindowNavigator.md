@@ -238,7 +238,7 @@ Navigator.For(presenter).WithParam(parameters).ShowWindow();
 
 ### 3 引数形式と Fluent 形式の併存
 
-両形式は完全にサポートされており、内部的には同じインスタンスメソッドに委譲されます。Fluent API は **純粋な追加機能** で、既存の呼び出し箇所・`MockWindowNavigator`・テストは無修正で動作します。
+両形式は完全にサポートされており、内部的には同じインスタンスメソッドに委譲されます。Fluent API は **純粋な追加機能** で、既存の呼び出し箇所・`FakeWindowNavigator`・テストは無修正で動作します。
 
 | 観点 | 3 引数形式 | Fluent 形式 |
 |------|----------|------------|
@@ -383,46 +383,43 @@ DI コンテナと連携する場合、Presenter 自身も子 Presenter を DI �
 
 ## テスト時のモック
 
-`WindowNavigator` を本物で動かすと WinForms フォームが立ち上がってしまうため、Presenter のテストでは **`MockWindowNavigator`** に差し替えます。
+`WindowNavigator` を本物で動かすと WinForms フォームが立ち上がってしまうため、Presenter のテストでは **`FakeWindowNavigator`** (`WinformsMVP.Testing` パッケージ) に差し替えます。
 
-多くのテストでは `MockServices` 経由で `WindowNavigator` プロパティとして公開されています。
+`TestServices.CreateFakes()` が登録済みで、`fakes.Navigator` として公開されています。本番の `WindowNavigator` と同じ規則 (結果の型変換、キーの重複判定、Presenter の破棄、パラメータ必須の Presenter をパラメータなしで開くと例外) で動きます。渡された子 Presenter はアタッチも初期化もされません — 子画面自体は、別のインスタンスを `PresenterTestHost` でテストします。
 
 ```csharp
 [Fact]
-public void OnCompose_OpensComposeWindow()
+public async Task OnCompose_OpensComposeWindow()
 {
-    // Arrange — モーダルの戻りを設定 (true → Ok、false → Cancel)
-    var mockServices = new MockServices();
-    mockServices.WindowNavigator.ShowModalBoolResult = true;
+    // Arrange — モーダルの答えを Presenter の型ごとに登録する
+    var fakes = TestServices.CreateFakes();
+    fakes.Navigator.RespondTo<ComposeEmailPresenter, bool>(_ => InteractionResult<bool>.Cancel());   // 送信せずに閉じた
 
-    var presenter = new MainEmailPresenter(mockRepository)
-        .WithServiceProvider(mockServices.Provider);
-    PresenterTestHost.Start(presenter, mockView);   // アタッチ + 実際の初期化
+    PresenterTestHost.Start(fakes.Provider, new MainEmailPresenter(mockRepository), mockView);   // アタッチ + 実際の初期化
 
-    // Act — 実際のエントリポイント (Dispatch) で駆動する
-    mockView.Binder.Dispatch(EmailActions.Compose);
+    // Act — 実際のエントリポイント (Dispatch) で駆動する (非同期ハンドラなので完了を待つ)
+    await mockView.Binder.DispatchAsync(EmailActions.Compose);
 
     // Assert — モーダルが 1 回開かれ、正しいパラメータが渡されたか
-    Assert.Single(mockServices.WindowNavigator.ShowModalCalls);
+    Assert.Single(fakes.Navigator.Calls);
 
-    var parameters = mockServices.WindowNavigator.LastParameters as ComposeEmailParameters;
+    var parameters = fakes.Navigator.LastModalParameters<ComposeEmailParameters>();
     Assert.Equal(ComposeMode.New, parameters.Mode);
 }
 ```
 
-`MockWindowNavigator` が公開するメンバー:
+`FakeWindowNavigator` の主なメンバー:
 
 | メンバー | 用途 |
 |---------|----|
-| `ShowModalBoolResult` (`bool`, 既定 `true`) | 結果あり版 `ShowWindowAsModal<…, TResult>` の戻りを決める (`true`→`Ok` / `false`→`Cancel`) |
-| `ShowModalInteractionResult` (`InteractionResult`, 既定 `Ok()`) | 結果なし版 `ShowWindowAsModal<…>` が返す `InteractionResult` |
-| `ShowModalCalls` (`List<object>`) | Modal 表示しようとした Presenter の記録 |
-| `ShowWindowCalls` (`int`) | Non-Modal 表示の呼び出し回数 |
-| `LastPresenter` (`object`) | 最後に表示しようとした Presenter |
-| `LastParameters` (`object`) | 最後に渡されたパラメータ |
-| `Clear()` | 上記の記録をリセット |
+| `RespondTo<TPresenter, TResult>(r => InteractionResult<TResult>…)` | 結果あり版モーダル (`ShowWindowAsModal<…, TResult>` / `ShowAsModal<TResult>()`) の答え。`r` は `ModalRequest` (`Presenter` / `Parameters` / `HasParameters` / `Owner`)。`TPresenter` の派生型にも一致し、後から登録したものが優先。呼び出し側の期待と違う型の値は本番と同じく `Error` |
+| `RespondTo<TPresenter>(r => InteractionResult…)` | 結果なし版モーダル (`ShowWindowAsModal<TPresenter>`) の答え |
+| `CancelUnscripted()` | 答えのないモーダルを `Cancel` にする (既定では `UnscriptedInteractionException`) |
+| `LastModalParameters<T>()` | 最後のモーダル要求に渡されたパラメータ |
+| `Windows` (`FakeWindow` の一覧) | 非モーダルで開いたウィンドウ。`CloseWithResult(value[, status])` / `Close()` (X = `Cancel`) / `CloseWithError(message[, exception])` で閉じると、呼び出し側の `onClosed` に本番と同じ形で結果が届く。`IsOpen` / `Key` / `Owner` / `Parameters` / `Activations` |
+| `Calls` (`NavigationCall` の一覧) | すべての要求 (`PresenterType` / `Modal` / `Parameters` / `ResultType` / `Owner` / `Key` / `Activated`) |
 
-> **注意**: 結果あり版モーダル (`ShowWindowAsModal<…, TResult>`) は `ShowModalBoolResult` で `Ok`/`Cancel` を切り替えますが、`Value` は常に `default(TResult)` を返します。特定の戻り値を注入してアサートしたい場合は `MockWindowNavigator` を拡張してください。
+モーダルの Presenter は答えを返した後に破棄されます (本番でウィンドウが閉じたときと同じ)。非モーダルで同じキーを再度開くと、既存のウィンドウがアクティブになり (`Activations` が増える)、新しい Presenter は破棄されます。
 
 実際の使用例は [`MainEmailPresenterTests.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/tests/WinformsMVP.Samples.Tests/Presenters/MainEmailPresenterTests.cs) を、詳しいテストパターンは [HowTo: Presenter をテストする](HowTo-Test-A-Presenter) を参照してください。
 

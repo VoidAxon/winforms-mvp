@@ -10,12 +10,14 @@
 
 ### Added (追加)
 
+- **新パッケージ `WinformsMVP.Testing`** (`netstandard2.0`、`WinformsMVP.Core` のみに依存、テストフレームワーク・モックライブラリ非依存) — テストプロジェクトから参照する。`PresenterTestHost` / `TestServices` に加え、Presenter が使うフレームワークサービスのフェイクを同梱: `TestServices.CreateFakes()` (`FakeServices`: `Provider` と `Messages` / `Toasts` / `Dialogs` / `Files` / `Navigator` / `Logs`)、`CapturingActionBinder`、`FakeMessageService` (呼び出し記録、確認の答えはキュー → ハンドラ)、`FakeToastService`、`FakeDialogProvider`、`FakeWindowNavigator` (本番の `WindowNavigator` と同じ規則: 結果の型変換、キーの重複判定と Presenter の破棄、パラメータ必須の Presenter の検査; 非モーダルは `Windows[i].CloseWithResult(...)` で閉じる)、`InMemoryFileService` (どの OS でも Windows のパス規則、`System.IO` と同じ例外、`Failure` で失敗を注入)、`RecordingLoggerFactory`。**答えを用意していない確認・ダイアログ・モーダルは `UnscriptedInteractionException`** (想定外の質問が黙って片方の分岐に進まない; `AnswerUnscripted` / `CancelUnscripted` で既定の答えにできる)。どれも任意で、1 つだけ差し替え (`fakes.Provider.RegisterInstance<IX>(mine)`)、まったく使わない (`TestServices.Create()` + 自作フェイク / Moq)、メソッドの上書き (virtual) ができる。リリースは 5 パッケージ。`winformsmvp-tests` テンプレートはこのパッケージを参照し、自前の `CapturingActionBinder.cs` を持たない。
 - **検証エラーの「画面の順」をモデルから決める: `ValidationState.ErrorsInOrder()` / `FirstError`** — `Check(model)` / `Validate(model)` がモデルの型を覚え、エラーをそのプロパティの宣言順 (基底クラスが先) に並べる。宣言順と違う項目だけ `[ValidationOrder(n)]` で動かす (付けないものは 0)。Presenter のルール (`SetError`) もプロパティ名ならその位置、モデルにない項目は名前順、`FormLevel` は最後。`FirstError` はその先頭 (エラーがなければ `InvalidOperationException`)。送信失敗時の推奨は `if (!Validation.Check(model)) { var first = Validation.FirstError; Messages.ShowWarning(first.Message); View.FocusError(first.Field); }` で、Presenter に項目の並び (`FieldOrder`) を書かない。
 - Wiki: 表示のしかたを「メッセージだけ」(View が `IValidatableView` を実装しない) と「メッセージ + アイコン」の 2 つの正式な書き方として説明。
 - **`ValueChangedEventArgs<T>` / `ValueChangingEventArgs<T>`** (`WinformsMVP.Common.Events`) — View イベント用の対になった EventArgs。`ValueChanged` は変わった後の `OldValue` / `NewValue`、`ValueChanging` (`CancelEventArgs` を継承) は変わる前で、Presenter が `Cancel = true` で止められる (View は `!e.Cancel` のときだけ反映する; 例: 未保存の編集中は一覧の選択を動かさない)。View のイベントは自前の EventArgs も WinForms の EventArgs も要らない: `EventHandler` / `EventHandler<業務型>` / タプル / この 2 つ / `CancelEventArgs` (Wiki: 設計ルール Rule 4)。
 
 ### Changed (変更)
 
+- **BREAKING: `PresenterTestHost` / `TestServices` は `WinformsMVP.Core` から `WinformsMVP.Testing` パッケージへ移動** (名前空間 `WinformsMVP.Testing` は同じ)。テストプロジェクトに `WinformsMVP.Testing` の参照を追加する。
 - **`StandardActions` のキーを修飾** (BREAKING, キー名のみ) — `StandardActions.Save` のキーは `"Save"` から `"Standard.Save"` (`"Standard."` + メンバー名) になった。同梱のキーが重なっていた (`FileSave` と `Save` がどちらも `"Save"`、`FileOpen` / `Open`、`FileClose` / `Close` も) のが別々のアクションになり、ログやミドルウェアで画面のアクションと同じ形で見える。メンバーはすべて残る。`StandardActions.X` で参照するコードはそのまま動く。キーの文字列 (`"Save"`) と比べていた場合や、`ViewAction.Create("Save")` と同じキーとして扱っていた場合だけ影響する。
 - `ErrorsInOrder(params fieldOrder)` — 並び順にない項目は、名前順の前にモデルの順 (上記) で並ぶ (モデルを検証していなければ従来どおり名前順)。
 

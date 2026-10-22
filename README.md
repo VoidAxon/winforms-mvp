@@ -121,6 +121,7 @@ navigator.ShowWindow(new UserEditorPresenter());
    ```bash
    dotnet add package WinformsMVP --prerelease
    dotnet add package WinformsMVP.DependencyInjection --prerelease
+   dotnet add package WinformsMVP.Testing --prerelease   # テストプロジェクトのみ
    ```
 
    `WinformsMVP` は `WinformsMVP.Core` に依存しているため、Core と同梱のアナライザーは自動で入ります。Presenter だけを別プロジェクトに切り出す場合は、そのプロジェクトで `WinformsMVP.Core` のみを参照すると WinForms 型を使えなくなります (`dotnet add package WinformsMVP.Core --prerelease`)。
@@ -243,13 +244,14 @@ dotnet build MyApp.Tests && dotnet run --project MyApp
 | テストフレームワーク | xUnit 2.9 |
 | SDK / IDE | .NET 10 SDK (`net10.0-windows` ターゲットのビルドに必要)。Visual Studio、JetBrains Rider、VS Code |
 
-パッケージは 4 つです:
+パッケージは 5 つです:
 
 | パッケージ | ターゲット | 内容 |
 |---|---|---|
 | `WinformsMVP.Core` | `netstandard2.0` | Presenter 基底クラス、ViewAction ディスパッチャ、EventAggregator、ChangeTracker、検証、ロギング、サービスインターフェイス。WinForms 非参照 (外部依存は `System.ComponentModel.Annotations` のみ)。MVP アナライザーを同梱 |
 | `WinformsMVP` | `net472`; `net10.0-windows` | WinForms 実装 (WindowNavigator、ViewActionBinder、ダイアログ、トースト、MessageService、View マッピング)。`WinformsMVP.Core` に依存し、アナライザーも推移的に有効 |
 | `WinformsMVP.DependencyInjection` | `net472`; `net10.0-windows` | `Microsoft.Extensions.DependencyInjection` 連携 (オプション) |
+| `WinformsMVP.Testing` | `netstandard2.0` | Presenter テスト支援 (`PresenterTestHost`、`TestServices`、`CapturingActionBinder`、メッセージ / トースト / ダイアログ / ファイル / ナビゲーター / ロガーのフェイク)。テストフレームワーク非依存。テストプロジェクトからのみ参照 |
 | `WinformsMVP.Templates` | (テンプレート) | `dotnet new` テンプレート: `winformsmvp` (アプリ) / `mvp-window` / `mvp-control` / `winformsmvp-tests` |
 
 名前空間はアセンブリをまたいで変わりません。`net40` のサポートは終了しました (最低 .NET Framework 4.7.2)。
@@ -265,6 +267,7 @@ winforms-mvp/
 │   ├── WinformsMVP.Core/                     プラットフォーム非依存コア (netstandard2.0、WinForms 非参照)
 │   ├── WinformsMVP/                          WinForms 実装 (net472;net10.0-windows)
 │   ├── WinformsMVP.DependencyInjection/      M.E.DI 連携 (オプション、net472;net10.0-windows)
+│   ├── WinformsMVP.Testing/                  Presenter テスト支援とフェイク (netstandard2.0、テスト専用)
 │   └── WinformsMVP.Analyzers/                Roslyn アナライザー (WinformsMVP.Core パッケージに同梱)
 ├── samples/
 │   ├── WinformsMVP.Samples/                  サンプル WinForms アプリ

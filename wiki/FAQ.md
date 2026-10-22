@@ -166,10 +166,10 @@ A. 不要です。Presenter は WinForms に依存しないので、UI スレッ
 
 ### Q. `MessageBox` の確認ダイアログをテストできますか?
 
-A. はい。`MockMessageService.ConfirmYesNoResult = true/false` で戻り値を制御できます。
+A. はい。`WinformsMVP.Testing` の `FakeMessageService` (`TestServices.CreateFakes()` の `fakes.Messages`) に答えを用意します。
 
 ```csharp
-_platform.MessageService.ConfirmYesNoResult = false;   // No を選択
+_fakes.Messages.EnqueueYesNo(false);   // 次の ConfirmYesNo に No と答える
 _view.Binder.Dispatch(StandardActions.Delete);
 Assert.False(_view.WasDeleted);
 ```
@@ -178,7 +178,7 @@ Assert.False(_view.WasDeleted);
 
 ### Q. テストで View を実体化する必要がありますか?
 
-A. 不要です。`MockXxxView` を実装してインターフェイス越しにテストします。サンプルは `tests/WinformsMVP.Samples.Tests/Mocks/` を参照。
+A. 不要です。`MockXxxView` を実装してインターフェイス越しにテストします。モック View は `CapturingActionBinder` (`WinformsMVP.Testing`) を公開して、テストからアクションを Dispatch します。サンプルは `tests/WinformsMVP.Samples.Tests/Mocks/` を参照。
 
 ---
 

@@ -48,7 +48,7 @@ public class SimpleDemoPresenter : WindowPresenterBase<ISimpleDemoView>
 |------|----|
 | ✅ ボイラープレートゼロ | 学習コスト最小 |
 | ✅ 既存コードからの段階移行が楽 | コンストラクタを増やさなくて済む |
-| ⚠️ テスト時に `SetServiceProvider` で差し替えが必要 | できなくはない |
+| ⚠️ テスト時に `PresenterTestHost.Start(services, ...)` でフェイクを渡す必要がある | できなくはない |
 | ⚠️ グローバル状態への依存 | テスタブルだが暗黙的 |
 
 **使いどころ**: プロトタイプ、デモ、レガシーコード移行の初期段階、フォーム単位の小規模スクリプト。
@@ -138,7 +138,7 @@ public class OrderProcessorPresenter : WindowPresenterBase<IOrderProcessorView>
 |------|----|
 | ✅ コンストラクタが業務サービスだけで簡潔 | 読みやすい |
 | ✅ Platform サービスへのアクセスが容易 | 短く書ける |
-| ✅ 高いテスタビリティ | モック注入 + `SetServiceProvider` |
+| ✅ 高いテスタビリティ | モック注入 + `PresenterTestHost.Start(services, ...)` |
 | ✅ 可読性が最高 | 推奨 |
 
 **使いどころ**: ほとんどの本番シナリオ。

@@ -474,4 +474,4 @@ register.RegisterFromAssembly(Assembly.GetExecutingAssembly());
 
 **`MessageBox.Show()` を Presenter から呼んでテストできない**
 
-Presenter は WinForms 型に直接依存してはいけません。`Messages.ShowInfo()` 等のサービス経由に書き換えてください。テスト時は `MockMessageService` 等をサービスプロバイダに登録して差し替えることでダイアログの呼び出しを検証できます。
+Presenter は WinForms 型に直接依存してはいけません。`Messages.ShowInfo()` 等のサービス経由に書き換えてください。テスト時は `WinformsMVP.Testing` の `TestServices.CreateFakes()` で得たフェイク (`fakes.Messages` 等) を `PresenterTestHost.Start(fakes.Provider, presenter, view)` で渡せば、ダイアログの呼び出しを検証できます ([HowTo: Presenter をテストする](HowTo-Test-A-Presenter))。

@@ -301,55 +301,34 @@ ServiceLocator.Configure(reg =>
 [Fact]
 public void Test_MyPresenter()
 {
-    // テスト用プロバイダ — デフォルトの ServiceLocator は NullLoggerFactory を使用
-    // SetServiceProvider で差し替える (InternalsVisibleTo が必要)
-    var presenter = new MyPresenter();   // ServiceLocator.Current (NullLoggerFactory) を使用
+    // TestServices.Create() は無出力の ILoggerFactory (NullLoggerFactory) だけを登録したプロバイダ
+    var sp = TestServices.Create();   // WinformsMVP.Testing
 
-    PresenterTestHost.Start(presenter, mockView);   // アタッチ + 実際の初期化
+    PresenterTestHost.Start(sp, new MyPresenter(), mockView);   // アタッチ + 実際の初期化
 
     // Logger 呼び出しはコンパイル・実行されるが出力なし — オーバーヘッドゼロ
 }
 ```
 
-### キャプチャ用 Logger でメッセージを検証する
+### 記録用 Logger でメッセージを検証する
+
+`WinformsMVP.Testing` の `RecordingLoggerFactory` はすべてのレベルを記録します。`TestServices.CreateFakes()` が登録済みで、`fakes.Logs` として公開されています (自作のロガーを書く必要はありません):
 
 ```csharp
-private class MockLogger : ILogger
-{
-    public List<(LogLevel Level, string Message, Exception Ex)> Entries { get; } = new();
-
-    public bool IsEnabled(LogLevel level) => true;
-
-    public void Log(LogLevel level, Exception exception, string message, params object[] args)
-        => Entries.Add((level, MessageFormatter.Format(message, args), exception));
-}
-
-private class MockLoggerFactory : ILoggerFactory
-{
-    public MockLogger Logger { get; } = new MockLogger();
-    public ILogger CreateLogger(string categoryName) => Logger;
-    public ILogger CreateLogger(Type type) => Logger;
-}
-
 [Fact]
 public void OnSave_ShouldLogSuccess()
 {
-    var loggerFactory = new MockLoggerFactory();
-    var sp = new DefaultServiceProvider();
-    sp.RegisterInstance<WinformsMVP.Logging.ILoggerFactory>(loggerFactory);
-
-    var presenter = new MyPresenter();
-    // SetServiceProvider は internal — InternalsVisibleTo か dynamic 経由で呼ぶ。
-    // 詳細は Platform Services の「モックでのテスト」を参照。
-    ((dynamic)presenter).SetServiceProvider(sp);
-    PresenterTestHost.Start(presenter, mockView);
+    var fakes = TestServices.CreateFakes();   // fakes.Logs = RecordingLoggerFactory
+    PresenterTestHost.Start(fakes.Provider, new MyPresenter(), mockView);
 
     mockView.Binder.Dispatch(StandardActions.Save);
 
-    Assert.Contains(loggerFactory.Logger.Entries,
+    Assert.Contains(fakes.Logs.Entries,
         e => e.Level == LogLevel.Information && e.Message.Contains("saved"));
 }
 ```
+
+`LogEntry` は `Category`、`Level`、`Exception`、`Message` (プレースホルダー展開済み)、`Template`、`Args` を持ちます。フェイクを使わずに組む場合は `TestServices.Create()` のプロバイダに `new RecordingLoggerFactory()` を `ILoggerFactory` として登録します (無出力のものを置き換えます)。
 
 完全なテストパターン集は `tests/WinformsMVP.Samples.Tests/LoggingIntegrationTests.cs` にあります。
 

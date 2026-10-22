@@ -8,10 +8,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A WinForms MVP (Model-View-Presenter) framework for .NET Framework 4.7.2+ and .NET 10 (Windows), providing infrastructure for building desktop applications with clean separation of concerns. All projects use SDK-style `.csproj`.
 
-It ships as four packages:
+It ships as five packages:
 - **`WinformsMVP.Core`** (`netstandard2.0`) — presenters, ViewAction dispatcher, EventAggregator, ChangeTracker, validation, logging and the service interfaces. It has **no WinForms reference**, so presenter code compiled against it cannot touch WinForms types. Bundles the MVP Roslyn analyzers.
 - **`WinformsMVP`** (`net472;net10.0-windows`, depends on Core) — the WinForms implementation: `WindowNavigator`, `ViewActionBinder`, dialogs, toasts, `MessageService`, view mapping, `Connect` hosting. The analyzers flow to its consumers transitively.
 - **`WinformsMVP.DependencyInjection`** (`net472;net10.0-windows`) — optional M.E.DI integration.
+- **`WinformsMVP.Testing`** (`netstandard2.0`, depends on Core; test projects only) — `PresenterTestHost`, `TestServices` (`Create()`, `CreateFakes()`), `CapturingActionBinder` and optional fakes of the presenter-facing services (`FakeMessageService`, `FakeToastService`, `FakeDialogProvider`, `FakeWindowNavigator`, `InMemoryFileService`, `RecordingLoggerFactory`). No test-framework dependency.
 - **`WinformsMVP.Templates`** (template package, `templates/`) — `dotnet new` templates: `winformsmvp` (app with service/view registration + main window, `--framework net10.0-windows|net472`, `--mvp-version`, `--no-restore`), `mvp-window` (`--param-type`, `--validation`, `--namespace`), `mvp-control`, `winformsmvp-tests` (`--app-project`). Install with `dotnet new install WinformsMVP.Templates` (or a local `.nupkg` path).
 
 Namespaces are the same in both assemblies (`WinformsMVP.MVP.*`, `WinformsMVP.Services`, `WinformsMVP.Common`, ...).
@@ -83,7 +84,7 @@ View events need no hand-written EventArgs class and never a WinForms one (MVP00
 
 Subscribe to view events with the protected `SubscribeViewEvent(h => View.X += h, h => View.X -= h, handler)` (and `SubscribeViewEvent<TEventArgs>(..., e => ...)` for `EventHandler<T>`): one line instead of a `+=` plus a matching `-=`, unsubscribed when the presenter is disposed, and silent once disposal has begun (windows dispose the presenter first, then the form, whose controls can still raise events while torn down). Subscriptions registered via `.DisposeWith(Disposables)` (event tokens, `Cascade.Bind` unsubscribers, `Disposable.Create(() => view.Event -= handler)` wrappers) are released automatically after `Cleanup()`; presenters normally need no `Cleanup` override for unsubscription.
 
-**Testing rule:** never widen visibility for tests. Drive the Presenter through its real entry points so the same `CanExecute` / close logic runs. `AttachView` / `Initialize` are explicit interface implementations (not callable as `presenter.Initialize()`); tests host the presenter with `WinformsMVP.Testing.PresenterTestHost` (in `WinformsMVP.Core`):
+**Testing rule:** never widen visibility for tests. Drive the Presenter through its real entry points so the same `CanExecute` / close logic runs. `AttachView` / `Initialize` are explicit interface implementations (not callable as `presenter.Initialize()`); tests host the presenter with `WinformsMVP.Testing.PresenterTestHost` (in the `WinformsMVP.Testing` package):
 ```csharp
 var view = new MockEditView();   // any IViewBase/IWindowView mock — no Form needed
 // Attaches the view, runs the real init (RegisterViewActions, binder auto-bind, OnInitialize)
@@ -91,7 +92,7 @@ var view = new MockEditView();   // any IViewBase/IWindowView mock — no Form n
 using (var host = PresenterTestHost.Start(new EditPresenter(repo), view))
 {
     // Action dispatch — Dispatcher stays protected; the mock view exposes a CapturingActionBinder
-    // (tests/.../Mocks/CapturingActionBinder.cs) that captures the dispatcher the framework binds,
+    // (WinformsMVP.Testing) as its ActionBinder; it captures the dispatcher the framework binds,
     // so tests dispatch through the same channel a real Form's bound controls use:
     view.Binder.Dispatch(CommonActions.Save);                 // not presenter.OnSave()
     await view.Binder.DispatchAsync(CommonActions.Load);      // async handler: awaits its completion
@@ -109,7 +110,7 @@ using (var host = PresenterTestHost.Start(new EditPresenter(repo), view))
 ```
 If initialization throws, `Start` disposes the presenter and rethrows. `host.CanClose` throws for control presenters (they have no close gate).
 
-Framework services (`Messages`, `Navigator`, `Toasts`, `Logger`, ...) for one presenter under test: pass a provider as the first argument — `PresenterTestHost.Start(services, presenter, view[, parameters])`. Start from `TestServices.Create()` (a `DefaultServiceProvider` with only a silent `ILoggerFactory`, which every presenter needs at attach) and register the fakes the presenter uses; anything missing is an error, never a fallback to the global `ServiceLocator.Current`, so tests do not touch global state and can run in parallel. The provider stays caller-owned. A presenter that already used framework services in its constructor is rejected (move that code to `OnViewAttached` / `OnInitialize`). The binding seam (`IPresenterServicesBinding`) is internal; there is no public per-presenter setter.
+Framework services (`Messages`, `Navigator`, `Toasts`, `Logger`, ...) for one presenter under test: pass a provider as the first argument — `PresenterTestHost.Start(services, presenter, view[, parameters])`. Use `TestServices.CreateFakes()` (`fakes.Provider` plus `fakes.Messages` / `Toasts` / `Dialogs` / `Files` / `Navigator` / `Logs`; an unscripted confirmation, dialog or modal throws `UnscriptedInteractionException` unless the fake is switched to a permissive default), or start from `TestServices.Create()` (a `DefaultServiceProvider` with only a silent `ILoggerFactory`, which every presenter needs at attach) and register your own fakes; replace any service in the provider before `Start`; anything missing is an error, never a fallback to the global `ServiceLocator.Current`, so tests do not touch global state and can run in parallel. The provider stays caller-owned. A presenter that already used framework services in its constructor is rejected (move that code to `OnViewAttached` / `OnInitialize`). The binding seam (`IPresenterServicesBinding`) is internal; there is no public per-presenter setter.
 
 The framework enforces these rules at compile time via Roslyn analyzers in [src/WinformsMVP.Analyzers/](src/WinformsMVP.Analyzers/).
 
@@ -346,6 +347,7 @@ Use for cross-presenter/cross-module events. Do **not** use for parent-child coo
 │   │   ├── Services/                  WindowNavigator, MessageService, DialogProvider, toasts, view mapping
 │   │   └── Common/                    Toast options/renderers, control binding helpers
 │   ├── WinformsMVP.DependencyInjection/   Optional M.E.DI integration (net472;net10.0-windows)
+│   ├── WinformsMVP.Testing/           PresenterTestHost, TestServices, service fakes (netstandard2.0, test projects only)
 │   └── WinformsMVP.Analyzers/             Roslyn analyzers (in the .sln, build-only — bundled into WinformsMVP.Core package)
 ├── templates/  WinformsMVP.Templates.csproj + content/{app,window,control,tests} (dotnet new template package; content folders are template sources, not compiled)
 ├── samples/    Sample/demo apps (WinformsMVP.Samples, MultiProjectDemo.*)
@@ -358,7 +360,7 @@ Use for cross-presenter/cross-module events. Do **not** use for parent-child coo
 
 ## Development Notes
 
-- **Target frameworks:** `WinformsMVP.Core` → `netstandard2.0`; `WinformsMVP` / `WinformsMVP.DependencyInjection` → `net472;net10.0-windows`; samples and tests → `net48`. Minimum .NET Framework is 4.7.2; net40 is no longer supported. SDK-style gives automatic file inclusion and `PackageReference`; `EnableWindowsTargeting` (in `Directory.Build.props`) lets `dotnet build` run on non-Windows hosts.
+- **Target frameworks:** `WinformsMVP.Core` / `WinformsMVP.Testing` → `netstandard2.0`; `WinformsMVP` / `WinformsMVP.DependencyInjection` → `net472;net10.0-windows`; samples and tests → `net48`. Minimum .NET Framework is 4.7.2; net40 is no longer supported. SDK-style gives automatic file inclusion and `PackageReference`; `EnableWindowsTargeting` (in `Directory.Build.props`) lets `dotnet build` run on non-Windows hosts.
 - **Where code goes:** anything a presenter needs goes in `WinformsMVP.Core` and must not reference WinForms / System.Drawing; WinForms implementations go in `WinformsMVP`.
 - **Tests:** xUnit 2.9.3. `WinformsMVP.Samples.Tests` targets net48, so `dotnet test` on it needs Windows (or mono); `WinformsMVP.Analyzers.Tests` (net10.0) runs anywhere.
 - **Adding a Form/Dialog:** define `IXxxView : IWindowView` → presenter extends `WindowPresenterBase<TView>[, TParam]` → implement the Form → register the mapping → show via `WindowNavigator`. In an app project, `dotnet new mvp-window -n Xxx [--param-type int] [--validation]` scaffolds the view interface, actions, presenter and Form (`dotnet new mvp-control` for a UserControl).
@@ -370,7 +372,7 @@ Use for cross-presenter/cross-module events. Do **not** use for parent-child coo
 
 Every push to `master` and every pull request runs `.github/workflows/ci.yml` (Windows: build + both test projects + `tests/templates/verify-templates.sh` with the generated tests run).
 
-Releases are **tag-driven**. Pushing a tag matching `v*` triggers `.github/workflows/release.yml`, which builds, runs the test suite (gate), packs the four shippable packages (`WinformsMVP.Core`, `WinformsMVP`, `WinformsMVP.DependencyInjection`, `WinformsMVP.Templates`), asserts the analyzer is bundled in `WinformsMVP.Core`, publishes to **GitHub Packages**, and creates a **GitHub Release** with the `.nupkg` files attached.
+Releases are **tag-driven**. Pushing a tag matching `v*` triggers `.github/workflows/release.yml`, which builds, runs the test suite (gate), packs the five shippable packages (`WinformsMVP.Core`, `WinformsMVP`, `WinformsMVP.DependencyInjection`, `WinformsMVP.Testing`, `WinformsMVP.Templates`), asserts the analyzer is bundled in `WinformsMVP.Core`, publishes to **GitHub Packages**, and creates a **GitHub Release** with the `.nupkg` files attached.
 
 ```bash
 git tag v1.0.0-preview.1 && git push origin v1.0.0-preview.1   # preview
@@ -379,6 +381,6 @@ git tag v1.0.0           && git push origin v1.0.0             # stable
 
 - The package version is the tag minus the leading `v`. There is no version in any `.csproj` — **never** hardcode one; pass it only via the tag (the workflow injects `-p:Version=`).
 - A tag containing `-` (e.g. `-preview.1`) → NuGet prerelease (hidden by default) **and** the workflow passes `--prerelease` to mark the GitHub Release as pre-release. A clean tag → stable.
-- Only `WinformsMVP.Core`, `WinformsMVP`, `WinformsMVP.DependencyInjection` and `WinformsMVP.Templates` publish; everything else is `IsPackable=false` via `Directory.Build.props`. The analyzer ships **inside** `WinformsMVP.Core` (`analyzers/dotnet/cs/`), not standalone, and flows transitively to `WinformsMVP` consumers.
+- Only `WinformsMVP.Core`, `WinformsMVP`, `WinformsMVP.DependencyInjection`, `WinformsMVP.Testing` and `WinformsMVP.Templates` publish; everything else is `IsPackable=false` via `Directory.Build.props`. The analyzer ships **inside** `WinformsMVP.Core` (`analyzers/dotnet/cs/`), not standalone, and flows transitively to `WinformsMVP` consumers.
 - GitHub Packages requires consumer authentication (a PAT) even for public repos; the auth-free fallback is downloading the `.nupkg` from the Release. Both routes are documented for consumers in `README.md`.
 - Full maintainer guide (workflow internals, first-time setup, consuming, troubleshooting, cleanup): [wiki/HowTo-Release.md](wiki/HowTo-Release.md).

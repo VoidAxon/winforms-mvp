@@ -60,6 +60,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           dotnet pack src/WinformsMVP.DependencyInjection/WinformsMVP.DependencyInjection.csproj -c Release -p:Version=$env:VERSION -o artifacts
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet pack src/WinformsMVP.Testing/WinformsMVP.Testing.csproj -c Release -p:Version=$env:VERSION -o artifacts
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           dotnet pack templates/WinformsMVP.Templates.csproj -c Release -p:Version=$env:VERSION -o artifacts
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 

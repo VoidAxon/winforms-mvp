@@ -405,7 +405,7 @@ public void ProductSelector_PublishesMessage_OrderSummaryReceives()
     PresenterTestHost.Start(productSelectorPresenter, productSelectorView);
     PresenterTestHost.Start(orderSummaryPresenter, orderSummaryView);
 
-    // Act — モック View の CapturingActionBinder 経由で実際のアクションを Dispatch
+    // Act — モック View の CapturingActionBinder (WinformsMVP.Testing) 経由で実際のアクションを Dispatch
     productSelectorView.SelectedProduct = new Product { Name = "Laptop" };
     productSelectorView.Quantity = 1;
     productSelectorView.Binder.Dispatch(ProductActions.AddToOrder);   // ProductAddedMessage を発行
