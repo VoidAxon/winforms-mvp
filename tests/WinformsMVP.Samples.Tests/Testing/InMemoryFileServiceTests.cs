@@ -230,6 +230,17 @@ namespace WinformsMVP.Samples.Tests.Testing
         }
 
         [Fact]
+        public void Read_MissingParent_OrADirectory_ThrowsLikeSystemIo()
+        {
+            var files = new InMemoryFileService();
+            files.CreateDirectory("dir");
+
+            Assert.Throws<DirectoryNotFoundException>(() => files.ReadAllText(@"C:\missing\file.txt"));
+            Assert.Throws<UnauthorizedAccessException>(() => files.ReadAllText("dir"));
+            Assert.Throws<DirectoryNotFoundException>(() => files.Copy(@"C:\missing\a.txt", "b.txt"));
+        }
+
+        [Fact]
         public void PathHelpers_FollowWindowsRules()
         {
             var files = new InMemoryFileService();

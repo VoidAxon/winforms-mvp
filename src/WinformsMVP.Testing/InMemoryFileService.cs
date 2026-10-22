@@ -451,6 +451,8 @@ namespace WinformsMVP.Testing
         private StoredFile ExistingFile(string full)
         {
             if (_files.TryGetValue(WindowsPath.Key(full), out var file)) return file;
+            RequireParent(full);
+            if (IsDirectory(full)) throw new UnauthorizedAccessException($"Access to the path '{full}' is denied.");
             throw new FileNotFoundException($"Could not find file '{full}'.", full);
         }
 
