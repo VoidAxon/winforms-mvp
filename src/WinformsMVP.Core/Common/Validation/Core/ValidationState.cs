@@ -26,6 +26,7 @@ namespace WinformsMVP.Common.Validation.Core
         private Dictionary<string, List<string>> _modelErrors = new Dictionary<string, List<string>>();
         private readonly Dictionary<string, List<string>> _customErrors = new Dictionary<string, List<string>>();
         private bool _revealAll;
+        private Type _modelType;   // the model last validated: its properties give the screen's order
 
         /// <summary>Raised after the errors or <see cref="RevealAll"/> changed.</summary>
         public event EventHandler ErrorsChanged;
@@ -63,25 +64,55 @@ namespace WinformsMVP.Common.Validation.Core
 
         /// <summary>
         /// Every current error as (field, message) pairs in the screen's order, for a failed submit:
-        /// show the first message and move the focus to its field (or list them all).
+        /// show the first message and move the focus to its field (or list them all). The order is
+        /// that of the model last passed to <see cref="Validate{T}"/> / <see cref="Check{T}"/>: its
+        /// properties in declaration order (base class first), moved by
+        /// <see cref="Attributes.ValidationOrderAttribute"/> (unnumbered properties count as 0). Presenter
+        /// rules (<see cref="SetError"/>) on a property name take that property's place; other fields
+        /// follow by name (ordinal), then <see cref="FormLevel"/>. Before any model was checked, every
+        /// field is ordered by name. No error is ever left out.
         /// </summary>
-        /// <param name="fieldOrder">
-        /// Field names in the order they appear on the screen. Their errors come first; names
-        /// without errors and repeats are ignored. Errors of other fields follow by field name
-        /// (ordinal), then <see cref="FormLevel"/> unless it is listed. No error is ever left out,
-        /// so a failed submit always has a message to show.
-        /// </param>
         /// <returns>A snapshot; within a field, model rules come before presenter rules.</returns>
+        public IReadOnlyList<(string Field, string Message)> ErrorsInOrder() => Ordered(new string[0]);
+
+        /// <summary>
+        /// Like <see cref="ErrorsInOrder()"/>, with <paramref name="fieldOrder"/> first: for a screen
+        /// whose order differs from its model's. Names without errors and repeats are ignored;
+        /// <see cref="FormLevel"/> may be listed to place it.
+        /// </summary>
         public IReadOnlyList<(string Field, string Message)> ErrorsInOrder(params string[] fieldOrder)
         {
             if (fieldOrder == null) throw new ArgumentNullException(nameof(fieldOrder));
             if (fieldOrder.Any(f => f == null)) throw new ArgumentNullException(nameof(fieldOrder), "A field name is null.");
+            return Ordered(fieldOrder);
+        }
 
-            var unlisted = _modelErrors.Keys.Concat(_customErrors.Keys)
-                .Where(f => f != FormLevel)
-                .Except(fieldOrder, StringComparer.Ordinal)
-                .OrderBy(f => f, StringComparer.Ordinal);
-            var order = fieldOrder.Concat(unlisted).Concat(new[] { FormLevel }).Distinct(StringComparer.Ordinal);
+        /// <summary>
+        /// The first error in the screen's order (<see cref="ErrorsInOrder()"/>): after a failed
+        /// <see cref="Check{T}"/>, show its message and move the focus to its field.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">There are no errors.</exception>
+        public (string Field, string Message) FirstError
+        {
+            get
+            {
+                var errors = ErrorsInOrder();
+                if (errors.Count == 0)
+                    throw new InvalidOperationException("There are no validation errors: check HasErrors (or the result of Check) first.");
+                return errors[0];
+            }
+        }
+
+        private IReadOnlyList<(string Field, string Message)> Ordered(IEnumerable<string> fieldOrder)
+        {
+            var withErrors = new HashSet<string>(_modelErrors.Keys.Concat(_customErrors.Keys), StringComparer.Ordinal);
+            withErrors.Remove(FormLevel);
+            var modelOrder = _modelType == null ? new string[0] : PropertyOrder.Of(_modelType);
+            var order = fieldOrder
+                .Concat(modelOrder.Where(withErrors.Contains))
+                .Concat(withErrors.OrderBy(f => f, StringComparer.Ordinal))
+                .Concat(new[] { FormLevel })
+                .Distinct(StringComparer.Ordinal);
 
             var result = new List<(string Field, string Message)>();
             foreach (var field in order)
@@ -98,6 +129,7 @@ namespace WinformsMVP.Common.Validation.Core
         public void Validate<T>(T model) where T : class
         {
             if (model == null) throw new ArgumentNullException(nameof(model));
+            _modelType = typeof(T);
 
             var errors = new Dictionary<string, List<string>>();
             foreach (var result in ModelValidator.For<T>().ValidateAll(model))

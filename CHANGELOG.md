@@ -8,6 +8,19 @@
 
 ## [Unreleased]
 
+### Added (追加)
+
+- **検証エラーの「画面の順」をモデルから決める: `ValidationState.ErrorsInOrder()` / `FirstError`** — `Check(model)` / `Validate(model)` がモデルの型を覚え、エラーをそのプロパティの宣言順 (基底クラスが先) に並べる。宣言順と違う項目だけ `[ValidationOrder(n)]` で動かす (付けないものは 0)。Presenter のルール (`SetError`) もプロパティ名ならその位置、モデルにない項目は名前順、`FormLevel` は最後。`FirstError` はその先頭 (エラーがなければ `InvalidOperationException`)。送信失敗時の推奨は `if (!Validation.Check(model)) { var first = Validation.FirstError; Messages.ShowWarning(first.Message); View.FocusError(first.Field); }` で、Presenter に項目の並び (`FieldOrder`) を書かない。
+- Wiki: 表示のしかたを「メッセージだけ」(View が `IValidatableView` を実装しない) と「メッセージ + アイコン」の 2 つの正式な書き方として説明。
+
+### Changed (変更)
+
+- `ErrorsInOrder(params fieldOrder)` — 並び順にない項目は、名前順の前にモデルの順 (上記) で並ぶ (モデルを検証していなければ従来どおり名前順)。
+
+### Removed (削除)
+
+- **BREAKING: `ValidationHelper` と `ValidationError` を削除** — どちらもどこからも使われていなかった。`ValidationHelper.ValidateSequential(model, validator, Messages)` (最初のエラーをメッセージで出す) は `Validation.Check(model)` + `Validation.FirstError` + `Messages.ShowWarning` に置き換える (Presenter のルールとフォーカスも扱える)。`ValidationError` は `ErrorsInOrder()` の `(Field, Message)`。
+
 ## [1.0.0-preview.6] - 2026-10-22
 
 > `v1.0.0-preview.5` のタグはリリースのテスト (gate) で失敗し、パッケージは公開されていません。その変更もここに含まれます。
