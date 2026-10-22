@@ -34,6 +34,13 @@ namespace WinformsMVP.Services.Implementations
             if (!(view is Control control))
                 throw new ArgumentException(
                     "Control hosting requires a Control-backed view.", nameof(view));
+            // A presenter that is already attached (or owned by a parent) is rejected before anything is
+            // wired, so the failure path cannot dispose it and break its current owner.
+            if (presenter is IViewAttachable attachable && (attachable.IsViewAttached || attachable.IsInitialized))
+                throw new InvalidOperationException(
+                    presenter.GetType().Name + " is already attached to a view; a presenter is attached once.");
+            if (presenter is IComposablePresenter composable && composable.IsDisposed)
+                throw new ObjectDisposedException(presenter.GetType().Name);
             if (ViewOwnership.IsClaimed(view))
                 throw new InvalidOperationException(
                     "This control is already used by another live presenter; each presenter needs its own view.");

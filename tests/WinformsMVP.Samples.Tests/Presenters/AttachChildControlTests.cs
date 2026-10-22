@@ -66,5 +66,21 @@ namespace WinformsMVP.Samples.Tests.Presenters
                 view, new EditInput()));
             Assert.False(connected.Disposed);
         }
+
+        [Fact]
+        public void ConnectingAnAttachedChild_IsRejected_AndTheChildStaysAttached()
+        {
+            var view = new ControlEditView();
+            var child = new NamePanelPresenter(new NameSource());
+            using (PresenterTestHost.Start(TestServices.Create(),
+                       new EditPresenter((p, input) => p.Attach(child, view.NamePanel, input)), view, new EditInput()))
+            using (var otherControl = new NamePanelControl())
+            {
+                Assert.Throws<InvalidOperationException>(() => child.Connect(otherControl, new EditInput()));
+
+                Assert.False(child.Disposed);
+                Assert.True(view.Panel.Binder.IsBound);
+            }
+        }
     }
 }
