@@ -22,7 +22,6 @@
 - **BREAKING: `ValidationHelper` と `ValidationError` を削除** — どちらもどこからも使われていなかった。`ValidationHelper.ValidateSequential(model, validator, Messages)` (最初のエラーをメッセージで出す) は `Validation.Check(model)` + `Validation.FirstError` + `Messages.ShowWarning` に置き換える (Presenter のルールとフォーカスも扱える)。`ValidationError` は `ErrorsInOrder()` の `(Field, Message)`。
 - **BREAKING: `ExecutionRequestEventArgs<…>` (1〜3 引数版)、`ExecutionResult<TResult>`、`ExecutionCompletedEventArgs<TResult>` を削除** — 移行済み画面から従来 (非 MVP) Form を開くための仕組みだったが、結果が「null = キャンセル」で `InteractionResult<T>` と一致せず (値型ではキャンセルを表せない)、Form の破棄の責任や非モーダルの `Completed` の約束があいまいで、Executor / Callback の 2 つの使い方が 1 つの型に混在していた。サンプルも Executor を一度も使っていなかった。**移行**: View インターフェイスに意味のあるメソッド (`InteractionResult<CustomerData> EditCustomer(CustomerData current)`) を足し、Form の実装で従来 Form を `ShowDialog` して結果を返す (Wiki: 従来の WinForms から移行する、Step 7 の方法 A)。複数画面で使うなら中継サービス (方法 B)。サンプル `ExecutionRequestDemo` は `LegacyPopupDemo` に置き換え。
 
-
 ## [1.0.0-preview.6] - 2026-10-22
 
 > `v1.0.0-preview.5` のタグはリリースのテスト (gate) で失敗し、パッケージは公開されていません。その変更もここに含まれます。
