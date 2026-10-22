@@ -138,9 +138,104 @@ public class OrderSummaryPresenter : ControlPresenterBase<IOrderSummaryView>
 - ✅ ビジネスルールを Model に集約できる
 - ✅ テストが楽 (Model をモックすればよい)
 - ❌ Model の抽象化が必要
-- ❌ Model インスタンスを DI コンテナで共有する必要がある
+- ❌ Model インスタンスを共有する仕組みが必要 (アプリ全体なら DI、画面単位ならパラメータ — 下記)
 
 完全なサンプルは `samples/WinformsMVP.Samples/ComplexInteractionDemo_ServiceBased/` 参照。
+
+### ウィンドウ単位の共有 Model (1 画面の中のパネル同士)
+
+上の例は Model を DI で共有します (アプリに 1 つ)。**同じ画面を複数同時に開ける編集画面**では、共有するのは「その画面で編集中の入力」です。これはウィンドウごとに 1 つ作り、パラメータで渡します。
+
+典型例: 編集画面の一部を UserControl + Presenter に分けた (顧客パネル、連絡先パネル)。親 Presenter は保存と検証、各パネルは自分の入力欄を担当し、**パネル同士・親子は互いを呼ばず、同じ入力 Model だけを見る**。
+
+```csharp
+// 編集中の入力 (ウィンドウごとに 1 つ)。変更はメソッド経由、変更後に PropertyChanged
+public sealed class OrderEditInput : NotifyingObject
+{
+    private int? _customerId;
+    private readonly List<Contact> _contacts = new List<Contact>();
+
+    public int? CustomerId
+    {
+        get => _customerId;
+        set => SetProperty(ref _customerId, value);
+    }
+
+    // 外からは読み取り専用。変更は下のメソッドだけ → 「誰が・いつ通知するか」がコードに書かれる
+    public IReadOnlyList<Contact> Contacts => _contacts;
+
+    public void AddContact(Contact contact)
+    {
+        _contacts.Add(contact);
+        OnPropertyChanged(nameof(Contacts));
+    }
+
+    public void RemoveContact(Contact contact)
+    {
+        if (_contacts.Remove(contact)) OnPropertyChanged(nameof(Contacts));
+    }
+}
+
+// 顧客パネル: 入力を変更する (「顧客を連絡先にも追加」ボタン)
+public sealed class CustomerPanelPresenter : ControlPresenterBase<ICustomerPanelView, OrderEditInput>
+{
+    private OrderEditInput _input;
+
+    protected override void OnViewAttached() { }
+
+    protected override void OnInitialize(OrderEditInput input) => _input = input;
+
+    private void OnCopyToContacts() => _input.AddContact(View.SelectedCustomerAsContact);
+}
+
+// 連絡先パネル: 入力の変化を購読して表示し直す
+public sealed class ContactsPanelPresenter : ControlPresenterBase<IContactsPanelView, OrderEditInput>
+{
+    private OrderEditInput _input;
+
+    protected override void OnViewAttached() { }
+
+    protected override void OnInitialize(OrderEditInput input)
+    {
+        _input = input;
+        _input.PropertyChanged += OnInputChanged;
+        Disposable.Create(() => _input.PropertyChanged -= OnInputChanged).DisposeWith(Disposables);
+        View.Contacts = _input.Contacts;
+    }
+
+    private void OnInputChanged(object sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(OrderEditInput.Contacts)) View.Contacts = _input.Contacts;
+    }
+}
+```
+
+親 Presenter も同じ入力を購読し、変化のたびに検証し直します (`Validation.Validate(_input)`)。未保存の判定は `TrackChanges(_input)` で入力そのものを追跡します — どのパネルが変更しても同じように dirty になります。
+
+**決まりごと:**
+
+- **入力はウィンドウごとに新しく作る。** DI のシングルトンにしない (同じ画面を 2 つ開くと入力を共有してしまう)。
+- **パネルにはパラメータで渡す** (`ControlPresenterBase<TView, TParam>`)。実行時のデータなのでコンストラクタには入れない — コンストラクタは業務サービス (DI) 用。
+- **変更はメソッド経由、通知は Model が出す。** コレクションは `IReadOnlyList` で公開し、`Add…` / `Remove…` が `PropertyChanged` を出す。`ObservableCollection` を外に出すと、どこからでも変更でき、通知の粒度も呼び出し側次第になる。
+- **購読は `Disposables` で解除する。** パネルは画面より先に破棄されることがある (タブの差し替えなど)。
+- **EventAggregator は使わない。** アプリ全体で 1 つなので、同じ画面を 2 つ開くと画面 A の操作が画面 B のパネルにも届く。
+- **パネル同士・親子でメソッドを呼び合わない。** 「パネル B を更新して」と頼むのではなく、Model を変更する。受け手は Model の変化だけを見る。
+
+この形は Martin Fowler が [GUI Architectures](https://martinfowler.com/eaaDev/uiArchs.html) で説明している *Observer Synchronization* (各画面が共有ドメインオブジェクトを観察して同期する) と同じ考え方です。子 Presenter の組み立て (誰が生成して `Connect` するか) は [HowTo: マスター/詳細](HowTo-Implement-Master-Detail#組み立て-親-form-が両方を所有) を参照。テストでは 2 つのパネルの Presenter を同じ入力に接続し、片方の操作でもう片方の表示が変わることを確認します:
+
+```csharp
+var input = new OrderEditInput();
+var customerView = new FakeCustomerPanelView();
+var contactsView = new FakeContactsPanelView();
+using (PresenterTestHost.Start(fakes.Provider, new CustomerPanelPresenter(), customerView, input))
+using (PresenterTestHost.Start(fakes.Provider, new ContactsPanelPresenter(), contactsView, input))
+{
+    customerView.SelectedCustomerAsContact = new Contact("Alice");
+    customerView.Binder.Dispatch(CustomerPanelActions.CopyToContacts);
+
+    Assert.Equal("Alice", Assert.Single(contactsView.Contacts).Name);
+}
+```
 
 ---
 
