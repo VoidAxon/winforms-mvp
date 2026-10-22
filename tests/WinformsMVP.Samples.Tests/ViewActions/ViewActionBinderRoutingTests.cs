@@ -53,6 +53,82 @@ namespace WinformsMVP.Samples.Tests.ViewActions
         }
 
         [Fact]
+        public void Unbind_StopsDispatchingAndRefreshing_RebindWorks()
+        {
+            using (var button = new Button())
+            {
+                int runs = 0;
+                bool enabled = true;
+                var dispatcher = new ViewActionDispatcher();
+                dispatcher.Register(Save, () => runs++, canExecute: () => enabled);
+
+                var binder = new ViewActionBinder();
+                binder.Add(Save, button);
+                binder.Bind(dispatcher);
+
+                binder.Unbind();
+                binder.Unbind();                                // idempotent
+                button.PerformClick();
+                enabled = false;
+                dispatcher.RaiseCanExecuteChanged();
+
+                Assert.Equal(0, runs);
+                Assert.True(button.Enabled);                    // no longer refreshed
+
+                enabled = true;
+                binder.Bind(dispatcher);
+                button.PerformClick();
+                Assert.Equal(1, runs);
+            }
+        }
+
+        [Fact]
+        public void SwitchingToEventOnlyBind_DetachesThePreviousDispatcher()
+        {
+            using (var button = new Button())
+            {
+                bool enabled = true;
+                var dispatcher = new ViewActionDispatcher();
+                dispatcher.Register(Save, () => { }, canExecute: () => enabled);
+
+                var binder = new ViewActionBinder();
+                binder.Add(Save, button);
+                binder.Bind(dispatcher);
+                binder.Bind();                                   // event-only from now on
+
+                enabled = false;
+                dispatcher.RaiseCanExecuteChanged();
+
+                Assert.True(button.Enabled);                     // the old dispatcher no longer drives the control
+            }
+        }
+
+        [Fact]
+        public void UnbindDuringARefresh_StopsTheRefresh()
+        {
+            var open = ViewAction.Create("BinderRouting.Open");
+            using (var first = new Button())
+            using (var second = new Button())
+            {
+                bool enabled = true;
+                var dispatcher = new ViewActionDispatcher();
+                dispatcher.Register(Save, () => { }, canExecute: () => enabled);
+                dispatcher.Register(open, () => { }, canExecute: () => enabled);
+
+                var binder = new ViewActionBinder();
+                binder.Add(Save, first);
+                binder.Add(open, second);
+                binder.Bind(dispatcher);
+                first.EnabledChanged += (s, e) => binder.Unbind();   // e.g. the presenter is disposed here
+
+                enabled = false;
+                dispatcher.RaiseCanExecuteChanged();                  // must not throw
+
+                Assert.True(second.Enabled);                          // not refreshed after the unbind
+            }
+        }
+
+        [Fact]
         public void EventOnlyBind_RaisesActionTriggeredOnly()
         {
             using (var button = new Button())

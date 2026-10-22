@@ -1,5 +1,6 @@
 using System;
 using System.Windows.Forms;
+using WinformsMVP.MVP.Presenters;
 using WinformsMVP.MVP.Views;
 
 namespace WinformsMVP.Services.Implementations
@@ -24,29 +25,51 @@ namespace WinformsMVP.Services.Implementations
     {
         private readonly Control _control;
         private readonly IDisposable _presenter;
+        private bool _controlDisposed;
 
         internal ControlLifecycleController(IViewBase view, IDisposable presenter)
         {
             if (view == null) throw new ArgumentNullException(nameof(view));
             if (presenter == null) throw new ArgumentNullException(nameof(presenter));
-
             if (!(view is Control control))
                 throw new ArgumentException(
                     "Control hosting requires a Control-backed view.", nameof(view));
-
+            // A presenter that is already attached (or owned by a parent) is rejected before anything is
+            // wired, so the failure path cannot dispose it and break its current owner.
+            if (presenter is IViewAttachable attachable && (attachable.IsViewAttached || attachable.IsInitialized))
+                throw new InvalidOperationException(
+                    presenter.GetType().Name + " is already attached to a view; a presenter is attached once.");
+            if (presenter is IComposablePresenter composable && composable.IsDisposed)
+                throw new ObjectDisposedException(presenter.GetType().Name);
+            if (ViewOwnership.IsClaimed(view))
+                throw new InvalidOperationException(
+                    "This control is already used by another live presenter; each presenter needs its own view.");
+            if (ControlDisposalObserver.Instance.IsDisposed(view))
+                throw new ObjectDisposedException(control.GetType().Name, "The control is already disposed.");
             _control = control;
             _presenter = presenter;
         }
 
-        /// <summary>Wires the teardown bridge. Call AFTER <c>Initialize</c>.</summary>
         internal void WireControlEvents()
         {
-            _control.Disposed += OnDisposed;
+            var subscription = ControlDisposalObserver.Instance.ObserveDisposal((IViewBase)_control, OnDisposed);
+            // Released with the presenter, so a presenter disposed first leaves no handler on the control.
+            ((IPresenterResourceOwner)_presenter).OwnUntilDisposed(subscription);
+            ((IPresenterResourceOwner)_presenter).OwnUntilDisposed(ViewOwnership.Claim((IViewBase)_control, _presenter));
         }
 
-        private void OnDisposed(object sender, EventArgs e)
+        /// <summary>Throws when the control was disposed while the presenter was being connected (the
+        /// presenter has already been disposed by then).</summary>
+        internal void ThrowIfControlDisposed()
         {
-            _control.Disposed -= OnDisposed;
+            if (_controlDisposed)
+                throw new ObjectDisposedException(_control.GetType().Name,
+                    "The control was disposed while its presenter was being connected.");
+        }
+
+        private void OnDisposed()
+        {
+            _controlDisposed = true;
             _presenter.Dispose(); // -> Cleanup(): unsubscribe service events, release resources
         }
     }

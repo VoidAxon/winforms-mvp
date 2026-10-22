@@ -258,7 +258,7 @@ namespace WinformsMVP.MVP.ViewActions
         /// <param name="onActionTriggered">Dispatch callback; null for event-only binding.</param>
         private void Bind(Action<ViewAction, object> onActionTriggered)
         {
-            Unbind();
+            UnbindControls();
 
             _actionToControls.Clear();
             var actionMap = new Dictionary<object, ActionBinding>();
@@ -328,6 +328,7 @@ namespace WinformsMVP.MVP.ViewActions
         /// </remarks>
         public void Bind()
         {
+            DetachDispatcher();   // event-only: a dispatcher bound earlier no longer drives the controls
             Bind(onActionTriggered: null);
         }
 
@@ -343,15 +344,11 @@ namespace WinformsMVP.MVP.ViewActions
         {
             if (dispatcher == null) throw new ArgumentNullException(nameof(dispatcher));
 
-            // Save the old dispatcher so we can clean up its subscriptions after Unbind().
-            // Unbind() uses _dispatcher; if we overwrote it first the old dispatcher's events
-            // would never be removed on a re-bind.
+            // Remember the old dispatcher so its event subscriptions can be removed on a re-bind.
             var oldDispatcher = _dispatcher;
             _dispatcher = dispatcher;
 
-            // Rebind controls (calls Unbind() internally, which now harmlessly attempts to
-            // remove events from the new dispatcher — that's a no-op since they haven't been
-            // added yet).
+            // Rebind controls (detaches the previous control subscriptions first).
             Bind((action, payload) => dispatcher.Dispatch(action, payload));
 
             // Remove subscriptions from the old dispatcher that Unbind() missed.
@@ -393,15 +390,19 @@ namespace WinformsMVP.MVP.ViewActions
         /// </summary>
         public void UpdateCanExecuteStates()
         {
-            if (_dispatcher == null)
+            var dispatcher = _dispatcher;
+            if (dispatcher == null)
                 return;
 
             foreach (var kvp in _actionToControls)
             {
-                var canExecute = _dispatcher.CanDispatch(kvp.Key);
+                // A control's EnabledChanged handler may unbind (dispose the presenter): stop then.
+                if (!ReferenceEquals(_dispatcher, dispatcher)) return;
+                var canExecute = dispatcher.CanDispatch(kvp.Key);
 
                 foreach (var component in kvp.Value)
                 {
+                    if (!ReferenceEquals(_dispatcher, dispatcher)) return;
                     SetControlEnabled(component, canExecute);
                 }
             }
@@ -426,15 +427,28 @@ namespace WinformsMVP.MVP.ViewActions
             }
         }
 
+        /// <summary>
+        /// Detaches the controls and the dispatcher: clicks no longer dispatch and control states are no
+        /// longer refreshed. Called by the framework when the presenter that bound this binder is
+        /// disposed. The configured bindings stay, so <see cref="Bind(ViewActionDispatcher)"/> can bind
+        /// again. Calling it twice does nothing.
+        /// </summary>
         public void Unbind()
         {
-            // Unsubscribe from dispatcher events
-            if (_dispatcher != null)
-            {
-                _dispatcher.ActionExecuted -= OnActionExecuted;
-                _dispatcher.CanExecuteChanged -= OnCanExecuteChanged;
-            }
+            DetachDispatcher();
+            UnbindControls();
+        }
 
+        private void DetachDispatcher()
+        {
+            if (_dispatcher == null) return;
+            _dispatcher.ActionExecuted -= OnActionExecuted;
+            _dispatcher.CanExecuteChanged -= OnCanExecuteChanged;
+            _dispatcher = null;
+        }
+
+        private void UnbindControls()
+        {
             foreach (var sub in _activeSubscriptions)
             {
                 sub.Unsubscribe();

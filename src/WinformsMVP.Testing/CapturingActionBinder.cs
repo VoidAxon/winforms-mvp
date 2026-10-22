@@ -32,20 +32,42 @@ namespace WinformsMVP.Testing
         /// </summary>
         public ViewActionDispatcher Dispatcher { get; private set; }
 
+        /// <summary>True between the framework's bind and <see cref="Unbind"/> (the presenter's disposal).</summary>
+        public bool IsBound => Dispatcher != null;
+
+        private bool _unbound;
+
         /// <inheritdoc />
-        public void Bind(ViewActionDispatcher dispatcher) => Dispatcher = dispatcher;
+        public void Bind(ViewActionDispatcher dispatcher)
+        {
+            Dispatcher = dispatcher;
+            _unbound = false;
+        }
+
+        /// <summary>
+        /// Called by the framework when the presenter is disposed. Afterwards dispatching does nothing
+        /// (like a click on a control whose presenter is gone) and <see cref="CanDispatch(ViewAction)"/>
+        /// returns false.
+        /// </summary>
+        public void Unbind()
+        {
+            if (Dispatcher == null) return;
+            Dispatcher = null;
+            _unbound = true;
+        }
 
         /// <summary>Dispatches through the captured dispatcher — the same path a bound control uses.</summary>
-        public virtual void Dispatch(ViewAction action, object payload = null) => Captured().Dispatch(action, payload);
+        public virtual void Dispatch(ViewAction action, object payload = null) => Captured()?.Dispatch(action, payload);
 
         /// <summary>
         /// Dispatches and returns a task that completes when the handler has finished (and faults
         /// with its exception) — await it for asynchronous handlers.
         /// </summary>
-        public virtual Task DispatchAsync(ViewAction action, object payload = null) => Captured().DispatchAsync(action, payload);
+        public virtual Task DispatchAsync(ViewAction action, object payload = null)
+            => Captured()?.DispatchAsync(action, payload) ?? Task.CompletedTask;
 
         /// <summary>Evaluates the action's <c>canExecute</c> through the captured dispatcher.</summary>
-        public virtual bool CanDispatch(ViewAction action) => Captured().CanDispatch(action);
+        public virtual bool CanDispatch(ViewAction action) => Captured()?.CanDispatch(action) ?? false;
 
         /// <summary>Dispatches a typed action; the payload type is checked at compile time.</summary>
         public void Dispatch<T>(ViewAction<T> action, T payload) => Dispatch(action.Key, payload);
@@ -56,9 +78,10 @@ namespace WinformsMVP.Testing
         /// <summary>Typed <see cref="CanDispatch(ViewAction)"/>.</summary>
         public bool CanDispatch<T>(ViewAction<T> action) => CanDispatch(action.Key);
 
+        // Null after Unbind (inert); throws before the first bind (a test mistake).
         private ViewActionDispatcher Captured()
         {
-            if (Dispatcher == null)
+            if (Dispatcher == null && !_unbound)
                 throw new InvalidOperationException(
                     "No dispatcher captured yet. Start the presenter with PresenterTestHost.Start(...) " +
                     "(it attaches the view and binds its ActionBinder) before dispatching.");

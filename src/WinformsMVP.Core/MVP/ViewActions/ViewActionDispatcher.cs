@@ -50,6 +50,26 @@ namespace WinformsMVP.MVP.ViewActions
         /// </summary>
         internal CancellationToken Lifetime { get; set; }
 
+        private bool _inactive;
+
+        /// <summary>False once the owning presenter is being disposed: nothing is dispatched any more.</summary>
+        internal bool IsActive => !_inactive;
+
+        /// <summary>
+        /// Stops this dispatcher for good: <see cref="CanDispatch"/> returns false, <see cref="Dispatch"/>
+        /// and <see cref="DispatchAsync"/> run nothing (no middleware, no validation errors), and
+        /// <see cref="CanExecuteChanged"/> and <see cref="ActionExecuted"/> are no longer raised — also not when an asynchronous handler
+        /// that was already running completes. Called when the owning presenter is disposed, so a late
+        /// click on a control that outlives its presenter does nothing.
+        /// </summary>
+        internal void Deactivate() => _inactive = true;
+
+        private void NotifyCanExecuteChanged()
+        {
+            if (_inactive) return;
+            CanExecuteChanged?.Invoke(this, EventArgs.Empty);
+        }
+
         private readonly Dictionary<ViewAction, ActionHandlerEntry> _handlers = new Dictionary<ViewAction, ActionHandlerEntry>();
         private ILogger _logger = NullLogger.Instance;
 
@@ -274,6 +294,7 @@ namespace WinformsMVP.MVP.ViewActions
         /// <returns>True if the action can execute; otherwise false</returns>
         public bool CanDispatch(ViewAction actionKey)
         {
+            if (_inactive) return false;
             if (actionKey.Name != null && _handlers.TryGetValue(actionKey, out var entry))
             {
                 return SafeCanExecute(actionKey, entry);
@@ -364,6 +385,8 @@ namespace WinformsMVP.MVP.ViewActions
 
         private Task DispatchCore(ViewAction actionKey, object payload, bool awaitable)
         {
+            if (_inactive) return Task.CompletedTask;
+
             if (actionKey.Name == null)
             {
                 // default(ViewAction): never registered, nothing to run.
@@ -427,7 +450,7 @@ namespace WinformsMVP.MVP.ViewActions
                 {
                     entry.IsRunning = false;
                     // The handler threw part-way and may have changed state: re-query CanExecute.
-                    CanExecuteChanged?.Invoke(this, EventArgs.Empty);
+                    NotifyCanExecuteChanged();
                     return failure == null ? Task.CompletedTask : delivery.FailNow(failure);
                 }
                 return Complete(actionKey, entry, pending, context: null, delivery);
@@ -484,8 +507,8 @@ namespace WinformsMVP.MVP.ViewActions
         {
             if (pending == null)
             {
-                if (succeeded) ActionExecuted?.Invoke(this, new ActionExecutedEventArgs(actionKey));
-                else CanExecuteChanged?.Invoke(this, EventArgs.Empty);
+                if (succeeded && !_inactive) ActionExecuted?.Invoke(this, new ActionExecutedEventArgs(actionKey));
+                else NotifyCanExecuteChanged();
                 return Task.CompletedTask;
             }
 
@@ -496,7 +519,7 @@ namespace WinformsMVP.MVP.ViewActions
                 return failure == null || !succeeded ? Task.CompletedTask : delivery.FailNow(failure);
             }
 
-            CanExecuteChanged?.Invoke(this, EventArgs.Empty);   // the action is now running: disable it
+            NotifyCanExecuteChanged();   // the action is now running: disable it
             var tracking = AwaitHandler(actionKey, entry, pending, context, succeeded);
             if (delivery.Awaitable) return tracking;   // (!succeeded: it faults only for a subscriber's failure)
 
@@ -563,10 +586,10 @@ namespace WinformsMVP.MVP.ViewActions
             {
                 if (!succeeded)
                 {
-                    CanExecuteChanged?.Invoke(this, EventArgs.Empty);
+                    NotifyCanExecuteChanged();
                     return null;
                 }
-                ActionExecuted?.Invoke(this, new ActionExecutedEventArgs(actionKey));
+                if (!_inactive) ActionExecuted?.Invoke(this, new ActionExecutedEventArgs(actionKey));
                 return null;
             }
 
@@ -597,7 +620,7 @@ namespace WinformsMVP.MVP.ViewActions
                 }
             }
 
-            CanExecuteChanged?.Invoke(this, EventArgs.Empty);
+            NotifyCanExecuteChanged();
             return failure;
         }
 
@@ -649,7 +672,7 @@ namespace WinformsMVP.MVP.ViewActions
             if (failure != null || context.HandlerFailed)
             {
                 // Mirror the fast path: a failed handler may have changed state (also when handled).
-                CanExecuteChanged?.Invoke(this, EventArgs.Empty);
+                NotifyCanExecuteChanged();
             }
             return failure == null ? Task.CompletedTask : delivery.FailNow(failure);
         }
@@ -761,7 +784,7 @@ namespace WinformsMVP.MVP.ViewActions
         /// </summary>
         public void RaiseCanExecuteChanged()
         {
-            CanExecuteChanged?.Invoke(this, EventArgs.Empty);
+            NotifyCanExecuteChanged();
         }
     }
 }

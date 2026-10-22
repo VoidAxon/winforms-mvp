@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Runtime.ExceptionServices;
 using System.Threading;
 using System.Threading.Tasks;
 using WinformsMVP.Common;
@@ -15,7 +17,7 @@ namespace WinformsMVP.MVP.Presenters
     /// Base class for all presenters providing common functionality.
     /// This class should not be used directly - use WindowPresenterBase or ControlPresenterBase instead.
     /// </summary>
-    public abstract class PresenterBase<TView> : IPresenter, IViewAttachable, IPresenterResourceOwner, IPresenterServicesBinding where TView : IViewBase
+    public abstract class PresenterBase<TView> : IPresenter, IViewAttachable, IPresenterResourceOwner, IPresenterServicesBinding, IComposablePresenter where TView : IViewBase
     {
         protected TView View { get; private set; }
         private readonly ViewActionDispatcher _dispatcher;
@@ -51,7 +53,12 @@ namespace WinformsMVP.MVP.Presenters
                     "so it cannot be given other services. Move that code to OnViewAttached or OnInitialize.");
 
             _serviceProvider = services;
+            _servicesBound = true;
         }
+
+        // True when services were given explicitly (BindServices / inherited from an owner), as opposed to
+        // resolved lazily from ServiceLocator.Current.
+        private bool _servicesBound;
 
         /// <summary>The service provider this presenter resolves framework services from.
         /// Defaults to <see cref="WinformsMVP.Services.ServiceLocator.Current"/>.</summary>
@@ -248,18 +255,31 @@ namespace WinformsMVP.MVP.Presenters
                     GetType().Name + " has no view attached. Attach a view (AttachView / Connect) before Initialize.");
 
             _initialized = true;
+            // Each stage stops when the presenter was disposed before it (its control was disposed
+            // meanwhile — even in OnViewAttached): nothing is registered, bound or started on a disposed
+            // presenter.
+            if (_isDisposed) return;
             registerViewActions();
+            if (_isDisposed) return;
 
             // Bind after actions are registered. Views outside the ViewAction system simply
             // don't implement IActionableView.
-            if (View is IActionableView actionable)
-                actionable.ActionBinder?.Bind(_dispatcher);
+            if (View is IActionableView actionable && actionable.ActionBinder != null)
+            {
+                _boundBinder = actionable.ActionBinder;
+                _boundBinder.Bind(_dispatcher);
+            }
+            if (_isDisposed) return;
 
             onInitialize();
+            if (_isDisposed) return;
             _initializationTask = RunInitializeAsync();
         }
 
         private Task _initializationTask = Task.CompletedTask;
+
+        // The binder the framework bound in InitializeCore; unbound when this presenter is disposed.
+        private IViewActionBinder _boundBinder;
 
         /// <summary>
         /// Asynchronous part of initialization (e.g. loading data), started right after
@@ -404,20 +424,179 @@ namespace WinformsMVP.MVP.Presenters
             if (_isDisposed) return;
             // Mark first so a re-entrant Dispose (from inside Cleanup) is a no-op.
             _isDisposed = true;
+            var failures = new List<Exception>();
+
+            // An owner that released this presenter (handle disposed, or this presenter disposed
+            // directly) forgets it before any teardown runs.
+            Try(failures, () => _ownerLink?.Unlink());
+
+            // Stop dispatching here and in every descendant first: a late click on a control that
+            // outlives its presenter must not run a handler, and in-flight async handlers must not
+            // refresh control states — also while children wait for their own cleanup below.
+            ((IComposablePresenter)this).DeactivateTree();
             try { _lifetime.Cancel(); }
             catch (AggregateException ex) { Logger.LogError(ex, "A Lifetime cancellation callback threw"); }
+            Try(failures, () =>
+            {
+                _boundBinder?.Unbind();
+                _boundBinder = null;
+            });
+
+            // User teardown first (presenter state still intact), then the children in reverse order
+            // (they may still use this presenter's resources), then the framework sweeps the
+            // subscription bag. The sweep lives here — not in Cleanup — so an override that forgets to
+            // call base, or throws, cannot leak the bag.
+            Try(failures, Cleanup);
+            if (_children != null)
+            {
+                for (int i = _children.Count - 1; i >= 0; i--)
+                {
+                    if (i >= _children.Count) continue;   // a child's teardown released others
+                    var child = _children[i].Unlink();
+                    if (child != null) Try(failures, child.Dispose);
+                }
+            }
+            Try(failures, () => _disposables?.Dispose());
+            GC.SuppressFinalize(this);
+
+            if (failures.Count == 1) ExceptionDispatchInfo.Capture(failures[0]).Throw();
+            if (failures.Count > 1) throw new AggregateException(failures);
+        }
+
+        private static void Try(List<Exception> failures, Action stage)
+        {
+            try { stage(); }
+            catch (Exception ex) { failures.Add(ex); }
+        }
+
+        // ---- Child presenters (AttachChild) ----
+
+        private List<ChildAttachment> _children;
+        private ChildAttachment _ownerLink;
+
+        bool IComposablePresenter.IsDisposed => _isDisposed;
+
+        ChildAttachment IComposablePresenter.OwnerLink
+        {
+            get => _ownerLink;
+            set => _ownerLink = value;
+        }
+
+        void IComposablePresenter.DeactivateTree()
+        {
+            _dispatcher.Deactivate();
+            if (_children == null) return;
+            foreach (var attachment in _children.ToArray())
+                attachment.Child?.DeactivateTree();
+        }
+
+        void IComposablePresenter.InheritServices(IServiceProvider ownerServices)
+        {
+            if (_servicesBound) return;
+            if (_serviceProvider != null && !ReferenceEquals(_serviceProvider, ownerServices))
+                throw new InvalidOperationException(
+                    GetType().Name + " already resolved framework services (for example Logger or Messages in its constructor), " +
+                    "so it cannot use its owner's services. Move that code to OnViewAttached or OnInitialize.");
+            _serviceProvider = ownerServices;
+            _servicesBound = true;
+        }
+
+        /// <summary>
+        /// Attaches <paramref name="child"/> to <paramref name="view"/> — a child view this presenter's view
+        /// exposes through its interface — and initializes it; this presenter owns the child from now on.
+        /// </summary>
+        /// <returns>
+        /// A handle that releases (disposes) the child for good. Ignore it for a fixed panel: this
+        /// presenter releases its remaining children when it is disposed. Keep it for a panel that is
+        /// removed while the window stays open, and dispose it before the view removes the control.
+        /// Disposing it twice does nothing.
+        /// </returns>
+        /// <remarks>
+        /// <para>Call it from <c>OnInitialize</c> (parameters are available then) or later, e.g. when the
+        /// user adds a row. The child is attached and initialized before this method returns
+        /// (<c>OnViewAttached</c> → <c>RegisterViewActions</c> → binder → <c>OnInitialize</c>; its
+        /// <c>OnInitializeAsync</c> is started, not awaited).</para>
+        /// <para>The child uses this presenter's framework services unless it was given its own (for
+        /// example by <c>IPresenterFactory</c>). It takes no part in this window's close decision and keeps
+        /// its own validation; the parent checks the shared input.</para>
+        /// <para>When this presenter is disposed: its actions and its children's stop, its <c>Cleanup</c>
+        /// runs, then the children are disposed in reverse order, then its <c>Disposables</c>. A child
+        /// whose control is disposed while attached is released too. Views are never disposed here.</para>
+        /// </remarks>
+        /// <exception cref="ArgumentNullException"><paramref name="child"/> or <paramref name="view"/> is null.</exception>
+        /// <exception cref="ObjectDisposedException">This presenter, the child or the child's control is
+        /// disposed (or being disposed).</exception>
+        /// <exception cref="InvalidOperationException">This presenter has no view yet; the child is already
+        /// attached, initialized or owned; another child of this presenter uses <paramref name="view"/>;
+        /// or the child resolved other framework services in its constructor.</exception>
+        protected IDisposable AttachChild<TChildView>(ControlPresenterBase<TChildView> child, TChildView view)
+            where TChildView : IViewBase
+            => AttachChildCore(child, view, () => ((IInitializable)child).Initialize());
+
+        /// <summary>
+        /// Attaches a child presenter that needs initialization parameters — typically the input model
+        /// the window's panels share — and initializes it with <paramref name="parameters"/>. Same
+        /// contract as <see cref="AttachChild{TChildView}(ControlPresenterBase{TChildView}, TChildView)"/>.
+        /// </summary>
+        protected IDisposable AttachChild<TChildView, TParam>(
+            ControlPresenterBase<TChildView, TParam> child, TChildView view, TParam parameters)
+            where TChildView : IViewBase
+            => AttachChildCore(child, view, () => ((IInitializable<TParam>)child).Initialize(parameters));
+
+        private IDisposable AttachChildCore<TChildView>(PresenterBase<TChildView> child, TChildView view, Action initialize)
+            where TChildView : IViewBase
+        {
+            if (child == null) throw new ArgumentNullException(nameof(child));
+            if (view == null) throw new ArgumentNullException(nameof(view));
+            if (_isDisposed) throw new ObjectDisposedException(GetType().Name);
+            if (View == null)
+                throw new InvalidOperationException(
+                    GetType().Name + " has no view attached yet; attach children from OnInitialize or later.");
+
+            IComposablePresenter composable = child;
+            IViewAttachable attachable = child;
+            if (composable.IsDisposed) throw new ObjectDisposedException(child.GetType().Name);
+            if (attachable.IsViewAttached || attachable.IsInitialized || composable.OwnerLink != null)
+                throw new InvalidOperationException(
+                    child.GetType().Name + " is already attached to a view; a presenter is attached once.");
+            if (ViewOwnership.IsClaimed(view))
+                throw new InvalidOperationException(
+                    "Another live presenter already uses this view; each child needs its own view.");
+            if (ViewDisposal.Observer.IsDisposed(view))
+                throw new ObjectDisposedException(view.GetType().Name, "The child view is disposed.");
+            composable.InheritServices(Services);
+
+            // From here on this presenter owns the child: recorded before any child code runs.
+            if (_children == null) _children = new List<ChildAttachment>();
+            var attachment = new ChildAttachment(_children, child, view);
+            _children.Add(attachment);
+            composable.OwnerLink = attachment;
+
+            bool viewDisposed = false;
+            var observation = ViewDisposal.Observer.ObserveDisposal(view, () =>
+            {
+                viewDisposed = true;
+                attachment.Dispose();
+            });
+            ((IPresenterResourceOwner)child).OwnUntilDisposed(observation);
+            ((IPresenterResourceOwner)child).OwnUntilDisposed(ViewOwnership.Claim(view, child));
+
             try
             {
-                // User teardown first (presenter state still intact), then the framework sweeps the
-                // subscription bag. The sweep lives here — not in Cleanup — and in a finally, so an
-                // override that forgets to call base, or throws, cannot leak the bag.
-                Cleanup();
+                ((IViewAttacher<TChildView>)child).AttachView(view);
+                initialize();
             }
-            finally
+            catch (Exception failure)
             {
-                _disposables?.Dispose();
-                GC.SuppressFinalize(this);
+                try { attachment.Dispose(); }
+                catch (Exception cleanup) { throw new AggregateException(failure, cleanup); }
+                throw;
             }
+
+            if (viewDisposed)
+                throw new ObjectDisposedException(view.GetType().Name,
+                    "The child view was disposed while its presenter was being attached.");
+            return attachment;
         }
 
         /// <summary>
