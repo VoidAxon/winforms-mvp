@@ -104,6 +104,31 @@ namespace WinformsMVP.Samples.Tests.ViewActions
         }
 
         [Fact]
+        public void UnbindDuringARefresh_StopsTheRefresh()
+        {
+            var open = ViewAction.Create("BinderRouting.Open");
+            using (var first = new Button())
+            using (var second = new Button())
+            {
+                bool enabled = true;
+                var dispatcher = new ViewActionDispatcher();
+                dispatcher.Register(Save, () => { }, canExecute: () => enabled);
+                dispatcher.Register(open, () => { }, canExecute: () => enabled);
+
+                var binder = new ViewActionBinder();
+                binder.Add(Save, first);
+                binder.Add(open, second);
+                binder.Bind(dispatcher);
+                first.EnabledChanged += (s, e) => binder.Unbind();   // e.g. the presenter is disposed here
+
+                enabled = false;
+                dispatcher.RaiseCanExecuteChanged();                  // must not throw
+
+                Assert.True(second.Enabled);                          // not refreshed after the unbind
+            }
+        }
+
+        [Fact]
         public void EventOnlyBind_RaisesActionTriggeredOnly()
         {
             using (var button = new Button())

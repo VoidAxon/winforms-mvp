@@ -390,15 +390,19 @@ namespace WinformsMVP.MVP.ViewActions
         /// </summary>
         public void UpdateCanExecuteStates()
         {
-            if (_dispatcher == null)
+            var dispatcher = _dispatcher;
+            if (dispatcher == null)
                 return;
 
             foreach (var kvp in _actionToControls)
             {
-                var canExecute = _dispatcher.CanDispatch(kvp.Key);
+                // A control's EnabledChanged handler may unbind (dispose the presenter): stop then.
+                if (!ReferenceEquals(_dispatcher, dispatcher)) return;
+                var canExecute = dispatcher.CanDispatch(kvp.Key);
 
                 foreach (var component in kvp.Value)
                 {
+                    if (!ReferenceEquals(_dispatcher, dispatcher)) return;
                     SetControlEnabled(component, canExecute);
                 }
             }

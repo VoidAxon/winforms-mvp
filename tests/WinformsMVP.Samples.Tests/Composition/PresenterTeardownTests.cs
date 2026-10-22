@@ -76,5 +76,26 @@ namespace WinformsMVP.Samples.Tests.Composition
             var host = PresenterTestHost.Start(TestServices.Create(), new RunPresenter(), new NoBinderView());
             host.Dispose();
         }
+
+        private sealed class SelfDisposingPresenter : WindowPresenterBase<IRunView>
+        {
+            public bool Registered;
+            public bool Initialized;
+            protected override void OnViewAttached() => Dispose();   // e.g. its control was disposed here
+            protected override void RegisterViewActions() => Registered = true;
+            protected override void OnInitialize() => Initialized = true;
+        }
+
+        [Fact]
+        public void DisposedWhileAttaching_NoInitializationStageRuns()
+        {
+            var presenter = new SelfDisposingPresenter();
+            try { PresenterTestHost.Start(TestServices.Create(), presenter, new RunView()); }
+            catch (ObjectDisposedException) { }
+            catch (InvalidOperationException) { }
+
+            Assert.False(presenter.Registered);
+            Assert.False(presenter.Initialized);
+        }
     }
 }

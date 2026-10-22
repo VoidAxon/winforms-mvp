@@ -255,8 +255,10 @@ namespace WinformsMVP.MVP.Presenters
                     GetType().Name + " has no view attached. Attach a view (AttachView / Connect) before Initialize.");
 
             _initialized = true;
-            // Each stage stops when the previous one disposed the presenter (its control was disposed
-            // meanwhile): nothing is bound or started on a disposed presenter.
+            // Each stage stops when the presenter was disposed before it (its control was disposed
+            // meanwhile — even in OnViewAttached): nothing is registered, bound or started on a disposed
+            // presenter.
+            if (_isDisposed) return;
             registerViewActions();
             if (_isDisposed) return;
 
