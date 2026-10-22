@@ -227,6 +227,8 @@ namespace WinformsMVP.Samples.Tests.Testing
             var files = new InMemoryFileService();
             Assert.Equal(@"C:\test\report.txt", files.GetFullPath("C:report.txt"));
             Assert.Equal(@"D:\report.txt", files.GetFullPath("d:report.txt"));
+            Assert.Equal(@"C:\test", files.GetFullPath("C:"));
+            Assert.Equal(@"D:\", files.GetFullPath("D:"));
         }
 
         [Fact]
@@ -238,6 +240,14 @@ namespace WinformsMVP.Samples.Tests.Testing
             Assert.Throws<DirectoryNotFoundException>(() => files.ReadAllText(@"C:\missing\file.txt"));
             Assert.Throws<UnauthorizedAccessException>(() => files.ReadAllText("dir"));
             Assert.Throws<DirectoryNotFoundException>(() => files.Copy(@"C:\missing\a.txt", "b.txt"));
+        }
+
+        [Fact]
+        public void SeedFile_OntoADirectory_Throws()
+        {
+            var files = new InMemoryFileService();
+            Assert.Throws<UnauthorizedAccessException>(() => files.SeedFile(@"C:\test", "x"));
+            Assert.False(files.Exists(@"C:\test"));
         }
 
         [Fact]

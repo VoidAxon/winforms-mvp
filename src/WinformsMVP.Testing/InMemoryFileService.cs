@@ -123,6 +123,7 @@ namespace WinformsMVP.Testing
             var full = Full(path, nameof(path));
             lock (_gate)
             {
+                if (IsDirectory(full)) throw new UnauthorizedAccessException($"Access to the path '{full}' is denied.");
                 CreateDirectoryCore(WindowsPath.GetParent(full));
                 PutFile(full, (byte[])bytes.Clone());
             }
