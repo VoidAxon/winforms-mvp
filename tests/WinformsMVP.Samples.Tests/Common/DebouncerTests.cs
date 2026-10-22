@@ -98,7 +98,7 @@ namespace WinformsMVP.Samples.Tests.Common
             var done = new ManualResetEventSlim(false);
             using (var d = new Debouncer(
                 TimeSpan.FromMilliseconds(30),
-                () => throw new InvalidOperationException("boom"),
+                (Action)(() => throw new InvalidOperationException("boom")),
                 onError: ex => { captured = ex; done.Set(); },
                 synchronizationContext: new InlineSyncContext()))
             {
@@ -108,18 +108,73 @@ namespace WinformsMVP.Samples.Tests.Common
             }
         }
 
-        [Fact]
-        public void ActionThrows_NoHandler_IsSwallowed()
+        // Records what a posted callback throws, as Application.ThreadException would see it.
+        private sealed class CatchingSyncContext : SynchronizationContext
         {
-            var fired = new ManualResetEventSlim(false);
+            public Exception Thrown;
+            public readonly ManualResetEventSlim Done = new ManualResetEventSlim(false);
+            public override void Post(SendOrPostCallback d, object state)
+            {
+                try { d(state); }
+                catch (Exception ex) { Thrown = ex; }
+                finally { Done.Set(); }
+            }
+        }
+
+        [Fact]
+        public void ActionThrows_NoHandler_WithContext_PropagatesThroughContext()
+        {
+            // Like a ViewAction handler: no onError means the failure reaches the UI thread's
+            // unhandled-exception handler instead of vanishing.
+            var ctx = new CatchingSyncContext();
             using (var d = new Debouncer(
                 TimeSpan.FromMilliseconds(30),
-                () => { fired.Set(); throw new InvalidOperationException("boom"); },
+                (Action)(() => throw new InvalidOperationException("boom")),
+                synchronizationContext: ctx))
+            {
+                d.Signal();
+                Assert.True(ctx.Done.Wait(10000));
+                Assert.IsType<InvalidOperationException>(ctx.Thrown);
+            }
+        }
+
+        [Fact]
+        public void ActionThrows_NoHandler_WithoutContext_IsSwallowed()
+        {
+            // On the timer's thread-pool thread an exception would end the process: logged and dropped.
+            var fired = new ManualResetEventSlim(false);
+            Debouncer debouncer;
+            var previous = SynchronizationContext.Current;
+            SynchronizationContext.SetSynchronizationContext(null);
+            try
+            {
+                debouncer = new Debouncer(
+                    TimeSpan.FromMilliseconds(30),
+                    () => { fired.Set(); throw new InvalidOperationException("boom"); });
+            }
+            finally
+            {
+                SynchronizationContext.SetSynchronizationContext(previous);
+            }
+
+            using (debouncer)
+            {
+                debouncer.Signal();
+                Assert.True(fired.Wait(10000));
+                Thread.Sleep(50);     // the guard must swallow the exception; no crash
+            }
+        }
+
+        [Fact]
+        public void Flush_ActionThrows_NoHandler_PropagatesToCaller()
+        {
+            using (var d = new Debouncer(
+                TimeSpan.FromMilliseconds(10000),
+                (Action)(() => throw new InvalidOperationException("boom")),
                 synchronizationContext: new InlineSyncContext()))
             {
                 d.Signal();
-                Assert.True(fired.Wait(10000));
-                Thread.Sleep(50);     // the guard must swallow the exception; no crash
+                Assert.Throws<InvalidOperationException>(() => d.Flush());
             }
         }
 
@@ -208,7 +263,7 @@ namespace WinformsMVP.Samples.Tests.Common
         [Fact]
         public void Ctor_NullAction_Throws()
         {
-            Assert.Throws<ArgumentNullException>(() => new Debouncer(TimeSpan.FromMilliseconds(10), null));
+            Assert.Throws<ArgumentNullException>(() => new Debouncer(TimeSpan.FromMilliseconds(10), (Action)null));
         }
 
         [Fact]

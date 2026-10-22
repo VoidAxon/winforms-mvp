@@ -102,7 +102,7 @@ namespace WinformsMVP.Samples.Tests.Common
             Exception captured = null;
             using (var t = new Throttler(
                 TimeSpan.FromMilliseconds(50),
-                () => throw new InvalidOperationException("boom"),
+                (Action)(() => throw new InvalidOperationException("boom")),
                 onError: ex => captured = ex,
                 synchronizationContext: new InlineSyncContext()))
             {
@@ -230,7 +230,7 @@ namespace WinformsMVP.Samples.Tests.Common
         [Fact]
         public void Ctor_NullAction_Throws()
         {
-            Assert.Throws<ArgumentNullException>(() => new Throttler(TimeSpan.FromMilliseconds(10), null));
+            Assert.Throws<ArgumentNullException>(() => new Throttler(TimeSpan.FromMilliseconds(10), (Action)null));
         }
 
         [Fact]
