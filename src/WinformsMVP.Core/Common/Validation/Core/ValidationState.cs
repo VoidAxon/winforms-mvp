@@ -129,7 +129,7 @@ namespace WinformsMVP.Common.Validation.Core
         public void Validate<T>(T model) where T : class
         {
             if (model == null) throw new ArgumentNullException(nameof(model));
-            _modelType = typeof(T);
+            _modelType = model.GetType();   // the runtime type: its properties are the ones validated
 
             var errors = new Dictionary<string, List<string>>();
             foreach (var result in ModelValidator.For<T>().ValidateAll(model))

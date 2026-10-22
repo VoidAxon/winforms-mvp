@@ -59,6 +59,16 @@ namespace WinformsMVP.Samples.Tests.Common
             public string Code { get; set; }
         }
 
+        // Declared Zed before Alpha: alphabetical order would put Alpha first.
+        private sealed class DerivedOutOfAlphabet : BaseInput
+        {
+            [Required(ErrorMessage = "Zed is required.")]
+            public string Zed { get; set; }
+
+            [Required(ErrorMessage = "Alpha is required.")]
+            public string Alpha { get; set; }
+        }
+
         private static IEnumerable<string> Fields(IReadOnlyList<(string Field, string Message)> errors) => errors.Select(e => e.Field);
 
         [Fact]
@@ -96,6 +106,15 @@ namespace WinformsMVP.Samples.Tests.Common
             var state = new ValidationState();
             state.Check(new DerivedInput());
             Assert.Equal(new[] { "Name", "Code" }, Fields(state.ErrorsInOrder()));
+        }
+
+        [Fact]
+        public void ADerivedModel_PassedAsItsBase_IsOrderedByItsRuntimeType()
+        {
+            var state = new ValidationState();
+            BaseInput input = new DerivedOutOfAlphabet();
+            state.Check(input);   // T = BaseInput; the derived properties are validated too
+            Assert.Equal(new[] { "Name", "Zed", "Alpha" }, Fields(state.ErrorsInOrder()));
         }
 
         [Fact]
