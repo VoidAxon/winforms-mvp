@@ -252,14 +252,20 @@ namespace WinformsMVP.MVP.Presenters
 
             // Bind after actions are registered. Views outside the ViewAction system simply
             // don't implement IActionableView.
-            if (View is IActionableView actionable)
-                actionable.ActionBinder?.Bind(_dispatcher);
+            if (View is IActionableView actionable && actionable.ActionBinder != null)
+            {
+                _boundBinder = actionable.ActionBinder;
+                _boundBinder.Bind(_dispatcher);
+            }
 
             onInitialize();
             _initializationTask = RunInitializeAsync();
         }
 
         private Task _initializationTask = Task.CompletedTask;
+
+        // The binder the framework bound in InitializeCore; unbound when this presenter is disposed.
+        private IViewActionBinder _boundBinder;
 
         /// <summary>
         /// Asynchronous part of initialization (e.g. loading data), started right after
@@ -404,8 +410,17 @@ namespace WinformsMVP.MVP.Presenters
             if (_isDisposed) return;
             // Mark first so a re-entrant Dispose (from inside Cleanup) is a no-op.
             _isDisposed = true;
+            // Stop dispatching first: a late click on a control that outlives this presenter must not
+            // run a handler, and in-flight async handlers must not refresh control states.
+            _dispatcher.Deactivate();
             try { _lifetime.Cancel(); }
             catch (AggregateException ex) { Logger.LogError(ex, "A Lifetime cancellation callback threw"); }
+            try
+            {
+                _boundBinder?.Unbind();
+                _boundBinder = null;
+            }
+            catch (Exception ex) { Logger.LogError(ex, "Unbinding the view's action binder threw"); }
             try
             {
                 // User teardown first (presenter state still intact), then the framework sweeps the

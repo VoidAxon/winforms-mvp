@@ -22,5 +22,13 @@ namespace WinformsMVP.MVP.ViewActions
         /// </summary>
         /// <param name="dispatcher">The dispatcher to forward actions to.</param>
         void Bind(ViewActionDispatcher dispatcher);
+
+        /// <summary>
+        /// Stops dispatching to the bound dispatcher and refreshing control states. The framework calls
+        /// it when the presenter that bound this binder is disposed, so a control that outlives its
+        /// presenter does nothing when clicked. The controls and the view are left as they are.
+        /// Calling it again, or before <see cref="Bind"/>, does nothing.
+        /// </summary>
+        void Unbind();
     }
 }

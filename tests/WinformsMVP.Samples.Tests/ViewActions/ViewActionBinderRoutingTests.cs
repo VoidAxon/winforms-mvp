@@ -53,6 +53,36 @@ namespace WinformsMVP.Samples.Tests.ViewActions
         }
 
         [Fact]
+        public void Unbind_StopsDispatchingAndRefreshing_RebindWorks()
+        {
+            using (var button = new Button())
+            {
+                int runs = 0;
+                bool enabled = true;
+                var dispatcher = new ViewActionDispatcher();
+                dispatcher.Register(Save, () => runs++, canExecute: () => enabled);
+
+                var binder = new ViewActionBinder();
+                binder.Add(Save, button);
+                binder.Bind(dispatcher);
+
+                binder.Unbind();
+                binder.Unbind();                                // idempotent
+                button.PerformClick();
+                enabled = false;
+                dispatcher.RaiseCanExecuteChanged();
+
+                Assert.Equal(0, runs);
+                Assert.True(button.Enabled);                    // no longer refreshed
+
+                enabled = true;
+                binder.Bind(dispatcher);
+                button.PerformClick();
+                Assert.Equal(1, runs);
+            }
+        }
+
+        [Fact]
         public void EventOnlyBind_RaisesActionTriggeredOnly()
         {
             using (var button = new Button())
