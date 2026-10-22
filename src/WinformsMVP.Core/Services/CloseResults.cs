@@ -1,11 +1,11 @@
 using System;
 using WinformsMVP.Common;
 
-namespace WinformsMVP.Services.Implementations
+namespace WinformsMVP.Services
 {
     /// <summary>
     /// Converts the boxed <c>(result, status)</c> a presenter pushes through <c>RequestClose</c>
-    /// into the caller's <see cref="InteractionResult"/>. Shared by <see cref="WindowNavigator"/>
+    /// into the caller's <see cref="InteractionResult"/>. Shared by <c>WindowNavigator</c>
     /// and the Adopted <c>Connect</c> path so both report results identically.
     /// </summary>
     internal static class CloseResults

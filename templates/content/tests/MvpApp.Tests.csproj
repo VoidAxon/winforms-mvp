@@ -16,6 +16,7 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="WinformsMVP" Version="MVP_PACKAGE_VERSION" />
+    <PackageReference Include="WinformsMVP.Testing" Version="MVP_PACKAGE_VERSION" />
   </ItemGroup>
 <!--#if (HasAppProject) -->
 

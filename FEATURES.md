@@ -6,7 +6,8 @@ One line per feature: **what it is for → entry point**. Details and examples l
 
 **Packages** — **Core** = `WinformsMVP.Core` (netstandard2.0, no WinForms; everything a presenter uses) ·
 **WinForms** = `WinformsMVP` (net472 / net10.0-windows; forms, dialogs, toasts, binding) ·
-**DI** = `WinformsMVP.DependencyInjection` (optional M.E.DI) · **Templates** = `WinformsMVP.Templates`.
+**DI** = `WinformsMVP.DependencyInjection` (optional M.E.DI) · **Testing** = `WinformsMVP.Testing` (test projects only) ·
+**Templates** = `WinformsMVP.Templates`.
 Namespaces are the same in Core and WinForms (`WinformsMVP.MVP.*`, `WinformsMVP.Services`, `WinformsMVP.Common`, …).
 
 ---
@@ -165,14 +166,20 @@ Callbacks run on the creating thread's context; without `onError` a failure reac
 
 `CompositeDisposable` (`Disposables` in presenters), `x.DisposeWith(Disposables)`, `Disposable.Create(() => ...)` (e.g. unsubscribe from a model that outlives the presenter).
 
-## 14. Testing — Core, `WinformsMVP.Testing` · [wiki](wiki/HowTo-Test-A-Presenter.md)
+## 14. Testing — `WinformsMVP.Testing` (netstandard2.0, test projects only) · [wiki](wiki/HowTo-Test-A-Presenter.md)
 
 | Need | Use |
 |---|---|
 | Run a presenter's real init with a mock view (no Form) | `using var host = PresenterTestHost.Start([services,] presenter, view[, param])` |
-| Fake framework services, no global state | `var sp = TestServices.Create(); sp.RegisterInstance<IMessageService>(fake); …` → `Start(sp, …)` |
+| Fake every framework service at once | `var fakes = TestServices.CreateFakes();` → `Start(fakes.Provider, …)`; `fakes.Messages` / `Toasts` / `Dialogs` / `Files` / `Navigator` / `Logs` |
+| Only the services you register (own fakes, Moq, …) | `var sp = TestServices.Create(); sp.RegisterInstance<IMessageService>(mine);` (or replace one in `fakes.Provider` before `Start`) |
+| Trigger actions like a bound control | the mock view exposes `CapturingActionBinder Binder` as its `ActionBinder` → `view.Binder.Dispatch(...)`, `await DispatchAsync(...)`, `CanDispatch(...)` |
 | Results and closing | `host.CloseRequested`, `CloseStatus`, `CloseResult`; `host.CanClose(reason)`, `await host.CanCloseAsync(reason)`; `await host.Initialized` |
-| Trigger actions like a bound control | a view mock exposing a capturing binder (`tests/WinformsMVP.Samples.Tests/Mocks/CapturingActionBinder.cs`; the tests template ships one) |
+| Messages | `FakeMessageService`: `Calls` (`Kind`, `Text`, `Caption`, `IsConfirmation`); answers `EnqueueYesNo(...)` → `YesNoHandler` → `AnswerUnscripted(yes)`, otherwise `UnscriptedInteractionException` |
+| Dialogs | `FakeDialogProvider`: `EnqueueSaveFile(InteractionResult<string>.Ok(path))`, `SaveFileHandler = o => …`, `CancelUnscripted()`; `Calls` |
+| Child windows | `FakeWindowNavigator`: modal `RespondTo<TPresenter, TResult>(r => InteractionResult<TResult>.Ok(…))`, `LastModalParameters<T>()`; non-modal `Windows[i].CloseWithResult(value)` / `Close()` / `CloseWithError(...)`; same key / disposal / result-type rules as `WindowNavigator` |
+| Files | `InMemoryFileService`: Windows path rules on any host (base `C:\test`), `SeedFile`, `FilePaths`, `Failure = c => new IOException(...)` |
+| Logs and toasts | `RecordingLoggerFactory.Entries` (`Level`, `Message`, `Exception`), `FakeToastService.Calls` |
 
 Never widen presenter visibility for tests.
 

@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Collections.Generic;
 using WinformsMVP.Common;
 using WinformsMVP.MVP.Presenters;
@@ -49,7 +50,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
         }
 
 
-        private readonly MockServices _platform = new MockServices();
+        private readonly FakeServices _platform = TestServices.CreateFakes();
         private readonly MockView _view = new MockView();
         private readonly WindowClosingDemoPresenter _presenter;
         private PresenterTestHost _host;
@@ -75,24 +76,24 @@ namespace WinformsMVP.Samples.Tests.Presenters
         public void CanClose_WithoutEdits_AllowsClose()
         {
             Assert.True(RunCanClose());
-            Assert.False(_platform.MessageService.ConfirmDialogShown);
+            Assert.DoesNotContain(_platform.Messages.Calls, c => c.IsConfirmation);
         }
 
         [Fact]
         public void CanClose_AfterEdit_UserConfirmsDiscard_AllowsClose()
         {
             _view.SimulateEdit("modified");
-            _platform.MessageService.ConfirmYesNoResult = true;  // "discard"
+            _platform.Messages.YesNoHandler = _ => true;  // "discard"
 
             Assert.True(RunCanClose());
-            Assert.True(_platform.MessageService.ConfirmDialogShown);
+            Assert.Contains(_platform.Messages.Calls, c => c.IsConfirmation);
         }
 
         [Fact]
         public void CanClose_AfterEdit_UserDeclinesDiscard_BlocksClose()
         {
             _view.SimulateEdit("modified");
-            _platform.MessageService.ConfirmYesNoResult = false;  // "no, keep editing"
+            _platform.Messages.YesNoHandler = _ => false;  // "no, keep editing"
 
             Assert.False(RunCanClose());
             Assert.Equal("Close cancelled. Continue editing.", _view.LastStatus);
@@ -102,20 +103,20 @@ namespace WinformsMVP.Samples.Tests.Presenters
         public void CanClose_OnSystemShutdown_BypassesPrompt()
         {
             _view.SimulateEdit("modified");
-            _platform.MessageService.ConfirmYesNoResult = false;  // would block if asked
+            _platform.Messages.YesNoHandler = _ => false;  // would block if asked
 
             Assert.True(RunCanClose(CloseReason.SystemShutdown));
-            Assert.False(_platform.MessageService.ConfirmDialogShown);
+            Assert.DoesNotContain(_platform.Messages.Calls, c => c.IsConfirmation);
         }
 
         [Fact]
         public void CanClose_OnTaskManagerKill_BypassesPrompt()
         {
             _view.SimulateEdit("modified");
-            _platform.MessageService.ConfirmYesNoResult = false;
+            _platform.Messages.YesNoHandler = _ => false;
 
             Assert.True(RunCanClose(CloseReason.TaskManager));
-            Assert.False(_platform.MessageService.ConfirmDialogShown);
+            Assert.DoesNotContain(_platform.Messages.Calls, c => c.IsConfirmation);
         }
 
         // ─── Push direction (RequestClose via Save/Cancel) ───────────────────────────
@@ -159,7 +160,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             _view.Binder.Dispatch(WindowClosingDemoActions.Save);
             // Simulate framework follow-up close gate after RequestClose.
             Assert.True(RunCanClose());
-            Assert.False(_platform.MessageService.ConfirmDialogShown);
+            Assert.DoesNotContain(_platform.Messages.Calls, c => c.IsConfirmation);
         }
 
         /// <summary>Same single-source-of-truth invariant for Cancel.</summary>
@@ -170,7 +171,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
 
             _view.Binder.Dispatch(WindowClosingDemoActions.Cancel);
             Assert.True(RunCanClose());
-            Assert.False(_platform.MessageService.ConfirmDialogShown);
+            Assert.DoesNotContain(_platform.Messages.Calls, c => c.IsConfirmation);
         }
     }
 }

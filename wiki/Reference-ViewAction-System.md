@@ -334,7 +334,7 @@ _binder.Add(DocumentActions.SetZoom, _numZoom, n => (int)n.Value);
 Dispatcher.Register(DocumentActions.SetZoom, zoom => _model.Zoom = zoom);
 Dispatcher.Register(DocumentActions.Open, async (path, ct) => await LoadAsync(path, ct));
 
-// テスト: CapturingActionBinder も型付きで呼べる
+// テスト: CapturingActionBinder (WinformsMVP.Testing) も型付きで呼べる
 view.Binder.Dispatch(DocumentActions.SetZoom, 150);
 ```
 
@@ -486,7 +486,7 @@ private async Task OnRefreshAsync(CancellationToken ct)
 
 ```csharp
 await Dispatcher.DispatchAsync(CustomerActions.Refresh);
-// テストではモック View の CapturingActionBinder から:
+// テストではモック View の CapturingActionBinder (WinformsMVP.Testing) から:
 await view.Binder.DispatchAsync(CustomerActions.Refresh);
 ```
 

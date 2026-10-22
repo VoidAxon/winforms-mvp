@@ -3,6 +3,7 @@ using WinformsMVP.MVP.ViewActions;
 using WinformsMVP.Samples.Tests.Mocks;
 using WinformsMVP.Services;
 using Xunit;
+using WinformsMVP.Testing;
 
 namespace WinformsMVP.Samples.Tests.Services
 {
@@ -51,7 +52,7 @@ namespace WinformsMVP.Samples.Tests.Services
         [Fact]
         public void Configure_KeepsBuiltIns_AndAllowsOverride()
         {
-            var custom = new MockMessageService();
+            var custom = new FakeMessageService();
             ServiceLocator.Configure(reg => reg.RegisterInstance<IMessageService>(custom));
             Assert.Same(custom, ServiceLocator.Current.Resolve<IMessageService>());
             Assert.NotNull(ServiceLocator.Current.Resolve<IWindowNavigator>()); // built-in still present

@@ -348,10 +348,10 @@ form.Show();
 
 ## テストパターン
 
-テストでは `PresenterTestHost` (`WinformsMVP.Testing`、`WinformsMVP.Core` に同梱) で Presenter をモック View にホストします。`Start` は本番と同じ初期化を実行し、`RequestClose` を記録し (Push)、`CanClose(reason)` / `CanCloseAsync(reason)` で Pull ゲートを駆動します。Form も `InternalsVisibleTo` も不要です:
+テストでは `PresenterTestHost` (`WinformsMVP.Testing` パッケージ) で Presenter をモック View にホストします。`Start` は本番と同じ初期化を実行し、`RequestClose` を記録し (Push)、`CanClose(reason)` / `CanCloseAsync(reason)` で Pull ゲートを駆動します。Form も `InternalsVisibleTo` も不要です:
 
 ```csharp
-private readonly MockServices _platform = new MockServices();
+private readonly FakeServices _platform = TestServices.CreateFakes();   // フェイクのフレームワークサービス
 private readonly MockView _view = new MockView();
 private readonly PresenterTestHost _host;
 
@@ -370,10 +370,10 @@ public WindowClosingDemoPresenterTests()
 public void CanClose_WithUnsavedChanges_UserDeclines_BlocksClose()
 {
     _view.SimulateEdit("new value");
-    _platform.MessageService.ConfirmYesNoResult = false;   // user keeps editing
+    _platform.Messages.YesNoHandler = _ => false;          // user keeps editing
 
     Assert.False(_host.CanClose());                         // CloseReason.Normal
-    Assert.True(_platform.MessageService.ConfirmDialogShown);
+    Assert.Contains(_platform.Messages.Calls, c => c.IsConfirmation);
 }
 
 [Fact]
@@ -382,7 +382,7 @@ public void CanClose_SystemShutdown_DoesNotPrompt()
     _view.SimulateEdit("new value");
 
     Assert.True(_host.CanClose(CloseReason.SystemShutdown));
-    Assert.False(_platform.MessageService.ConfirmDialogShown);
+    Assert.DoesNotContain(_platform.Messages.Calls, c => c.IsConfirmation);
 }
 ```
 
@@ -393,7 +393,7 @@ public void CanClose_SystemShutdown_DoesNotPrompt()
 public async Task Closing_WithDirtyState_UserSelectsYes_SavesDraftAndAllowsClose()
 {
     _view.SimulateEmailDataChange();
-    _platform.MessageService.ConfirmYesNoCancelResult = ConfirmResult.Yes;
+    _platform.Messages.EnqueueYesNoCancel(ConfirmResult.Yes);
 
     bool allow = await _host.CanCloseAsync();   // awaits the draft save
 
@@ -440,7 +440,7 @@ public void Save_ThenCanClose_DoesNotPrompt()
 
     // Simulate the framework re-running the Pull gate after the Push close.
     Assert.True(_host.CanClose());
-    Assert.False(_platform.MessageService.ConfirmDialogShown);
+    Assert.DoesNotContain(_platform.Messages.Calls, c => c.IsConfirmation);
 }
 ```
 

@@ -23,7 +23,7 @@ FEED_NATIVE="$(cygpath -w "$FEED" 2>/dev/null || echo "$FEED")"
 [ "${KEEP:-0}" = "1" ] && echo "Keeping $WORK" || trap 'rm -rf "$WORK"' EXIT
 
 echo "== Packing into $FEED"
-for project in src/WinformsMVP.Core/WinformsMVP.Core.csproj src/WinformsMVP/WinformsMVP.csproj templates/WinformsMVP.Templates.csproj; do
+for project in src/WinformsMVP.Core/WinformsMVP.Core.csproj src/WinformsMVP/WinformsMVP.csproj src/WinformsMVP.Testing/WinformsMVP.Testing.csproj templates/WinformsMVP.Templates.csproj; do
   dotnet pack "$ROOT/$project" -c Release -p:Version="$VERSION" -o "$FEED" -nologo -v quiet
 done
 

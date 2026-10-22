@@ -1,3 +1,4 @@
+using System.Linq;
 using WinformsMVP.Common;
 using WinformsMVP.MVP.ViewActions;
 using WinformsMVP.Samples.LegacyPopupDemo;
@@ -28,7 +29,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             public void ShowStatus(string message) => Status = message;
         }
 
-        private readonly MockServices _services = new MockServices();
+        private readonly FakeServices _services = TestServices.CreateFakes();
         private readonly StubView _view = new StubView();
 
         private PresenterTestHost Start() => PresenterTestHost.Start(_services.Provider, new LegacyPopupDemoPresenter(), _view);
@@ -86,7 +87,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
 
                 _view.Binder.Dispatch(LegacyPopupDemoActions.EditCustomer);
 
-                Assert.True(_services.MessageService.ErrorMessageShown);
+                Assert.Contains(_services.Messages.Calls, c => c.Kind == MessageKind.Error);
                 Assert.Null(_view.Shown);
             }
         }

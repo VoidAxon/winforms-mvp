@@ -7,6 +7,7 @@ using WinformsMVP.MVP.Views;
 using WinformsMVP.Samples.Tests.Mocks;
 using WinformsMVP.Services.Implementations;
 using Xunit;
+using WinformsMVP.Testing;
 
 namespace WinformsMVP.Samples.Tests.Services
 {

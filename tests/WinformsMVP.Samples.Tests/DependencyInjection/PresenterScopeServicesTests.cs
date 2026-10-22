@@ -7,6 +7,7 @@ using WinformsMVP.MVP.Views;
 using WinformsMVP.Samples.Tests.Mocks;
 using WinformsMVP.Services;
 using Xunit;
+using WinformsMVP.Testing;
 
 namespace WinformsMVP.Samples.Tests.DependencyInjection
 {
@@ -60,7 +61,7 @@ namespace WinformsMVP.Samples.Tests.DependencyInjection
         private static IPresenterFactory Factory(Action<IServiceCollection> configure)
         {
             var services = new ServiceCollection();
-            services.AddScoped<IMessageService, MockMessageService>();
+            services.AddScoped<IMessageService, FakeMessageService>();
             services.AddSingleton<ILoggerFactory>(NullLoggerFactory.Instance);
             services.AddTransient<MessagesPresenter>();
             configure?.Invoke(services);
@@ -84,7 +85,7 @@ namespace WinformsMVP.Samples.Tests.DependencyInjection
         public void MissingFrameworkService_Throws_WithoutFallingBackToTheGlobalProvider()
         {
             var services = new ServiceCollection();
-            services.AddScoped<IMessageService, MockMessageService>();
+            services.AddScoped<IMessageService, FakeMessageService>();
             services.AddTransient<MessagesPresenter>();   // no ILoggerFactory registered
             var factory = new ServiceProviderPresenterFactory(services.BuildServiceProvider());
 

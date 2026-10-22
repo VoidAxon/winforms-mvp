@@ -4,7 +4,7 @@
   "classifications": [ "Desktop", "WinForms", "MVP", "Test", "xUnit" ],
   "identity": "WinformsMVP.Templates.Tests",
   "name": "WinformsMVP Presenter Tests",
-  "description": "An xUnit project for presenter tests: PresenterTestHost, a CapturingActionBinder for mock views, and an example test.",
+  "description": "An xUnit project for presenter tests: references WinformsMVP.Testing (PresenterTestHost, CapturingActionBinder, service fakes) and contains an example test.",
   "shortName": "winformsmvp-tests",
   "sourceName": "MvpApp.Tests",
   "preferNameDirectory": true,

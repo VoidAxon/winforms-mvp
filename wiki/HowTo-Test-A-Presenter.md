@@ -1,11 +1,13 @@
 # HowTo: Presenter をテストする
 
-このページでは、Presenter の単体テストを **モック View + モックサービス** で書く方法を、典型的なシナリオ別に示します。
+このページでは、Presenter の単体テストを **モック View + フェイクサービス** (`WinformsMVP.Testing` パッケージ) で書く方法を、典型的なシナリオ別に示します。
 Presenter は WinForms に依存しないため、**UI スレッド不要・実行高速・完全独立** で動かせます。
 
 > **本フレームワークの主要メリットの 1 つが、まさにこのテスタビリティです。**
 
-> **ターゲットについて:** Presenter と基底クラスは `WinformsMVP.Core` (`netstandard2.0`、WinForms 非参照) にあるため、Presenter だけのテストプロジェクトは Core を参照すれば任意のランタイムで動かせます (このとき `ServiceLocator` の既定プロバイダには `FileService` と `NullLoggerFactory` しか入らないので、フレームワークサービスはモックを渡してください)。本リポジトリの `WinformsMVP.Samples.Tests` は Form も扱う `net48` プロジェクトなので、`dotnet test` には Windows (または mono) が必要です。
+> **パッケージ:** テストプロジェクトは `WinformsMVP.Testing` (`netstandard2.0`、`WinformsMVP.Core` に依存、テストフレームワーク非依存) を参照します (`dotnet add package WinformsMVP.Testing --prerelease`。`dotnet new winformsmvp-tests` は参照済み)。`PresenterTestHost`、`TestServices`、`CapturingActionBinder` と、フレームワークサービスのフェイクが入っています。どれも任意で、自作のフェイクや Moq と混ぜて使えます。
+>
+> **ターゲットについて:** Presenter と基底クラスは `WinformsMVP.Core` (`netstandard2.0`、WinForms 非参照) にあるため、Presenter だけのテストプロジェクトは任意のランタイムで動かせます。本リポジトリの `WinformsMVP.Samples.Tests` は Form も扱う `net48` プロジェクトなので、`dotnet test` には Windows (または mono) が必要です。
 
 ---
 
@@ -16,9 +18,9 @@ Presenter は WinForms に依存しないため、**UI スレッド不要・実�
 - [基本的なテストの書き方](#基本的なテストの書き方)
 - [シナリオ別のレシピ](#シナリオ別のレシピ)
   - [メッセージダイアログの呼び出しを検証する](#メッセージダイアログの呼び出しを検証する)
-  - [ファイル選択ダイアログの戻り値を制御する](#ファイル選択ダイアログの戻り値を制御する)
-  - [ファイル I/O をモックする](#ファイル-io-をモックする)
   - [ConfirmYesNo の分岐をテストする](#confirmyesno-の分岐をテストする)
+  - [ファイル選択ダイアログの戻り値を制御する](#ファイル選択ダイアログの戻り値を制御する)
+  - [ファイル I/O をフェイクにする](#ファイル-io-をフェイクにする)
   - [子ウィンドウの表示を検証する](#子ウィンドウの表示を検証する)
   - [ロギングを検証する](#ロギングを検証する)
   - [非同期処理をテストする](#非同期処理をテストする)
@@ -43,22 +45,34 @@ Presenter は WinForms に依存しないため、**UI スレッド不要・実�
 ## モックの全体像
 
 ```
-MockServices                    (モックサービスを束ね DefaultServiceProvider に登録するコンテナ)
-   ├── MockMessageService       (Info/Warning/Error/Confirm の呼び出し記録)
-   ├── MockDialogProvider       (Open/Save/Folder ダイアログの戻り値制御)
-   ├── MockFileService          (in-memory ファイルシステム)
-   ├── LoggerFactory            (既定は NullLoggerFactory・出力なし)
-   └── MockWindowNavigator      (子ウィンドウ表示の検証)
-   .Provider                    (DefaultServiceProvider — PresenterTestHost.Start(mock.Provider, presenter, view) に渡す)
+TestServices.CreateFakes()      → FakeServices (WinformsMVP.Testing)
+   ├── Messages   FakeMessageService      呼び出しを記録し、確認ダイアログの答えをスクリプトで返す
+   ├── Toasts     FakeToastService        トーストを記録
+   ├── Dialogs    FakeDialogProvider      ファイル / フォルダ / 色ダイアログの答えをスクリプトで返す
+   ├── Files      InMemoryFileService     in-memory ファイルシステム (どの OS でも Windows のパス規則)
+   ├── Navigator  FakeWindowNavigator     子ウィンドウの要求を記録し、モーダルの結果を返す / 非モーダルを閉じる
+   ├── Logs       RecordingLoggerFactory  ログを記録
+   └── Provider   DefaultServiceProvider  上のフェイクを登録済み — PresenterTestHost.Start(fakes.Provider, presenter, view) に渡す
 
-Mock<IXxxView>                  (View インターフェイス用のモック — CapturingActionBinder を公開する)
-CapturingActionBinder           (フレームワークが View に渡す dispatcher を捕捉。テストから Dispatch する入口)
-PresenterTestHost               (WinformsMVP.Testing — WinformsMVP.Core に同梱。モック View をアタッチして実際の初期化を走らせ、RequestClose を記録し、CanClose / CanCloseAsync ゲートを駆動する。Start(services, ...) でその Presenter だけのフレームワークサービスを渡せる)
-TestServices.Create()           (WinformsMVP.Testing — 無出力の ILoggerFactory だけを登録した DefaultServiceProvider。ここにフェイクを登録して Start に渡す)
-業務依存 (IXxxRepository 等)     (Presenter のコンストラクタに注入。フレームワークサービスとは別経路)
+TestServices.Create()           無出力の ILoggerFactory だけを登録した DefaultServiceProvider (自作フェイクだけで組むとき)
+PresenterTestHost               モック View をアタッチして実際の初期化を走らせ、RequestClose を記録し、CanClose / CanCloseAsync ゲートを駆動する
+CapturingActionBinder           フレームワークが View に渡す dispatcher を捕捉。テストから Dispatch する入口
+Mock<IXxxView>                  View インターフェイス用のモック (テスト側で書く — CapturingActionBinder を公開する)
+業務依存 (IXxxRepository 等)     Presenter のコンストラクタに注入 (テスト側で書く。フレームワークサービスとは別経路)
 ```
 
-モックは `WinformsMVP.Samples.Tests/Mocks/` 配下にあります (`PresenterTestHost` と `TestServices` だけはパッケージ同梱)。**業務依存 (Repository など) は `MockServices` には含まれません** — それらは Presenter のコンストラクタに直接注入します (下記参照)。
+**業務依存 (Repository など) と View のモックはテスト側で書きます** — パッケージが提供するのはフレームワークサービスのフェイクだけです。
+
+**フェイクは任意です。** 全部使う、1 つだけ自前に差し替える、まったく使わない、のどれでも構いません:
+
+```csharp
+var fakes = TestServices.CreateFakes();                                    // 全部
+fakes.Provider.RegisterInstance<IFileService>(new MyFileService());       // 1 つ差し替え (Start の前に)
+var sp = TestServices.Create(); sp.RegisterInstance<IMessageService>(mock.Object);   // 使わない (Moq など)
+class SlowFiles : InMemoryFileService { public override string ReadAllText(string path) { ... } }   // 1 操作だけ上書き
+```
+
+**答えを用意していない問い合わせは例外になります。** 確認ダイアログ・ファイルダイアログ・モーダルウィンドウをテストが想定していないのに Presenter が出すと、`UnscriptedInteractionException` (何を聞かれたかを含むメッセージ) が投げられます — 想定外の質問が黙って片方の分岐に進むことはありません。気にしないテストでは、`fakes.Messages.AnswerUnscripted(yes: true)` / `fakes.Dialogs.CancelUnscripted()` / `fakes.Navigator.CancelUnscripted()` で既定の答えを決められます。
 
 ---
 
@@ -67,29 +81,24 @@ TestServices.Create()           (WinformsMVP.Testing — 無出力の ILoggerFac
 ```csharp
 public class UserEditorPresenterTests
 {
-    private readonly MockServices        _mockServices;
-    private readonly MockUserRepository  _repository;   // 業務依存はコンストラクタ注入
-    private readonly MockUserEditorView  _view;
+    private readonly FakeServices        _fakes = TestServices.CreateFakes();
+    private readonly MockUserRepository  _repository = new MockUserRepository();   // 業務依存はコンストラクタ注入
+    private readonly MockUserEditorView  _view = new MockUserEditorView();
     private readonly UserEditorPresenter _presenter;
 
     public UserEditorPresenterTests()
     {
-        // Arrange (共通) — 各テストで独立にインスタンス生成
-        _mockServices = new MockServices();
-        _repository   = new MockUserRepository();
-        _view         = new MockUserEditorView();
-
-        // 業務依存 (Repository) はコンストラクタ経由
+        // Arrange (共通) — xUnit はテストごとにクラスを new するので、各テストは独立
         _presenter = new UserEditorPresenter(_repository);
 
         // フレームワークサービスは Start の第 1 引数で渡す (この Presenter だけに効く。グローバルな
         // ServiceLocator.Current は触らないので、テストを並列に走らせてよい)。
         // View のアタッチ + 実際の初期化 (RegisterViewActions → binder 自動バインド → OnInitialize)。
         // Presenter の AttachView / Initialize は明示的インターフェイス実装なので直接は呼べない。
-        PresenterTestHost.Start(_mockServices.Provider, _presenter, _view);
+        PresenterTestHost.Start(_fakes.Provider, _presenter, _view);
 
         // 初期化時の呼び出し記録をクリアして純粋なテスト実行に集中
-        _mockServices.Reset();
+        _fakes.Messages.ClearCalls();
         _view.MethodCalls.Clear();
     }
 
@@ -103,9 +112,8 @@ public class UserEditorPresenterTests
         // Act
         _view.Binder.Dispatch(StandardActions.Save);
 
-        // Assert — 種別ブール + 本文は HasCall / GetLastCall().Message で検証
-        Assert.True(_mockServices.MessageService.InfoMessageShown);
-        Assert.True(_mockServices.MessageService.HasCall(MessageType.Info, "saved"));
+        // Assert — 記録された呼び出し (Kind / Text / Caption) を検証
+        Assert.Contains(_fakes.Messages.Calls, m => m.Kind == MessageKind.Info && m.Text.Contains("saved"));
     }
 }
 ```
@@ -115,8 +123,8 @@ public class UserEditorPresenterTests
 > **アクションは `_view.Binder.Dispatch(...)` で駆動します。** Presenter の `Dispatcher` は protected で、テスト用に公開されることはありません。代わりにモック View が `CapturingActionBinder` を公開します — フレームワークは初期化中 (`PresenterTestHost.Start` の中) に `View.ActionBinder.Bind(dispatcher)` を自動で呼ぶため、binder はそこで dispatcher を捕捉できます。本物の Form のボタンが使うのと同一の経路なので、`CanExecute` もミドルウェアも production と同じように評価されます。
 
 ```csharp
-// tests/WinformsMVP.Samples.Tests/Mocks/CapturingActionBinder.cs (リポジトリに同梱 — 要点のみ抜粋)
-public sealed class CapturingActionBinder : IViewActionBinder
+// WinformsMVP.Testing.CapturingActionBinder (パッケージ同梱 — 要点のみ抜粋)
+public class CapturingActionBinder : IViewActionBinder
 {
     public ViewActionDispatcher Dispatcher { get; private set; }
 
@@ -135,12 +143,12 @@ public CapturingActionBinder Binder { get; } = new CapturingActionBinder();
 public IViewActionBinder ActionBinder => Binder;
 ```
 
-> **業務依存はコンストラクタ、フレームワークサービスは `PresenterTestHost.Start(services, ...)`。** `MockServices` が束ねるのは Message/Dialog/File/Navigator (+ Logger) の **フレームワークサービス** だけです。`IUserRepository` のような業務依存は Presenter のコンストラクタに注入します (`new UserEditorPresenter(_repository)`)。実例は [`MainEmailPresenterTests.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/tests/WinformsMVP.Samples.Tests/Presenters/MainEmailPresenterTests.cs) を参照。
+> **業務依存はコンストラクタ、フレームワークサービスは `PresenterTestHost.Start(services, ...)`。** `TestServices.CreateFakes()` が登録するのは Message/Toast/Dialog/File/Navigator/Logger の **フレームワークサービス** だけです。`IUserRepository` のような業務依存は Presenter のコンストラクタに注入します (`new UserEditorPresenter(_repository)`)。実例は [`MainEmailPresenterTests.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/tests/WinformsMVP.Samples.Tests/Presenters/MainEmailPresenterTests.cs) を参照。
 
 > **自分でプロバイダを組むときは `TestServices.Create()` から始めます。** どの Presenter もアタッチ時に `ILoggerFactory` を必要とするため、それだけを登録済みで返します。渡したプロバイダにないサービスはエラーになり、グローバルの既定サービスで補われることはありません (テストが何に依存しているかがコードに現れるように)。プロバイダは呼び出し側の所有で、ホストは破棄しません。Presenter がコンストラクタで `Logger` や `Messages` を使っていると、`Start(services, ...)` は `InvalidOperationException` になります — その処理は `OnViewAttached` / `OnInitialize` に移してください。
 
 ```csharp
-var messages = new FakeMessageService();
+var messages = new FakeMessageService();                 // パッケージのフェイクでも自作でもよい
 var services = TestServices.Create();                    // ILoggerFactory (無出力) だけ登録済み
 services.RegisterInstance<IMessageService>(messages);
 using (var host = PresenterTestHost.Start(services, new OrderPresenter(repo), view)) { ... }
@@ -152,6 +160,8 @@ using (var host = PresenterTestHost.Start(services, new OrderPresenter(repo), vi
 
 ### メッセージダイアログの呼び出しを検証する
 
+`fakes.Messages.Calls` は呼び出しの記録 (`Kind` = `Info` / `Warning` / `Error` / `YesNo` / `OkCancel` / `YesNoCancel`、`Text`、`Caption`、`IsConfirmation`) です。
+
 ```csharp
 [Fact]
 public void OnSave_WhenSaveFails_ShowsError()
@@ -161,8 +171,7 @@ public void OnSave_WhenSaveFails_ShowsError()
 
     _view.Binder.Dispatch(StandardActions.Save);
 
-    Assert.True(_mockServices.MessageService.ErrorMessageShown);
-    Assert.True(_mockServices.MessageService.HasCall(MessageType.Error, "Failed to save"));
+    Assert.Contains(_fakes.Messages.Calls, m => m.Kind == MessageKind.Error && m.Text.Contains("Failed to save"));
 }
 
 [Fact]
@@ -172,9 +181,40 @@ public void OnDelete_WithoutSelection_ShowsWarning()
 
     _view.Binder.Dispatch(StandardActions.Delete);
 
-    Assert.True(_mockServices.MessageService.WarningMessageShown);
+    Assert.Equal(MessageKind.Warning, Assert.Single(_fakes.Messages.Calls).Kind);
 }
 ```
+
+### ConfirmYesNo の分岐をテストする
+
+答えは **キュー → ハンドラ → 未スクリプト時の既定 (例外)** の順で決まります。
+
+```csharp
+[Fact]
+public void OnDelete_UserConfirms_RemovesItem()
+{
+    _view.SelectedId = 42;
+    _fakes.Messages.EnqueueYesNo(true);            // 次の ConfirmYesNo に Yes と答える
+
+    _view.Binder.Dispatch(StandardActions.Delete);
+
+    Assert.True(_repository.WasDeleted(42));
+}
+
+[Fact]
+public void OnDelete_UserDeclines_DoesNotRemove()
+{
+    _view.SelectedId = 42;
+    _fakes.Messages.YesNoHandler = m => !m.Text.Contains("削除");   // 質問の内容で答える
+
+    _view.Binder.Dispatch(StandardActions.Delete);
+
+    Assert.Contains(_fakes.Messages.Calls, m => m.IsConfirmation);
+    Assert.False(_repository.WasDeleted(42));
+}
+```
+
+`EnqueueOkCancel` / `OkCancelHandler`、`EnqueueYesNoCancel(ConfirmResult.Yes)` / `YesNoCancelHandler` も同じです。答えを用意していない確認は `UnscriptedInteractionException` になります (`AnswerUnscripted(yes: true)` で既定の答えにできます)。
 
 ### ファイル選択ダイアログの戻り値を制御する
 
@@ -182,9 +222,8 @@ public void OnDelete_WithoutSelection_ShowsWarning()
 [Fact]
 public void OnImport_WhenUserSelectsFile_ImportsContent()
 {
-    // 戻り値をセット — OpenFileDialogResult は string。値を入れると Ok(その値)、空/null なら Cancel が返る
-    _mockServices.DialogProvider.OpenFileDialogResult = "C:\\users.csv";
-    _mockServices.FileService.AddFile("C:\\users.csv", "id,name\n1,John");
+    _fakes.Dialogs.EnqueueOpenFile(InteractionResult<string>.Ok(@"C:\data\users.csv"));
+    _fakes.Files.SeedFile(@"C:\data\users.csv", "id,name\r\n1,John");   // 親フォルダも作られる
 
     _view.Binder.Dispatch(ImportActions.Import);
 
@@ -195,7 +234,7 @@ public void OnImport_WhenUserSelectsFile_ImportsContent()
 [Fact]
 public void OnImport_WhenUserCancels_DoesNothing()
 {
-    _mockServices.DialogProvider.OpenFileDialogResult = null;   // null/空 → Cancel をシミュレート
+    _fakes.Dialogs.EnqueueOpenFile(InteractionResult<string>.Cancel());
 
     _view.Binder.Dispatch(ImportActions.Import);
 
@@ -203,15 +242,17 @@ public void OnImport_WhenUserCancels_DoesNothing()
 }
 ```
 
-### ファイル I/O をモックする
+ハンドラ (`OpenFileHandler = o => ...`、`SaveFileHandler`、`FolderBrowserHandler`、`ColorHandler`) は渡されたオプション (`Filter`、`FileName` など) を見て答えられます。`fakes.Dialogs.Calls` には要求ごとの `Kind` と渡されたオプションが残ります。
 
-`MockFileService` は in-memory ファイルシステムを提供します。
+### ファイル I/O をフェイクにする
+
+`InMemoryFileService` はメモリ上のファイルシステムです。**どの OS で動かしても Windows のパス規則** (大文字小文字を区別しない、`\` と `/`、`.` / `..`、相対パスは `C:\test` 基準) に従い、`System.IO` と同じ例外を投げます (親フォルダがなければ `DirectoryNotFoundException`、上書き不可なら `IOException`、ファイルがなければ `FileNotFoundException`)。
 
 ```csharp
 [Fact]
 public void OnLoadConfig_ReadsFromFileSystem()
 {
-    _mockServices.FileService.AddFile("C:\\config.json", "{ \"theme\": \"dark\" }");
+    _fakes.Files.SeedFile(@"C:\app\config.json", "{ \"theme\": \"dark\" }");
 
     _view.Binder.Dispatch(ConfigActions.Load);
 
@@ -219,62 +260,36 @@ public void OnLoadConfig_ReadsFromFileSystem()
 }
 
 [Fact]
-public void OnSaveConfig_WritesToFileSystem()
+public void OnExport_WhenTheFileIsLocked_ShowsError()
 {
-    _view.Theme = "light";
+    _fakes.Dialogs.EnqueueSaveFile(InteractionResult<string>.Ok(@"C:\test\out.csv"));
+    _fakes.Files.Failure = op => op.Operation == FileOperation.Write ? new IOException("Excel で開かれています") : null;
 
-    _view.Binder.Dispatch(ConfigActions.Save);
+    _view.Binder.Dispatch(ExportActions.Export);
 
-    Assert.Equal("{ \"theme\": \"light\" }",
-        _mockServices.FileService.ReadAllText("C:\\config.json"));
+    Assert.Contains(_fakes.Messages.Calls, m => m.Kind == MessageKind.Error);
+    Assert.Empty(_fakes.Files.FilePaths);
 }
 ```
 
-### ConfirmYesNo の分岐をテストする
-
-```csharp
-[Fact]
-public void OnDelete_UserConfirms_RemovesItem()
-{
-    _view.SelectedId = 42;
-    _mockServices.MessageService.ConfirmYesNoResult = true;   // Yes を選択
-
-    _view.Binder.Dispatch(StandardActions.Delete);
-
-    Assert.True(_mockServices.MessageService.ConfirmDialogShown);
-    Assert.True(_repository.WasDeleted(42));
-}
-
-[Fact]
-public void OnDelete_UserDeclines_DoesNotRemove()
-{
-    _view.SelectedId = 42;
-    _mockServices.MessageService.ConfirmYesNoResult = false;  // No を選択
-
-    _view.Binder.Dispatch(StandardActions.Delete);
-
-    Assert.True(_mockServices.MessageService.ConfirmDialogShown);
-    Assert.False(_repository.WasDeleted(42));
-}
-```
+テキストは指定したエンコーディングでバイト列として保存されます (既定は BOM なし UTF-8、BOM は読み込み時に解釈)。`FilePaths` / `DirectoryPaths` で中身を確認できます。
 
 ### 子ウィンドウの表示を検証する
 
-`MockWindowNavigator` で子 Presenter の起動と戻り値をセットします。
+`FakeWindowNavigator` は本番の `WindowNavigator` と同じ規則 (結果の型変換、キーの重複判定、Presenter の破棄、パラメータ必須の Presenter をパラメータなしで開くと例外) で動きます。渡された子 Presenter はアタッチも初期化もされません — 子画面自体の振る舞いは、別のインスタンスを `PresenterTestHost` でテストします。
 
-モーダルの戻りは `ShowModalBoolResult` で切り替えます (`true`→`Ok` / `false`→`Cancel`)。表示された Presenter は `ShowModalCalls` で検証します。
+**モーダル** — Presenter の型ごとに答えを登録します:
 
 ```csharp
 [Fact]
 public void OnEditUser_OpensEditorAndReloadsOnSuccess()
 {
     _view.SelectedUserId = 1;
-    _mockServices.WindowNavigator.ShowModalBoolResult = true;   // Ok を返す
+    _fakes.Navigator.RespondTo<EditUserPresenter, User>(r => InteractionResult<User>.Ok(new User("John")));
 
     _view.Binder.Dispatch(MainActions.EditUser);
 
-    Assert.True(_mockServices.WindowNavigator.ShowModalCalls
-        .Any(p => p is EditUserPresenter));
+    Assert.Equal(1, _fakes.Navigator.LastModalParameters<int>());   // WithParam で渡した値
     Assert.True(_view.ReloadCalled);
 }
 
@@ -282,7 +297,7 @@ public void OnEditUser_OpensEditorAndReloadsOnSuccess()
 public void OnEditUser_WhenCancelled_DoesNotReload()
 {
     _view.SelectedUserId = 1;
-    _mockServices.WindowNavigator.ShowModalBoolResult = false;   // Cancel を返す
+    _fakes.Navigator.RespondTo<EditUserPresenter, User>(_ => InteractionResult<User>.Cancel());
 
     _view.Binder.Dispatch(MainActions.EditUser);
 
@@ -290,46 +305,35 @@ public void OnEditUser_WhenCancelled_DoesNotReload()
 }
 ```
 
-> 結果あり版モーダルの `Value` は常に `default(TResult)` です。特定の戻り値に依存するアサーションが必要なら `MockWindowNavigator` を拡張してください。
+`RespondTo` の関数は `ModalRequest` (`Presenter`、`Parameters`、`Owner`) を受け取ります。呼び出し側が期待する型と違う値を返すと、本番と同じく `Error` になります。
+
+**非モーダル** — 開いたウィンドウが `fakes.Navigator.Windows` に残るので、画面が閉じたときの結果をテストから渡します:
+
+```csharp
+_view.Binder.Dispatch(MainActions.OpenOrder);                 // ShowWindow(..., keySelector: _ => id, onClosed: ...)
+
+var window = Assert.Single(_fakes.Navigator.Windows);
+window.CloseWithResult(42);                                   // onClosed に Ok(42) が届き、その後 Presenter が破棄される
+// window.Close() はユーザーが X で閉じた場合 (Cancel)、CloseWithError("...") はエラー終了
+```
+
+同じキーで再度開くと既存のウィンドウがアクティブになり (`window.Activations`)、新しい Presenter は破棄されます。すべての要求は `fakes.Navigator.Calls` に記録されます。
 
 ### ロギングを検証する
 
-既定の `MockServices` は `NullLoggerFactory` を使うのでログ出力はありません (テストを汚さない)。ログ内容を検証したい場合は、エントリを記録する小さな `ILogger` を**自分で用意し**、`DefaultServiceProvider` 経由で差し込みます (テストプロジェクトに専用モックは同梱されていません)。
+`fakes.Logs` (`RecordingLoggerFactory`) はすべてのレベルを記録します。
 
 ```csharp
-// 記録用ロガー (テストファイル内などに用意する小さなヘルパー)
-private class RecordingLogger : ILogger
-{
-    public List<(LogLevel Level, string Message, Exception Ex)> Entries { get; } = new();
-    public bool IsEnabled(LogLevel level) => true;
-    public void Log(LogLevel level, Exception exception, string message, params object[] args)
-        => Entries.Add((level, MessageFormatter.Format(message, args), exception));
-}
-
-private class RecordingLoggerFactory : ILoggerFactory
-{
-    public RecordingLogger Logger { get; } = new RecordingLogger();
-    public ILogger CreateLogger(string categoryName) => Logger;
-    public ILogger CreateLogger(Type type) => Logger;
-}
-
 [Fact]
 public void OnSave_LogsSuccess()
 {
-    var loggerFactory = new RecordingLoggerFactory();
-    var sp = TestServices.Create();
-    sp.RegisterInstance<WinformsMVP.Logging.ILoggerFactory>(loggerFactory);   // 無出力のものを置き換える
-
-    PresenterTestHost.Start(sp, new MyPresenter(), _view);
-
     _view.Binder.Dispatch(StandardActions.Save);
 
-    Assert.Contains(loggerFactory.Logger.Entries,
-        e => e.Level == LogLevel.Information && e.Message.Contains("saved"));
+    Assert.Contains(_fakes.Logs.Entries, e => e.Level == LogLevel.Information && e.Message.Contains("saved"));
 }
 ```
 
-同じ記録用ロガーのコピー&ペースト版と詳細は [Reference-Logging#テストでの利用](Reference-Logging#テストでの利用) を参照。
+`LogEntry` は `Category`、`Level`、`Exception`、`Message` (プレースホルダー展開済み)、`Template`、`Args` を持ちます。`TestServices.Create()` だけで組む場合のロガーは無出力 (`NullLoggerFactory`) です。
 
 ### 非同期処理をテストする
 
@@ -361,7 +365,7 @@ public async Task Start_LoadsDataInOnInitializeAsync()
 public async Task Close_WithUnsavedChanges_SavesBeforeClosing()
 {
     _view.SimulateEdit("new value");
-    _platform.MessageService.ConfirmYesNoCancelResult = ConfirmResult.Yes;
+    _fakes.Messages.EnqueueYesNoCancel(ConfirmResult.Yes);
 
     bool allow = await _host.CanCloseAsync();   // CanCloseAsync の判定 (保存) を待つ
 
@@ -369,7 +373,7 @@ public async Task Close_WithUnsavedChanges_SavesBeforeClosing()
 }
 ```
 
-- `DispatchAsync` / `Initialized` は、ハンドラや `OnInitializeAsync` が例外を投げても fault しません (本番と同じくログに出るだけ)。失敗時の振る舞いは、ハンドラ内で表示したメッセージ (`MockMessageService`) や View の状態で検証します。
+- `DispatchAsync` / `Initialized` は、ハンドラや `OnInitializeAsync` が例外を投げても fault しません (本番と同じくログに出るだけ)。失敗時の振る舞いは、ハンドラ内で表示したメッセージ (`fakes.Messages.Calls`) や View の状態で検証します。
 - 実行中のアクションは `CanDispatch == false` です。「実行中は無効」を検証するなら、完了しない `TaskCompletionSource` をモックリポジトリから返し、`_view.Binder.Dispatch(...)` の直後に `Assert.False(_view.Binder.CanDispatch(...))` とします。
 - 実例: `tests/WinformsMVP.Samples.Tests/Presenters/ComposeEmailPresenterTests.cs`、`MainEmailPresenterTests.cs`、`ViewActions/AsyncActionTests.cs`。
 
@@ -391,7 +395,7 @@ view.Binder.Dispatch(StandardActions.Save);
 
 ### PresenterTestHost でホストする
 
-`PresenterTestHost` (`WinformsMVP.Testing`、`WinformsMVP.Core` に同梱) は、本番の `WindowNavigator` / `Connect` と同じ初期化をモック View に対して行うテスト用ホストです。Form は不要です。
+`PresenterTestHost` (`WinformsMVP.Testing` パッケージ) は、本番の `WindowNavigator` / `Connect` と同じ初期化をモック View に対して行うテスト用ホストです。Form は不要です。
 
 | メンバー | 用途 |
 |---|---|
@@ -450,17 +454,17 @@ public class UserEditorClosingTests
 
 ## ベストプラクティス
 
-### 1. 各テストで独立にモックを作る
+### 1. 各テストで独立にフェイクを作る
 
 ```csharp
-// ✅ コンストラクタで毎回新規生成 (xUnit はテストごとにクラスを new する)
+// ✅ フィールド初期化子で毎回新規生成 (xUnit はテストごとにクラスを new する)
 public class MyTests
 {
-    private readonly MockServices _mockServices = new MockServices();
+    private readonly FakeServices _fakes = TestServices.CreateFakes();
 }
 
 // ❌ static フィールドで共有するとテスト間で状態が汚染される
-private static MockServices _mockServices = new MockServices();
+private static FakeServices _fakes = TestServices.CreateFakes();
 ```
 
 ### 2. AAA パターンで書く
@@ -471,13 +475,13 @@ public void TestName()
 {
     // Arrange — テストデータ・モック設定
     _view.TaskText = "Test";
-    _mockServices.MessageService.ConfirmYesNoResult = true;
+    _fakes.Messages.EnqueueYesNo(true);
 
     // Act — テスト対象のアクション
     _view.Binder.Dispatch(MyActions.DoSomething);
 
     // Assert — 期待値の検証
-    Assert.True(_mockServices.MessageService.InfoMessageShown);
+    Assert.Contains(_fakes.Messages.Calls, m => m.Kind == MessageKind.Info);
 }
 ```
 
@@ -502,7 +506,7 @@ TestAddTask()
 public void OnSave_ShowsMessageAndUpdatesView()
 {
     _view.Binder.Dispatch(StandardActions.Save);
-    Assert.True(_mockServices.MessageService.InfoMessageShown);
+    Assert.Contains(_fakes.Messages.Calls, m => m.Kind == MessageKind.Info);
     Assert.Equal(1, _view.SavedCount);
 }
 
@@ -514,16 +518,17 @@ public void TestEverything()
 }
 ```
 
-### 5. 初期化時の状態を Reset する
+### 5. 初期化時の記録をクリアする
 
 ```csharp
 public MyTests()
 {
     _presenter = new MyPresenter();
-    PresenterTestHost.Start(_mockServices.Provider, _presenter, _view);
+    PresenterTestHost.Start(_fakes.Provider, _presenter, _view);
 
-    // 初期化で発生した呼び出し記録をクリア
-    _mockServices.Reset();
+    // 初期化で発生した呼び出し記録をクリア (スクリプトした答えは残る)
+    _fakes.Messages.ClearCalls();
+    _fakes.Toasts.ClearCalls();
     _view.MethodCalls.Clear();
 }
 ```
@@ -554,10 +559,11 @@ public class MockUserEditorView : IUserEditorView
 
 ## 関連ページ
 
-- [Platform Services](Reference-Platform-Services) — モックサービスの API 一覧
+- [Platform Services](Reference-Platform-Services) — フレームワークサービスの API 一覧
 - [ViewAction システム](Reference-ViewAction-System) — `Dispatcher.Dispatch` の動作
 - [HowTo: ウィンドウクローズを扱う](HowTo-Handle-Window-Closing) — クローズ動作のテスト
-- [Reference-Logging#テストでの利用](Reference-Logging#テストでの利用) — ロギングのモック
+- [Reference-Logging#テストでの利用](Reference-Logging#テストでの利用) — ログの検証
 - サンプル:
   - `tests/WinformsMVP.Samples.Tests/Presenters/` — Presenter 単体テストの実例
-  - `tests/WinformsMVP.Samples.Tests/Mocks/` — モック実装
+  - `tests/WinformsMVP.Samples.Tests/Mocks/` — View / Repository のモック実装 (サービスのフェイクは `WinformsMVP.Testing`)
+  - `src/WinformsMVP.Testing/` — `PresenterTestHost` とフェイクの実装

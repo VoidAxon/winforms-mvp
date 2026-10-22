@@ -1,0 +1,68 @@
+using System;
+using System.Threading.Tasks;
+using WinformsMVP.MVP.ViewActions;
+
+namespace WinformsMVP.Testing
+{
+    /// <summary>
+    /// Test-double <see cref="IViewActionBinder"/> that captures the dispatcher the framework
+    /// hands to the view, giving tests the same action entry point a real Form's bound controls use.
+    /// </summary>
+    /// <remarks>
+    /// The framework calls <c>View.ActionBinder?.Bind(dispatcher)</c> right after
+    /// <c>RegisterViewActions</c>. A mock view exposes an instance of this class, and the test
+    /// drives the presenter through its real entry point, so <c>canExecute</c> and middleware run
+    /// as in production:
+    /// <code>
+    /// public sealed class MockOrderView : IOrderView
+    /// {
+    ///     public CapturingActionBinder Binder { get; } = new CapturingActionBinder();
+    ///     public IViewActionBinder ActionBinder => Binder;
+    /// }
+    ///
+    /// view.Binder.Dispatch(CommonActions.Save);
+    /// await view.Binder.DispatchAsync(CommonActions.Load);   // async handler: awaits completion
+    /// </code>
+    /// </remarks>
+    public class CapturingActionBinder : IViewActionBinder
+    {
+        /// <summary>
+        /// The dispatcher captured from the framework's auto-bind, or null before the presenter
+        /// was started (<see cref="PresenterTestHost"/>).
+        /// </summary>
+        public ViewActionDispatcher Dispatcher { get; private set; }
+
+        /// <inheritdoc />
+        public void Bind(ViewActionDispatcher dispatcher) => Dispatcher = dispatcher;
+
+        /// <summary>Dispatches through the captured dispatcher — the same path a bound control uses.</summary>
+        public virtual void Dispatch(ViewAction action, object payload = null) => Captured().Dispatch(action, payload);
+
+        /// <summary>
+        /// Dispatches and returns a task that completes when the handler has finished (and faults
+        /// with its exception) — await it for asynchronous handlers.
+        /// </summary>
+        public virtual Task DispatchAsync(ViewAction action, object payload = null) => Captured().DispatchAsync(action, payload);
+
+        /// <summary>Evaluates the action's <c>canExecute</c> through the captured dispatcher.</summary>
+        public virtual bool CanDispatch(ViewAction action) => Captured().CanDispatch(action);
+
+        /// <summary>Dispatches a typed action; the payload type is checked at compile time.</summary>
+        public void Dispatch<T>(ViewAction<T> action, T payload) => Dispatch(action.Key, payload);
+
+        /// <summary>Typed <see cref="DispatchAsync(ViewAction, object)"/>.</summary>
+        public Task DispatchAsync<T>(ViewAction<T> action, T payload) => DispatchAsync(action.Key, payload);
+
+        /// <summary>Typed <see cref="CanDispatch(ViewAction)"/>.</summary>
+        public bool CanDispatch<T>(ViewAction<T> action) => CanDispatch(action.Key);
+
+        private ViewActionDispatcher Captured()
+        {
+            if (Dispatcher == null)
+                throw new InvalidOperationException(
+                    "No dispatcher captured yet. Start the presenter with PresenterTestHost.Start(...) " +
+                    "(it attaches the view and binds its ActionBinder) before dispatching.");
+            return Dispatcher;
+        }
+    }
+}

@@ -418,21 +418,20 @@ ServiceLocator.Configure(reg =>
 
 ## テスト
 
-### `SetServiceProvider(...)` 後も `Messages` プロパティがデフォルトを返す
+### テストで `Messages` などのプロパティがフェイクを使わない / 例外になる
 
-**原因**: `SetServiceProvider` を `Initialize()` の **後** に呼んでいる。
+**原因**: サービスを `PresenterTestHost.Start` に渡していない、または `Start` の **後** にプロバイダへ登録している。Presenter はフレームワークサービスを一度だけ解決します。渡したプロバイダにないサービスはエラーになり、グローバルの `ServiceLocator.Current` で補われることはありません。
 
-**対処**: `SetServiceProvider` は **`PresenterTestHost.Start(...)` (アタッチ + 初期化) より前**に呼ぶ。
+**対処**: プロバイダを第 1 引数で渡し、差し替えは `Start` の **前** に登録する。
 
 ```csharp
-var sp = new DefaultServiceProvider();
-sp.RegisterInstance<IMessageService>(mockMessages);
-// ...
-var presenter = new MyPresenter();
-((dynamic)presenter).SetServiceProvider(sp);   // 先 (InternalsVisibleTo または dynamic 経由)
+var fakes = TestServices.CreateFakes();                              // WinformsMVP.Testing
+fakes.Provider.RegisterInstance<IFileService>(new MyFileService());  // 差し替えるなら先に
 
-PresenterTestHost.Start(presenter, mockView);   // 後 (アタッチ + 初期化)
+PresenterTestHost.Start(fakes.Provider, new MyPresenter(), mockView); // 後 (アタッチ + 初期化)
 ```
+
+Presenter がコンストラクタで `Messages` / `Logger` などを使っていると `Start(services, ...)` は `InvalidOperationException` になります。その処理は `OnViewAttached` / `OnInitialize` に移してください。
 
 ### `private OnSave()` をテストから呼べない
 
@@ -446,24 +445,24 @@ mockView.Binder.Dispatch(StandardActions.Save);   // 本物の経路
 
 これで `CanExecute` も評価され、production と同じ経路をテストできます。詳しくは [HowTo: Presenter をテストする § テストを駆動するときのルール](HowTo-Test-A-Presenter#テストを駆動するときのルール) 参照。
 
-### `MockWindowNavigator` で結果を設定しても反映されない
+### `FakeWindowNavigator` のモーダルで `UnscriptedInteractionException` / 結果が `Error` になる
 
-**原因**: 設定したプロパティが、呼び出したオーバーロードに対応していない。`MockWindowNavigator` は 2 つの別プロパティで戻りを制御します。
+**原因**: `FakeWindowNavigator` は、答えを用意していないモーダル表示を例外にします (想定外の画面が黙って `Cancel` 扱いにならないように)。答えは `RespondTo<TPresenter, …>` の **Presenter の型** で選ばれるため、別の型 (例: インターフェイスや兄弟クラス) で登録していると一致しません。また、呼び出し側が期待する結果型と違う型の値を返すと、本番の `WindowNavigator` と同じく `InteractionStatus.Error` になります。
 
-- **結果あり版** `ShowWindowAsModal<…, TResult>` → `ShowModalBoolResult` (`true`→`Ok` / `false`→`Cancel`) を見る。`ShowModalInteractionResult` は無視される。
-- **結果なし版** `ShowWindowAsModal<…>` → `ShowModalInteractionResult` をそのまま返す。
-
-**対処**: 呼び出すオーバーロードに合うプロパティを設定する。
+**対処**: 実際に表示される Presenter の型 (またはその基底型) と、呼び出し側の `TResult` に合わせて登録する。
 
 ```csharp
-// 結果あり版を駆動するなら ShowModalBoolResult
-_platform.WindowNavigator.ShowModalBoolResult = false;   // Cancel をシミュレート
+// Navigator.For(new CustomerSearchPresenter(repo)).WithParam(keyword).ShowAsModal<Customer>() を駆動する
+fakes.Navigator.RespondTo<CustomerSearchPresenter, Customer>(r => InteractionResult<Customer>.Ok(alice));
 
-// 結果なし版を駆動するなら ShowModalInteractionResult
-_platform.WindowNavigator.ShowModalInteractionResult = InteractionResult.Error("失敗");
+// 結果なし版 (ShowWindowAsModal<TPresenter>) は RespondTo<TPresenter>
+fakes.Navigator.RespondTo<AboutPresenter>(_ => InteractionResult.Ok());
+
+// どのモーダルも気にしないテストなら
+fakes.Navigator.CancelUnscripted();
 ```
 
-なお結果あり版の `Value` は常に `default(TResult)` です。特定の戻り値が必要なら `MockWindowNavigator` を拡張してください。
+例外メッセージに、問い合わせられた Presenter の型名が含まれます。
 
 ---
 
