@@ -180,6 +180,26 @@ namespace WinformsMVP.Samples.Tests.Composition
             Assert.Equal("initial", _input.Name);
         }
 
+        [Fact]
+        public void AViewOwnedByAnotherParentsChild_IsRejected_UntilReleased()
+        {
+            var shared = new FakeNamePanelView();
+            var otherView = new FakeEditView();
+            IDisposable firstHandle = null;
+            using (PresenterTestHost.Start(_fakes.Provider,
+                       new EditPresenter((p, input) => firstHandle = p.Attach(new NamePanelPresenter(new NameSource()), shared, input)),
+                       otherView, new EditInput()))
+            using (var host = Start((p, input) => { }))
+            {
+                var parent = GetParent(host);
+                Assert.Throws<InvalidOperationException>(
+                    () => parent.Attach(new NamePanelPresenter(new NameSource()), shared, _input));
+
+                firstHandle.Dispose();
+                parent.Attach(new NamePanelPresenter(new NameSource()), shared, _input);   // free again
+            }
+        }
+
         private EditPresenter GetParent(PresenterTestHost host) => _parent;
     }
 }

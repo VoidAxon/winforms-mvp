@@ -34,6 +34,9 @@ namespace WinformsMVP.Services.Implementations
             if (!(view is Control control))
                 throw new ArgumentException(
                     "Control hosting requires a Control-backed view.", nameof(view));
+            if (ViewOwnership.IsClaimed(view))
+                throw new InvalidOperationException(
+                    "This control is already used by another live presenter; each presenter needs its own view.");
             if (ControlDisposalObserver.Instance.IsDisposed(view))
                 throw new ObjectDisposedException(control.GetType().Name, "The control is already disposed.");
             _control = control;
@@ -45,6 +48,7 @@ namespace WinformsMVP.Services.Implementations
             var subscription = ControlDisposalObserver.Instance.ObserveDisposal((IViewBase)_control, OnDisposed);
             // Released with the presenter, so a presenter disposed first leaves no handler on the control.
             ((IPresenterResourceOwner)_presenter).OwnUntilDisposed(subscription);
+            ((IPresenterResourceOwner)_presenter).OwnUntilDisposed(ViewOwnership.Claim((IViewBase)_control, _presenter));
         }
 
         /// <summary>Throws when the control was disposed while the presenter was being connected (the

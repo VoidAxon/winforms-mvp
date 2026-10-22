@@ -41,4 +41,31 @@ namespace WinformsMVP.MVP.Presenters
             public bool IsDisposed(IViewBase view) => false;
         }
     }
+
+    /// <summary>
+    /// Which views a live embedded presenter (<c>AttachChild</c> or control <c>Connect</c>) uses, so two
+    /// live presenters never share a view (they would overwrite and unbind each other's action binder).
+    /// Weak keys: a forgotten view does not stay alive. UI-thread use; the table itself is thread-safe.
+    /// </summary>
+    internal static class ViewOwnership
+    {
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<IViewBase, object> Live =
+            new System.Runtime.CompilerServices.ConditionalWeakTable<IViewBase, object>();
+
+        internal static bool IsClaimed(IViewBase view) => Live.TryGetValue(view, out _);
+
+        /// <summary>Claims <paramref name="view"/> for <paramref name="owner"/>; the returned subscription
+        /// releases it (only if still claimed by that owner).</summary>
+        internal static IDisposable Claim(IViewBase view, object owner)
+        {
+            if (IsClaimed(view))
+                throw new InvalidOperationException(
+                    "This view is already used by another live presenter; each presenter needs its own view.");
+            Live.Add(view, owner);
+            return Disposable.Create(() =>
+            {
+                if (Live.TryGetValue(view, out var current) && ReferenceEquals(current, owner)) Live.Remove(view);
+            });
+        }
+    }
 }

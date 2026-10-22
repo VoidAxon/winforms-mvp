@@ -557,9 +557,9 @@ namespace WinformsMVP.MVP.Presenters
             if (attachable.IsViewAttached || attachable.IsInitialized || composable.OwnerLink != null)
                 throw new InvalidOperationException(
                     child.GetType().Name + " is already attached to a view; a presenter is attached once.");
-            if (_children != null && _children.Exists(a => ReferenceEquals(a.View, view)))
+            if (ViewOwnership.IsClaimed(view))
                 throw new InvalidOperationException(
-                    "Another child presenter already uses this view; each child needs its own view.");
+                    "Another live presenter already uses this view; each child needs its own view.");
             if (ViewDisposal.Observer.IsDisposed(view))
                 throw new ObjectDisposedException(view.GetType().Name, "The child view is disposed.");
             composable.InheritServices(Services);
@@ -577,6 +577,7 @@ namespace WinformsMVP.MVP.Presenters
                 attachment.Dispose();
             });
             ((IPresenterResourceOwner)child).OwnUntilDisposed(observation);
+            ((IPresenterResourceOwner)child).OwnUntilDisposed(ViewOwnership.Claim(view, child));
 
             try
             {

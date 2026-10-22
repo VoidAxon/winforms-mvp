@@ -1,5 +1,6 @@
 using System;
 using System.Windows.Forms;
+using WinformsMVP.MVP.Presenters;
 using WinformsMVP.MVP.ViewActions;
 using WinformsMVP.Samples.Tests.Composition;
 using WinformsMVP.Testing;
@@ -51,6 +52,19 @@ namespace WinformsMVP.Samples.Tests.Presenters
             Assert.Throws<ObjectDisposedException>(() => PresenterTestHost.Start(TestServices.Create(),
                 new EditPresenter((p, input) => p.Attach(child, view.NamePanel, input)), view, new EditInput()));
             Assert.False(child.Disposed);   // rejected before ownership: the caller still owns it
+        }
+
+        [Fact]
+        public void AControlHostedWithConnect_CannotAlsoBeAChildView()
+        {
+            var view = new ControlEditView();
+            var connected = new NamePanelPresenter(new NameSource());
+            connected.Connect(view.Panel, new EditInput());
+
+            Assert.Throws<InvalidOperationException>(() => PresenterTestHost.Start(TestServices.Create(),
+                new EditPresenter((p, input) => p.Attach(new NamePanelPresenter(new NameSource()), view.NamePanel, input)),
+                view, new EditInput()));
+            Assert.False(connected.Disposed);
         }
     }
 }
