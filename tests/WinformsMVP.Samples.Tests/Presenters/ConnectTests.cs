@@ -8,6 +8,7 @@ using WinformsMVP.Samples.Tests.Mocks;
 using WinformsMVP.Services.Implementations;
 using Xunit;
 using CloseReason = WinformsMVP.Common.CloseReason;
+using WinformsMVP.Testing;
 
 namespace WinformsMVP.Samples.Tests.Presenters
 {

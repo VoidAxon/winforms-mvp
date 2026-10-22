@@ -36,6 +36,9 @@ namespace WinformsMVP.Testing
         /// <summary>The caption as passed (empty when the caller used the default).</summary>
         public string Caption { get; }
 
+        /// <summary>True for <see cref="MessageKind.YesNo"/>, <see cref="MessageKind.OkCancel"/> and <see cref="MessageKind.YesNoCancel"/>.</summary>
+        public bool IsConfirmation => Kind == MessageKind.YesNo || Kind == MessageKind.OkCancel || Kind == MessageKind.YesNoCancel;
+
         /// <inheritdoc />
         public override string ToString() => $"{Kind}: {Text}";
     }

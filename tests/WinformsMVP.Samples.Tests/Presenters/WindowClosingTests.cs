@@ -6,6 +6,7 @@ using WinformsMVP.MVP.Presenters;
 using WinformsMVP.MVP.ViewActions;
 using WinformsMVP.Samples.Tests.Mocks;
 using Xunit;
+using WinformsMVP.Testing;
 
 namespace WinformsMVP.Samples.Tests.Presenters
 {

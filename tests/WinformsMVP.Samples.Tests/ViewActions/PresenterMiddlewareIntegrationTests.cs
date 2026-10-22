@@ -26,7 +26,7 @@ namespace WinformsMVP.Samples.Tests.ViewActions
         public void GlobalMiddleware_AppliedBeforeLocalMiddleware_ExecutionOrderCorrect()
         {
             var trace = new List<string>();
-            var platform = new MockServices();
+            var platform = TestServices.CreateFakes();
             platform.Provider.RegisterInstance<IDispatcherConfigurer>(
                 new ActionDispatcherConfigurer(d => d.Use(new TraceMW("global", trace))));
 
@@ -47,7 +47,7 @@ namespace WinformsMVP.Samples.Tests.ViewActions
         public void NoGlobalMiddleware_OnlyLocalRuns()
         {
             var trace = new List<string>();
-            var platform = new MockServices();  // no IDispatcherConfigurer registered
+            var platform = TestServices.CreateFakes();  // no IDispatcherConfigurer registered
 
             var presenter = new TestPresenter(trace);
 
@@ -65,7 +65,7 @@ namespace WinformsMVP.Samples.Tests.ViewActions
         public void NoMiddleware_FastPathStillWorks()
         {
             var trace = new List<string>();
-            var platform = new MockServices();
+            var platform = TestServices.CreateFakes();
 
             // Presenter with no local middleware (only handler)
             var presenter = new FastPathPresenter(trace);
@@ -82,7 +82,7 @@ namespace WinformsMVP.Samples.Tests.ViewActions
         public void GlobalConfig_IsAppliedExactlyOnce_EvenIfDispatchAccessedMultipleTimes()
         {
             int globalConfigInvocations = 0;
-            var platform = new MockServices();
+            var platform = TestServices.CreateFakes();
             platform.Provider.RegisterInstance<IDispatcherConfigurer>(
                 new ActionDispatcherConfigurer(d => { globalConfigInvocations++; d.Use((ctx, next) => next(ctx)); }));
 

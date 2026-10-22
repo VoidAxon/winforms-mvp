@@ -32,12 +32,12 @@ namespace WinformsMVP.Samples.Tests
         [Fact]
         public void Logger_ShouldBeAvailableInPresenter()
         {
-            var mockServices = new MockServices();
+            var fakes = TestServices.CreateFakes();
             var presenter = new LoggingDemoPresenter();
 
             var view = new MockLoggingDemoView();
 
-            PresenterTestHost.Start(mockServices.Provider, presenter, view);
+            PresenterTestHost.Start(fakes.Provider, presenter, view);
 
             Assert.NotNull(view.LogOutput);
         }
@@ -48,7 +48,7 @@ namespace WinformsMVP.Samples.Tests
             var loggerFactory = new CapturingLoggerFactory();
             var provider = new DefaultServiceProvider();
             provider.RegisterInstance<ILoggerFactory>(loggerFactory);
-            provider.RegisterInstance<IMessageService>(new MockMessageService());
+            provider.RegisterInstance<IMessageService>(new FakeMessageService());
 
             var presenter = new LoggingDemoPresenter();
 
@@ -71,7 +71,7 @@ namespace WinformsMVP.Samples.Tests
             var loggerFactory = new CapturingLoggerFactory();
             var provider = new DefaultServiceProvider();
             provider.RegisterInstance<ILoggerFactory>(loggerFactory);
-            provider.RegisterInstance<IMessageService>(new MockMessageService());
+            provider.RegisterInstance<IMessageService>(new FakeMessageService());
 
             var presenter = new LoggingDemoPresenter();
 
@@ -96,7 +96,7 @@ namespace WinformsMVP.Samples.Tests
             var loggerFactory = new CapturingLoggerFactory();
             var provider = new DefaultServiceProvider();
             provider.RegisterInstance<ILoggerFactory>(loggerFactory);
-            provider.RegisterInstance<IMessageService>(new MockMessageService());
+            provider.RegisterInstance<IMessageService>(new FakeMessageService());
 
             var presenter = new LoggingDemoPresenter();
 
@@ -123,7 +123,7 @@ namespace WinformsMVP.Samples.Tests
             var loggerFactory = new CapturingLoggerFactory();
             var provider = new DefaultServiceProvider();
             provider.RegisterInstance<ILoggerFactory>(loggerFactory);
-            provider.RegisterInstance<IMessageService>(new MockMessageService());
+            provider.RegisterInstance<IMessageService>(new FakeMessageService());
 
             var presenter = new LoggingDemoPresenter();
 
@@ -148,16 +148,15 @@ namespace WinformsMVP.Samples.Tests
         }
 
         [Fact]
-        public void MockServices_ShouldUseNullLoggerFactory()
+        public void CreateFakes_RegistersARecordingLoggerFactory()
         {
-            var mockServices = new MockServices();
+            var fakes = TestServices.CreateFakes();
 
-            Assert.NotNull(mockServices.LoggerFactory);
-            Assert.IsType<NullLoggerFactory>(mockServices.LoggerFactory);
+            Assert.Same(fakes.Logs, fakes.Provider.GetService(typeof(ILoggerFactory)));
         }
 
         [Fact]
-        public void MockServices_LoggerFactory_CanBeReplaced()
+        public void LoggerFactory_CanBeReplaced()
         {
             var customLoggerFactory = new CapturingLoggerFactory();
             // Build a provider with the custom factory explicitly.
@@ -170,10 +169,8 @@ namespace WinformsMVP.Samples.Tests
         [Fact]
         public void DefaultServiceProvider_WithNullLoggerFactory_ResolvesNullLoggerFactory()
         {
-            // When only NullLoggerFactory is registered (the default in MockServices),
-            // the provider resolves NullLoggerFactory.
-            var mockServices = new MockServices();
-            var resolved = mockServices.Provider.GetService(typeof(ILoggerFactory)) as ILoggerFactory;
+            // TestServices.Create() registers only the silent NullLoggerFactory.
+            var resolved = TestServices.Create().GetService(typeof(ILoggerFactory)) as ILoggerFactory;
             Assert.NotNull(resolved);
             Assert.IsType<NullLoggerFactory>(resolved);
         }
@@ -192,12 +189,12 @@ namespace WinformsMVP.Samples.Tests
         [Fact]
         public void Presenter_ProcessedCount_ShouldIncrement()
         {
-            var mockServices = new MockServices();
+            var fakes = TestServices.CreateFakes();
             var presenter = new LoggingDemoPresenter();
 
             var view = new MockLoggingDemoView { UserName = "Charlie" };
 
-            PresenterTestHost.Start(mockServices.Provider, presenter, view);
+            PresenterTestHost.Start(fakes.Provider, presenter, view);
 
             view.Binder.Dispatch(LoggingActions.LogStructured);
             view.Binder.Dispatch(LoggingActions.LogStructured);
@@ -209,12 +206,12 @@ namespace WinformsMVP.Samples.Tests
         [Fact]
         public void Presenter_ClearLog_ShouldResetCount()
         {
-            var mockServices = new MockServices();
+            var fakes = TestServices.CreateFakes();
             var presenter = new LoggingDemoPresenter();
 
             var view = new MockLoggingDemoView { UserName = "David" };
 
-            PresenterTestHost.Start(mockServices.Provider, presenter, view);
+            PresenterTestHost.Start(fakes.Provider, presenter, view);
 
             view.Binder.Dispatch(LoggingActions.LogStructured);
             view.Binder.Dispatch(LoggingActions.LogStructured);

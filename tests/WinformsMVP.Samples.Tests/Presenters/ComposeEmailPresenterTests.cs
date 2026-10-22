@@ -17,7 +17,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
     /// Unit tests for ComposeEmailPresenter.
     ///
     /// Demonstrates:
-    /// 1. Using MockServices to inject mock services via the service provider
+    /// 1. Using TestServices.CreateFakes() to inject fake services via the service provider
     /// 2. Using MockComposeEmailView to mock the view
     /// 3. Using MockEmailRepository to provide test data
     /// 4. Testing ChangeTracker integration for dirty state management
@@ -28,7 +28,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
     /// </summary>
     public class ComposeEmailPresenterTests
     {
-        private MockServices _mockServices;
+        private FakeServices _fakes;
         private MockComposeEmailView _mockView;
         private MockEmailRepository _mockRepository;
         private ComposeEmailPresenter _presenter;
@@ -42,24 +42,25 @@ namespace WinformsMVP.Samples.Tests.Presenters
 
         private void SetupTest()
         {
-            // 1. Create mock services
-            _mockServices = new MockServices();
+            // 1. Create fake services
+            _fakes = TestServices.CreateFakes();
 
             // 2. Create mock repository
             _mockRepository = new MockEmailRepository();
 
-            // 3. Create presenter and inject mock services BEFORE AttachView
+            // 3. Create presenter and inject fake services BEFORE AttachView
             _presenter = new ComposeEmailPresenter(_mockRepository);
 
             // 4. Create mock view
             _mockView = new MockComposeEmailView();
 
             // 5. Attach view and initialize with default parameters (New mode)
-            _host = PresenterTestHost.Start(_mockServices.Provider, _presenter, _mockView, new ComposeEmailParameters { Mode = ComposeMode.New });
+            _host = PresenterTestHost.Start(_fakes.Provider, _presenter, _mockView, new ComposeEmailParameters { Mode = ComposeMode.New });
 
 
             // Clear initialization calls for clean test assertions
-            _mockServices.Reset();
+            _fakes.Messages.ClearCalls();
+            _fakes.Toasts.ClearCalls();
             _mockView.MethodCalls.Clear();
             _mockRepository.MethodCalls.Clear();
         }
@@ -77,7 +78,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             var newView = new MockComposeEmailView();
 
             // Act
-            PresenterTestHost.Start(_mockServices.Provider, newPresenter, newView, new ComposeEmailParameters { Mode = ComposeMode.New });
+            PresenterTestHost.Start(_fakes.Provider, newPresenter, newView, new ComposeEmailParameters { Mode = ComposeMode.New });
 
             // Assert - all fields should be empty
             Assert.Contains("To = ", newView.MethodCalls);
@@ -107,7 +108,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             var newView = new MockComposeEmailView();
 
             // Act
-            PresenterTestHost.Start(_mockServices.Provider, newPresenter, newView, new ComposeEmailParameters
+            PresenterTestHost.Start(_fakes.Provider, newPresenter, newView, new ComposeEmailParameters
             {
                 Mode = ComposeMode.Reply,
                 OriginalEmail = originalEmail
@@ -139,7 +140,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             var newView = new MockComposeEmailView();
 
             // Act
-            PresenterTestHost.Start(_mockServices.Provider, newPresenter, newView, new ComposeEmailParameters
+            PresenterTestHost.Start(_fakes.Provider, newPresenter, newView, new ComposeEmailParameters
             {
                 Mode = ComposeMode.Forward,
                 OriginalEmail = originalEmail
@@ -171,7 +172,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             var newView = new MockComposeEmailView();
 
             // Act
-            PresenterTestHost.Start(_mockServices.Provider, newPresenter, newView, new ComposeEmailParameters
+            PresenterTestHost.Start(_fakes.Provider, newPresenter, newView, new ComposeEmailParameters
             {
                 Mode = ComposeMode.Forward,
                 OriginalEmail = originalEmail  // Required for Forward mode
@@ -325,10 +326,8 @@ namespace WinformsMVP.Samples.Tests.Presenters
             _mockView.Binder.Dispatch(ComposeEmailActions.Send);
 
             // Assert - warning should be shown by internal validation
-            Assert.True(_mockServices.MessageService.WarningMessageShown);
-            Assert.True(_mockServices.MessageService.HasCall(
-                MessageType.Warning,
-                messageContains: "email address"));
+            Assert.Contains(_fakes.Messages.Calls, c => c.Kind == MessageKind.Warning);
+            Assert.Contains(_fakes.Messages.Calls, c => c.Kind == MessageKind.Warning && c.Text.Contains("email address"));
         }
 
         /// <summary>
@@ -368,10 +367,8 @@ namespace WinformsMVP.Samples.Tests.Presenters
             await _mockView.Binder.DispatchAsync(ComposeEmailActions.Send);
 
             // Assert - error message should be shown
-            Assert.True(_mockServices.MessageService.ErrorMessageShown);
-            Assert.True(_mockServices.MessageService.HasCall(
-                MessageType.Error,
-                messageContains: "Failed to send"));
+            Assert.Contains(_fakes.Messages.Calls, c => c.Kind == MessageKind.Error);
+            Assert.Contains(_fakes.Messages.Calls, c => c.Kind == MessageKind.Error && c.Text.Contains("Failed to send"));
         }
 
         #endregion
@@ -471,10 +468,8 @@ namespace WinformsMVP.Samples.Tests.Presenters
             await _mockView.Binder.DispatchAsync(ComposeEmailActions.SaveDraft);
 
             // Assert - success message should be shown
-            Assert.True(_mockServices.MessageService.InfoMessageShown);
-            Assert.True(_mockServices.MessageService.HasCall(
-                MessageType.Info,
-                messageContains: "Draft saved"));
+            Assert.Contains(_fakes.Messages.Calls, c => c.Kind == MessageKind.Info);
+            Assert.Contains(_fakes.Messages.Calls, c => c.Kind == MessageKind.Info && c.Text.Contains("Draft saved"));
         }
 
         #endregion
@@ -490,14 +485,14 @@ namespace WinformsMVP.Samples.Tests.Presenters
         {
             _mockView.Subject = "Unsaved";
             _mockView.SimulateEmailDataChange();
-            _mockServices.MessageService.ConfirmYesNoResult = true;
+            _fakes.Messages.YesNoHandler = _ => true;
 
             _mockView.Binder.Dispatch(ComposeEmailActions.Discard);
 
             Assert.True(_host.CloseRequested);
             Assert.Equal(InteractionStatus.Cancel, _host.CloseStatus);
             Assert.True(await _host.CanCloseAsync());
-            Assert.Equal(1, _mockServices.MessageService.Calls.Count(c => c.Type == MessageType.Confirm));
+            Assert.Equal(1, _fakes.Messages.Calls.Count(c => c.IsConfirmation));
         }
 
         /// <summary>
@@ -511,7 +506,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             // If no changes, should close immediately.
             if (_mockView.IsDirty)
             {
-                _mockServices.MessageService.ConfirmYesNoResult = true;  // User confirms discard
+                _fakes.Messages.YesNoHandler = _ => true;  // User confirms discard
             }
 
             // Act
@@ -532,13 +527,13 @@ namespace WinformsMVP.Samples.Tests.Presenters
             // Arrange - make changes
             _mockView.To = "test@example.com";
             _mockView.SimulateEmailDataChange();
-            _mockServices.MessageService.ConfirmYesNoResult = true;
+            _fakes.Messages.YesNoHandler = _ => true;
 
             // Act
             _mockView.Binder.Dispatch(ComposeEmailActions.Discard);
 
             // Assert - should show confirmation dialog and push the close.
-            Assert.True(_mockServices.MessageService.ConfirmDialogShown);
+            Assert.Contains(_fakes.Messages.Calls, c => c.IsConfirmation);
             Assert.True(_host.CloseRequested);
         }
 
@@ -567,9 +562,9 @@ namespace WinformsMVP.Samples.Tests.Presenters
             // (ChangeTracker initialization may have set IsDirty; clear it via a No close.)
             if (_mockView.IsDirty)
             {
-                _mockServices.MessageService.ConfirmYesNoCancelResult = ConfirmResult.No;
+                _fakes.Messages.YesNoCancelHandler = _ => ConfirmResult.No;
                 RunCanClose();
-                _mockServices.MessageService.Calls.Clear();
+                _fakes.Messages.ClearCalls();
             }
 
             // Act
@@ -577,7 +572,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
 
             // Assert
             Assert.True(allow);
-            Assert.False(_mockServices.MessageService.ConfirmDialogShown);
+            Assert.DoesNotContain(_fakes.Messages.Calls, c => c.IsConfirmation);
         }
 
         /// <summary>
@@ -592,13 +587,13 @@ namespace WinformsMVP.Samples.Tests.Presenters
             _mockView.Subject = "Test";
             _mockView.Body = "Body";
             _mockView.SimulateEmailDataChange();
-            _mockServices.MessageService.ConfirmYesNoCancelResult = ConfirmResult.Cancel;
+            _fakes.Messages.YesNoCancelHandler = _ => ConfirmResult.Cancel;
 
             // Act
             bool allow = RunCanClose();
 
             // Assert
-            Assert.True(_mockServices.MessageService.ConfirmDialogShown);
+            Assert.Contains(_fakes.Messages.Calls, c => c.IsConfirmation);
             Assert.False(allow);  // close blocked
         }
 
@@ -611,13 +606,13 @@ namespace WinformsMVP.Samples.Tests.Presenters
             // Arrange
             _mockView.To = "test@example.com";
             _mockView.SimulateEmailDataChange();
-            _mockServices.MessageService.ConfirmYesNoCancelResult = ConfirmResult.No;
+            _fakes.Messages.YesNoCancelHandler = _ => ConfirmResult.No;
 
             // Act
             bool allow = RunCanClose();
 
             // Assert
-            Assert.True(_mockServices.MessageService.ConfirmDialogShown);
+            Assert.Contains(_fakes.Messages.Calls, c => c.IsConfirmation);
             Assert.True(allow);  // close proceeds
         }
 
@@ -633,7 +628,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             _mockView.Subject = "Test";
             _mockView.Body = "Body";
             _mockView.SimulateEmailDataChange();
-            _mockServices.MessageService.ConfirmYesNoCancelResult = ConfirmResult.Yes;
+            _fakes.Messages.YesNoCancelHandler = _ => ConfirmResult.Yes;
             _mockRepository.MethodCalls.Clear();
 
             // Act — CanCloseAsync awaits the draft save before answering.
@@ -650,7 +645,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             _mockView.To = "test@example.com";
             _mockView.Subject = "Test";
             _mockView.SimulateEmailDataChange();
-            _mockServices.MessageService.ConfirmYesNoCancelResult = ConfirmResult.Yes;
+            _fakes.Messages.YesNoCancelHandler = _ => ConfirmResult.Yes;
             _mockRepository.OnSaveDraft = _ => _mockView.Subject = "Edited while saving";
 
             bool allow = await _host.CanCloseAsync();
@@ -669,13 +664,13 @@ namespace WinformsMVP.Samples.Tests.Presenters
             // Arrange — make changes.
             _mockView.To = "test@example.com";
             _mockView.SimulateEmailDataChange();
-            _mockServices.MessageService.ConfirmYesNoCancelResult = ConfirmResult.Cancel;
+            _fakes.Messages.YesNoCancelHandler = _ => ConfirmResult.Cancel;
 
             // Act
             bool allow = RunCanClose(CloseReason.SystemShutdown);
 
             // Assert
-            Assert.False(_mockServices.MessageService.ConfirmDialogShown);
+            Assert.DoesNotContain(_fakes.Messages.Calls, c => c.IsConfirmation);
             Assert.True(allow);  // system shutdown always proceeds
         }
 
@@ -687,11 +682,11 @@ namespace WinformsMVP.Samples.Tests.Presenters
         {
             _mockView.To = "test@example.com";
             _mockView.SimulateEmailDataChange();
-            _mockServices.MessageService.ConfirmYesNoCancelResult = ConfirmResult.Cancel;
+            _fakes.Messages.YesNoCancelHandler = _ => ConfirmResult.Cancel;
 
             bool allow = RunCanClose(CloseReason.TaskManager);
 
-            Assert.False(_mockServices.MessageService.ConfirmDialogShown);
+            Assert.DoesNotContain(_fakes.Messages.Calls, c => c.IsConfirmation);
             Assert.True(allow);
         }
 
@@ -717,7 +712,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
 
             // Assert
             Assert.True(_host.CloseRequested);
-            Assert.False(_mockServices.MessageService.ConfirmDialogShown);
+            Assert.DoesNotContain(_fakes.Messages.Calls, c => c.IsConfirmation);
             Assert.True(allow);
         }
 
@@ -731,15 +726,15 @@ namespace WinformsMVP.Samples.Tests.Presenters
             // Arrange — make changes.
             _mockView.To = "test@example.com";
             _mockView.SimulateEmailDataChange();
-            _mockServices.MessageService.ConfirmYesNoResult = true;  // confirm discard
+            _fakes.Messages.YesNoHandler = _ => true;  // confirm discard
 
             // Act — Discard then run the close gate.
             _mockView.Binder.Dispatch(ComposeEmailActions.Discard);
-            var initialCalls = _mockServices.MessageService.Calls.Count;
+            var initialCalls = _fakes.Messages.Calls.Count;
             bool allow = RunCanClose();
-            var afterClosingCalls = _mockServices.MessageService.Calls.Count;
+            var afterClosingCalls = _fakes.Messages.Calls.Count;
             var callsDump = string.Join(", ",
-                _mockServices.MessageService.Calls.ConvertAll(c => $"{c.Type}:{c.Message}"));
+                _fakes.Messages.Calls.Select(c => $"{c.Kind}:{c.Text}"));
 
             // Assert — the gate should NOT add any new prompts (the dirty state was
             // already finalized by OnDiscard's AcceptChanges).
@@ -810,10 +805,10 @@ namespace WinformsMVP.Samples.Tests.Presenters
         #region Service Injection Tests
 
         /// <summary>
-        /// Test: Presenter uses injected mock services
+        /// Test: Presenter uses injected fake services
         /// </summary>
         [Fact]
-        public void Presenter_UsesInjectedMockServices()
+        public void Presenter_UsesInjectedFakes()
         {
             // Arrange
             _mockView.To = "invalid-email";  // Invalid format to trigger validation
@@ -822,9 +817,9 @@ namespace WinformsMVP.Samples.Tests.Presenters
             // Act - dispatch Send with invalid email
             _mockView.Binder.Dispatch(ComposeEmailActions.Send);
 
-            // Assert - verify mock service recorded calls
-            Assert.True(_mockServices.MessageService.WarningMessageShown);
-            Assert.NotEmpty(_mockServices.MessageService.Calls);
+            // Assert - verify fake service recorded calls
+            Assert.Contains(_fakes.Messages.Calls, c => c.Kind == MessageKind.Warning);
+            Assert.NotEmpty(_fakes.Messages.Calls);
         }
 
         /// <summary>
@@ -837,7 +832,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             // This test verifies tests don't affect each other
 
             // Assert - each test has its own independent mocks
-            Assert.NotNull(_mockServices);
+            Assert.NotNull(_fakes);
             Assert.NotNull(_mockView);
             Assert.NotNull(_mockRepository);
             Assert.NotNull(_presenter);
@@ -896,7 +891,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
 
             // 3. Verify save
             Assert.Contains("SaveDraftAsync(Draft Email)", _mockRepository.MethodCalls);
-            Assert.True(_mockServices.MessageService.InfoMessageShown);
+            Assert.Contains(_fakes.Messages.Calls, c => c.Kind == MessageKind.Info);
 
             // 4. Make more changes
             _mockView.Body = "Updated draft content...";
@@ -929,7 +924,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             var replyView = new MockComposeEmailView();
 
             // Act
-            PresenterTestHost.Start(_mockServices.Provider, replyPresenter, replyView, new ComposeEmailParameters
+            PresenterTestHost.Start(_fakes.Provider, replyPresenter, replyView, new ComposeEmailParameters
             {
                 Mode = ComposeMode.Reply,
                 OriginalEmail = originalEmail

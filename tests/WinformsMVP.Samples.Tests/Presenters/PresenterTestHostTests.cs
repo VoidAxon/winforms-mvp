@@ -244,7 +244,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             public ILogger CreateLogger(Type type) => NullLogger.Instance;
         }
 
-        private static DefaultServiceProvider ServicesWith(MockMessageService messages)
+        private static DefaultServiceProvider ServicesWith(FakeMessageService messages)
         {
             var services = TestServices.Create();
             services.RegisterInstance<IMessageService>(messages);
@@ -254,27 +254,27 @@ namespace WinformsMVP.Samples.Tests.Presenters
         [Fact]
         public void StartWithServices_PresenterUsesThoseServices_NotTheGlobalOnes()
         {
-            var local = new MockMessageService();
+            var local = new FakeMessageService();
             using (PresenterTestHost.Start(ServicesWith(local), new GreetingPresenter(), new EditView()))
             {
                 Assert.Single(local.Calls);
-                Assert.Equal("hello", local.Calls[0].Message);
+                Assert.Equal("hello", local.Calls[0].Text);
             }
         }
 
         [Fact]
         public void StartWithServicesAndParameters_PresenterUsesThoseServices()
         {
-            var local = new MockMessageService();
+            var local = new FakeMessageService();
             PresenterTestHost.Start(ServicesWith(local), new GreetingParamPresenter(), new EditView(), "hi");
-            Assert.Equal("hi", local.Calls[0].Message);
+            Assert.Equal("hi", local.Calls[0].Text);
         }
 
         [Fact]
         public void StartWithServices_TwoHostsKeepTheirOwnServices()
         {
-            var first = new MockMessageService();
-            var second = new MockMessageService();
+            var first = new FakeMessageService();
+            var second = new FakeMessageService();
 
             PresenterTestHost.Start(ServicesWith(first), new GreetingPresenter(), new EditView());
             PresenterTestHost.Start(ServicesWith(second), new GreetingPresenter(), new EditView());
@@ -305,7 +305,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             Assert.Contains("ILoggerFactory", ex.Message);
             Assert.Contains("TestServices.Create", ex.Message);
 
-            var local = new MockMessageService();
+            var local = new FakeMessageService();
             PresenterTestHost.Start(ServicesWith(local), presenter, new EditView());   // still usable
             Assert.Single(local.Calls);
         }

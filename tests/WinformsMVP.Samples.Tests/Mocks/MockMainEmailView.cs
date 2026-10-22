@@ -4,6 +4,7 @@ using System.Linq;
 using WinformsMVP.MVP.ViewActions;
 using WinformsMVP.Samples.EmailDemo;
 using WinformsMVP.Samples.EmailDemo.Models;
+using WinformsMVP.Testing;
 
 namespace WinformsMVP.Samples.Tests.Mocks
 {

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using WinformsMVP.MVP.ViewActions;
 using WinformsMVP.Samples.EmailDemo;
+using WinformsMVP.Testing;
 
 namespace WinformsMVP.Samples.Tests.Mocks
 {

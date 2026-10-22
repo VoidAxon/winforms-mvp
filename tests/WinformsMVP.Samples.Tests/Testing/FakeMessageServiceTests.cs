@@ -1,3 +1,4 @@
+using System.Linq;
 using WinformsMVP.Common;
 using WinformsMVP.Testing;
 using Xunit;
@@ -75,6 +76,19 @@ namespace WinformsMVP.Samples.Tests.Testing
 
             Assert.Equal(ConfirmResult.Cancel, messages.ConfirmYesNoCancel("Save?"));
             Assert.Equal(ConfirmResult.No, messages.ConfirmYesNoCancel("Save?"));
+        }
+
+        [Fact]
+        public void IsConfirmation_IsTrueForTheThreeConfirmKinds()
+        {
+            var messages = new FakeMessageService();
+            messages.AnswerUnscripted(yes: true);
+            messages.ShowWarning("w");
+            messages.ConfirmYesNo("a");
+            messages.ConfirmOkCancel("b");
+            messages.ConfirmYesNoCancel("c");
+
+            Assert.Equal(new[] { false, true, true, true }, messages.Calls.Select(c => c.IsConfirmation).ToArray());
         }
 
         [Fact]

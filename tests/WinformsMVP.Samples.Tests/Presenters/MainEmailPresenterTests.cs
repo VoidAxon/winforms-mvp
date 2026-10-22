@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using WinformsMVP.Common;
 using WinformsMVP.Testing;
 using Xunit;
 using WinformsMVP.Samples.EmailDemo;
@@ -14,7 +15,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
     /// Unit tests for MainEmailPresenter.
     ///
     /// Demonstrates:
-    /// 1. Using MockServices to inject mock services via the service provider
+    /// 1. Using TestServices.CreateFakes() to inject fake services via the service provider
     /// 2. Using MockMainEmailView to mock the view
     /// 3. Using MockEmailRepository to provide test data
     /// 4. Testing business logic and service interactions
@@ -22,7 +23,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
     /// </summary>
     public class MainEmailPresenterTests
     {
-        private MockServices _mockServices;
+        private FakeServices _fakes;
         private MockMainEmailView _mockView;
         private MockEmailRepository _mockRepository;
         private MainEmailPresenter _presenter;
@@ -36,21 +37,21 @@ namespace WinformsMVP.Samples.Tests.Presenters
 
         private void SetupTest()
         {
-            // 1. Create mock services
-            _mockServices = new MockServices();
+            // 1. Create fake services
+            _fakes = TestServices.CreateFakes();
 
             // 2. Create mock repository with test data
             _mockRepository = new MockEmailRepository();
             AddTestEmails();
 
-            // 3. Create presenter and inject mock services BEFORE AttachView
+            // 3. Create presenter and inject fake services BEFORE AttachView
             _presenter = new MainEmailPresenter(_mockRepository);
 
             // 4. Create mock view
             _mockView = new MockMainEmailView();
 
             // 5. Attach view and initialize
-            _host = PresenterTestHost.Start(_mockServices.Provider, _presenter, _mockView);
+            _host = PresenterTestHost.Start(_fakes.Provider, _presenter, _mockView);
 
             // NOTE: Do NOT clear method calls here - initialization tests need them!
             // Individual tests should clear if needed before their Act phase
@@ -244,13 +245,13 @@ namespace WinformsMVP.Samples.Tests.Presenters
         public async Task OnCompose_OpensComposeWindow()
         {
             // Arrange
-            _mockServices.WindowNavigator.ShowModalBoolResult = true;
+            _fakes.Navigator.RespondTo<ComposeEmailPresenter, bool>(_ => InteractionResult<bool>.Cancel());   // closed without sending
 
             // Act
             await _mockView.Binder.DispatchAsync(EmailActions.Compose);
 
             // Assert
-            Assert.Single(_mockServices.WindowNavigator.ShowModalCalls);
+            Assert.Single(_fakes.Navigator.Calls);
         }
 
         /// <summary>
@@ -260,13 +261,13 @@ namespace WinformsMVP.Samples.Tests.Presenters
         public async Task OnCompose_PassesNewModeParameters()
         {
             // Arrange
-            _mockServices.WindowNavigator.ShowModalBoolResult = true;
+            _fakes.Navigator.RespondTo<ComposeEmailPresenter, bool>(_ => InteractionResult<bool>.Cancel());   // closed without sending
 
             // Act
             await _mockView.Binder.DispatchAsync(EmailActions.Compose);
 
             // Assert
-            var parameters = _mockServices.WindowNavigator.LastParameters as ComposeEmailParameters;
+            var parameters = _fakes.Navigator.LastModalParameters<ComposeEmailParameters>();
             Assert.NotNull(parameters);
             Assert.Equal(ComposeMode.New, parameters.Mode);
         }
@@ -284,14 +285,14 @@ namespace WinformsMVP.Samples.Tests.Presenters
             // Arrange
             var email = _mockView.GetEmail(0);
             _mockView.SimulateEmailSelection(email);
-            _mockServices.WindowNavigator.ShowModalBoolResult = true;
+            _fakes.Navigator.RespondTo<ComposeEmailPresenter, bool>(_ => InteractionResult<bool>.Cancel());   // closed without sending
             _mockView.MethodCalls.Clear();
 
             // Act
             await _mockView.Binder.DispatchAsync(EmailActions.Reply);
 
             // Assert
-            Assert.Single(_mockServices.WindowNavigator.ShowModalCalls);
+            Assert.Single(_fakes.Navigator.Calls);
         }
 
         /// <summary>
@@ -303,13 +304,13 @@ namespace WinformsMVP.Samples.Tests.Presenters
             // Arrange
             var originalEmail = _mockView.GetEmail(0);
             _mockView.SimulateEmailSelection(originalEmail);
-            _mockServices.WindowNavigator.ShowModalBoolResult = true;
+            _fakes.Navigator.RespondTo<ComposeEmailPresenter, bool>(_ => InteractionResult<bool>.Cancel());   // closed without sending
 
             // Act
             await _mockView.Binder.DispatchAsync(EmailActions.Reply);
 
             // Assert
-            var parameters = _mockServices.WindowNavigator.LastParameters as ComposeEmailParameters;
+            var parameters = _fakes.Navigator.LastModalParameters<ComposeEmailParameters>();
             Assert.NotNull(parameters);
             Assert.Equal(ComposeMode.Reply, parameters.Mode);
             Assert.Equal(originalEmail, parameters.OriginalEmail);
@@ -328,14 +329,14 @@ namespace WinformsMVP.Samples.Tests.Presenters
             // Arrange
             var email = _mockView.GetEmail(0);
             _mockView.SimulateEmailSelection(email);
-            _mockServices.WindowNavigator.ShowModalBoolResult = true;
+            _fakes.Navigator.RespondTo<ComposeEmailPresenter, bool>(_ => InteractionResult<bool>.Cancel());   // closed without sending
             _mockView.MethodCalls.Clear();
 
             // Act
             await _mockView.Binder.DispatchAsync(EmailActions.Forward);
 
             // Assert
-            Assert.Single(_mockServices.WindowNavigator.ShowModalCalls);
+            Assert.Single(_fakes.Navigator.Calls);
         }
 
         /// <summary>
@@ -347,13 +348,13 @@ namespace WinformsMVP.Samples.Tests.Presenters
             // Arrange
             var originalEmail = _mockView.GetEmail(0);
             _mockView.SimulateEmailSelection(originalEmail);
-            _mockServices.WindowNavigator.ShowModalBoolResult = true;
+            _fakes.Navigator.RespondTo<ComposeEmailPresenter, bool>(_ => InteractionResult<bool>.Cancel());   // closed without sending
 
             // Act
             await _mockView.Binder.DispatchAsync(EmailActions.Forward);
 
             // Assert
-            var parameters = _mockServices.WindowNavigator.LastParameters as ComposeEmailParameters;
+            var parameters = _fakes.Navigator.LastModalParameters<ComposeEmailParameters>();
             Assert.NotNull(parameters);
             Assert.Equal(ComposeMode.Forward, parameters.Mode);
             Assert.Equal(originalEmail, parameters.OriginalEmail);
@@ -372,7 +373,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             // Arrange
             var email = _mockView.GetEmail(0);
             _mockView.SimulateEmailSelection(email);
-            _mockServices.MessageService.ConfirmYesNoResult = true;
+            _fakes.Messages.YesNoHandler = _ => true;
             _mockView.MethodCalls.Clear();
             _mockRepository.MethodCalls.Clear();
 
@@ -380,7 +381,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             await _mockView.Binder.DispatchAsync(EmailActions.Delete);
 
             // Assert
-            Assert.True(_mockServices.MessageService.ConfirmDialogShown);
+            Assert.Contains(_fakes.Messages.Calls, c => c.IsConfirmation);
             Assert.Contains($"DeleteEmailAsync({email.Id})", _mockRepository.MethodCalls);
         }
 
@@ -393,14 +394,14 @@ namespace WinformsMVP.Samples.Tests.Presenters
             // Arrange
             var email = _mockView.GetEmail(0);
             _mockView.SimulateEmailSelection(email);
-            _mockServices.MessageService.ConfirmYesNoResult = false;  // User clicks No
+            _fakes.Messages.YesNoHandler = _ => false;  // User clicks No
             _mockRepository.MethodCalls.Clear();
 
             // Act
             await _mockView.Binder.DispatchAsync(EmailActions.Delete);
 
             // Assert - user cancelled, no delete should happen
-            Assert.True(_mockServices.MessageService.ConfirmDialogShown);
+            Assert.Contains(_fakes.Messages.Calls, c => c.IsConfirmation);
             Assert.Empty(_mockRepository.MethodCalls);  // No repository calls should be made
         }
 
@@ -413,7 +414,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             // Arrange
             var email = _mockView.GetEmail(0);
             _mockView.SimulateEmailSelection(email);
-            _mockServices.MessageService.ConfirmYesNoResult = true;
+            _fakes.Messages.YesNoHandler = _ => true;
             _mockRepository.MethodCalls.Clear();
 
             // Act
@@ -438,7 +439,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             // Select trash email
             var trashEmail = _mockView.GetEmail(0);
             _mockView.SimulateEmailSelection(trashEmail);
-            _mockServices.MessageService.ConfirmYesNoResult = true;
+            _fakes.Messages.YesNoHandler = _ => true;
             _mockRepository.MethodCalls.Clear();
 
             // Act
@@ -557,21 +558,21 @@ namespace WinformsMVP.Samples.Tests.Presenters
         #region Service Injection Tests
 
         /// <summary>
-        /// Test: Presenter uses injected mock services
+        /// Test: Presenter uses injected fake services
         /// </summary>
         [Fact]
-        public async Task Presenter_UsesInjectedMockServices()
+        public async Task Presenter_UsesInjectedFakes()
         {
             // Arrange
             var email = _mockView.GetEmail(0);
             _mockView.SimulateEmailSelection(email);
-            _mockServices.MessageService.ConfirmYesNoResult = true;
+            _fakes.Messages.YesNoHandler = _ => true;
 
             // Act
             await _mockView.Binder.DispatchAsync(EmailActions.Delete);
 
-            // Assert - verify mock service recorded calls
-            Assert.True(_mockServices.MessageService.ConfirmDialogShown);
+            // Assert - verify fake service recorded calls
+            Assert.Contains(_fakes.Messages.Calls, c => c.IsConfirmation);
         }
 
         /// <summary>
@@ -585,7 +586,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
 
             // Assert - each test has its own independent mocks
             // (Method calls from initialization exist, but they don't carry over from other tests)
-            Assert.NotNull(_mockServices);
+            Assert.NotNull(_fakes);
             Assert.NotNull(_mockView);
             Assert.NotNull(_mockRepository);
             Assert.NotNull(_presenter);
@@ -602,22 +603,22 @@ namespace WinformsMVP.Samples.Tests.Presenters
         public async Task CompleteWorkflow_ComposeReplyDelete_WorksCorrectly()
         {
             // 1. Compose new email
-            _mockServices.WindowNavigator.ShowModalBoolResult = true;
+            _fakes.Navigator.RespondTo<ComposeEmailPresenter, bool>(_ => InteractionResult<bool>.Cancel());   // closed without sending
             await _mockView.Binder.DispatchAsync(EmailActions.Compose);
-            Assert.Single(_mockServices.WindowNavigator.ShowModalCalls);
+            Assert.Single(_fakes.Navigator.Calls);
 
             // 2. Select email and reply
             var email = _mockView.GetEmail(0);
             _mockView.SimulateEmailSelection(email);
             await _mockView.Binder.DispatchAsync(EmailActions.Reply);
-            Assert.Equal(2, _mockServices.WindowNavigator.ShowModalCalls.Count);
+            Assert.Equal(2, _fakes.Navigator.Calls.Count);
 
             // 3. Delete email
-            _mockServices.MessageService.ConfirmYesNoResult = true;
+            _fakes.Messages.YesNoHandler = _ => true;
             await _mockView.Binder.DispatchAsync(EmailActions.Delete);
 
             // Assert - verify all actions executed
-            Assert.True(_mockServices.MessageService.ConfirmDialogShown);
+            Assert.Contains(_fakes.Messages.Calls, c => c.IsConfirmation);
             Assert.Contains(email.Id, _mockRepository.DeleteCalls);
         }
 
@@ -646,7 +647,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             // 5. Delete from trash (permanent)
             var trashEmail = _mockView.GetEmail(0);
             _mockView.SimulateEmailSelection(trashEmail);
-            _mockServices.MessageService.ConfirmYesNoResult = true;
+            _fakes.Messages.YesNoHandler = _ => true;
             await _mockView.Binder.DispatchAsync(EmailActions.Delete);
 
             // Assert - permanently deleted

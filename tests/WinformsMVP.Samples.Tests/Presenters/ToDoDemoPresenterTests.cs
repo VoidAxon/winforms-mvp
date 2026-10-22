@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using WinformsMVP.Testing;
 using Xunit;
 using WinformsMVP.Samples.ToDoDemo;
@@ -11,14 +12,14 @@ namespace WinformsMVP.Samples.Tests.Presenters
     /// Unit test example: Testing ToDoDemoPresenter
     ///
     /// Demonstrates:
-    /// 1. Injecting mock services using MockServices via the service provider
+    /// 1. Injecting the package fakes (TestServices.CreateFakes) via the service provider
     /// 2. Mocking the view using MockToDoView
     /// 3. Verifying presenter business logic
     /// 4. Verifying service calls (MessageService, etc.)
     /// </summary>
     public class ToDoDemoPresenterTests
     {
-        private MockServices _mockServices;
+        private FakeServices _fakes;
         private MockToDoView _mockView;
         private ToDoDemoPresenter _presenter;
 
@@ -30,20 +31,21 @@ namespace WinformsMVP.Samples.Tests.Presenters
 
         private void SetupTest()
         {
-            // 1. Create mock services
-            _mockServices = new MockServices();
+            // 1. Create fake services
+            _fakes = TestServices.CreateFakes();
 
-            // 2. Create presenter (the mock services are given to it by PresenterTestHost.Start)
+            // 2. Create presenter (the fake services are given to it by PresenterTestHost.Start)
             _presenter = new ToDoDemoPresenter();
 
             // 3. Create mock view
             _mockView = new MockToDoView();
 
             // 4. Attach view and initialize
-            PresenterTestHost.Start(_mockServices.Provider, _presenter, _mockView);
+            PresenterTestHost.Start(_fakes.Provider, _presenter, _mockView);
 
             // Clear initialization call records (as needed)
-            _mockServices.Reset();
+            _fakes.Messages.ClearCalls();
+            _fakes.Toasts.ClearCalls();
             _mockView.MethodCalls.Clear();
             _mockView.StatusMessages.Clear();
         }
@@ -88,10 +90,8 @@ namespace WinformsMVP.Samples.Tests.Presenters
             _mockView.Binder.Dispatch(ToDoDemoActions.AddTask);
 
             // Assert - Verify MessageService was called
-            Assert.True(_mockServices.MessageService.InfoMessageShown);
-            Assert.True(_mockServices.MessageService.HasCall(
-                MessageType.Info,
-                messageContains: "Buy groceries"));
+            Assert.Contains(_fakes.Messages.Calls, c => c.Kind == MessageKind.Info);
+            Assert.Contains(_fakes.Messages.Calls, c => c.Kind == MessageKind.Info && c.Text.Contains("Buy groceries"));
         }
 
         [Fact]
@@ -104,7 +104,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             _mockView.Binder.Dispatch(ToDoDemoActions.AddTask);
 
             // Assert - Verify warning message was displayed
-            Assert.True(_mockServices.MessageService.WarningMessageShown);
+            Assert.Contains(_fakes.Messages.Calls, c => c.Kind == MessageKind.Warning);
             Assert.DoesNotContain("AddTaskToList", _mockView.MethodCalls);
         }
 
@@ -118,7 +118,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             _mockView.Binder.Dispatch(ToDoDemoActions.AddTask);
 
             // Assert
-            Assert.True(_mockServices.MessageService.WarningMessageShown);
+            Assert.Contains(_fakes.Messages.Calls, c => c.Kind == MessageKind.Warning);
             Assert.Equal(0, _mockView.TaskCount);
         }
 
@@ -133,13 +133,13 @@ namespace WinformsMVP.Samples.Tests.Presenters
             _mockView.TaskText = "Task to delete";
             _mockView.Binder.Dispatch(ToDoDemoActions.AddTask);
             _mockView.SelectTask(0);
-            _mockServices.MessageService.ConfirmYesNoResult = true;
+            _fakes.Messages.YesNoHandler = _ => true;
 
             // Act
             _mockView.Binder.Dispatch(ToDoDemoActions.RemoveTask);
 
             // Assert
-            Assert.True(_mockServices.MessageService.ConfirmDialogShown);
+            Assert.Contains(_fakes.Messages.Calls, c => c.IsConfirmation);
             Assert.Contains("RemoveSelectedTask()", _mockView.MethodCalls);
             Assert.Equal(0, _mockView.TaskCount);
         }
@@ -151,13 +151,13 @@ namespace WinformsMVP.Samples.Tests.Presenters
             _mockView.TaskText = "Task to keep";
             _mockView.Binder.Dispatch(ToDoDemoActions.AddTask);
             _mockView.SelectTask(0);
-            _mockServices.MessageService.ConfirmYesNoResult = false;  // User clicks No
+            _fakes.Messages.YesNoHandler = _ => false;  // User clicks No
 
             // Act
             _mockView.Binder.Dispatch(ToDoDemoActions.RemoveTask);
 
             // Assert
-            Assert.True(_mockServices.MessageService.ConfirmDialogShown);
+            Assert.Contains(_fakes.Messages.Calls, c => c.IsConfirmation);
             Assert.DoesNotContain("RemoveSelectedTask()", _mockView.MethodCalls);
             Assert.Equal(1, _mockView.TaskCount);  // Task was not deleted
         }
@@ -213,10 +213,8 @@ namespace WinformsMVP.Samples.Tests.Presenters
             _mockView.Binder.Dispatch(ToDoDemoActions.SaveAll);
 
             // Assert - Verify success message was displayed
-            Assert.True(_mockServices.MessageService.InfoMessageShown);
-            Assert.True(_mockServices.MessageService.HasCall(
-                MessageType.Info,
-                messageContains: "saved"));
+            Assert.Contains(_fakes.Messages.Calls, c => c.Kind == MessageKind.Info);
+            Assert.Contains(_fakes.Messages.Calls, c => c.Kind == MessageKind.Info && c.Text.Contains("saved"));
         }
 
         #endregion
@@ -240,7 +238,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
 
             // 4. Delete second task
             _mockView.SelectTask(1);
-            _mockServices.MessageService.ConfirmYesNoResult = true;
+            _fakes.Messages.YesNoHandler = _ => true;
             _mockView.Binder.Dispatch(ToDoDemoActions.RemoveTask);
 
             // 5. Save all changes
@@ -252,8 +250,8 @@ namespace WinformsMVP.Samples.Tests.Presenters
             Assert.False(_mockView.HasPendingChanges);
 
             // Verify messages shown
-            Assert.True(_mockServices.MessageService.InfoMessageShown);
-            Assert.True(_mockServices.MessageService.ConfirmDialogShown);
+            Assert.Contains(_fakes.Messages.Calls, c => c.Kind == MessageKind.Info);
+            Assert.Contains(_fakes.Messages.Calls, c => c.IsConfirmation);
         }
 
         #endregion
@@ -284,17 +282,17 @@ namespace WinformsMVP.Samples.Tests.Presenters
         #region Service Injection Tests
 
         [Fact]
-        public void Presenter_UsesInjectedMockServices()
+        public void Presenter_UsesInjectedFakes()
         {
-            // This test verifies that mock services are actually being used
+            // This test verifies that fake services are actually being used
 
             // Act
             _mockView.TaskText = "Test";
             _mockView.Binder.Dispatch(ToDoDemoActions.AddTask);
 
-            // Assert - Verify mock service recorded the call
-            Assert.Single(_mockServices.MessageService.Calls);
-            Assert.Equal(MessageType.Info, _mockServices.MessageService.Calls[0].Type);
+            // Assert - Verify fake service recorded the call
+            Assert.Single(_fakes.Messages.Calls);
+            Assert.Equal(MessageKind.Info, _fakes.Messages.Calls[0].Kind);
         }
 
         [Fact]
@@ -304,7 +302,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             // This test verifies that tests don't interfere with each other
 
             // Assert - State is clean at the start of new test
-            Assert.Empty(_mockServices.MessageService.Calls);
+            Assert.Empty(_fakes.Messages.Calls);
             Assert.Equal(0, _mockView.TaskCount);
         }
 
