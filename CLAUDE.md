@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+**Feature map:** [FEATURES.md](FEATURES.md) lists every feature and helper with its entry point, package and wiki page — read it before searching the source for "is there already something for X?".
+
 ## Project Overview
 
 A WinForms MVP (Model-View-Presenter) framework for .NET Framework 4.7.2+ and .NET 10 (Windows), providing infrastructure for building desktop applications with clean separation of concerns. All projects use SDK-style `.csproj`.

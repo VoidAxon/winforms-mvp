@@ -201,6 +201,8 @@ dotnet build MyApp.Tests && dotnet run --project MyApp
 
 すべてのドキュメントは **[Wiki](https://github.com/VoidAxon/winforms-mvp/wiki)** にあります。
 
+機能の一覧（API の入口・パッケージ・Wiki ページの対応表、英語）は [FEATURES.md](FEATURES.md) にあります。AI エージェントにもまずこれを読ませてください。
+
 ### 入門
 
 - [はじめての方へ (Getting Started)](https://github.com/VoidAxon/winforms-mvp/wiki/Getting-Started) — 5 分で動かす最小サンプル
