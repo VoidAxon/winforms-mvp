@@ -200,6 +200,36 @@ namespace WinformsMVP.Samples.Tests.Testing
         }
 
         [Fact]
+        public void Copy_OntoItself_Throws_EvenWithOverwrite()
+        {
+            var files = new InMemoryFileService();
+            files.SeedFile("a.txt", "A");
+            Assert.Throws<IOException>(() => files.Copy("a.txt", @"C:/TEST/A.TXT", overwrite: true));
+            Assert.Equal("A", files.ReadAllText("a.txt"));
+        }
+
+        [Fact]
+        public void StarDotStar_MatchesNamesWithoutAnExtension_LikeWindows()
+        {
+            var files = new InMemoryFileService();
+            files.SeedFile(@"C:\d\README", "");
+            files.SeedFile(@"C:\d\a.txt", "");
+            files.SeedDirectory(@"C:\d\sub");
+
+            Assert.Equal(2, files.GetFiles(@"C:\d", "*.*").Length);
+            Assert.Single(files.GetDirectories(@"C:\d", "*.*"));
+            Assert.Equal(new[] { @"C:\d\README" }, files.GetFiles(@"C:\d", "READ*.*"));
+        }
+
+        [Fact]
+        public void DriveRelativePaths_ResolveAgainstTheBaseDirectoryOnItsDrive()
+        {
+            var files = new InMemoryFileService();
+            Assert.Equal(@"C:\test\report.txt", files.GetFullPath("C:report.txt"));
+            Assert.Equal(@"D:\report.txt", files.GetFullPath("d:report.txt"));
+        }
+
+        [Fact]
         public void PathHelpers_FollowWindowsRules()
         {
             var files = new InMemoryFileService();

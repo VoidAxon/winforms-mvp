@@ -176,6 +176,8 @@ namespace WinformsMVP.Testing
             {
                 var file = ExistingFile(from);
                 RequireWritableTarget(to);
+                if (WindowsPath.Key(from) == WindowsPath.Key(to))
+                    throw new IOException($"The process cannot access the file '{to}' because it is being used by another process.");
                 if (!overwrite && _files.ContainsKey(WindowsPath.Key(to)))
                     throw new IOException($"The file '{to}' already exists.");
                 PutFile(to, (byte[])file.Content.Clone());
@@ -404,9 +406,7 @@ namespace WinformsMVP.Testing
             var full = Full(path, nameof(path));
             if (searchPattern == null) throw new ArgumentNullException(nameof(searchPattern));
             Fail(FileOperation.Enumerate, full);
-            var pattern = new Regex(
-                "^" + Regex.Escape(searchPattern).Replace(@"\*", ".*").Replace(@"\?", ".") + "$",
-                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+            var pattern = WildcardPattern(searchPattern);
             lock (_gate)
             {
                 if (!IsDirectory(full))
@@ -417,6 +417,17 @@ namespace WinformsMVP.Testing
                     .Where(p => pattern.IsMatch(WindowsPath.GetFileName(p)))
                     .ToArray();
             }
+        }
+
+        // Windows wildcards: * and ? as usual, and a trailing ".*" also matches a name without an
+        // extension ("*.*" lists everything, as Directory.GetFiles does on Windows).
+        private static Regex WildcardPattern(string searchPattern)
+        {
+            var anyExtension = searchPattern.EndsWith(".*", StringComparison.Ordinal);
+            var stem = anyExtension ? searchPattern.Substring(0, searchPattern.Length - 2) : searchPattern;
+            var body = Regex.Escape(stem).Replace(@"\*", ".*").Replace(@"\?", ".");
+            return new Regex("^" + body + (anyExtension ? @"(\..*)?" : string.Empty) + "$",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
         }
 
         private void CreateDirectoryCore(string full)

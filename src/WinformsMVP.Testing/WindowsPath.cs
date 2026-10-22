@@ -24,6 +24,13 @@ namespace WinformsMVP.Testing
                 root = @"\\" + parts[0] + @"\" + parts[1];
                 rest = string.Join(@"\", parts, 2, parts.Length - 2);
             }
+            else if (IsDriveRooted(p) && p.Length > 2 && p[2] != '\\' && baseDirectory != null)
+            {
+                // Drive-relative ("C:report.txt"): the base directory on its own drive, else that drive's root.
+                var driveRoot = char.ToUpperInvariant(p[0]) + @":\";
+                var onBaseDrive = string.Equals(GetRoot(baseDirectory), driveRoot, StringComparison.OrdinalIgnoreCase);
+                return GetFullPath((onBaseDrive ? baseDirectory : driveRoot) + @"\" + p.Substring(2), baseDirectory);
+            }
             else if (IsDriveRooted(p))
             {
                 root = char.ToUpperInvariant(p[0]) + @":\";
