@@ -221,7 +221,7 @@ public sealed class ContactsPanelPresenter : ControlPresenterBase<IContactsPanel
 - **EventAggregator は使わない。** アプリ全体で 1 つなので、同じ画面を 2 つ開くと画面 A の操作が画面 B のパネルにも届く。
 - **パネル同士・親子でメソッドを呼び合わない。** 「パネル B を更新して」と頼むのではなく、Model を変更する。受け手は Model の変化だけを見る。
 
-この形は Martin Fowler が [GUI Architectures](https://martinfowler.com/eaaDev/uiArchs.html) で説明している *Observer Synchronization* (各画面が共有ドメインオブジェクトを観察して同期する) と同じ考え方です。子 Presenter の組み立て (誰が生成して `Connect` するか) は [HowTo: マスター/詳細](HowTo-Implement-Master-Detail#組み立て-親-form-が両方を所有) を参照。テストでは 2 つのパネルの Presenter を同じ入力に接続し、片方の操作でもう片方の表示が変わることを確認します:
+この形は Martin Fowler が [GUI Architectures](https://martinfowler.com/eaaDev/uiArchs.html) で説明している *Observer Synchronization* (各画面が共有ドメインオブジェクトを観察して同期する) と同じ考え方です。パネルの Presenter は親 Presenter が `AttachChild(new CustomerPanelPresenter(deps), View.CustomerPanel, _input)` で組み立てます (親 View は子 View のインターフェイスを公開し、依存は親のコンストラクタから来る) — [HowTo: マスター/詳細](HowTo-Implement-Master-Detail#組み立て-親-presenter-が子を所有する) を参照。テストでは 2 つのパネルの Presenter を同じ入力に接続し、片方の操作でもう片方の表示が変わることを確認します:
 
 ```csharp
 var input = new OrderEditInput();
