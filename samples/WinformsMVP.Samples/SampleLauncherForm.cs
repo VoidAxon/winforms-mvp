@@ -9,7 +9,7 @@ using WinformsMVP.Samples.BulkBindingDemo;
 using WinformsMVP.Samples.ValueBindingDemo;
 using WinformsMVP.Samples.NavigatorDemo;
 using WinformsMVP.Samples.MVPComparisonDemo;
-using WinformsMVP.Samples.ExecutionRequestDemo;
+using WinformsMVP.Samples.LegacyPopupDemo;
 using WinformsMVP.Samples.MessageBoxDemo;
 using WinformsMVP.Samples.EmailDemo;
 using WinformsMVP.Samples.EmailDemo.Services;
@@ -160,9 +160,9 @@ namespace WinformsMVP.Samples
                 new DemoItem("MVP Pattern Comparison",
                     "Passive View vs Supervising Controller",
                     Color.FromArgb(220, 20, 60), LaunchMVPComparisonDemo),
-                new DemoItem("ExecutionRequest Pattern",
-                    "Legacy Integration • Delayed Execution",
-                    Color.FromArgb(128, 0, 128), LaunchExecutionRequestDemo),
+                new DemoItem("Legacy Popup",
+                    "Open a non-MVP form from an MVP screen • Semantic view method • InteractionResult",
+                    Color.FromArgb(128, 0, 128), LaunchLegacyPopupDemo),
                 new DemoItem("Debounce / Throttle",
                     "Rate-limit rapid events • UI-thread marshaling • Error handling",
                     Color.FromArgb(0, 128, 128), LaunchDebounceThrottleDemo));
@@ -372,10 +372,10 @@ namespace WinformsMVP.Samples
             launcher.FormClosed += (s, e) => this.Show();
         }
 
-        private void LaunchExecutionRequestDemo()
+        private void LaunchLegacyPopupDemo()
         {
-            var view = new ExecutionRequestDemoForm();
-            var presenter = new ExecutionRequestDemoPresenter();
+            var view = new LegacyPopupDemoForm();
+            var presenter = new LegacyPopupDemoPresenter();
 
             presenter.Connect(view);  // attach + initialize + lifetime wiring
             view.Show();
