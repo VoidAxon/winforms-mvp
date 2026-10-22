@@ -118,9 +118,11 @@ namespace WinformsMVP.Samples.Tests.Presenters
 
         private sealed class DisposingPresenter : ControlPresenterBase<IFakeControlView>
         {
+            private readonly Action _duringInitialize;
             public bool CleanedUp;
+            public DisposingPresenter(Action duringInitialize) => _duringInitialize = duringInitialize;
             protected override void OnViewAttached() { }
-            protected override void OnInitialize() => ((Control)View).Dispose();   // the control goes away mid-initialization
+            protected override void OnInitialize() => _duringInitialize();
             protected override void Cleanup() => CleanedUp = true;
         }
 
@@ -138,9 +140,10 @@ namespace WinformsMVP.Samples.Tests.Presenters
         [Fact]
         public void Connect_ControlDisposedDuringInitialize_DisposesThePresenter()
         {
-            var presenter = new DisposingPresenter();
+            var view = new ControlBackedView();
+            var presenter = new DisposingPresenter(view.Dispose);   // the control goes away mid-initialization
 
-            Assert.Throws<ObjectDisposedException>(() => presenter.Connect(new ControlBackedView()));
+            Assert.Throws<ObjectDisposedException>(() => presenter.Connect(view));
             Assert.True(presenter.CleanedUp);
         }
     }
