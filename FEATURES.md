@@ -36,6 +36,8 @@ Public surface of a presenter: the constructor only (Rules 16/17, analyzer-enfor
 |---|---|
 | Any view (UserControl) / a view with actions / a window | `IViewBase` / `IActionableView` (`ActionBinder`) / `IWindowView` |
 | A view that shows validation errors | `IValidatableView` (`ValidationErrors`) — connected to `Validation` automatically |
+| View events — no hand-written EventArgs, never a WinForms one (MVP004) | `EventHandler` (presenter reads the view) · `EventHandler<int>` / any business type · a tuple `EventHandler<(int Id, string Column)>` · `EventHandler<ValueChangedEventArgs<T>>` (after a change: `OldValue`, `NewValue`) · `EventHandler<ValueChangingEventArgs<T>>` (before it; the presenter may set `Cancel`) · BCL `EventHandler<CancelEventArgs>` — `WinformsMVP.Common.Events` · [wiki § Rule 4](wiki/Design-Rules.md) |
+| Open a legacy (non-MVP) popup from a migrated screen | a semantic view method returning `InteractionResult<T>` (`InteractionResult<Customer> EditCustomer(Customer current)`), implemented by the Form; a form shared by many screens: a small relay service · [migration wiki, Step 7](wiki/HowTo-Migrate-From-Legacy-WinForms.md) |
 
 View interfaces expose data and behavior, never controls. Forms need no closing code.
 
@@ -46,6 +48,7 @@ Optional: a simple screen can use plain view events instead.
 | Need | Use |
 |---|---|
 | Action keys for a screen | `ViewAction.Factory.WithQualifier("Screen")` + `Factory.Create(nameof(Save))`; one shared key: `ViewAction.Create("Scope.Name")` |
+| Common verbs, ready-made | `StandardActions.Save`, `.Cancel`, `.Delete`, `.Refresh`, `.Ok`, … (keys `"Standard.Save"` …); no need to redefine them |
 | Typed payload checked at compile time | `ViewAction<T>` (`Factory.Create<T>(...)`, `ViewAction.Create<T>(...)`) |
 | Register handlers (sync / async / with payload) | `Dispatcher.Register(key, handler, canExecute:)` in `RegisterViewActions()` |
 | Async handler | `Register(key, async ct => ...)` — disabled while running, repeat triggers ignored, token = `Lifetime` |
@@ -119,10 +122,11 @@ Detection only (no undo, no events). The model's own `Equals` is ignored by desi
 | Errors by field, shown after leaving a field or after submit | `Validation` — `ValidationState` (Core) |
 | DataAnnotations on the model | `Validation.Validate(model)` on each edit; submit: `if (!Validation.Check(model)) ...` |
 | Presenter rules (cross-field, database) | `Validation.SetError(field, msg)` / `ClearError(field)`; form-level key `ValidationState.FormLevel` |
-| First error in screen order (message + focus) | `Validation.ErrorsInOrder(fieldOrder)[0]` → `Messages.ShowWarning`, `View.FocusError(field)` |
+| First error in screen order (message + focus) | `if (!Validation.Check(model)) { var first = Validation.FirstError; Messages.ShowWarning(first.Message); View.FocusError(first.Field); }` |
+| The screen's order of errors | from the model last checked: its properties in declaration order (base class first); move one with `[ValidationOrder(n)]`; all errors: `Validation.ErrorsInOrder()` — no field list in the presenter |
 | Show errors next to controls (WinForms) | `new ErrorProviderDisplay(errorProvider).Map(nameof(Model.Field), control)…`, `TryFocusError(field)`; custom: derive `ControlErrorDisplay` |
 
-Keep Submit enabled while there are errors (it reveals unvisited fields).
+Two display styles, both supported: **message only** (the view does not implement `IValidatableView`; the usual WinForms style) or **message + icons**. Keep Submit enabled while there are errors (it reveals unvisited fields).
 
 ## 9. Binding helpers — WinForms, `WinformsMVP.Common.Extensions` · [wiki](wiki/Reference-Data-Binding.md)
 
