@@ -10,7 +10,7 @@
 
 ### Added (追加)
 
-- **`ValueChangedEventArgs<T>`** (`WinformsMVP.Common.Events`) — 変更前と変更後の値 (`OldValue` / `NewValue`) を運ぶ View イベント用の EventArgs。View のイベントは自前の EventArgs も WinForms の EventArgs も要らない: `EventHandler` / `EventHandler<業務型>` / `EventHandler<ValueChangedEventArgs<T>>` (Wiki: 設計ルール Rule 4)。
+- **`ValueChangedEventArgs<T>` / `ValueChangingEventArgs<T>`** (`WinformsMVP.Common.Events`) — View イベント用の対になった EventArgs。`ValueChanged` は変わった後の `OldValue` / `NewValue`、`ValueChanging` (`CancelEventArgs` を継承) は変わる前で、Presenter が `Cancel = true` で止められる (View は `!e.Cancel` のときだけ反映する; 例: 未保存の編集中は一覧の選択を動かさない)。View のイベントは自前の EventArgs も WinForms の EventArgs も要らない: `EventHandler` / `EventHandler<業務型>` / タプル / この 2 つ / `CancelEventArgs` (Wiki: 設計ルール Rule 4)。
 
 ### Removed (削除)
 

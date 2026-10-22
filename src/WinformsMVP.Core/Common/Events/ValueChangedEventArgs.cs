@@ -11,6 +11,7 @@ namespace WinformsMVP.Common.Events
     /// MVP004): use <c>EventHandler</c> when the presenter reads the value from the view,
     /// <c>EventHandler&lt;T&gt;</c> with a business type to send the value (<c>EventHandler&lt;int&gt; RecordActivated</c>),
     /// and this class when the presenter needs the value before the change too (to compare, or to put it back).
+    /// To decide <i>before</i> the change (and cancel it), use <see cref="ValueChangingEventArgs{T}"/>.
     /// </remarks>
     public class ValueChangedEventArgs<T> : EventArgs
     {

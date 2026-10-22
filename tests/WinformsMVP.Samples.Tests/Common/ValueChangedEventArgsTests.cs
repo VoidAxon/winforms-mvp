@@ -9,11 +9,69 @@ using Xunit;
 namespace WinformsMVP.Samples.Tests.Common
 {
     /// <summary>
-    /// A view event that carries the value before and after a change, so a presenter can react to (or
-    /// undo) it without a hand-written EventArgs class or a WinForms one.
+    /// View events that carry the value before and after a change — after it (ValueChanged) or before
+    /// it, cancelable (ValueChanging) — without a hand-written EventArgs class or a WinForms one.
     /// </summary>
     public class ValueChangedEventArgsTests
     {
+        public interface IRecordListView : IWindowView
+        {
+            /// <summary>The selected record is about to change; Cancel keeps the current one.</summary>
+            event EventHandler<ValueChangingEventArgs<int>> SelectedRecordChanging;
+        }
+
+        private sealed class ListStubView : IRecordListView
+        {
+            public int Selected = 1;
+            public IViewActionBinder ActionBinder => null;
+            public event EventHandler<ValueChangingEventArgs<int>> SelectedRecordChanging;
+
+            // What the Form does before letting the grid move to another row.
+            public void TrySelect(int id)
+            {
+                var e = new ValueChangingEventArgs<int>(Selected, id);
+                SelectedRecordChanging?.Invoke(this, e);
+                if (!e.Cancel) Selected = id;
+            }
+        }
+
+        // Keeps the current record while it has unsaved edits.
+        private sealed class RecordListPresenter : WindowPresenterBase<IRecordListView>
+        {
+            public bool Dirty;
+            protected override void OnViewAttached()
+                => SubscribeViewEvent<ValueChangingEventArgs<int>>(
+                    h => View.SelectedRecordChanging += h, h => View.SelectedRecordChanging -= h,
+                    e => { if (Dirty && e.OldValue != e.NewValue) e.Cancel = true; });
+            protected override void OnInitialize() { }
+        }
+
+        [Fact]
+        public void Changing_CarriesBothValues_AndIsCancelable()
+        {
+            var e = new ValueChangingEventArgs<string>("before", "after");
+            Assert.Equal("before", e.OldValue);
+            Assert.Equal("after", e.NewValue);
+            Assert.False(e.Cancel);
+            Assert.IsAssignableFrom<System.ComponentModel.CancelEventArgs>(e);
+        }
+
+        [Fact]
+        public void APresenterCanCancelTheChangeBeforeItHappens()
+        {
+            var view = new ListStubView();
+            var presenter = new RecordListPresenter();
+            using (PresenterTestHost.Start(TestServices.Create(), presenter, view))
+            {
+                view.TrySelect(2);
+                Assert.Equal(2, view.Selected);   // nothing pending: the selection moves
+
+                presenter.Dirty = true;
+                view.TrySelect(3);
+                Assert.Equal(2, view.Selected);   // unsaved edits: the presenter keeps the current record
+            }
+        }
+
         public interface IQuantityView : IWindowView
         {
             int Quantity { set; }

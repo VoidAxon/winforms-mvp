@@ -133,7 +133,10 @@ private void OnSave()
 |---|---|---|
 | 起きたことだけ (値は Presenter が View から読む) | `EventHandler` | `event EventHandler SelectionChanged;` |
 | 値を一緒に送る | `EventHandler<業務型>` (`T` は EventArgs でなくてよい) | `event EventHandler<int> RecordActivated;` |
-| 変更前と変更後の値 (比べる・元に戻す) | `EventHandler<ValueChangedEventArgs<T>>` | `event EventHandler<ValueChangedEventArgs<int>> QuantityChanged;` |
+| 2〜3 個の関連する値 | `EventHandler<(型 名前, 型 名前)>` (タプル) | `event EventHandler<(int RecordId, string Column)> CellActivated;` |
+| 変更前と変更後の値 (変わった後に比べる・元に戻す) | `EventHandler<ValueChangedEventArgs<T>>` | `event EventHandler<ValueChangedEventArgs<int>> QuantityChanged;` |
+| 変わる前に Presenter が止める (キャンセル可) | `EventHandler<ValueChangingEventArgs<T>>` (`OldValue` / `NewValue` / `Cancel`) | `event EventHandler<ValueChangingEventArgs<int>> SelectedRecordChanging;` |
+| 値なしで止めるだけ | `EventHandler<CancelEventArgs>` (`System.ComponentModel`。WinForms 型ではない) | |
 
 ```csharp
 // Form: コントロールの値を業務の値に変えてから上げる
@@ -146,9 +149,13 @@ private void dgvRecords_CellDoubleClick(object sender, DataGridViewCellEventArgs
 SubscribeViewEvent<int>(h => View.RecordActivated += h, h => View.RecordActivated -= h, id => OpenRecord(id));
 SubscribeViewEvent<ValueChangedEventArgs<int>>(h => View.QuantityChanged += h, h => View.QuantityChanged -= h,
     e => { if (e.NewValue > stock) View.Quantity = e.OldValue; });
+
+// 未保存の編集があるうちは、一覧の選択を動かさない (Form は Cancel を見てから行を移す)
+SubscribeViewEvent<ValueChangingEventArgs<int>>(h => View.SelectedRecordChanging += h, h => View.SelectedRecordChanging -= h,
+    e => { if (_tracker.IsChanged) e.Cancel = !Messages.ConfirmYesNo("保存されていない変更があります。移動しますか？"); });
 ```
 
-`ValueChangedEventArgs<T>` は `WinformsMVP.Common.Events` (Core) にあります。
+`ValueChangedEventArgs<T>` / `ValueChangingEventArgs<T>` は `WinformsMVP.Common.Events` (Core) にあります。`ValueChanged` は変わった後 (元に戻すと画面が一瞬変わる)、`ValueChanging` は変わる前に止められます。
 
 ---
 
