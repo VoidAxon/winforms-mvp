@@ -251,6 +251,19 @@ namespace WinformsMVP.Samples.Tests.Testing
         }
 
         [Fact]
+        public void FileOperations_RejectDirectoryShapedPaths()
+        {
+            var files = new InMemoryFileService();
+            files.SeedFile("report.txt", "data");
+
+            Assert.False(files.Exists("report.txt/"));
+            Assert.Throws<UnauthorizedAccessException>(() => files.Delete(@"report.txt\"));
+            Assert.Throws<UnauthorizedAccessException>(() => files.WriteAllText("new.txt/", "x"));
+            Assert.True(files.Exists("report.txt"));
+            Assert.False(files.Exists("new.txt"));
+        }
+
+        [Fact]
         public void PathHelpers_FollowWindowsRules()
         {
             var files = new InMemoryFileService();

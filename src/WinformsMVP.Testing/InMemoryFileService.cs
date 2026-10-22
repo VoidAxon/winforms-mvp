@@ -120,7 +120,7 @@ namespace WinformsMVP.Testing
         public void SeedFile(string path, byte[] bytes)
         {
             if (bytes == null) throw new ArgumentNullException(nameof(bytes));
-            var full = Full(path, nameof(path));
+            var full = FileFull(path, nameof(path));
             lock (_gate)
             {
                 if (IsDirectory(full)) throw new UnauthorizedAccessException($"Access to the path '{full}' is denied.");
@@ -143,6 +143,7 @@ namespace WinformsMVP.Testing
         /// <inheritdoc />
         public virtual bool Exists(string path)
         {
+            if (IsDirectoryShaped(RequirePath(path, nameof(path)))) return false;
             var full = Full(path, nameof(path));
             lock (_gate) return _files.ContainsKey(WindowsPath.Key(full));
         }
@@ -150,14 +151,14 @@ namespace WinformsMVP.Testing
         /// <inheritdoc />
         public virtual long GetFileSize(string path)
         {
-            var full = Full(path, nameof(path));
+            var full = FileFull(path, nameof(path));
             lock (_gate) return ExistingFile(full).Content.LongLength;
         }
 
         /// <inheritdoc />
         public virtual void Delete(string path)
         {
-            var full = Full(path, nameof(path));
+            var full = FileFull(path, nameof(path));
             Fail(FileOperation.Delete, full);
             lock (_gate)
             {
@@ -170,8 +171,8 @@ namespace WinformsMVP.Testing
         /// <inheritdoc />
         public virtual void Copy(string source, string destination, bool overwrite = false)
         {
-            var from = Full(source, nameof(source));
-            var to = Full(destination, nameof(destination));
+            var from = FileFull(source, nameof(source));
+            var to = FileFull(destination, nameof(destination));
             Fail(FileOperation.Copy, from, to);
             lock (_gate)
             {
@@ -188,8 +189,8 @@ namespace WinformsMVP.Testing
         /// <inheritdoc />
         public virtual void Move(string source, string destination)
         {
-            var from = Full(source, nameof(source));
-            var to = Full(destination, nameof(destination));
+            var from = FileFull(source, nameof(source));
+            var to = FileFull(destination, nameof(destination));
             Fail(FileOperation.Move, from, to);
             lock (_gate)
             {
@@ -369,14 +370,14 @@ namespace WinformsMVP.Testing
 
         private byte[] Read(string path)
         {
-            var full = Full(path, nameof(path));
+            var full = FileFull(path, nameof(path));
             Fail(FileOperation.Read, full);
             lock (_gate) return ExistingFile(full).Content;
         }
 
         private void Write(string path, byte[] content)
         {
-            var full = Full(path, nameof(path));
+            var full = FileFull(path, nameof(path));
             Fail(FileOperation.Write, full);
             lock (_gate)
             {
@@ -387,7 +388,7 @@ namespace WinformsMVP.Testing
 
         private void Append(string path, string text, Encoding encoding)
         {
-            var full = Full(path, nameof(path));
+            var full = FileFull(path, nameof(path));
             Fail(FileOperation.Append, full);
             lock (_gate)
             {
@@ -477,6 +478,16 @@ namespace WinformsMVP.Testing
             var failure = Failure?.Invoke(new FileOperationCall(operation, path, destination));
             if (failure != null) throw failure;
         }
+
+        // A file operation on "name\" or "name/" addresses a directory, never the file "name".
+        private string FileFull(string path, string parameterName)
+        {
+            var full = Full(path, parameterName);
+            if (IsDirectoryShaped(path)) throw new UnauthorizedAccessException($"Access to the path '{full}\\' is denied.");
+            return full;
+        }
+
+        private static bool IsDirectoryShaped(string path) => path.EndsWith("\\", StringComparison.Ordinal) || path.EndsWith("/", StringComparison.Ordinal);
 
         private string Full(string path, string parameterName)
             => WindowsPath.GetFullPath(RequirePath(path, parameterName), BaseDirectory);
