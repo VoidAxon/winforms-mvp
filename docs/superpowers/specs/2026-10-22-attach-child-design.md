@@ -1,6 +1,6 @@
 # Child presenters owned by the parent presenter (`AttachChild`) — design
 
-Date: 2026-10-22 · Status: draft for owner review · Source: real-screen validation V-20 · Reviewed with codex (two rounds)
+Date: 2026-10-22 · Status: approved by the owner · Source: real-screen validation V-20 · Reviewed with codex (two rounds)
 
 ## Why
 
@@ -150,7 +150,7 @@ Children do not take part in the window's close decision (control presenters hav
 would mean prompt ordering, duplicate confirmations and partial saves). The parent owns the edit session and checks
 the shared input in its `CanClose` / `CanCloseAsync`. Each presenter keeps its own `ValidationState` and display;
 the parent validates the whole input (rules that matter for saving live in the model / parent, never only in a panel).
-*(Owner to confirm.)*
+*(Confirmed by the owner, 2026-10-22.)*
 
 ## Lifecycle hardening found during review (needed by dynamic panels, fixed for everyone)
 
