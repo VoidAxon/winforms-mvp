@@ -8,6 +8,10 @@
 
 ## [Unreleased]
 
+## [1.0.0-preview.6] - 2026-10-22
+
+> `v1.0.0-preview.5` のタグはリリースのテスト (gate) で失敗し、パッケージは公開されていません。その変更もここに含まれます。
+
 ### Added (追加)
 
 - **`Debouncer` / `Throttler` / `RateLimit` の非同期版** — `Func<CancellationToken, Task>` と `Func<Task>` のオーバーロード (`cancelPrevious` 付き)。`async` ラムダはこれに束縛される (従来は `Action` に束縛され `async void` になっていた)。タスクが完了するまでを実行中とし、実行は重ならない。実行中の新しい発火は完了後の 1 回にまとめ、`cancelPrevious: true` (既定) なら実行中のトークンをキャンセルする (最新の検索が勝つ)。`Dispose` は実行中のトークンもキャンセル。レート制限器が要求したキャンセルは静か。
