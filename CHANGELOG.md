@@ -8,9 +8,20 @@
 
 ## [Unreleased]
 
+### Added (追加)
+
+- **検証エラーの「画面の順」をモデルから決める: `ValidationState.ErrorsInOrder()` / `FirstError`** — `Check(model)` / `Validate(model)` がモデルの型を覚え、エラーをそのプロパティの宣言順 (基底クラスが先) に並べる。宣言順と違う項目だけ `[ValidationOrder(n)]` で動かす (付けないものは 0)。Presenter のルール (`SetError`) もプロパティ名ならその位置、モデルにない項目は名前順、`FormLevel` は最後。`FirstError` はその先頭 (エラーがなければ `InvalidOperationException`)。送信失敗時の推奨は `if (!Validation.Check(model)) { var first = Validation.FirstError; Messages.ShowWarning(first.Message); View.FocusError(first.Field); }` で、Presenter に項目の並び (`FieldOrder`) を書かない。
+- Wiki: 表示のしかたを「メッセージだけ」(View が `IValidatableView` を実装しない) と「メッセージ + アイコン」の 2 つの正式な書き方として説明。
+
+### Changed (変更)
+
+- `ErrorsInOrder(params fieldOrder)` — 並び順にない項目は、名前順の前にモデルの順 (上記) で並ぶ (モデルを検証していなければ従来どおり名前順)。
+
 ### Removed (削除)
 
+- **BREAKING: `ValidationHelper` と `ValidationError` を削除** — どちらもどこからも使われていなかった。`ValidationHelper.ValidateSequential(model, validator, Messages)` (最初のエラーをメッセージで出す) は `Validation.Check(model)` + `Validation.FirstError` + `Messages.ShowWarning` に置き換える (Presenter のルールとフォーカスも扱える)。`ValidationError` は `ErrorsInOrder()` の `(Field, Message)`。
 - **BREAKING: `ExecutionRequestEventArgs<…>` (1〜3 引数版)、`ExecutionResult<TResult>`、`ExecutionCompletedEventArgs<TResult>` を削除** — 移行済み画面から従来 (非 MVP) Form を開くための仕組みだったが、結果が「null = キャンセル」で `InteractionResult<T>` と一致せず (値型ではキャンセルを表せない)、Form の破棄の責任や非モーダルの `Completed` の約束があいまいで、Executor / Callback の 2 つの使い方が 1 つの型に混在していた。サンプルも Executor を一度も使っていなかった。**移行**: View インターフェイスに意味のあるメソッド (`InteractionResult<CustomerData> EditCustomer(CustomerData current)`) を足し、Form の実装で従来 Form を `ShowDialog` して結果を返す (Wiki: 従来の WinForms から移行する、Step 7 の方法 A)。複数画面で使うなら中継サービス (方法 B)。サンプル `ExecutionRequestDemo` は `LegacyPopupDemo` に置き換え。
+
 
 ## [1.0.0-preview.6] - 2026-10-22
 
