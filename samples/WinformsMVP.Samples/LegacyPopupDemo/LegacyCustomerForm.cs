@@ -2,13 +2,15 @@ using System;
 using System.Drawing;
 using System.Windows.Forms;
 
-namespace WinformsMVP.Samples.ExecutionRequestDemo
+namespace WinformsMVP.Samples.LegacyPopupDemo
 {
     /// <summary>
     /// Legacy old form - Not MVP pattern
     ///
     /// This represents old code in the project that cannot or is inconvenient to modify to MVP architecture.
-    /// Through the ExecutionRequest pattern, it can be opened from new MVP forms.
+    /// An MVP screen opens it from a semantic view method (ILegacyPopupDemoView.EditCustomer); the
+    /// presenter never sees this type. Like many legacy forms, it takes and returns its values
+    /// through public properties.
     /// </summary>
     public class LegacyCustomerForm : Form
     {
@@ -50,7 +52,7 @@ namespace WinformsMVP.Samples.ExecutionRequestDemo
 
             var infoLabel = new Label
             {
-                Text = "This form represents old code in the project, integrated via ExecutionRequest pattern",
+                Text = "This form represents old code; the MVP screen opens it from a view method",
                 ForeColor = Color.Gray,
                 Location = new Point(20, 50),
                 Size = new Size(400, 20)
@@ -125,6 +127,15 @@ namespace WinformsMVP.Samples.ExecutionRequestDemo
                 ageLabel, _ageNumericUpDown,
                 _saveButton, _cancelButton
             });
+        }
+
+        protected override void OnLoad(EventArgs e)
+        {
+            base.OnLoad(e);
+            // The values the caller set before ShowDialog.
+            _customerNameTextBox.Text = CustomerName ?? "";
+            _emailTextBox.Text = Email ?? "";
+            _ageNumericUpDown.Value = Math.Max(_ageNumericUpDown.Minimum, Math.Min(_ageNumericUpDown.Maximum, Age));
         }
 
         private void SetupEventHandlers()

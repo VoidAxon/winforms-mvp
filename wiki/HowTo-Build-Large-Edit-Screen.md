@@ -148,18 +148,14 @@ void ICustomerEditView.ShowCustomer(CustomerEditInput input)
 登録 (Submit) に失敗したときは、**WinForms の慣習どおりメッセージボックスで知らせます**。アイコンだけでは「ボタンを押しても何も起きない」ように見えるためです。最初のエラーを画面の順で 1 つ出し、閉じたらその項目にフォーカスを移します (全部を一覧で出す書き方もできます):
 
 ```csharp
-private static readonly string[] FieldOrder =
-    { nameof(CustomerEditInput.Name), nameof(CustomerEditInput.Kana), nameof(CustomerEditInput.ContractDate) };
-
 private bool TrySave()
 {
-    Revalidate();
-    Validation.ShowAll();                 // 未訪問の項目のアイコンも出す
-    if (Validation.HasErrors)
+    Revalidate();                         // Presenter のルール (SetError)
+    if (!Validation.Check(_input))        // 型を覚え、未訪問の項目のアイコンも出す
     {
-        // 画面の順で最初のエラー。並び順にない項目やフォームレベルのエラー
-        // (.NET Framework の [Compare] など) も後ろに付くので、何か 1 つは必ず出る
-        var first = Validation.ErrorsInOrder(FieldOrder)[0];
+        // 画面の順 (= 入力モデルのプロパティの宣言順) で最初のエラー。
+        // モデルにない項目やフォームレベルのエラーも後ろに付くので、何か 1 つは必ず出る
+        var first = Validation.FirstError;
         Messages.ShowWarning(first.Message);
         View.FocusField(first.Field);     // どのコントロールかは Form が決める
         return false;
@@ -167,6 +163,8 @@ private bool TrySave()
     ...
 }
 ```
+
+入力モデルのプロパティを **画面の順に宣言** しておけば、Presenter に項目の並びを書く必要はありません (違う項目だけ `[ValidationOrder(n)]`。[フォーム入力を検証する](HowTo-Validate-Form-Input) 参照)。
 
 Form 側は、エラー表示の対応付けでそのままフォーカスを移せます (タブページも選ばれます。`FormLevel` や未マップの項目では何もしません):
 
