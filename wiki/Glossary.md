@@ -233,7 +233,7 @@ DI パターンの 1 つ。`ServiceLocator.Current` (`IServiceProvider`) 経由�
 
 ### StandardActions
 
-`WinformsMVP.MVP.ViewActions.StandardActions` 静的クラス。アプリ横断で使われる標準アクション (`Save`、`Cancel`、`Delete`、`Refresh`、`Ok`、`Reset` 等) を出荷時に提供する。モジュール固有のアクションは自前の静的クラスで `ViewAction.Create(...)` して宣言する。
+`WinformsMVP.MVP.ViewActions.StandardActions` 静的クラス。アプリ横断で使われる標準アクション (`Save`、`Cancel`、`Delete`、`Refresh`、`Ok`、`Reset` 等) を出荷時に提供する。キーは `"Standard."` + メンバー名 (`"Standard.Save"`)。モジュール固有のアクションは自前の静的クラスで `ViewAction.Factory.WithQualifier("Module")` の Factory から宣言する。
 
 ### Supervising Controller
 
