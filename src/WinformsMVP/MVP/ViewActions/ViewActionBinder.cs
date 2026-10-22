@@ -328,6 +328,7 @@ namespace WinformsMVP.MVP.ViewActions
         /// </remarks>
         public void Bind()
         {
+            DetachDispatcher();   // event-only: a dispatcher bound earlier no longer drives the controls
             Bind(onActionTriggered: null);
         }
 
@@ -430,13 +431,16 @@ namespace WinformsMVP.MVP.ViewActions
         /// </summary>
         public void Unbind()
         {
-            if (_dispatcher != null)
-            {
-                _dispatcher.ActionExecuted -= OnActionExecuted;
-                _dispatcher.CanExecuteChanged -= OnCanExecuteChanged;
-                _dispatcher = null;
-            }
+            DetachDispatcher();
             UnbindControls();
+        }
+
+        private void DetachDispatcher()
+        {
+            if (_dispatcher == null) return;
+            _dispatcher.ActionExecuted -= OnActionExecuted;
+            _dispatcher.CanExecuteChanged -= OnCanExecuteChanged;
+            _dispatcher = null;
         }
 
         private void UnbindControls()

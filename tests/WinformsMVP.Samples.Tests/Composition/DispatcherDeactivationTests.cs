@@ -89,5 +89,22 @@ namespace WinformsMVP.Samples.Tests.Composition
             dispatcher.Deactivate();
             Assert.False(dispatcher.IsActive);
         }
+
+        [Fact]
+        public async Task Deactivated_InFlightAsyncCompletion_RaisesNoActionExecuted()
+        {
+            var dispatcher = new ViewActionDispatcher();
+            var gate = new TaskCompletionSource<bool>();
+            dispatcher.Register(Run, () => gate.Task);
+            var running = dispatcher.DispatchAsync(Run);
+            int executed = 0;
+            dispatcher.ActionExecuted += (s, e) => executed++;
+
+            dispatcher.Deactivate();
+            gate.SetResult(true);
+            await running;
+
+            Assert.Equal(0, executed);
+        }
     }
 }

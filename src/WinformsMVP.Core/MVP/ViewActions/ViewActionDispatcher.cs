@@ -58,7 +58,7 @@ namespace WinformsMVP.MVP.ViewActions
         /// <summary>
         /// Stops this dispatcher for good: <see cref="CanDispatch"/> returns false, <see cref="Dispatch"/>
         /// and <see cref="DispatchAsync"/> run nothing (no middleware, no validation errors), and
-        /// <see cref="CanExecuteChanged"/> is no longer raised — also not when an asynchronous handler
+        /// <see cref="CanExecuteChanged"/> and <see cref="ActionExecuted"/> are no longer raised — also not when an asynchronous handler
         /// that was already running completes. Called when the owning presenter is disposed, so a late
         /// click on a control that outlives its presenter does nothing.
         /// </summary>
@@ -507,7 +507,7 @@ namespace WinformsMVP.MVP.ViewActions
         {
             if (pending == null)
             {
-                if (succeeded) ActionExecuted?.Invoke(this, new ActionExecutedEventArgs(actionKey));
+                if (succeeded && !_inactive) ActionExecuted?.Invoke(this, new ActionExecutedEventArgs(actionKey));
                 else NotifyCanExecuteChanged();
                 return Task.CompletedTask;
             }
@@ -589,7 +589,7 @@ namespace WinformsMVP.MVP.ViewActions
                     NotifyCanExecuteChanged();
                     return null;
                 }
-                ActionExecuted?.Invoke(this, new ActionExecutedEventArgs(actionKey));
+                if (!_inactive) ActionExecuted?.Invoke(this, new ActionExecutedEventArgs(actionKey));
                 return null;
             }
 

@@ -83,6 +83,27 @@ namespace WinformsMVP.Samples.Tests.ViewActions
         }
 
         [Fact]
+        public void SwitchingToEventOnlyBind_DetachesThePreviousDispatcher()
+        {
+            using (var button = new Button())
+            {
+                bool enabled = true;
+                var dispatcher = new ViewActionDispatcher();
+                dispatcher.Register(Save, () => { }, canExecute: () => enabled);
+
+                var binder = new ViewActionBinder();
+                binder.Add(Save, button);
+                binder.Bind(dispatcher);
+                binder.Bind();                                   // event-only from now on
+
+                enabled = false;
+                dispatcher.RaiseCanExecuteChanged();
+
+                Assert.True(button.Enabled);                     // the old dispatcher no longer drives the control
+            }
+        }
+
+        [Fact]
         public void EventOnlyBind_RaisesActionTriggeredOnly()
         {
             using (var button = new Button())
