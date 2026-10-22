@@ -33,6 +33,7 @@ PresenterBase<TView>                              [共通基底・直接継承�
 | 入力データを受け取って開く Form | `WindowPresenterBase<TView, TParam>` |
 | 親 Form / 親 UserControl 内に配置する UserControl | `ControlPresenterBase<TView>` |
 | 構成情報を持つ UserControl | `ControlPresenterBase<TView, TParam>` |
+| 親 Presenter が組み立てる画面内のパネル (固定・動的) | `ControlPresenterBase<TView[, TParam]>` + 親の `AttachChild` ([後述](#子-presenter-を所有する-attachchild)) |
 
 ポイント:
 
@@ -132,6 +133,8 @@ public class SettingsPanelPresenter : ControlPresenterBase<ISettingsPanelView>
     // コンストラクタは Presenter 自身の依存だけを受け取る (この例では無し)。
     // View は Connect で渡す — Window 系と同じ二段構築。
 
+    protected override void OnViewAttached() { }
+
     protected override void OnInitialize()
     {
         // Connect は構築後に走るため、View も注入済みの依存もここで安全に使える。
@@ -168,7 +171,8 @@ public partial class MainForm : Form
 - View は既にデザイナーまたはコードで生成済み → `Connect(view)` で渡す (コンストラクタは Presenter 自身の依存のみ)
 - `WindowNavigator` も `IViewMappingRegister` も使わない
 - `Connect` は構築後に走るため、`OnViewAttached` / `OnInitialize` で注入済みの依存を安全に使える (コンストラクタ順序の罠が無い)
-- UserControl が Dispose されると Presenter も自動 Dispose (`Connect` がライフサイクルを橋渡し)
+- UserControl が Dispose されると Presenter も自動 Dispose (`Connect` がライフサイクルを橋渡し。破棄の監視は初期化の**前**に始まるので、初期化中にコントロールが破棄されても Presenter は破棄され、`Connect` は `ObjectDisposedException` を投げる)
+- `Connect` は **WinForms 側がホストする** Presenter 用 (レガシー Form、依存を持たない単体の再利用コントロール)。MVP の親 Presenter が子パネルを持つ画面では、親 Presenter が [`AttachChild`](#子-presenter-を所有する-attachchild) で組み立てる
 - Presenter 基底は `System.Windows.Forms` に依存しない — 唯一の `view is Control` 境界は内部の `ControlLifecycleController` に隔離 (Window 側の `WindowLifecycleController` と対称)
 
 ---
@@ -188,6 +192,8 @@ public class SearchPanelPresenter : ControlPresenterBase<ISearchPanelView, Searc
 {
     // コンストラクタは Presenter 自身の依存のみ。View とパラメータは Connect で渡す。
 
+    protected override void OnViewAttached() { }
+
     protected override void OnInitialize(SearchParameters parameters)
     {
         View.Keyword = parameters.DefaultKeyword;
@@ -203,6 +209,73 @@ presenter.Connect(_searchPanel, parameters);   // アタッチ + パラメータ
 
 ---
 
+## 子 Presenter を所有する (`AttachChild`)
+
+親 Presenter が画面内のパネル (UserControl) の Presenter を **自分で生成して所有する** ための `protected` メソッドです。子 Presenter の依存 (Repository 等) は親のコンストラクタから渡せるので、`WindowNavigator` が生成する Form にファクトリ登録は要りません。親 View インターフェイスは子の **View インターフェイス** を公開します (コントロールは公開しない — Rule 2 のまま)。
+
+```csharp
+protected IDisposable AttachChild<TChildView>(ControlPresenterBase<TChildView> child, TChildView view)
+    where TChildView : IViewBase;
+
+protected IDisposable AttachChild<TChildView, TParam>(
+    ControlPresenterBase<TChildView, TParam> child, TChildView view, TParam parameters)
+    where TChildView : IViewBase;
+```
+
+- 子にできるのは **コントロール Presenter だけ**。Window Presenter (クローズゲート・結果を持つ) は型制約でコンパイルエラー。
+- `TChildView` / `TParam` は `child` から推論されます。View やパラメータの型違い、パラメータが必要な Presenter にパラメータなし版を使うことはコンパイルできません。
+
+```csharp
+public interface IOrderEditView : IWindowView
+{
+    ICustomerPanelView CustomerPanel { get; }   // 子の View インターフェイス (コントロールではない)
+}
+
+public class OrderEditPresenter : WindowPresenterBase<IOrderEditView, OrderEditInput>
+{
+    private readonly ICustomerRepository _customers;
+
+    public OrderEditPresenter(ICustomerRepository customers) => _customers = customers;
+
+    protected override void OnViewAttached() { }
+
+    protected override void OnInitialize(OrderEditInput input)
+    {
+        // 固定パネル: 返り値のハンドルは無視してよい (親の破棄時に解放される)
+        AttachChild(new CustomerPanelPresenter(_customers), View.CustomerPanel, input);
+    }
+}
+```
+
+**いつ呼ぶか**: `OnInitialize` (パラメータが使える) かそれ以降 (行の追加時など)。`OnViewAttached` では早すぎます。子は `AttachChild` から戻る前にアタッチ・初期化されます (子の `OnViewAttached` → `RegisterViewActions` → 子 View の `ActionBinder` を Bind → `OnInitialize`。子の `OnInitializeAsync` は開始のみで待たない)。親の `OnInitialize` で付けた子は、ウィンドウ表示前に動いています。親と子の非同期初期化は並行し得ます (`PresenterTestHost.Initialized` は親のみ)。
+
+**返り値のハンドル**: 子を永久に解放 (Dispose) する `IDisposable`。固定パネルでは無視、ウィンドウを開いたまま外すパネル (明細行・タブ) では保持し、View がコントロールを取り除く前に `Dispose` します。2 回目以降の `Dispose` や、親が既に解放した後の `Dispose` は何もしません。手順は [HowTo: マスター/詳細 § 動的なパネル](HowTo-Implement-Master-Detail#動的なパネル-行の追加削除タブ) を参照。
+
+**サービス・クローズ・検証**:
+
+- 子は親のフレームワークサービス (`Messages` 等) を引き継ぎます (`PresenterTestHost.Start(services, …)` で起動した親の子も同じフェイクを使い、`ServiceLocator.Current` には落ちない)。`IPresenterFactory` で生成した子は、ファクトリが結び付けたサービス (とスコープ) を保ちます。M.E.DI では Presenter ごとにスコープが別なので、親子で共有されるのは渡したもの (入力 Model) だけです。
+- 子はウィンドウのクローズ判定に参加しません。親が `CanClose` / `CanCloseAsync` で共有入力をチェックします。
+- 各 Presenter は自分の `Validation` を持ちます。保存に必要な規則は Model か親に置き、親が入力全体を検証します。
+
+**契約 (要約)**:
+
+| 状況 | 挙動 |
+|---|---|
+| `child` / `view` が null | `ArgumentNullException` (何も移譲しない) |
+| 親に View がまだ無い | `InvalidOperationException` |
+| 親が破棄中 / 破棄済み、子が破棄済み、子のコントロールが破棄済み | `ObjectDisposedException` |
+| 子がアタッチ・初期化・所有・`Connect` 済み、同じ親の別の子が同じ View を使用中 | `InvalidOperationException` (現在の所有者には影響なし) |
+| 子がコンストラクタで別のフレームワークサービスを解決済み | `InvalidOperationException` (その処理は `OnViewAttached` / `OnInitialize` へ) |
+| 子のアタッチ / 初期化 (同期部分) が例外 | 所有を取り消し、子を破棄して元の例外を再スロー。View には触れない (呼び出し側の所有) |
+| 子の `OnInitializeAsync` が失敗 | 従来どおりログのみ (アタッチ失敗ではない) |
+| 子を直接 `child.Dispose()` | 所有記録も消える |
+| 子のコントロールが (Form 側で) 破棄された | 同じ経路で子を解放 (確認・Model 変更・View 操作はしない)。`Control.Disposed` だけが対象 |
+| 解放済みの子 | 再アタッチ不可 |
+
+所有者は 1 つ: 子として付けた Presenter を `Connect` すること、その逆も拒否されます。View は決して破棄されません。
+
+---
+
 ## ライフサイクル
 
 ### Form 系 (WindowNavigator パターン)
@@ -215,20 +288,36 @@ presenter.Connect(_searchPanel, parameters);   // アタッチ + パラメータ
 6. **`OnInitialize()` または `OnInitialize(parameters)` 呼び出し**
 7. **`OnInitializeAsync(Lifetime)` 開始** (完了を待たない)
 8. Form 表示 (Modal / Non-Modal) — `OnInitializeAsync` の `await` 中も表示・操作できる
-9. (Form が閉じられたとき) **`Lifetime` をキャンセル** → **`Cleanup()` 呼び出し**
+9. (Form が閉じられたとき) Presenter を破棄 — 順序は [破棄の順序](#破棄の順序) を参照
 
 ### UserControl 系
 
 1. UserControl は既にデザイナーまたはコードで生成済み
 2. Presenter インスタンスを生成 (`new SettingsPresenter(deps?)` — Presenter 自身の依存のみ)
 3. `presenter.Connect(view[, parameters])` を呼ぶ → 構築後に **View アタッチ** (`OnViewAttached`) → **アクション登録** (`RegisterViewActions`、続けてフレームワークが `ActionBinder` を自動 Bind) → **初期化** (`OnInitialize`、続けて `OnInitializeAsync` を開始) が走る
-4. UserControl が `Dispose` されると Presenter も自動 `Dispose` (`Connect` が `ControlLifecycleController` 経由で橋渡し)
+4. UserControl が `Dispose` されると Presenter も自動 `Dispose` (`Connect` が `ControlLifecycleController` 経由で橋渡し。監視は手順 3 の前から有効)
+
+親 Presenter が `AttachChild` で付けた子も手順 3 と同じ順序で初期化されます。子が終わるのは、ハンドルの `Dispose`、親の破棄、子コントロールの破棄のいずれかです。
+
+### 破棄の順序
+
+`Dispose` は次の順で進みます。どの段階が例外を投げても後続の段階は必ず実行され、失敗はまとめて最後に再スローされます (1 件ならそのまま、複数なら `AggregateException`)。
+
+1. **ディスパッチ停止** — この Presenter と子孫すべての `Dispatcher` が停止。以後、残っているコントロールのクリックは何もしない (`CanDispatch` は `false`、`Dispatch` / `DispatchAsync` はハンドラもミドルウェアも実行しない)。実行中の非同期ハンドラが完了しても `CanExecuteChanged` は発火しない
+2. **`Lifetime` をキャンセル**
+3. **バインダーを解除** — フレームワークが Bind した `ActionBinder` の `Unbind()` を呼ぶ
+4. **`Cleanup()`**
+5. **子 Presenter を付けた逆順に破棄** (子も同じ順序で破棄される。親のリソース — DI スコープ等 — がまだ使える)
+6. **`Disposables` を解放**
+
+View は破棄されません (Form / UserControl の破棄はそれぞれのホスト側)。
 
 ### 誤用時の挙動 (フェイルファスト)
 
 - View をアタッチせずに `Initialize` すると `InvalidOperationException`。
 - アタッチ済みの Presenter に 2 つ目の View をアタッチすると例外。
-- UserControl 用 `Connect` が途中 (アタッチ/初期化) で失敗した場合、Presenter は破棄されます。
+- UserControl 用 `Connect` が途中 (アタッチ/初期化) で失敗した場合、Presenter は破棄されます。初期化中にコントロールが破棄された場合も同様です (`ObjectDisposedException`)。
+- `AttachChild` の誤用 (アタッチ済みの子、破棄済みの親など) は [契約表](#子-presenter-を所有する-attachchild) を参照。
 - Form 用 `Connect` (Adopted) の挙動は [ウィンドウクローズモデル § Adopted ホスティング](Concept-Window-Closing-Model) を参照 (アタッチ済み・未初期化なら初期化、異なる View や 2 回目の `Connect` は例外、失敗時は破棄)。
 
 ---
@@ -270,7 +359,7 @@ protected override async Task OnInitializeAsync(CancellationToken ct)
 ```
 
 - 未処理の例外はログ出力されます (ウィンドウは開いたまま)。ユーザーに伝えるべきエラーはオーバーライド内で捕まえてください。
-- 渡されるトークンは `Lifetime` です。`protected CancellationToken Lifetime` は Presenter の `Dispose` の最初 (`Cleanup` より前) にキャンセルされるので、読み込み中にウィンドウを閉じても処理が止まり、そのキャンセルはエラー扱いされません。
+- 渡されるトークンは `Lifetime` です。`protected CancellationToken Lifetime` は Presenter の `Dispose` の冒頭 (ディスパッチ停止の直後、`Cleanup` より前) にキャンセルされるので、読み込み中にウィンドウを閉じても処理が止まり、そのキャンセルはエラー扱いされません。
 - `Lifetime` は非同期アクションハンドラにも自動で渡されます ([ViewAction § 非同期アクション](Reference-ViewAction-System#非同期アクション))。それ以外の、Presenter と一緒に止めたい非同期処理 (タイマー、ポーリング等) にも渡してください。
 - テストでは `await host.Initialized;` で完了を待ってから検証します ([HowTo: Presenter をテストする](HowTo-Test-A-Presenter))。
 
@@ -279,7 +368,7 @@ protected override async Task OnInitializeAsync(CancellationToken ct)
 購読 (`IEventAggregator.Subscribe` のトークン、`Cascade.Bind` の戻り値、`+=`/`-=` のイベント) は
 `Cleanup` で手動解除する代わりに、**作成行で `.DisposeWith(Disposables)` を付けるだけ**です。
 バッグは遅延生成され (購読のない Presenter はコストゼロ)、Presenter の `Dispose` 時に
-`Cleanup()` の**直後**にフレームワークが逆順で自動解放します — `Cleanup` を override して
+`Cleanup()` (と子 Presenter の破棄) の**後**にフレームワークが逆順で自動解放します — `Cleanup` を override して
 base を呼び忘れても漏れません。
 
 ```csharp
@@ -415,6 +504,7 @@ using (var host = PresenterTestHost.Start(presenter, view))
 | `Logger` | `ILogger` | 構造化ロギング |
 | `Navigator` | `IWindowNavigator` | 子ウィンドウの表示 |
 | `Lifetime` | `CancellationToken` | Presenter の破棄 (ウィンドウを閉じる / コントロール破棄) でキャンセルされるトークン |
+| `AttachChild(child, view[, parameters])` | `IDisposable` (メソッド) | 子パネルの Presenter を所有・初期化 ([上記](#子-presenter-を所有する-attachchild)) |
 | `Validation` | `ValidationState` | 検証エラー (フィールド名ごと)。`Validate(model)` / `Check(model)` / `SetError` / `Reset`。View が `IValidatableView` なら `ValidationErrors` に自動接続され、変更のたびに `canExecute` を再評価 ([フォーム入力を検証する](HowTo-Validate-Form-Input)) |
 
 `Messages` / `Dialogs` / `Files` / `Logger` / `Navigator` は `ServiceLocator.Current` (`IServiceProvider`) から遅延解決されます。

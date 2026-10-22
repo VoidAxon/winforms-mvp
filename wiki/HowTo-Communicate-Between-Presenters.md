@@ -263,39 +263,35 @@ Navigator.ShowWindow<DocumentPresenter, EditResult>(
 
 ### こんなときに (厳密な 4 条件、すべて満たすこと)
 
-- ✅ 親 Form/UserControl が子 UserControl を **コンポジション関係で所有** している
+- ✅ 親 Presenter が子 Presenter を **コンポジション関係で所有** している (`AttachChild`)
 - ✅ 子に対する操作が **1〜2 個の狭く特定的なコマンド** で完結する (`Reset()`, `Refresh()`, `ClearSelection()` のような局所的なもの)
 - ✅ **第三の Presenter が同じ操作・状態に関心を持つ可能性がない**
 - ✅ 子の **内部状態を問い合わせる必要がない** (コマンド一方向のみ。クエリが必要なら Model の責務)
 
 ### 例: データソース切替時に検索パネルをリセットする
 
-「データソース切替で検索条件をリセット」— 一回的・狭い・他に関係者がいないコマンドの例。**子の生成と所有は composition root (親 Form) が行い**、親 Presenter は子を `internal` の seam 経由で受け取ります（親 View に子コントロール/子 View を生やさない）。
+「データソース切替で検索条件をリセット」— 一回的・狭い・他に関係者がいないコマンドの例。**子は親 Presenter が `AttachChild` で所有し**、親 View は子 View のインターフェイスだけを公開します（コントロールではない）。所有していることが前提だから、親から子への狭いコマンドが成り立ちます。
 
 ```csharp
-// composition root: 親 Form が両方を生成して結線する
-public partial class MainForm : Form, IMainView
+public interface IMainView : IWindowView
 {
-    private readonly MainPresenter _main;
-
-    public MainForm()
-    {
-        InitializeComponent();
-
-        var search = new SearchPanelPresenter();
-        search.Connect(_searchPanelControl);   // 子はデザイナー上のコントロール。Form が所有
-
-        _main = new MainPresenter(search);      // 親へは子 Presenter を内部 seam で渡す
-        _main.Connect(this);
-    }
+    ISearchPanelView SearchPanel { get; }   // 子 View のインターフェイス (Form はデザイナー上の UserControl を返す)
+    event EventHandler DataSourceChanged;
 }
 
 public class MainPresenter : WindowPresenterBase<IMainView>
 {
     // 親が子を保持する = 結合あり。だから「最終手段」かつ狭い 4 条件付き。
-    private readonly SearchPanelPresenter _search;
+    private SearchPanelPresenter _search;
 
-    public MainPresenter(SearchPanelPresenter search) => _search = search;
+    protected override void OnViewAttached()
+        => SubscribeViewEvent(h => View.DataSourceChanged += h, h => View.DataSourceChanged -= h, OnDataSourceChanged);
+
+    protected override void OnInitialize()
+    {
+        _search = new SearchPanelPresenter();
+        AttachChild(_search, View.SearchPanel);   // 親が所有: 親と一緒に破棄される
+    }
 
     private void OnDataSourceChanged()
     {

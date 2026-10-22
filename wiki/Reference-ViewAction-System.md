@@ -213,6 +213,30 @@ private void InitializeActionBindings()
 
 データに応じた条件付き有効化が必要な場合は、`CanExecute` predicate で制御してください (バインド自体は無条件に行う)。
 
+### Presenter の破棄とバインド解除 (`Unbind`)
+
+`IViewActionBinder` は `Bind(dispatcher)` と対になる `Unbind()` を持ちます。
+
+```csharp
+public interface IViewActionBinder
+{
+    void Bind(ViewActionDispatcher dispatcher);
+    void Unbind();   // フレームワークが Presenter の破棄時に呼ぶ
+}
+```
+
+- **フレームワークが呼ぶ**: Presenter が破棄されると、その Presenter が Bind した `ActionBinder` の `Unbind()` が呼ばれます (`Lifetime` のキャンセル直後、`Cleanup` の前)。View 側で呼ぶ必要はありません。
+- **`ViewActionBinder.Unbind()`** はコントロールのイベントと Dispatcher の両方から切り離します。以後クリックしても何もディスパッチされず、`Enabled` も更新されません。コントロールと View はそのまま、構成済みのバインディングも残るので `Bind(dispatcher)` で再度 Bind できます。2 回目以降や Bind 前の呼び出しは何もしません。
+- **独自の `IViewActionBinder` 実装も `Unbind()` を実装してください** (破壊的変更)。Dispatcher への参照と購読を外し、以後のトリガーを無害にするのが契約です。テスト用の `CapturingActionBinder` は Unbind 後の `Dispatch` を何もしない操作にし、`IsBound` が `false` になります ([HowTo: Presenter をテストする](HowTo-Test-A-Presenter))。
+
+**破棄された Presenter の Dispatcher は何も実行しません。** `Unbind` より前、破棄の最初の段階で、Presenter (と [`AttachChild`](Reference-Presenter-Base-Classes#子-presenter-を所有する-attachchild) で所有する子孫すべて) の Dispatcher が停止します:
+
+- `CanDispatch` は常に `false`
+- `Dispatch` / `DispatchAsync` はハンドラもミドルウェアも実行せず、未登録キーやペイロード不一致でも Strict モードの例外を出さない (`DispatchAsync` はそのまま完了したタスクを返す)
+- `CanExecuteChanged` は発火しない — 破棄前から実行中だった非同期ハンドラが完了したときも、`RaiseCanExecuteChanged()` を呼んでも
+
+そのため、Presenter より長生きするコントロール (取り除いた明細行パネル、閉じ処理中のフォーム) を後からクリックしても、破棄済みの Presenter のハンドラは走りません。
+
 ---
 
 ## ActionKey の定義方針
@@ -287,6 +311,7 @@ Dispatcher.Register(
 | **任意のアクション実行直後** | 自動 (フレームワークが `ActionExecuted` 後に全 CanExecute を再評価) |
 | **非同期ハンドラの開始時・終了時** | 自動 (実行中のアクションは `CanDispatch == false`) |
 | **アクション実行を伴わない状態変化** | 手動 (`Dispatcher.RaiseCanExecuteChanged()` を呼ぶ) |
+| **Presenter の破棄後** | 再評価しない (Dispatcher は停止済み — [Unbind](#presenter-の破棄とバインド解除-unbind) 参照) |
 
 詳細は [状態変化への対応](#状態変化への対応) を参照。
 
@@ -556,7 +581,7 @@ _binder.AddRange(mapping);
 
 **重要**: `CheckBox` と `RadioButton` は `Click` ではなく `CheckedChanged` に紐付くため、キーボードや programmatic な変更でも発火します。
 
-**注意 (値系コントロール)**: `NumericUpDown` / `DateTimePicker` / `MonthCalendar` は `ComboBox` のような「確定時のみ」イベントを持たないため、コード上で `Value` / `SelectionStart` を代入したときも発火します。初期化やデータ再設定で意図せず発火させたくない場合は、代入の前後で `Unbind()` / `Bind()` するか、ガードフラグで抑制してください。
+**注意 (値系コントロール)**: `NumericUpDown` / `DateTimePicker` / `MonthCalendar` は `ComboBox` のような「確定時のみ」イベントを持たないため、コード上で `Value` / `SelectionStart` を代入したときも発火します。初期化やデータ再設定で意図せず発火させたくない場合は、ガードフラグで抑制してください (`Unbind()` は Presenter の破棄時にフレームワークが呼ぶもので、Dispatcher との接続も外れます。引数なしの `Bind()` はイベントのみのバインドなので、再接続には使えません)。
 
 ### コントロールの値をペイロードとして渡す
 

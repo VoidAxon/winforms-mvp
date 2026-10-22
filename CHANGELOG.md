@@ -10,6 +10,7 @@
 
 ### Added (追加)
 
+- **`AttachChild` — 親 Presenter が子 Presenter を所有する** (`PresenterBase`, protected) — 画面の一部を UserControl + Presenter に分け、その Presenter が業務サービスを必要とするとき、親 **View インターフェイス** が子の **View インターフェイス** (`ICustomerPanelView CustomerPanel { get; }`、コントロールではない) を公開し、親 Presenter が `AttachChild(new CustomerPanelPresenter(deps), View.CustomerPanel, input)` で組み立てる。依存は親のコンストラクタから来るので、Navigator が作る Form にファクトリ登録で渡す必要がない。子はその場で初期化され、親のサービスを使い (自分のサービスがあればそれを保つ)、閉じる判断には加わらない。親の破棄では `Cleanup` の後に逆順で破棄、子のコントロールが破棄されたときも解放。戻り値のハンドルで動的なパネル (行・タブ) を途中で解放できる。親のテストで子までまとめて検証できる。`Connect` は WinForms 側が所有する場合 (従来 Form、単独のコントロール) に使う。
 - **新パッケージ `WinformsMVP.Testing`** (`netstandard2.0`、`WinformsMVP.Core` のみに依存、テストフレームワーク・モックライブラリ非依存) — テストプロジェクトから参照する。`PresenterTestHost` / `TestServices` に加え、Presenter が使うフレームワークサービスのフェイクを同梱: `TestServices.CreateFakes()` (`FakeServices`: `Provider` と `Messages` / `Toasts` / `Dialogs` / `Files` / `Navigator` / `Logs`)、`CapturingActionBinder`、`FakeMessageService` (呼び出し記録、確認の答えはキュー → ハンドラ)、`FakeToastService`、`FakeDialogProvider`、`FakeWindowNavigator` (本番の `WindowNavigator` と同じ規則: 結果の型変換、キーの重複判定と Presenter の破棄、パラメータ必須の Presenter の検査; 非モーダルは `Windows[i].CloseWithResult(...)` で閉じる)、`InMemoryFileService` (どの OS でも Windows のパス規則、`System.IO` と同じ例外、`Failure` で失敗を注入)、`RecordingLoggerFactory`。**答えを用意していない確認・ダイアログ・モーダルは `UnscriptedInteractionException`** (想定外の質問が黙って片方の分岐に進まない; `AnswerUnscripted` / `CancelUnscripted` で既定の答えにできる)。どれも任意で、1 つだけ差し替え (`fakes.Provider.RegisterInstance<IX>(mine)`)、まったく使わない (`TestServices.Create()` + 自作フェイク / Moq)、メソッドの上書き (virtual) ができる。リリースは 5 パッケージ。`winformsmvp-tests` テンプレートはこのパッケージを参照し、自前の `CapturingActionBinder.cs` を持たない。
 - **検証エラーの「画面の順」をモデルから決める: `ValidationState.ErrorsInOrder()` / `FirstError`** — `Check(model)` / `Validate(model)` がモデルの型を覚え、エラーをそのプロパティの宣言順 (基底クラスが先) に並べる。宣言順と違う項目だけ `[ValidationOrder(n)]` で動かす (付けないものは 0)。Presenter のルール (`SetError`) もプロパティ名ならその位置、モデルにない項目は名前順、`FormLevel` は最後。`FirstError` はその先頭 (エラーがなければ `InvalidOperationException`)。送信失敗時の推奨は `if (!Validation.Check(model)) { var first = Validation.FirstError; Messages.ShowWarning(first.Message); View.FocusError(first.Field); }` で、Presenter に項目の並び (`FieldOrder`) を書かない。
 - Wiki: 表示のしかたを「メッセージだけ」(View が `IValidatableView` を実装しない) と「メッセージ + アイコン」の 2 つの正式な書き方として説明。
@@ -17,9 +18,16 @@
 
 ### Changed (変更)
 
+- **BREAKING: `IViewActionBinder` に `Unbind()` を追加** — Presenter の破棄時にフレームワークが呼ぶ。自作の binder は実装が必要 (`ViewActionBinder` と `CapturingActionBinder` は対応済み; 解除後の `CapturingActionBinder` は何もしない)。
+- `Presenter.Dispose` はすべての段階を実行し、複数の失敗はまとめて投げる (1 つならそのまま)。
 - **BREAKING: `PresenterTestHost` / `TestServices` は `WinformsMVP.Core` から `WinformsMVP.Testing` パッケージへ移動** (名前空間 `WinformsMVP.Testing` は同じ)。テストプロジェクトに `WinformsMVP.Testing` の参照を追加する。
 - **`StandardActions` のキーを修飾** (BREAKING, キー名のみ) — `StandardActions.Save` のキーは `"Save"` から `"Standard.Save"` (`"Standard."` + メンバー名) になった。同梱のキーが重なっていた (`FileSave` と `Save` がどちらも `"Save"`、`FileOpen` / `Open`、`FileClose` / `Close` も) のが別々のアクションになり、ログやミドルウェアで画面のアクションと同じ形で見える。メンバーはすべて残る。`StandardActions.X` で参照するコードはそのまま動く。キーの文字列 (`"Save"`) と比べていた場合や、`ViewAction.Create("Save")` と同じキーとして扱っていた場合だけ影響する。
 - `ErrorsInOrder(params fieldOrder)` — 並び順にない項目は、名前順の前にモデルの順 (上記) で並ぶ (モデルを検証していなければ従来どおり名前順)。
+
+### Fixed (修正)
+
+- 破棄された Presenter のアクションが動いていた: 破棄後のクリック (コントロールが残っている場合) や実行中の非同期ハンドラの完了が、ハンドラ実行や有効/無効の更新を起こしていた。破棄でディスパッチャを止め、フレームワークが結んだ binder を解除する。
+- `Connect`: Presenter の初期化中にコントロールが破棄されると Presenter が破棄されずに残っていた。初期化の前から監視し、Presenter を破棄して `ObjectDisposedException`。破棄済みのコントロールは何もする前に拒否。
 
 ### Removed (削除)
 

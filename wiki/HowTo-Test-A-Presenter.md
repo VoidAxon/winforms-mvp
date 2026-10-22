@@ -24,6 +24,7 @@ Presenter は WinForms に依存しないため、**UI スレッド不要・実�
   - [子ウィンドウの表示を検証する](#子ウィンドウの表示を検証する)
   - [ロギングを検証する](#ロギングを検証する)
   - [非同期処理をテストする](#非同期処理をテストする)
+  - [子 Presenter を含む画面のテスト](#子-presenter-を含む画面のテスト)
 - [テストを駆動するときのルール](#テストを駆動するときのルール)
 - [ベストプラクティス](#ベストプラクティス)
 - [関連ページ](#関連ページ)
@@ -129,6 +130,8 @@ public class CapturingActionBinder : IViewActionBinder
     public ViewActionDispatcher Dispatcher { get; private set; }
 
     public void Bind(ViewActionDispatcher dispatcher) => Dispatcher = dispatcher;   // フレームワークが呼ぶ
+    public void Unbind() => Dispatcher = null;      // Presenter の破棄時にフレームワークが呼ぶ。以後の Dispatch は何もしない
+    public bool IsBound => Dispatcher != null;      // Bind から Unbind (Presenter の破棄) までの間 true
 
     public void Dispatch(ViewAction action, object payload = null) => Dispatcher.Dispatch(action, payload);
     public Task DispatchAsync(ViewAction action, object payload = null) => Dispatcher.DispatchAsync(action, payload);   // 非同期ハンドラの完了を待つ
@@ -373,9 +376,69 @@ public async Task Close_WithUnsavedChanges_SavesBeforeClosing()
 }
 ```
 
-- `DispatchAsync` / `Initialized` は、ハンドラや `OnInitializeAsync` が例外を投げても fault しません (本番と同じくログに出るだけ)。失敗時の振る舞いは、ハンドラ内で表示したメッセージ (`fakes.Messages.Calls`) や View の状態で検証します。
+- `DispatchAsync` はハンドラの例外で fault します (`await Assert.ThrowsAsync<...>(() => view.Binder.DispatchAsync(...))`)。`Initialized` は `OnInitializeAsync` が例外を投げても fault しません (本番と同じくログに出るだけ)。想定内の失敗は、ハンドラ内で表示したメッセージ (`fakes.Messages.Calls`) や View の状態で検証します。
 - 実行中のアクションは `CanDispatch == false` です。「実行中は無効」を検証するなら、完了しない `TaskCompletionSource` をモックリポジトリから返し、`_view.Binder.Dispatch(...)` の直後に `Assert.False(_view.Binder.CanDispatch(...))` とします。
 - 実例: `tests/WinformsMVP.Samples.Tests/Presenters/ComposeEmailPresenterTests.cs`、`MainEmailPresenterTests.cs`、`ViewActions/AsyncActionTests.cs`。
+
+### 子 Presenter を含む画面のテスト
+
+親 Presenter が `AttachChild` で子パネルを組み立てる画面 ([HowTo: マスター/詳細 § 動的なパネル](HowTo-Implement-Master-Detail#動的なパネル-行の追加削除タブ)) は、**親だけ** を `PresenterTestHost` で起動します。親の本物の `AttachChild` が子を初期化するので、組み立て (どの子に何を渡すか) も含めてテストできます。
+
+- フェイクの親 View は、子の View インターフェイスとして **フェイクの子 View** を返します (固定パネルはプロパティ、動的パネルは `AddLine()` が新しいものを作って記録)。子 View にも `CapturingActionBinder` を持たせます。
+- 子のアクションは **子 View の `Binder`** で Dispatch します。本物の子 Presenter が動きます。
+- 子は親のサービスを引き継ぐので、`Start(services, …)` に渡したフェイクが子でも使われます (グローバルには落ちない)。
+- 取り除かれたパネルは不活性です: その `Binder.Dispatch` は何もせず、`Binder.IsBound` は `false`。
+
+```csharp
+public sealed class FakeOrderLineView : IOrderLineView
+{
+    public CapturingActionBinder Binder { get; } = new CapturingActionBinder();
+    public IViewActionBinder ActionBinder => Binder;
+    public IReadOnlyList<Product> Products { set { } }
+    public int Quantity { set { } }
+}
+
+public sealed class FakeOrderEditView : IOrderEditView
+{
+    public CapturingActionBinder Binder { get; } = new CapturingActionBinder();
+    public IViewActionBinder ActionBinder => Binder;
+    public List<FakeOrderLineView> Lines { get; } = new List<FakeOrderLineView>();
+    public event EventHandler AddLineRequested;
+    public event EventHandler<IOrderLineView> RemoveLineRequested;
+
+    public IOrderLineView AddLine() { var line = new FakeOrderLineView(); Lines.Add(line); return line; }
+    public void RemoveLine(IOrderLineView line) => Lines.Remove((FakeOrderLineView)line);
+
+    public void RaiseAddLine() => AddLineRequested?.Invoke(this, EventArgs.Empty);
+    public void RaiseRemoveLine(FakeOrderLineView line) => RemoveLineRequested?.Invoke(this, line);
+}
+
+[Fact]
+public void RemovedLine_IsGoneFromModelAndInert()
+{
+    var fakes = TestServices.CreateFakes();
+    fakes.Messages.EnqueueYesNo(true);          // 削除確認に「はい」
+    var view = new FakeOrderEditView();
+    var input = new OrderEditInput();
+
+    using (PresenterTestHost.Start(fakes.Provider, new OrderEditPresenter(_products), view, input))   // _products: フェイク Repository
+    {
+        view.RaiseAddLine();
+        var line = Assert.Single(view.Lines);
+        line.Binder.Dispatch(OrderLineActions.ChangeQuantity, 3);   // 本物の子 Presenter が動く
+        Assert.Equal(3, input.Lines.Single().Quantity);
+
+        view.RaiseRemoveLine(line);
+
+        Assert.Empty(view.Lines);
+        Assert.Empty(input.Lines);
+        Assert.False(line.Binder.IsBound);                          // 子 Presenter は破棄済み
+        line.Binder.Dispatch(OrderLineActions.ChangeQuantity, 9);   // 遅れたクリック: 何もしない
+    }
+}
+```
+
+`CapturingActionBinder` の `Unbind()` は Presenter の破棄時にフレームワークが呼び、以後の `Dispatch` / `DispatchAsync` は何もせず (`CanDispatch` は `false`)、`IsBound` は `false` になります。Bind 前の `Dispatch` は従来どおり例外 (Presenter の起動忘れ) です。親の `PresenterTestHost.Initialized` が待つのは親の `OnInitializeAsync` だけです。実例: `tests/WinformsMVP.Samples.Tests/Composition/AttachChildDynamicTests.cs`、`AttachChildTests.cs`。
 
 ---
 

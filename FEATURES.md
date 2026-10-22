@@ -25,7 +25,9 @@ Namespaces are the same in Core and WinForms (`WinformsMVP.MVP.*`, `WinformsMVP.
 | Release anything with the presenter | `something.DisposeWith(Disposables)` (see §13) |
 | Built-in services, no constructor injection | `Messages`, `Toasts`, `Dialogs`, `Files`, `Navigator`, `Logger` (see §5) |
 | Validation state / change tracking | `Validation` (§8), `TrackChanges(model)` (§7) |
-| Host a UserControl presenter (WinForms) | `presenter.Connect(view[, param])` — attaches, initializes, disposes with the control |
+| Embed a panel presenter in an MVP screen (it needs services) | parent view exposes `IPanelView Panel { get; }`; parent presenter: `AttachChild(new PanelPresenter(deps), View.Panel[, param])` in `OnInitialize` — disposed with the parent or its control · [wiki](wiki/HowTo-Implement-Master-Detail.md) |
+| Panels added / removed at runtime (rows, tabs) | `var handle = AttachChild(...)` keyed by the child view; remove: `handle.Dispose()` then `View.RemoveXxx(view)` |
+| Host a UserControl presenter without an MVP parent (WinForms) | `presenter.Connect(view[, param])` — attaches, initializes, disposes with the control |
 | Host a Form you create yourself (shell, legacy) | `presenter.Connect(form[, param][, onClosed])` (WinForms) |
 | Input model the form binds to | `NotifyingObject` (`SetProperty(ref field, value)`), `WinformsMVP.MVP.Models` |
 
