@@ -230,25 +230,19 @@ private void OnSave()
 
 `Validation.HasErrors` (表示済みかどうかに関係なく、どれかのルールが失敗していれば `true`) は読めますが、送信の `canExecute` には使いません。検証以外の条件 (変更があるか、処理中か等) で `canExecute` を使うのは問題ありません。`Validation` が変わるたびに `canExecute` は自動で再評価されます。
 
-### 送信に失敗したとき: メッセージ + アイコン + フォーカス
+### 送信に失敗したとき: メッセージ + フォーカス (+ アイコン)
 
 推奨は **メッセージボックスで最初のエラーを知らせ、閉じたらその項目にフォーカスを移す** 書き方です。アイコンだけでは、ボタンを押しても何も起きなかったように見えます (WinForms の業務画面の慣習にも合います)。
 
-Presenter — 画面の並び順を渡して `ErrorsInOrder` で取り出します:
+Presenter — `Check` に失敗したら `FirstError` を出します:
 
 ```csharp
-private static readonly string[] FieldOrder =
-{
-    nameof(RegistrationModel.UserName), nameof(RegistrationModel.Email),
-    nameof(RegistrationModel.Password), nameof(RegistrationModel.ConfirmPassword), nameof(RegistrationModel.Age),
-};
-
 private void OnSubmit()
 {
     var model = ReadModel();
-    if (!Validation.Check(model))                 // アイコンは全項目に出る
+    if (!Validation.Check(model))                 // アイコンを出す画面では全項目に出る
     {
-        var first = Validation.ErrorsInOrder(FieldOrder)[0];
+        var first = Validation.FirstError;        // 画面の順で最初のエラー
         Messages.ShowWarning(first.Message);      // 閉じるまで戻らない
         View.FocusError(first.Field);             // どのコントロールかは Form が決める
         return;
@@ -263,10 +257,31 @@ Form — `FocusError` は表示部品の対応付けをそのまま使います:
 void IRegistrationView.FocusError(string field) => _errors.TryFocusError(field);
 ```
 
-- `ErrorsInOrder(fieldOrder)` は **すべての** エラーを (項目, メッセージ) の並びで返します。並び順にない項目は名前順で後ろに、`FormLevel` は最後に付くので、`Check` が `false` なら `[0]` は必ずあります (フォームレベルのエラーだけのときも黙りません)。全部を一覧で出すなら `string.Join(Environment.NewLine, errors.Select(e => e.Message))`。
+**「画面の順」はモデルから決まります。** Presenter に項目の並びを書く必要はありません。
+
+- `Check(model)` / `Validate(model)` はモデルの型を覚え、`ErrorsInOrder()` と `FirstError` は **そのプロパティの宣言順** (基底クラスが先) に並べます。入力モデルのプロパティを画面の順に宣言しておけば、それで終わりです。
+- 宣言順と画面の順が違う項目だけ `[ValidationOrder(n)]` で動かします (後述)。
+- Presenter のルール (`SetError`) も、項目名がモデルのプロパティ名ならその位置に入ります。モデルにない項目は名前順で後ろに、`FormLevel` は最後に付くので、`Check` が `false` なら `FirstError` は必ずあります (エラーがないのに読むと `InvalidOperationException`)。
+- ルールがすべて Presenter のルール (`SetError`) の画面も、送信時は `Validation.Check(_input)` を呼びます (DataAnnotations がなければモデルのエラーは 0 件で、型を覚えるためだけに働きます)。
+- モデルと画面の並びがまったく違う画面は、`ErrorsInOrder(nameof(A), nameof(B), ...)` で先頭に来る項目を指定できます (残りはモデルの順)。全部を一覧で出すなら `string.Join(Environment.NewLine, Validation.ErrorsInOrder().Select(e => e.Message))`。
+
+その他:
+
 - `TryFocusError(field)` はマップしたコントロールを含む `TabPage` を選んでからフォーカスします。`FormLevel`・未マップ・無効なコントロールでは何もせず `false` を返します。折りたたみパネルや独自のタブなどは Form 側で開いてから呼びます。
 - フォーカスは **メッセージを閉じた後** に移します。`ShowErrors` (入力のたびに呼ばれる) で自動的に動かすと、入力中にカーソルを奪うことになります。
-- アイコンだけで済ませる画面は、`if (!Validation.Check(model)) return;` のままで構いません。
+
+### 表示のしかた: メッセージだけ / メッセージ + アイコン
+
+どちらも正式な書き方です。画面ごとに選びます。
+
+| | メッセージだけ | メッセージ + アイコン |
+|---|---|---|
+| View | `IValidatableView` を **実装しない** | `IValidatableView` を実装し、`ErrorProviderDisplay` で項目とコントロールを対応付ける |
+| 入力中 | 何も表示しない | 離れた項目の横にアイコン |
+| 送信に失敗したとき | 最初のエラーをメッセージで出し、その項目へフォーカス | 同じ + 全項目にアイコン |
+| フォーカスの移し方 | Form が項目名 → コントロールを自分で対応付ける (`switch` など) | `_errors.TryFocusError(field)` |
+
+多くの WinForms 業務画面は「メッセージだけ」です。Presenter の書き方は両方で同じなので、あとからアイコンを足すのも View 側だけで済みます。
 
 ### Presenter のルール: SetError / ClearError
 
@@ -300,7 +315,9 @@ private void CheckUserNameAvailable(RegistrationModel model)
 | `HasErrors` | どれかのルールが失敗していれば `true` (表示の有無とは無関係) |
 | `RevealAll` | `Check` / `ShowAll` 後、`Reset` まで `true` |
 | `Errors` / `GetErrors(field)` | 現在のエラー (フィールド名 → メッセージ一覧。Model のルールが先、Presenter のルールが後) |
-| `ErrorsInOrder(params fieldOrder)` | 全エラーを画面の順の (項目, メッセージ) で返す。並び順にない項目は名前順で後ろ、`FormLevel` は最後 (並び順に入れればその位置)。スナップショット |
+| `ErrorsInOrder()` | 全エラーを画面の順の (項目, メッセージ) で返す。順序は最後に `Check` / `Validate` したモデルのプロパティの宣言順 (`[ValidationOrder]` で調整)、モデルにない項目は名前順で後ろ、`FormLevel` は最後。スナップショット |
+| `FirstError` | `ErrorsInOrder()` の先頭 (送信失敗時に出すエラー)。エラーがないと `InvalidOperationException` |
+| `ErrorsInOrder(params fieldOrder)` | 指定した項目を先頭に、残りは `ErrorsInOrder()` と同じ順。`FormLevel` も指定すればその位置 |
 | `FormLevel` | フィールドに属さないエラーのキー (`""`) |
 | `ErrorsChanged` / `WasReset` | 変更通知 (フレームワークが View への接続に使う) |
 
@@ -504,33 +521,28 @@ public class MinimumAgeAttribute : ValidationAttribute
 
 ## `[ValidationOrder]` でフィールド順序を制御
 
-`[ValidationOrder(N)]` (`WinformsMVP.Common.Validation.Attributes`) をプロパティに付けると、検証の評価順序を制御できます。`ValidateSequential` と組み合わせると **最初のエラーで停止** します。`ValidateAll` (= `ValidationState`) では全エラーを返すので、評価順は同じフィールド内のメッセージの並び順にだけ影響します。
+`ErrorsInOrder()` / `FirstError` は、ふつうはモデルの **宣言順** で十分です。宣言順と画面の順が違うプロパティにだけ `[ValidationOrder(N)]` (`WinformsMVP.Common.Validation.Attributes`) を付けて動かします。
 
 ```csharp
-public class UserModel
+public sealed class OrderInput : NotifyingObject
 {
-    [ValidationOrder(1)]
-    [Required]
-    public string UserName { get; set; }
+    [Required(ErrorMessage = "得意先を入力してください")]
+    public string Customer { get; set; }          // 0: 1 番目
 
-    [ValidationOrder(2)]
-    [Required]
-    [EmailAddress]
-    public string Email { get; set; }
+    [ValidationOrder(1)]                           // 画面では明細の下にある
+    [Required(ErrorMessage = "納期を入力してください")]
+    public DateTime? DeliveryDate { get; set; }
 
-    [ValidationOrder(3)]
-    [Range(0, 200)]
-    public int Age { get; set; }
+    [Required(ErrorMessage = "明細を入力してください")]
+    public string Lines { get; set; }              // 0: 2 番目
 }
+// FirstError の順: Customer → Lines → DeliveryDate
 ```
 
-検証順:
-
-1. `UserName.Required`
-2. `Email.Required` → `Email.EmailAddress` (同プロパティ内は宣言順)
-3. `Age.Range`
-
-`[ValidationOrder]` を付けないプロパティは `Order = 0` 扱いです。同じ Order 内では宣言順 (リフレクションで読まれた順) で評価されます。**明示的な制御が必要なフィールドだけ** 属性を付けてください。
+- 付けないプロパティは `0`。同じ番号の中は宣言順 (基底クラスが先)。
+- partial class を複数ファイルに分けたモデルは宣言順が決まらないので、番号を付けてください。
+- 同じプロパティの複数のルールは宣言順にメッセージが並びます。
+- `IModelValidator.ValidateSequential` (最初のエラーで止まる) も同じ順序を使います。
 
 ---
 

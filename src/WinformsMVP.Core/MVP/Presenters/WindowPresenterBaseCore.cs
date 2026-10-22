@@ -8,7 +8,7 @@ namespace WinformsMVP.MVP.Presenters
 {
     /// <summary>
     /// Shared base for window presenters carrying the close machinery: the Pull gate
-    /// (<see cref="CanClose(CloseReason)"/> / its callback overload) and the Push sink
+    /// (<see cref="CanClose(CloseReason)"/> / <see cref="CanCloseAsync(CloseReason)"/>) and the Push sink
     /// (<see cref="RequestClose(InteractionStatus)"/>). Do not inherit directly — use
     /// <see cref="WindowPresenterBase{TView}"/> or <see cref="WindowPresenterBase{TView, TParam}"/>.
     /// </summary>

@@ -4,9 +4,8 @@ using System.Diagnostics;
 namespace WinformsMVP.Logging
 {
     /// <summary>
-    /// Simple logger that writes to <see cref="Trace.WriteLine(string)"/>. Useful for
-    /// .NET Framework 4.0 hosts that cannot reference Microsoft.Extensions.Logging
-    /// but still want visibility into framework internals while debugging.
+    /// Simple logger that writes to <see cref="Trace.WriteLine(string)"/> (the Visual Studio Output
+    /// window or any trace listener; works in Release builds), with no logging package needed.
     /// </summary>
     public sealed class DebugLogger : ILogger
     {

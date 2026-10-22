@@ -371,7 +371,54 @@ private void OnEdit()
 ## Step 7: 既存ウィンドウを開く Presenter からの呼び出し
 
 移行途中、**移行済み Presenter から未移行の従来 Form を開きたい** 場合があります。
-Presenter からは WinForms 型を扱えないので、`ILegacyFormService` のような中継サービスを作ります。
+Presenter からは WinForms 型を扱えないので、従来 Form を開く処理は View 側か中継サービスに置きます。結果はどちらも `InteractionResult<T>` (Ok / Cancel / Error) で返します。
+
+| | 方法 A: View のメソッド (手軽) | 方法 B: 中継サービス |
+|---|---|---|
+| 向いている場合 | その画面だけが開く従来 Form | 複数の画面から同じ従来 Form を開く |
+| 書くもの | View インターフェイスに 1 メソッド、Form にその実装 | インターフェイス + 実装 + 登録 |
+| テスト | モック View がその結果を返す | 偽のサービスを渡す |
+
+### 方法 A: View のメソッドで開く (インターフェイス不要)
+
+View インターフェイスに「何をするか」を表すメソッドを 1 つ足し、Form の実装の中で従来 Form を開きます。Presenter は「いつ開くか」と結果の扱いだけを決め、従来 Form の型は見ません。
+
+```csharp
+public interface ICustomerView : IWindowView
+{
+    /// 従来の編集画面で current (null = 新規) を編集し、結果を返す
+    InteractionResult<CustomerData> EditCustomer(CustomerData current);
+    void ShowCustomer(CustomerData customer);
+}
+
+// Form: 生成・値の受け渡し・破棄はここで完結する
+public InteractionResult<CustomerData> EditCustomer(CustomerData current)
+{
+    using (var legacy = new LegacyCustomerForm())
+    {
+        legacy.CustomerName = current?.Name;          // 従来 Form は公開プロパティで値を受け渡すことが多い
+        if (legacy.ShowDialog(this) != DialogResult.OK)
+            return InteractionResult<CustomerData>.Cancel();
+        return InteractionResult<CustomerData>.Ok(new CustomerData { Name = legacy.CustomerName });
+    }
+}
+
+// Presenter
+private void OnEditCustomer()
+{
+    var result = View.EditCustomer(_customer);
+    if (!result.IsOk) return;
+    _customer = result.Value;                         // 検証・保存はここ
+    View.ShowCustomer(_customer);
+}
+```
+
+- メソッド名は「従来 Form で」ではなく、やること (`EditCustomer`) にします。あとで従来 Form を MVP に置き換えても、Presenter とテストは変わりません。
+- テストではモック View が `InteractionResult<CustomerData>.Ok(...)` / `Cancel()` / `Error(...)` を返すだけです。
+- モードレスで開く場合は `Task<InteractionResult<CustomerData>> EditCustomerAsync(CustomerData current, CancellationToken ct)` とし、Form が閉じたときに結果を返します (Presenter は非同期アクションで `await`)。
+- サンプル: `samples/WinformsMVP.Samples/LegacyPopupDemo/`。
+
+### 方法 B: 中継サービス (ILegacyFormService)
 
 ### ILegacyFormService の定義
 
