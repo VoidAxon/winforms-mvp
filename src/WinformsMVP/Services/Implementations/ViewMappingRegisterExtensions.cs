@@ -141,60 +141,6 @@ namespace WinformsMVP.Services.Implementations
         }
 
         /// <summary>
-        /// Automatically scans and registers mappings between View interfaces and implementation Forms
-        /// from all assemblies loaded in the current application domain.
-        /// </summary>
-        /// <param name="register">ViewMappingRegister instance</param>
-        /// <param name="allowOverride">Whether to override existing mappings (default: false)</param>
-        /// <param name="excludeSystemAssemblies">Whether to exclude system assemblies (default: true)</param>
-        /// <returns>Number of Views registered</returns>
-        /// <remarks>
-        /// <para>
-        /// This method targets all assemblies loaded in the application domain.
-        /// Using RegisterFromAssembly() to specify a particular assembly is typically recommended.
-        /// </para>
-        /// </remarks>
-        public static int RegisterFromLoadedAssemblies(
-            this IViewMappingRegister register,
-            bool allowOverride = false,
-            bool excludeSystemAssemblies = true)
-        {
-            if (register == null)
-                throw new ArgumentNullException(nameof(register));
-
-            int totalRegistered = 0;
-            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
-
-            foreach (var assembly in assemblies)
-            {
-                // Exclude system assemblies
-                if (excludeSystemAssemblies)
-                {
-                    var assemblyName = assembly.GetName().Name;
-                    if (assemblyName.StartsWith("System.") ||
-                        assemblyName.StartsWith("Microsoft.") ||
-                        assemblyName == "mscorlib" ||
-                        assemblyName == "netstandard")
-                    {
-                        continue;
-                    }
-                }
-
-                try
-                {
-                    totalRegistered += RegisterFromAssembly(register, assembly, allowOverride);
-                }
-                catch
-                {
-                    // Continue even if assembly scan fails
-                    continue;
-                }
-            }
-
-            return totalRegistered;
-        }
-
-        /// <summary>
         /// Automatically scans and registers mappings between View interfaces and implementation Forms within the specified namespace.
         /// </summary>
         /// <param name="register">ViewMappingRegister instance</param>

@@ -12,6 +12,7 @@
 
 - **検証エラーの「画面の順」をモデルから決める: `ValidationState.ErrorsInOrder()` / `FirstError`** — `Check(model)` / `Validate(model)` がモデルの型を覚え、エラーをそのプロパティの宣言順 (基底クラスが先) に並べる。宣言順と違う項目だけ `[ValidationOrder(n)]` で動かす (付けないものは 0)。Presenter のルール (`SetError`) もプロパティ名ならその位置、モデルにない項目は名前順、`FormLevel` は最後。`FirstError` はその先頭 (エラーがなければ `InvalidOperationException`)。送信失敗時の推奨は `if (!Validation.Check(model)) { var first = Validation.FirstError; Messages.ShowWarning(first.Message); View.FocusError(first.Field); }` で、Presenter に項目の並び (`FieldOrder`) を書かない。
 - Wiki: 表示のしかたを「メッセージだけ」(View が `IValidatableView` を実装しない) と「メッセージ + アイコン」の 2 つの正式な書き方として説明。
+- **`ValueChangedEventArgs<T>` / `ValueChangingEventArgs<T>`** (`WinformsMVP.Common.Events`) — View イベント用の対になった EventArgs。`ValueChanged` は変わった後の `OldValue` / `NewValue`、`ValueChanging` (`CancelEventArgs` を継承) は変わる前で、Presenter が `Cancel = true` で止められる (View は `!e.Cancel` のときだけ反映する; 例: 未保存の編集中は一覧の選択を動かさない)。View のイベントは自前の EventArgs も WinForms の EventArgs も要らない: `EventHandler` / `EventHandler<業務型>` / タプル / この 2 つ / `CancelEventArgs` (Wiki: 設計ルール Rule 4)。
 
 ### Changed (変更)
 
@@ -21,6 +22,7 @@
 
 - **BREAKING: `ValidationHelper` と `ValidationError` を削除** — どちらもどこからも使われていなかった。`ValidationHelper.ValidateSequential(model, validator, Messages)` (最初のエラーをメッセージで出す) は `Validation.Check(model)` + `Validation.FirstError` + `Messages.ShowWarning` に置き換える (Presenter のルールとフォーカスも扱える)。`ValidationError` は `ErrorsInOrder()` の `(Field, Message)`。
 - **BREAKING: `ExecutionRequestEventArgs<…>` (1〜3 引数版)、`ExecutionResult<TResult>`、`ExecutionCompletedEventArgs<TResult>` を削除** — 移行済み画面から従来 (非 MVP) Form を開くための仕組みだったが、結果が「null = キャンセル」で `InteractionResult<T>` と一致せず (値型ではキャンセルを表せない)、Form の破棄の責任や非モーダルの `Completed` の約束があいまいで、Executor / Callback の 2 つの使い方が 1 つの型に混在していた。サンプルも Executor を一度も使っていなかった。**移行**: View インターフェイスに意味のあるメソッド (`InteractionResult<CustomerData> EditCustomer(CustomerData current)`) を足し、Form の実装で従来 Form を `ShowDialog` して結果を返す (Wiki: 従来の WinForms から移行する、Step 7 の方法 A)。複数画面で使うなら中継サービス (方法 B)。サンプル `ExecutionRequestDemo` は `LegacyPopupDemo` に置き換え。
+- **BREAKING: 使われていなかった公開 API を削除** — `StringExtensions.Format` (`string.Format` の包み; 名前空間 `WinformsMVP.Common.Extensions` を using したすべての文字列に出ていた)、`PropertyNameHelper` (`nameof` で足りる)、`EqualityHelper`、`ViewMappingRegisterExtensions.RegisterFromLoadedAssemblies`。中身が空だった internal の `SelectedEventArgs` / `SelectionEventArgs` / `ValueChangedEventArgs` も削除 (後者は上記のジェネリック版に置き換え)。XML ドキュメントに残っていた net40 とコールバックオーバーロードの記述を更新。
 
 ## [1.0.0-preview.6] - 2026-10-22
 
