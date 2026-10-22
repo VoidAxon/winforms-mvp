@@ -221,6 +221,8 @@ private void InitializeActionBindings()
 
 文字列リテラルを直に渡さず、必ず静的クラスで定数として宣言します。標準的な動詞 (Save / Cancel / Delete / Refresh / Ok / ...) は**フレームワーク同梱の `StandardActions`** をそのまま使えます — 再定義しないでください。自前の静的クラスで宣言するのは **モジュール固有のアクション** だけです。
 
+`StandardActions` のキーも画面のアクションと同じく修飾されています: `StandardActions.Save` のキーは `"Standard.Save"` (`"Standard."` + メンバー名)。そのため同梱のキー同士が重なることはなく (`FileSave` と `Save` は別のアクション)、ログやミドルウェアでもどこのキーか分かります。Presenter ごとに登録するので、2 つの画面が両方 `StandardActions.Save` を使っても衝突しません。
+
 ```csharp
 using WinformsMVP.MVP.ViewActions;
 

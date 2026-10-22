@@ -16,6 +16,7 @@
 
 ### Changed (変更)
 
+- **`StandardActions` のキーを修飾** (BREAKING, キー名のみ) — `StandardActions.Save` のキーは `"Save"` から `"Standard.Save"` (`"Standard."` + メンバー名) になった。同梱のキーが重なっていた (`FileSave` と `Save` がどちらも `"Save"`、`FileOpen` / `Open`、`FileClose` / `Close` も) のが別々のアクションになり、ログやミドルウェアで画面のアクションと同じ形で見える。メンバーはすべて残る。`StandardActions.X` で参照するコードはそのまま動く。キーの文字列 (`"Save"`) と比べていた場合や、`ViewAction.Create("Save")` と同じキーとして扱っていた場合だけ影響する。
 - `ErrorsInOrder(params fieldOrder)` — 並び順にない項目は、名前順の前にモデルの順 (上記) で並ぶ (モデルを検証していなければ従来どおり名前順)。
 
 ### Removed (削除)
