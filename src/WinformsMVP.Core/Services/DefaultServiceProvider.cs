@@ -6,7 +6,7 @@ using WinformsMVP.Common.Internal;
 namespace WinformsMVP.Services
 {
     /// <summary>
-    /// The built-in, net40-safe service container: register into it via
+    /// The built-in service container: register into it via
     /// <see cref="IServiceRegistry"/>, resolve from it via <see cref="IServiceProvider"/>.
     /// Dictionary-backed; supports ready instances and lazy-singleton factories. No scopes —
     /// scoped/graph resolution is a real DI container's job (the M.E.DI bridge).

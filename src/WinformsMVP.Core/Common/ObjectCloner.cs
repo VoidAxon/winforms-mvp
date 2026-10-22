@@ -16,7 +16,7 @@ namespace WinformsMVP.Common
     /// (e.g. List&lt;T&gt;), and <see cref="IDictionary"/> (e.g. Dictionary&lt;K,V&gt;) —
     /// all deep-copied element by element. Other <see cref="System.Collections.IEnumerable"/>
     /// collections (e.g. HashSet&lt;T&gt;, Queue&lt;T&gt;) are not explicitly supported and
-    /// fall back to field-by-field POCO copy — usable on net40/net48, but for guaranteed
+    /// fall back to field-by-field POCO copy — usable, but for guaranteed
     /// semantics register a <see cref="ChangeTrackingPolicy{T}"/> for the model type or replace
     /// the application's <see cref="IObjectCloner"/>.
     /// <para>

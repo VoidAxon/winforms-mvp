@@ -8,6 +8,14 @@
 
 ## [Unreleased]
 
+### Added (追加)
+
+- **`ValueChangedEventArgs<T>`** (`WinformsMVP.Common.Events`) — 変更前と変更後の値 (`OldValue` / `NewValue`) を運ぶ View イベント用の EventArgs。View のイベントは自前の EventArgs も WinForms の EventArgs も要らない: `EventHandler` / `EventHandler<業務型>` / `EventHandler<ValueChangedEventArgs<T>>` (Wiki: 設計ルール Rule 4)。
+
+### Removed (削除)
+
+- **BREAKING: 使われていなかった公開 API を削除** — `StringExtensions.Format` (`string.Format` の包み; 名前空間 `WinformsMVP.Common.Extensions` を using したすべての文字列に出ていた)、`PropertyNameHelper` (`nameof` で足りる)、`EqualityHelper`、`ViewMappingRegisterExtensions.RegisterFromLoadedAssemblies`。中身が空だった internal の `SelectedEventArgs` / `SelectionEventArgs` / `ValueChangedEventArgs` も削除 (後者は上記のジェネリック版に置き換え)。XML ドキュメントに残っていた net40 とコールバックオーバーロードの記述を更新。
+
 ## [1.0.0-preview.6] - 2026-10-22
 
 > `v1.0.0-preview.5` のタグはリリースのテスト (gate) で失敗し、パッケージは公開されていません。その変更もここに含まれます。

@@ -5,7 +5,7 @@ namespace WinformsMVP.Services
     /// <summary>
     /// Minimal registration surface for the built-in service provider. Resolution is the BCL
     /// <see cref="IServiceProvider"/>; this is the matching "register" half (Prism's
-    /// <c>IContainerRegistry</c> role, kept deliberately small and net40-safe).
+    /// <c>IContainerRegistry</c> role, kept deliberately small).
     /// </summary>
     public interface IServiceRegistry
     {
