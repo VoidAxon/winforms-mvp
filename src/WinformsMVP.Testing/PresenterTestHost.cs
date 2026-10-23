@@ -40,6 +40,7 @@ namespace WinformsMVP.Testing
         {
             var host = Attach(presenter, view);
             Run(presenter, presenter.Initialize);
+            host.EndOpening();
             return host;
         }
 
@@ -50,6 +51,7 @@ namespace WinformsMVP.Testing
         {
             var host = Attach(presenter, view);
             Run(presenter, () => presenter.Initialize(parameters));
+            host.EndOpening();
             return host;
         }
 
@@ -192,6 +194,12 @@ namespace WinformsMVP.Testing
         private InteractionStatus _gateStatus;
 
         private Task<bool> RunGate(ICloseParticipant participant, CloseReason reason)
+            => RunGate(participant, reason, hasSeed: false, seedResult: null, seedStatus: InteractionStatus.Cancel);
+
+        // seed: the result a RequestClose supplied when it started this close attempt; recorded if the
+        // gate allows and did not supply its own.
+        private Task<bool> RunGate(ICloseParticipant participant, CloseReason reason,
+            bool hasSeed, object seedResult, InteractionStatus seedStatus)
         {
             var gate = new TaskCompletionSource<bool>();
             lock (_gateLock)
@@ -214,6 +222,7 @@ namespace WinformsMVP.Testing
                         if (_pendingGate != gate) return;
                         _pendingGate = null;
                         if (ok && _hasGateResult) Record(_gateResult, _gateStatus);
+                        else if (ok && hasSeed) Record(seedResult, seedStatus);
                         ClearGateResult();
                     }
                     gate.TrySetResult(ok);
@@ -246,6 +255,31 @@ namespace WinformsMVP.Testing
         }
 
         /// <summary>Disposes the presenter (runs <c>Cleanup</c> and releases <c>Disposables</c>).</summary>
+        /// <summary>
+        /// Completes when the close attempt a <c>RequestClose</c> started has been decided — at once when
+        /// nothing is pending. A <c>RequestClose</c> goes through <c>CanClose</c> / <c>CanCloseAsync</c>,
+        /// and dispatching the action that called it does not wait for an asynchronous gate:
+        /// <code>
+        /// view.Binder.Dispatch(EditActions.Close);
+        /// gate.SetResult(true);                      // the presenter's CanCloseAsync answers
+        /// await host.WaitForCloseDecisionAsync();
+        /// Assert.True(host.CloseRequested);
+        /// </code>
+        /// </summary>
+        public Task WaitForCloseDecisionAsync()
+        {
+            lock (_gateLock) return (Task)_pendingGate?.Task ?? Task.CompletedTask;
+        }
+
+        // Until the synchronous part of Start returns, the presenter is opening: a RequestClose then
+        // cancels the opening (no gate, as the real host does before showing the window).
+        private bool _opening = true;
+
+        private void EndOpening()
+        {
+            lock (_gateLock) _opening = false;
+        }
+
         public void Dispose() => _presenter.Dispose();
 
         private sealed class RecordingSink : ICloseSink
@@ -259,13 +293,26 @@ namespace WinformsMVP.Testing
                 {
                     if (_host._pendingGate != null)
                     {
+                        // The gate is deciding: this is the result of that close, not a second one.
                         _host._hasGateResult = true;
                         _host._gateResult = result;
                         _host._gateStatus = status;
                         return;
                     }
-                    _host.Record(result, status);
+                    if (_host._opening)
+                    {
+                        // Cancelling the opening: no gate; repeated requests are one cancellation.
+                        _host.CloseCount = 1;
+                        _host.CloseResult = result;
+                        _host.CloseStatus = status;
+                        return;
+                    }
                 }
+                // A RequestClose on an open window goes through the gate, like X.
+                var participant = _host._presenter as ICloseParticipant;
+                if (participant == null) { lock (_host._gateLock) _host.Record(result, status); return; }
+                try { _host.RunGate(participant, CloseReason.Normal, hasSeed: true, seedResult: result, seedStatus: status); }
+                catch (Exception) { /* a throwing gate blocks the close, as in a real window (which logs it) */ }
             }
         }
     }
