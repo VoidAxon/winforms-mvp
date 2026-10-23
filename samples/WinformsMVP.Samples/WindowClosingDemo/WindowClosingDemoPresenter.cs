@@ -17,26 +17,26 @@ namespace WinformsMVP.Samples.WindowClosingDemo
     }
 
     /// <summary>
-    /// Presenter showcasing the framework's two-direction window-closing pattern.
+    /// Presenter showcasing the framework's window-closing pattern: one gate, two initiators.
     /// </summary>
     /// <remarks>
-    /// Two directions of close are demonstrated:
+    /// Two initiators of a close are demonstrated:
     /// <list type="bullet">
     ///   <item><description>
     ///     <b>Push</b>: <c>OnSave</c> / <c>OnCancel</c> finalize the dirty flag and call
-    ///     <c>RequestClose(...)</c>. The framework then closes the form.
+    ///     <c>RequestClose(...)</c>. The close goes through <see cref="CanClose"/> like X.
     ///   </description></item>
     ///   <item><description>
-    ///     <b>Pull</b>: <see cref="CanClose"/> handles external close requests (user clicks X,
-    ///     system shutdown, etc.). It inspects the <see cref="CloseReason"/> to decide whether
-    ///     to prompt — system shutdowns must NEVER block.
+    ///     <b>Pull</b>: user clicks X / Alt+F4, or the owner closes. System shutdown and Task
+    ///     Manager closes are allowed by the framework without asking <see cref="CanClose"/>.
     ///   </description></item>
     /// </list>
     /// <para>
     /// The single-source-of-truth invariant: dirty-state checks live ONLY in
     /// <see cref="CanClose"/>. Push-direction handlers prepare the dirty flag (set it to false)
-    /// before they request close, so the follow-up close check observes a clean state and lets
-    /// the close proceed.
+    /// before they request close, so the gate that close goes through observes a clean state and
+    /// lets it proceed without prompting. A plain <c>RequestClose(InteractionStatus.Cancel)</c>
+    /// without that step would prompt like X — what a "Close" button wants.
     /// </para>
     /// </remarks>
     public class WindowClosingDemoPresenter : WindowPresenterBase<IWindowClosingDemoView>
@@ -67,7 +67,7 @@ namespace WinformsMVP.Samples.WindowClosingDemo
         protected override bool CanClose(CloseReason reason)
         {
             // System shutdown / Task Manager never reach here (the framework allows them without asking).
-            // Normal user-driven close (X / Alt+F4 / Form.Close()).
+            // Every other close: X / Alt+F4, owner closing, and this presenter's RequestClose.
             if (!IsDirty) return true;
 
             bool discard = Messages.ConfirmYesNo(
@@ -92,7 +92,7 @@ namespace WinformsMVP.Samples.WindowClosingDemo
 
         private void OnCancel()
         {
-            _baseline = View.Text;        // Treat current as committed; skip the dirty prompt.
+            _baseline = View.Text;        // Discard: treat current as committed so the gate does not prompt.
             View.StatusMessage = "Cancelled.";
             RequestClose(InteractionStatus.Cancel);
         }

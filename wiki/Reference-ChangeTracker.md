@@ -298,7 +298,7 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView, int>
 ### tracker の役割ではないこと
 
 - **元に戻す**: tracker は検出だけを行い、データを復元しません (`RejectChanges` / `GetOriginalValue` は削除されました)。画面に留まったまま編集を取り消したい場合は、リポジトリから読み直して表示し、tracker を新しく作ります。
-- **「破棄して閉じる」**: `RequestClose` の前に `AcceptChanges()` (書き方 1) / `AcceptChanges(ReadModel())` (書き方 2) を呼び、Pull 方向の `CanClose` が再び確認しないようにします ([ウィンドウクローズとの連携](#3-ウィンドウクローズとの連携))。これは破棄した編集の追跡を終えるという意味で、保存したという意味ではありません。
+- **「破棄して閉じる」**: `RequestClose` の前に `AcceptChanges()` (書き方 1) / `AcceptChanges(ReadModel())` (書き方 2) を呼び、`RequestClose` が通る `CanClose` が確認しないようにします ([ウィンドウクローズとの連携](#3-ウィンドウクローズとの連携))。これは破棄した編集の追跡を終えるという意味で、保存したという意味ではありません。
 - **データの保持**: 現在値を取り出すプロパティはありません (`CurrentValue` / `UpdateCurrentValue` は削除されました)。データは Presenter (書き方 1) か View (書き方 2) が持ちます。
 
 ---
@@ -431,7 +431,8 @@ tracker はスレッドセーフではありません (内部ロックはあり�
 ウィンドウクローズ時のダーティチェックに使うのが典型パターンです (書き方 1 の例。書き方 2 では `IsChanged` を `IsChangedWith(ReadModel())`、`AcceptChanges()` を `AcceptChanges(ReadModel())` に読み替えます)。
 
 ```csharp
-// Pull direction: override CanClose (details in [Window Closing Model](Concept-Window-Closing-Model))
+// The gate: X / Alt+F4 / owner closing and RequestClose all go through CanClose
+// (details in [Window Closing Model](Concept-Window-Closing-Model))
 protected override bool CanClose(CloseReason reason)
 {
     if (_tracker.IsChanged &&
@@ -456,9 +457,12 @@ private void OnDiscard()
     _tracker.AcceptChanges();              // stop tracking the discarded edits (not "saved")
     RequestClose(InteractionStatus.Cancel);
 }
+
+// Push direction: Close button — same as X: asks when there are unsaved edits
+private void OnClose() => RequestClose(InteractionStatus.Cancel);
 ```
 
-Push ハンドラは `RequestClose` を呼ぶ **前に** ダーティ状態を確定させます (保存なら保存後に、破棄なら破棄した編集を受け入れて `AcceptChanges`)。これにより、`CanClose` がその後いつ評価されてもクリーンな状態を見て、再確認ダイアログは出ません。ダーティ状態の確認は `CanClose` (Pull) だけに置き、二重確認の防止をフレームワークの閉じ方の内部動作に頼らないでください。
+`RequestClose` も X と同じ `CanClose` を通ります。保存 / 破棄のハンドラは `RequestClose` を呼ぶ **前に** ダーティ状態を確定させます (保存なら保存後に、破棄なら破棄した編集を受け入れて `AcceptChanges`)。これにより `CanClose` はクリーンな状態を見て、確認ダイアログを出さずに閉じます。確定しない「閉じる」ボタンは、ダーティなら X と同じ確認を出します。ダーティ状態の確認は `CanClose` だけに置きます。
 
 ---
 

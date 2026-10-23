@@ -11,7 +11,8 @@ namespace WinformsMVP.Samples.WindowClosingDemo
     /// </summary>
     /// <remarks>
     /// The Form writes no closing code at all — the close pipeline is driven by the Presenter
-    /// overriding <c>CanClose(CloseReason)</c> (Pull) and calling <c>this.RequestClose(...)</c> (Push).
+    /// overriding <c>CanClose(CloseReason)</c> (the gate every close goes through) and calling
+    /// <c>RequestClose(...)</c> (Push). Buttons are bound to actions; none calls <c>Close()</c>.
     /// </remarks>
     public class WindowClosingDemoForm : Form, IWindowClosingDemoView
     {

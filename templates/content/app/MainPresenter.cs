@@ -14,6 +14,7 @@ namespace MyMvpApp
         protected override void RegisterViewActions()
         {
             Dispatcher.Register(MainActions.SayHello, OnSayHello);
+            // Closes like X: goes through CanClose (override it to ask before exiting).
             Dispatcher.Register(MainActions.Exit, () => RequestClose(InteractionStatus.Ok));
         }
 

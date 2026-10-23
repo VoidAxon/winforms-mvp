@@ -1,9 +1,11 @@
 # HowTo: ウィンドウクローズを扱う
 
 このページでは、典型的なウィンドウクローズシナリオの実装パターンを示します。
-Push/Pull 二方向モデルの設計意図については [ウィンドウクローズモデル](Concept-Window-Closing-Model) を、`WindowNavigator` の API リファレンスは [WindowNavigator](Reference-WindowNavigator) を参照してください。
+「1 つのゲート、2 つの起点」モデルの設計意図については [ウィンドウクローズモデル](Concept-Window-Closing-Model) を、`WindowNavigator` の API リファレンスは [WindowNavigator](Reference-WindowNavigator) を参照してください。
 
-> **基本ルール**: Form はクローズコードを **まったく** 書きません。`IWindowView` にクローズ関連のメンバーはありません。すべてのクローズポリシーは Presenter に置きます。
+> **基本ルール**: Form はクローズコードを **まったく** 書きません (「閉じる」ボタンも `Close()` ではなく ViewAction)。`IWindowView` にクローズ関連のメンバーはありません。すべてのクローズポリシーは Presenter に置きます。
+>
+> **1 つのゲート**: ウィンドウが開いた後は、X / Alt+F4 / オーナーのクローズも Presenter の `RequestClose` も、同じ `CanClose` / `CanCloseAsync` を通ります (`RequestClose` は `CloseReason.Normal`)。ゲートを通らないのはシステムシャットダウン / タスクマネージャと、表示前の `RequestClose` (表示のキャンセル) だけです。
 
 ---
 
@@ -11,18 +13,22 @@ Push/Pull 二方向モデルの設計意図については [ウィンドウク�
 
 - [シナリオ 1: シンプルな OK/Cancel ダイアログ](#シナリオ-1-シンプルな-okcancel-ダイアログ)
 - [シナリオ 2: クローズ時のダーティチェック](#シナリオ-2-クローズ時のダーティチェック)
+- [「閉じる」ボタン — X と同じ確認を出す](#閉じるボタン--x-と同じ確認を出す)
 - [シナリオ 3: 業務結果を返すダイアログ](#シナリオ-3-業務結果を返すダイアログ)
 - [シナリオ 4: 親が結果を受け取る](#シナリオ-4-親が結果を受け取る)
-- [シナリオ 5: システムシャットダウンを絶対にブロックしない](#シナリオ-5-システムシャットダウンを絶対にブロックしない)
+- [シナリオ 5: システムシャットダウンはフレームワークが許可する](#シナリオ-5-システムシャットダウンはフレームワークが許可する)
 - [シナリオ 6: 非同期クローズ判断](#シナリオ-6-非同期クローズ判断)
 - [シナリオ 7: Adopted ホスティング (シェル / レガシー Form)](#シナリオ-7-adopted-ホスティング-シェル--レガシー-form)
+- [シナリオ 8: 表示前に開くのを取りやめる](#シナリオ-8-表示前に開くのを取りやめる)
 - [テストパターン](#テストパターン)
 
 ---
 
 ## シナリオ 1: シンプルな OK/Cancel ダイアログ
 
-ダーティ状態のない最小限のダイアログです。Save/Cancel ハンドラから結果を Push するだけです。X ボタンでいつでも閉じてよいウィンドウなら `CanClose` のオーバーライドは不要です。
+ダーティ状態のない最小限のダイアログです。Save/Cancel ハンドラから結果を Push するだけです。X ボタンでいつでも閉じてよいウィンドウなら `CanClose` のオーバーライドは不要です (`RequestClose` もゲートを通りますが、既定の `CanClose` は常に `true` です)。
+
+> モーダルダイアログでも、アクションにバインドしたボタンの `DialogResult` は `None` のままにします。`DialogResult.OK` などを設定すると、WinForms がハンドラやゲートの判断を待たずにダイアログを閉じてしまいます。
 
 ```csharp
 public class ConfirmDeletePresenter : WindowPresenterBase<IConfirmDeleteView>
@@ -84,10 +90,10 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView, EditUserPara
     {
         Dispatcher.Register(StandardActions.Save, OnSave,
             canExecute: () => HasUnsavedChanges);
-        Dispatcher.Register(StandardActions.Cancel, OnCancel);
+        Dispatcher.Register(StandardActions.Cancel, OnCancel);   // explicit "discard and close"
     }
 
-    // ── Pull direction: X / Alt+F4 ───────────────────────────────────────────
+    // ── The gate: X / Alt+F4 / owner closing / RequestClose ─────────────────
     protected override bool CanClose(CloseReason reason)
     {
         if (!HasUnsavedChanges) return true;
@@ -95,21 +101,21 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView, EditUserPara
         return Messages.ConfirmYesNo("Discard unsaved changes?", "Confirm");
     }
 
-    // ── Push direction: Save / Cancel buttons ────────────────────────────────
+    // ── Push direction: Save / Cancel buttons (they go through the gate too) ─
     private void OnSave()
     {
         // Read the final view state before persisting; EditChanged may not have
         // fired if the control with focus has not yet committed its value.
         var user = View.GetModel();
         SaveUser(user);
-        _changeTracker.AcceptChanges(user);   // snapshot = saved value; CanClose sees clean state
+        _changeTracker.AcceptChanges(user);   // snapshot = saved value; the gate sees clean state
         RequestClose(BuildResult(), InteractionStatus.Ok);
     }
 
     private void OnCancel()
     {
         // Discard: stop tracking the discarded edits BEFORE RequestClose (this does not
-        // mean they were saved), so CanClose would not ask again.
+        // mean they were saved), so the gate this close goes through does not ask.
         _changeTracker.AcceptChanges(View.GetModel());
         RequestClose(InteractionStatus.Cancel);
     }
@@ -118,23 +124,54 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView, EditUserPara
 }
 ```
 
-### 二重プロンプトが起きない理由
+### 保存 / 破棄でプロンプトが出ない理由
 
-Push ハンドラ (`OnSave` / `OnCancel`) は `RequestClose` を呼ぶ **前に** ダーティ状態を確定させます (保存なら保存した値で、破棄なら破棄する画面の値で `AcceptChanges`)。これで `CanClose` がその後いつ評価されてもクリーンな状態を見るため、再確認は出ません。ダーティ確認は `CanClose` (Pull) にだけ置くという約束の裏返しです。
-
-なお現在の `WindowLifecycleController` は、`RequestClose` から自分で起こした `form.Close()` については `FormClosing` のゲートを 1 回省略します。これは実装の詳細であり、Push ハンドラでダーティ状態を確定させる理由を置き換えるものではありません (テストの `host.CanClose()` などはゲートを直接評価します)。
+`RequestClose` も X と同じゲート (`CanClose`) を通ります。Push ハンドラ (`OnSave` / `OnCancel`) は `RequestClose` を呼ぶ **前に** ダーティ状態を確定させる (保存なら保存した値で、破棄なら破棄する画面の値で `AcceptChanges`) ので、ゲートはクリーンな状態を見て確認なしに `true` を返します。ダーティ確認は `CanClose` にだけ置くという約束の裏返しです。
 
 ```
 OnSave()
     ├─ AcceptChanges(user)     ← finalize the dirty state first
-    └─ RequestClose(...)
+    └─ RequestClose(result, Ok)          (candidate result of this close)
           ↓
-    WindowLifecycleController.Close():  _suppressGate = true, form.Close()
+    WindowLifecycleController.Close():  stores the candidate, form.Close()
           ↓
-    FormClosing — _suppressGate is true → CanClose NOT called
+    FormClosing → CanClose(CloseReason.Normal) — clean → true, no prompt
           ↓
     FormClosed → converge → InteractionResult(Ok, result)
 ```
+
+- ゲートが拒否した場合 (確定を忘れてダーティのまま `RequestClose` し、確認で「いいえ」が選ばれた場合など)、ウィンドウは開いたままで、渡した結果は捨てられます。後のクローズに持ち越されることはありません。
+- 拒否されても、ハンドラがすでに行った処理 (破棄の `AcceptChanges`、保存) は巻き戻りません。
+- 保存中フラグなどで「処理中は閉じない」と拒否するゲートは、ハンドラ自身の `RequestClose` もブロックします。フラグは `RequestClose` の **前に** 下ろしてください。
+
+---
+
+## 「閉じる」ボタン — X と同じ確認を出す
+
+保存も破棄もしない「閉じる」ボタンは、X と同じ動作 (未保存の編集があれば確認) にしたいボタンです。`RequestClose` がゲートを通るので、ハンドラは `RequestClose` を呼ぶだけです。確認は `CanClose` / `CanCloseAsync` がそのまま出します:
+
+```csharp
+protected override void RegisterViewActions()
+{
+    Dispatcher.Register(StandardActions.Save, OnSave, canExecute: () => HasUnsavedChanges);
+    // Same as X: goes through CanClose, which asks when there are unsaved edits.
+    Dispatcher.Register(StandardActions.Close, () => RequestClose(InteractionStatus.Cancel));
+}
+```
+
+Form 側はボタンをアクションにバインドするだけで、`btnClose_Click => Close()` は書きません:
+
+```csharp
+_binder.Add(StandardActions.Close, btnClose);
+```
+
+| ボタン | ハンドラ | 未保存の編集があるとき |
+|--------|----------|------------------------|
+| 保存 | 保存 → `AcceptChanges` → `RequestClose(result, Ok)` | 確認なしで閉じる |
+| 破棄して閉じる | `AcceptChanges` → `RequestClose(Cancel)` | 確認なしで閉じる |
+| 閉じる | `RequestClose(Cancel)` | X と同じ確認 (ゲート) |
+
+確認で「はい (保存)」を選んだときに結果を返したい場合は、[ゲートの中で `RequestClose`](#クローズ時に保存した結果を呼び出し元へ返す) を呼びます。「閉じる」ハンドラが渡した `Cancel` は置き換えられます。テスト例は [テストパターン](#閉じるアクションをテストする) を参照してください。
 
 ---
 
@@ -269,10 +306,10 @@ private async Task<bool> SaveDraftAsync()
 
 フレームワークの動作:
 
-- タスクが未完了の間、ウィンドウは開いたままです。`true` で完了するとゲートをバイパスした再クローズが行われ、`false` ならウィンドウは開いたままです。
-- 判定待ちの間の再クローズ (X の連打など) は再質問せずに保留されますが、`SystemShutdown` / `TaskManager` によるクローズは通ります。owner / MDI 親 / `Application.Exit` から来たクローズが非同期に許可された場合は、そのクローズが再発行されます。
+- タスクが未完了の間、ウィンドウは開いたままです。`true` で完了すると同じクローズが (再質問せずに) 再発行され、`false` ならウィンドウは開いたままです。
+- 判定待ちの間の再クローズ (X の連打、「閉じる」ボタンの連打、`RequestClose`) は新しいゲートを開始せずに保留されます。`RequestClose` は判定待ちのクローズの結果を更新します。ただし `SystemShutdown` / `TaskManager` によるクローズは通ります。owner / MDI 親 / `Application.Exit` から来たクローズが非同期に許可された場合は、そのクローズが再発行されます。
 - タスクが fault / キャンセルされるとクローズはブロックされ、エラーはログ出力されます (システムレベルのクローズは許可)。想定内の失敗は上の例のように中で捕まえて `Messages` で伝え、`false` を返します。
-- `SystemShutdown` / `TaskManager` では `await` せずに即座に `true` を返してください ([シナリオ 5](#シナリオ-5-システムシャットダウンを絶対にブロックしない))。
+- `SystemShutdown` / `TaskManager` によるクローズは `CanCloseAsync` に届きません ([シナリオ 5](#シナリオ-5-システムシャットダウンはフレームワークが許可する))。
 
 ### クローズ時に保存した結果を呼び出し元へ返す
 
@@ -296,9 +333,9 @@ protected override bool CanClose(CloseReason reason)
 ```
 
 - ゲートが `true` を返したときだけ、その結果でクローズします (呼び出し元は `InteractionStatus.Ok` と結果を受け取ります)。`false` を返すと結果は捨てられ、ウィンドウは開いたままです。次のクローズはまた既定 (`Cancel`) から始まります。
-- `CanCloseAsync` でも同じです。`await` の後で `RequestClose` を呼び、`true` を返します。判定待ちの間に呼ばれた `RequestClose` (保存ボタンからのものも含む) は、ゲートの答えが出るまで保留されます。
-- `RequestClose` を呼ばずに `true` を返した場合は、これまでどおり `Cancel` (結果なし) で閉じます。上の `ComposeEmailPresenter` は結果が「送信したか」を意味するため、下書き保存では `RequestClose` を呼びません。
-- `PresenterTestHost` も同じ規則です: ゲート内の `RequestClose` は、`host.CanClose()` / `await host.CanCloseAsync()` が許可したときだけ `CloseRequested` / `CloseResult` に記録されます。
+- `CanCloseAsync` でも同じです。`await` の後で `RequestClose` を呼び、`true` を返します。判定待ちの間に呼ばれた `RequestClose` (保存ボタンからのものも含む) は新しいクローズを始めず、判定中のクローズの結果を置き換えます (最後の呼び出しが勝ち、ゲートが拒否すれば捨てられます)。
+- `RequestClose` を呼ばずに `true` を返した場合は、そのクローズを始めたもの が渡した結果で閉じます: X なら `Cancel` (結果なし)、「閉じる」ボタンの `RequestClose(InteractionStatus.Cancel)` なら `Cancel`。上の `ComposeEmailPresenter` は結果が「送信したか」を意味するため、下書き保存では `RequestClose` を呼びません。
+- `PresenterTestHost` も同じ規則です: ゲート内の `RequestClose` は、ゲートが許可したときだけ `CloseRequested` / `CloseResult` に記録されます (`host.CanClose()` / `await host.CanCloseAsync()` からでも、ゲートを通る `RequestClose` からでも)。
 
 ---
 
@@ -346,9 +383,44 @@ form.Show();
 
 ---
 
+## シナリオ 8: 表示前に開くのを取りやめる
+
+`OnInitialize`、`OnInitializeAsync` の同期部分 (最初の `await` まで)、またはフレームワークが close sink をバインドする前に `RequestClose` を呼ぶと、ウィンドウを閉じるのではなく **開くのを取りやめます**。ユーザーはまだ何も編集できないのでゲート (`CanClose`) は呼ばれず、ウィンドウは表示されません。複数回呼んだ場合は最後の結果が使われます:
+
+```csharp
+protected override void OnInitialize(EditOrderParameters parameters)
+{
+    var order = _repository.Find(parameters.OrderId);
+    if (order == null)
+    {
+        Messages.ShowWarning("注文が見つかりません。");
+        RequestClose(InteractionStatus.Cancel);   // cancels the opening: the window is never shown
+        return;
+    }
+    View.Order = order;
+}
+```
+
+| 表示方法 | 結果 |
+|----------|------|
+| `ShowAsModal<TResult>()` | `ShowDialog` は呼ばれず、`RequestClose` の結果がそのまま返る |
+| `ShowWindow(...)` (モードレス) | `Show` は呼ばれず、`null` が返る。キーを解放し、`onClosed` を 1 回呼んでから (ここで同じキーで開き直せる) Presenter と Form を破棄する |
+| `presenter.Connect(form); form.Show();` (Adopted) | 呼び出し側のコードはそのまま。フレームワークが `Load` で Form を不可視化 (不透明度 0・全モニターの外へ移動) してから閉じるので何も表示されない (Windows 上で、モーダル・モードレスともちらつかないことを確認済み) |
+
+Adopted の制限:
+
+- MDI 子ウィンドウは不可視化できないため `Load` でそのまま閉じます (一瞬見える場合があります)。
+- `Connect` より前に `Show` 済みの Form では、通常の (ゲートを通る) クローズになります。
+- `Application.Run(form)` のメインフォームで取りやめると、アプリケーションが終了します。
+- 他の `FormClosing` ハンドラがこのクローズを拒否した場合は、Form を元に戻して通常どおり表示します。
+
+`OnInitializeAsync` の最初の `await` より後で `RequestClose` を呼ぶと、ウィンドウはすでに表示されているので通常の (ゲートを通る) クローズになります。
+
+---
+
 ## テストパターン
 
-テストでは `PresenterTestHost` (`WinformsMVP.Testing` パッケージ) で Presenter をモック View にホストします。`Start` は本番と同じ初期化を実行し、`RequestClose` を記録し (Push)、`CanClose(reason)` / `CanCloseAsync(reason)` で Pull ゲートを駆動します。Form も `InternalsVisibleTo` も不要です:
+テストでは `PresenterTestHost` (`WinformsMVP.Testing` パッケージ) で Presenter をモック View にホストします。`Start` は本番と同じ初期化を実行し、`RequestClose` を本番と同じくゲートに通して **受理されたクローズ** を記録し (`CloseRequested` / `CloseCount` / `CloseResult` / `CloseStatus`)、`CanClose(reason)` / `CanCloseAsync(reason)` でゲートを直接駆動します。`Start` の同期部分の中の `RequestClose` は表示のキャンセルとして (ゲートなしで) 記録されます。Form も `InternalsVisibleTo` も不要です:
 
 ```csharp
 private readonly FakeServices _platform = TestServices.CreateFakes();   // フェイクのフレームワークサービス
@@ -357,11 +429,11 @@ private readonly PresenterTestHost _host;
 
 public WindowClosingDemoPresenterTests()
 {
-    _host = PresenterTestHost.Start(_platform.Provider, new WindowClosingDemoPresenter(), _view);   // アタッチ + 初期化 + RequestClose の記録
+    _host = PresenterTestHost.Start(_platform.Provider, new WindowClosingDemoPresenter(), _view);   // アタッチ + 初期化 + 受理されたクローズの記録
 }
 ```
 
-### Pull 方向 — `CanClose` をテストする
+### ゲート — `CanClose` をテストする
 
 `host.CanClose(reason)` は X / Alt+F4 と同じゲートを通り、`bool?` を返します (`CanCloseAsync` が未回答なら `null`)。`CanCloseAsync` をオーバーライドした Presenter では `await host.CanCloseAsync(reason)` で判定の完了を待ちます (例は後述):
 
@@ -404,7 +476,7 @@ public async Task Closing_WithDirtyState_UserSelectsYes_SavesDraftAndAllowsClose
 
 ### Push 方向 — `RequestClose` をテストする
 
-アクションを Dispatch し、ホストが記録した結果とステータスを検証します (非同期ハンドラなら `await _view.Binder.DispatchAsync(...)` で完了を待つ):
+アクションを Dispatch し、ホストが記録した結果とステータスを検証します (非同期ハンドラなら `await _view.Binder.DispatchAsync(...)` で完了を待つ)。`RequestClose` はゲートを通るので、保存 / 破棄のハンドラが `RequestClose` の前にダーティ状態を確定させていれば、確認なしに記録されます:
 
 ```csharp
 [Fact]
@@ -429,19 +501,56 @@ public void Cancel_PushesCancelStatus()
 
 ### 単一正本の不変条件テスト
 
-Push (Save) の後に続く `CanClose` 呼び出しが再プロンプトを出さないことを検証します:
+Save が確認を出さずに閉じる (ゲートがクリーンな状態を見る) ことを検証します:
 
 ```csharp
 [Fact]
-public void Save_ThenCanClose_DoesNotPrompt()
+public void Save_DoesNotPrompt()
 {
     _view.SimulateEdit("hello");
     _view.Binder.Dispatch(WindowClosingDemoActions.Save);
 
-    // Simulate the framework re-running the Pull gate after the Push close.
-    Assert.True(_host.CanClose());
+    Assert.True(_host.CloseRequested);
     Assert.DoesNotContain(_platform.Messages.Calls, c => c.IsConfirmation);
 }
+```
+
+### 「閉じる」アクションをテストする
+
+「閉じる」は X と同じゲートを通るので、確認の答えをフェイクに用意してから Dispatch します。拒否されたクローズは記録されません (上の [「閉じる」ボタン](#閉じるボタン--x-と同じ確認を出す) のように `StandardActions.Close` を登録した Presenter の例):
+
+```csharp
+[Fact]
+public void Close_WithUnsavedChanges_No_KeepsTheWindowOpen()
+{
+    _view.SimulateEdit("hello");
+    _platform.Messages.EnqueueYesNo(false);                 // "Discard unsaved changes?" → No
+
+    _view.Binder.Dispatch(StandardActions.Close);
+
+    Assert.Contains(_platform.Messages.Calls, c => c.IsConfirmation);
+    Assert.False(_host.CloseRequested);                     // vetoed: not recorded
+}
+
+[Fact]
+public void Close_WithUnsavedChanges_Yes_Closes()
+{
+    _view.SimulateEdit("hello");
+    _platform.Messages.EnqueueYesNo(true);
+
+    _view.Binder.Dispatch(StandardActions.Close);
+
+    Assert.True(_host.CloseRequested);
+    Assert.Equal(InteractionStatus.Cancel, _host.CloseStatus);
+}
+```
+
+ゲートが `CanCloseAsync` で非同期に答える場合、Dispatch (`DispatchAsync` も) はゲートの判定を待ちません。`await _host.WaitForCloseDecisionAsync()` で判定を待ってから検証します:
+
+```csharp
+_view.Binder.Dispatch(StandardActions.Close);
+await _host.WaitForCloseDecisionAsync();   // the async gate a RequestClose started has answered
+Assert.True(_host.CloseRequested);
 ```
 
 完全なテスト例: `tests/WinformsMVP.Samples.Tests/Presenters/WindowClosingDemoPresenterTests.cs` および `PresenterTestHostTests.cs`。

@@ -162,7 +162,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
         }
 
         [Fact]
-        public void Connect_ToAFormShownThenHidden_IsPastOpening_RequestCloseRunsTheGate()
+        public void Connect_ToAFormShownThenHidden_IsStillOpening_ClosedWhenShownAgain_NoGate()
         {
             var form = new FakeWindowForm();
             form.Show();
@@ -172,9 +172,27 @@ namespace WinformsMVP.Samples.Tests.Presenters
             presenter.Connect(form, r => closed = r);
 
             ((CapturingActionBinder)form.ActionBinder).Dispatch(ClosingPresenter.CloseAction);
+            Assert.Null(closed);                       // not visible: cancelling the opening, nothing shown
 
-            Assert.Equal(1, presenter.GateCalls);
+            form.Show();                               // becomes visible: closed at once, hidden
+
+            Assert.Equal(0, presenter.GateCalls);
             Assert.NotNull(closed);
+        }
+
+        [Fact]
+        public void Connect_HandleCreatedButNeverShown_IsStillOpening()
+        {
+            var form = new FakeWindowForm();
+            var _ = form.Handle;                       // created before Connect, never shown
+            var presenter = new RefusingPresenter();
+            InteractionResult closed = null;
+
+            presenter.Connect(form, r => closed = r);
+            form.Show();
+
+            Assert.Equal(0, presenter.GateCalls);
+            Assert.True(closed.IsCancelled);
         }
     }
 }

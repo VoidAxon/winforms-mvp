@@ -111,7 +111,14 @@ namespace WinformsMVP.Services.Implementations
 
             // Connected to a Form that is on screen, or was shown and hidden (Load already ran and will not
             // run again — its handle stays): it is past opening.
-            if (adopted && (_form.Visible || _form.IsHandleCreated)) EndOpeningAsShown();
+            if (adopted)
+            {
+                // A Form already on screen is past opening. One that is not visible — never shown (even if
+                // its handle exists) or shown and hidden (its Load will not run again) — is still opening
+                // until it becomes visible: Load or, for a re-shown Form, VisibleChanged ends it.
+                if (_form.Visible) EndOpeningAsShown();
+                else _form.VisibleChanged += OnFormVisibleChanged;
+            }
         }
 
         /// <summary>Undo <see cref="WireFormEvents"/> (Connect failed after wiring).</summary>
@@ -122,6 +129,7 @@ namespace WinformsMVP.Services.Implementations
             if (Controllers.TryGetValue(_form, out var registered) && ReferenceEquals(registered, this))
                 Controllers.Remove(_form);
             _form.Load -= OnFormLoad;
+            _form.VisibleChanged -= OnFormVisibleChanged;
             _form.FormClosing -= OnFormClosing;
             _form.FormClosed -= OnFormClosed;
             _form.HandleCreated -= OnHandleCreated;
@@ -180,6 +188,16 @@ namespace WinformsMVP.Services.Implementations
             _opening = false;
             if (!_openingCancelled) return;
             CancelOpeningInLoad();
+        }
+
+        // Adopted Form that was shown and hidden before Connect: its Load will not run again.
+        private void OnFormVisibleChanged(object sender, EventArgs e)
+        {
+            if (!_form.Visible) return;
+            _form.VisibleChanged -= OnFormVisibleChanged;
+            if (!_opening) return;
+            _opening = false;
+            if (_openingCancelled) CancelOpeningInLoad();
         }
 
         private bool _hidden;

@@ -29,6 +29,7 @@ Navigator.For(new CustomerEditPresenter(_repository))
 ```
 
 - モーダルは閉じるまで戻らず、`InteractionResult<T>` (`IsOk` / `IsCancelled` / `IsError`、`Value`) を返します。非モーダルはすぐ戻り、結果は `onClosed` で受け取ります。
+- Presenter が初期化中 (`OnInitialize` や `OnInitializeAsync` の最初の `await` まで) に `RequestClose` を呼ぶと、表示がキャンセルされます: `Show` / `ShowDialog` は呼ばれず、モーダルはその結果を返し、非モーダルは `null` を返します ([表示前のキャンセル](#表示前のキャンセル))。
 - `keySelector` が返すキーのウィンドウがすでに開いていれば、そのウィンドウをアクティブにします。このとき新しい Presenter は破棄され、その `onClosed` は登録されません。キーは Presenter の型ごとに分かれています (内部では `(Presenter の実行時の型, キー)`)。別の画面が同じレコード ID をキーにしても、互いのウィンドウを開いてしまうことはありません。同じ Presenter 型 + 同じキーのときだけ既存のウィンドウを使います (Presenter の派生クラスは別の型として扱われます)。
 - `owner` を渡すと、そのウィンドウに所属します (常に手前に表示され、オーナーと一緒に最小化・クローズされます。オーナーを閉じると、所属するウィンドウの `CanClose` が `ParentClosing` で呼ばれます)。
 
@@ -62,7 +63,7 @@ WindowNavigator
    └── IPresenter                (起動対象の Presenter インスタンス)
 ```
 
-> ウィンドウクローズは `WindowLifecycleController` が管理します (1 Form に 1 インスタンス)。Pull ゲート (`FormClosing`) はプレゼンターの `CanClose` override に転送され、Push ゲート (基底 `RequestClose(...)`) はクローズシンクを通じて同じコントローラに到達します。Push 起点の閉じは Pull ゲートをスキップします (`_suppressGate` フラグ)。Forms に閉じるコードは不要です。
+> ウィンドウクローズは `WindowLifecycleController` が管理します (1 Form に 1 インスタンス)。X / Alt+F4 / オーナーのクローズ (`FormClosing`) も、基底 `RequestClose(...)` (クローズシンク経由) も、同じコントローラでプレゼンターの `CanClose` / `CanCloseAsync` ゲートを通ります (`RequestClose` は `CloseReason.Normal`。システムシャットダウン / タスクマネージャは問い合わせずに許可)。`RequestClose` の結果はそのクローズの候補で、ゲートが拒否すれば捨てられます。表示前の `RequestClose` はゲートを通らず、表示をキャンセルします。Forms に閉じるコードは不要です。
 
 `IViewMappingRegister` の構成方法は [ViewMappingRegister](Reference-ViewMappingRegister) を、結果の伝達設計は [ウィンドウクローズモデル](Concept-Window-Closing-Model) を参照してください。
 
@@ -154,6 +155,13 @@ navigator.ShowWindow<DocumentPresenter, EditResult>(
     });
 ```
 
+### 表示前のキャンセル
+
+Presenter が初期化中 (`OnInitialize`、`OnInitializeAsync` の同期部分) に `RequestClose` を呼ぶと、ウィンドウは表示されません (ゲート `CanClose` も呼ばれません)。
+
+- モーダル (`ShowWindowAsModal` / `ShowAsModal`): `ShowDialog` を呼ばずに、`RequestClose` の結果を `InteractionResult<TResult>` として返します。
+- 非モーダル (`ShowWindow`): `Show` を呼ばずに **`null`** を返します。戻る前に、キーの登録を解除 → `onClosed` を 1 回呼ぶ → Presenter と Form を破棄、の順で処理するので、`onClosed` の中で同じキーのウィンドウを開き直せます。戻り値を使う場合は `null` を確認してください。
+
 ---
 
 ## シングルトンウィンドウ
@@ -170,7 +178,7 @@ navigator.ShowWindow<DocumentPresenter>(
 
 1. 内部辞書に `DocumentId` のエントリがあれば、既存ウィンドウを `Activate()` して前面に出す
 2. なければ新規ウィンドウを生成して、辞書に登録
-3. ウィンドウが閉じたら自動的に辞書から削除
+3. ウィンドウが閉じたら自動的に辞書から削除 (表示前にキャンセルされた場合も、`onClosed` の前に削除)
 
 ---
 
@@ -324,12 +332,14 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView, EditUserPara
 }
 ```
 
+開いているウィンドウへの `RequestClose` は、X と同じく `CanClose` / `CanCloseAsync` を通ります。ゲートが許可したときだけ、渡した結果が呼び出し元に届きます (拒否されればウィンドウは開いたままで、結果は捨てられます)。保存後に確認を出さずに閉じるには、`RequestClose` の前にダーティ状態を確定させます ([ウィンドウクローズモデル](Concept-Window-Closing-Model#単一正本の不変条件))。
+
 `InteractionResult<TResult>` の主な API:
 
 | プロパティ/メソッド | 用途 |
 |------------------|----|
 | `IsOk` | Ok ステータスで `Value` あり |
-| `IsCancelled` | ユーザーがキャンセル (Cancel ステータス、または Pull 方向で × でブロック) |
+| `IsCancelled` | ユーザーがキャンセル (Cancel ステータス、または × で閉じた) |
 | `IsError` | 業務側でエラー (Error ステータス、`ErrorMessage` あり) |
 | `Value` | `IsOk` のときの結果値 |
 | `ErrorMessage` | `IsError` のときのメッセージ |

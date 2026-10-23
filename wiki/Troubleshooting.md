@@ -198,17 +198,32 @@ protected override bool CanClose(CloseReason reason)
 }
 ```
 
-詳しくは [HowTo: ウィンドウクローズを扱う § Scenario 2](HowTo-Handle-Window-Closing#scenario-2-dirty-check-on-close) 参照。
+詳しくは [HowTo: ウィンドウクローズを扱う § Scenario 2](HowTo-Handle-Window-Closing#シナリオ-2-クローズ時のダーティチェック) 参照。
 
 ### Form 側にクローズコードが必要か?
 
 **必要ない。** `IWindowView` にはクローズメンバーが存在しません。Forms にクローズ用のボイラープレートは不要です。クローズ制御はすべて Presenter の `CanClose` override と基底 `RequestClose(...)` メソッドで行います。
 
-### Save 後に「変更を破棄しますか?」と二重に聞かれる
+「閉じる」ボタンも `btnClose_Click => Close()` ではなく ViewAction にします。`RequestClose` は X と同じゲートを通るので、未保存の編集があれば X と同じ確認が出ます:
 
-**原因**: Push ハンドラが `RequestClose` の前にダーティ状態を確定させていない。
+```csharp
+Dispatcher.Register(StandardActions.Close, () => RequestClose(InteractionStatus.Cancel));
+```
 
-**対処**: 保存後 (破棄の場合も) に `AcceptChanges` を呼んでから `RequestClose` する。これで `CanClose` がいつ評価されてもクリーンな状態を見ます。現在の `WindowLifecycleController` は Push 起点の閉じで Pull ゲートを 1 回省略しますが、これは実装の詳細なので頼らないでください。
+### `RequestClose` を呼んだのに閉じない
+
+**原因**: 開いているウィンドウへの `RequestClose` は `CanClose` / `CanCloseAsync` を通ります (`CloseReason.Normal`)。ゲートが `false` を返すと (確認で「いいえ」、処理中フラグで拒否など) ウィンドウは開いたままで、渡した結果は捨てられます。非同期ゲートの判定待ちの間は、新しいクローズも始まりません。
+
+**対処**:
+
+- 保存 / 破棄のハンドラでは、`RequestClose` の **前に** `AcceptChanges` でダーティ状態を確定させる (次項)。
+- `_isSaving` のようなフラグで拒否するゲートなら、ハンドラは `RequestClose` の **前に** そのフラグを下ろす。
+
+### Save / 破棄ボタンで「変更を破棄しますか?」と聞かれる
+
+**原因**: Push ハンドラが `RequestClose` の前にダーティ状態を確定させていない。`RequestClose` も X と同じ `CanClose` を通るので、ダーティのままだと確認が出ます。
+
+**対処**: 保存後 (破棄の場合も) に `AcceptChanges` を呼んでから `RequestClose` する。これで `CanClose` はクリーンな状態を見て、確認なしに閉じます。
 
 ```csharp
 private void OnSave()
@@ -227,22 +242,23 @@ private void OnDiscard()
 
 書き方 2 (毎回 View から新しいモデルを作る) では `AcceptChanges(saved)` / `AcceptChanges(ReadModel())` を使います。
 
-詳細は [Window Closing Model — single-source-of-truth invariant](Concept-Window-Closing-Model#single-source-of-truth-invariant) を参照。
+詳細は [ウィンドウクローズモデル — 単一正本の不変条件](Concept-Window-Closing-Model#単一正本の不変条件) を参照。
+
+### `ShowWindow` が `null` を返す / ウィンドウが一瞬も表示されない
+
+**原因**: Presenter が初期化中 (`OnInitialize`、`OnInitializeAsync` の最初の `await` まで) に `RequestClose` を呼んだ。これは表示のキャンセルで、ウィンドウは表示されません (ゲートも通りません)。モーダルは `RequestClose` の結果を返し、非モーダルの `ShowWindow` は `onClosed` を呼んだ後に `null` を返します。`Connect` した Form は `Load` で不可視のまま閉じられます。
+
+**対処**: 意図した動作なら、`ShowWindow` の戻り値の `null` を確認する。意図していないなら、初期化中に `RequestClose` を呼ぶ経路を見直す。詳しくは [HowTo: ウィンドウクローズを扱う § シナリオ 8](HowTo-Handle-Window-Closing#シナリオ-8-表示前に開くのを取りやめる)。
 
 ### システムシャットダウン時にダーティ確認ダイアログが出てフリーズ
 
-**原因**: `CanClose` で `CloseReason` をチェックしていない。
+**原因**: シャットダウン・タスクマネージャーによる終了は `CanClose` / `CanCloseAsync` に届きません (フレームワークが確認なしで許可します)。それでも確認が出るなら、確認が `CanClose` の外にあります — Form の `FormClosing` ハンドラや Form 側のボタン処理で `MessageBox` を出している、など。
 
-**対処**:
+**対処**: 未保存の確認は `CanClose` / `CanCloseAsync` だけに書き、Form には閉じる処理を書かない (「閉じる」ボタンも ViewAction で `RequestClose(InteractionStatus.Cancel)`)。理由 (`CloseReason`) のチェックは不要です。
 
 ```csharp
 protected override bool CanClose(CloseReason reason)
-{
-    if (_changeTracker.IsChanged && !Messages.ConfirmYesNo(...))
-        return false;
-
-    return true;
-}
+    => !_changeTracker.IsChanged || Messages.ConfirmYesNo("変更を破棄しますか？");
 ```
 
 ---

@@ -446,7 +446,7 @@ _binder.Add(ToDoActions.Save, _btnSave);
 
 ## Step 8: ウィンドウクローズ時の確認を加える
 
-Pull 方向 (× ボタン) のクローズ要求に対して、未保存があれば確認します。`CanClose` を override するだけです。Forms にクローズコードを書く必要はありません。
+× ボタンのクローズ要求に対して、未保存があれば確認します。`CanClose` を override するだけです。Presenter の `RequestClose` (「閉じる」ボタンなど) も同じ `CanClose` を通ります。Forms にクローズコードを書く必要はありません。
 
 ```csharp
 protected override bool CanClose(CloseReason reason)
