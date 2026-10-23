@@ -1,6 +1,6 @@
 # RequestClose goes through CanClose — design
 
-Date: 2026-10-23 · Status: draft for owner review · Source: real-screen validation V-28, V-34 · Reviewed with codex (one round)
+Date: 2026-10-23 · Status: approved by the owner (direction A for Connect) · Source: real-screen validation V-28, V-34 · Reviewed with codex (two rounds)
 
 ## Why
 
@@ -20,13 +20,25 @@ WPF (`Window.Close` raises `Closing`), Caliburn.Micro (`TryCloseAsync` → `CanC
 2. **Before the window is shown** (`RequestClose` from `OnInitialize` / the synchronous part of
    `OnInitializeAsync`, or before the sink is bound) it is not a close but **cancelling the opening**: no gate
    (the user cannot have edited anything), the window is **not shown** and the caller receives the result.
-3. No flash when a window is cancelled before it is shown (measured on Windows, V-34):
-   - Managed (`WindowNavigator`): `Show` / `ShowDialog` is not called at all — modal and modeless.
-   - Adopted (`Connect`, the caller shows the Form): in the Form's `Load`, set `Opacity = 0` and move it outside
-     every monitor (`SystemInformation.VirtualScreen`, not a fixed −9999: monitors left of / above the primary have
-     negative coordinates), then close — modal `BeginInvoke(Close)`, modeless `Close()`. Measured: no flash in
-     either mode. (Closing in `Load` / `Shown` without hiding flashes for modal; opacity alone set in `Load` still
-     flashes a little.)
+3. No flash, and **no extra code for the user**, when a window is cancelled before it is shown (measured on
+   Windows, V-34). "Before shown" ends:
+   - Managed (`WindowNavigator`): immediately before the framework calls `Show` / `ShowDialog`. A request before
+     that cancels the opening: `Show` / `ShowDialog` is not called at all (modal and modeless). Modeless:
+     `ShowWindow` returns `null`; order: unregister the key → `onClosed` once → dispose presenter and Form →
+     return (so `onClosed` may reopen the same key). The framework disposes the never-shown Form.
+   - Adopted (`Connect`, the caller shows the Form — direction A, chosen by the owner): `Connect` hooks the Form's
+     `Load`. A request before `Load` (including during `Connect`'s initialization) cancels the opening: in `Load`
+     the framework sets `Opacity = 0`, moves the Form so its whole bounds lie outside
+     `SystemInformation.VirtualScreen`, then closes it — modal `BeginInvoke(Close)`, modeless `Close()`.
+     The caller keeps writing `presenter.Connect(form); form.Show();` / `Application.Run(form)`.
+     Measured: no flash in either mode (closing in `Load` / `Shown` without hiding flashes for modal; opacity alone
+     set in `Load` still flashes a little; a fixed (−9999, −9999) is not guaranteed off-screen because monitors
+     left of / above the primary have negative coordinates).
+     Limits (documented): an MDI child (opacity has no effect, location is parent-relative) is closed in `Load`
+     without hiding and may flash; a Form already shown before `Connect` gets a normal gated close; for
+     `Application.Run(form)` the cancellation ends the application, as expected. If another `FormClosing` handler
+     cancels the hidden close, the framework restores opacity and location and the Form is shown normally — never
+     an invisible live window. The cancellation closes without the gate (it is not a user close).
 
 ## Semantics after the window is shown
 
@@ -63,16 +75,25 @@ not roll back work already done (e.g. `AcceptChanges` of a discard).
   close is replayed; a new ✕ starts clean. Same check for MDI-parent and `Application.Exit` replays.
 - Modal dialogs: buttons bound to actions use `DialogResult.None` (WinForms would otherwise end the dialog before an
   async decision). Document; templates already avoid DialogResult on bound buttons (verify).
-- Before shown: a request held before binding or made during initialization marks "cancel opening". Managed: the
-  navigator checks after initialization and converges without `Show` / `ShowDialog` (modal and modeless —
-  modeless no longer shown-then-closed). Adopted: the controller hooks `Load` (V-34 technique 9). A request after
-  `Shown` is a normal gated close.
+- Explicit opening state in the controller: `Opening → Shown (active) → Closed`, plus a "cancel opening" flag set
+  by any request while `Opening`. Handle creation does not change it; hiding does not reset it. Managed: leaves
+  `Opening` right before `Show` / `ShowDialog`. Adopted: leaves `Opening` when `Load` has run (or immediately when
+  the Form is already visible at `Connect`). Requests held before the sink is bound keep "opening" provenance only
+  if the Form is still opening at bind time; otherwise they are normal gated closes.
+- Lifecycle events are wired **before** retained requests are delivered (today `Connect` binds, initializes, then
+  wires; reorder with failure cleanup).
+- Each close attempt has its own identity: candidate result, seeded/replaced, consumed or discarded with that
+  attempt (fresh push, fresh ✕, approved async retry, owner / MDI-parent / `Application.Exit` replay). A veto by
+  another handler does not leak the candidate into a later close; a child-deferred owner replay keeps the owner's
+  candidate. No nested gate while one is running or pending; stale async callbacks ignored. UI thread only.
 
 ## PresenterTestHost
 
 - Push → same logical attempt: seed, run the `Normal` gate, gate push replaces, allow → record once, veto →
   discard. `CloseRequested` / `CloseCount` / `CloseResult` / `CloseStatus` describe **accepted** closes.
-- Requests during initialization are recorded as accepted cancellation of the opening (no gate), as in production.
+- The simulated opening ends when the synchronous part of `Start` returns. Requests before that are an accepted
+  cancellation of the opening (no gate), coalesced into one record (last result wins), as in production. Afterwards
+  every `RequestClose` is gated. An accepted close is terminal for the host (later requests are ignored).
 - `host.CanClose()` / `CanCloseAsync()` unchanged (repeatable policy checks).
 - Add a test-only `Task WaitForCloseDecisionAsync()` (a void `RequestClose` may finish after `DispatchAsync`).
 
