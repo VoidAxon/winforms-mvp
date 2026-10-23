@@ -71,13 +71,14 @@ A list's double-click: raise a view event, the presenter calls `Dispatcher.Dispa
 |---|---|
 | Open a modal window and get a result | `Navigator.For(presenter)[.WithParam(p)].ShowAsModal<TResult>()` → `InteractionResult<TResult>` |
 | Open a non-modal window (owner, one per key, callback) | `.ShowWindow<TResult>(owner: View, keySelector: _ => id, onClosed: r => ...)` |
-| Close with a result (push) | `RequestClose(result, InteractionStatus.Ok)` / `RequestClose(InteractionStatus.Cancel)` |
-| Ask before closing: X / Alt+F4 / owner closing (pull) | `protected override bool CanClose(CloseReason)` / `Task<bool> CanCloseAsync(CloseReason)` |
+| Close with a result / a 「閉じる」 button (goes through `CanClose` like ✕) | `RequestClose(result, InteractionStatus.Ok)` / `RequestClose(InteractionStatus.Cancel)` as a ViewAction handler |
+| Ask before closing: ✕ / Alt+F4 / owner closing / RequestClose | `protected override bool CanClose(CloseReason)` / `Task<bool> CanCloseAsync(CloseReason)` |
+| The screen must not open (data gone, no permission) | `RequestClose(...)` in `OnInitialize`: never shown (Navigator does not show it; `Connect` hides and closes it in `Load`); modeless `ShowWindow` returns `null` |
 | Result type | `InteractionResult<T>` (`IsOk`, `IsCancelled`, `IsError`, `Value`, `ErrorMessage`), `InteractionStatus`, `CloseReason` |
 | Map view interfaces to Forms (WinForms) | `IViewMappingRegister`: `RegisterFromAssembly`, `RegisterFromNamespace`, `Register<IView, Form>()`, `Register<IView>(() => new Form(deps))` |
 | UI module registers its own views | `IViewModuleRegistrar` + `register.RegisterModules(...)` (`WinformsMVP.Modules`) |
 
-System shutdown / Task Manager never reach `CanClose`. Save-on-close: call `RequestClose(result)` inside `CanClose` and return `true`.
+System shutdown / Task Manager never reach `CanClose`. Save-on-close: call `RequestClose(result)` inside `CanClose` and return `true`. Save / 破棄 handlers `AcceptChanges()` before `RequestClose`, so the gate does not ask; tests: `await host.WaitForCloseDecisionAsync()` for an async gate.
 
 ## 5. Services — presenter-facing interfaces in Core, implementations in WinForms · [wiki](wiki/Reference-Platform-Services.md)
 
