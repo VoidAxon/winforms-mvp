@@ -249,6 +249,33 @@ namespace WinformsMVP.Samples.Tests.Services
             Assert.Equal(2, forms.Count);
         }
 
+        private sealed class HandleTouchingRefusingPresenter : WindowPresenterBase<ITestNavView>
+        {
+            private readonly Action _viewOperation;
+            public int GateCalls;
+            public HandleTouchingRefusingPresenter(Action viewOperation) => _viewOperation = viewOperation;
+            protected override void OnViewAttached() { }
+            protected override void OnInitialize()
+            {
+                RequestClose(WinformsMVP.Common.InteractionStatus.Cancel);
+                _viewOperation();   // a view operation that creates the Form's handle
+            }
+            protected override bool CanClose(WinformsMVP.Common.CloseReason reason) { GateCalls++; return true; }
+        }
+
+        [Fact]
+        public void Modal_CancelledDuringInitialization_HandleCreatedMeanwhile_StillNotShown_NoGate()
+        {
+            var (navigator, forms) = NavigatorWithTrackedForms();
+            var presenter = new HandleTouchingRefusingPresenter(() => { var _ = forms[0].Handle; });
+
+            var result = navigator.ShowWindowAsModal<HandleTouchingRefusingPresenter, string>(presenter);
+
+            Assert.True(result.IsCancelled);
+            Assert.Equal(0, presenter.GateCalls);
+            Assert.True(forms[0].IsDisposed);
+        }
+
         #endregion
     }
 }

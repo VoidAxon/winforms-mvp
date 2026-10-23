@@ -94,7 +94,10 @@ namespace WinformsMVP.Services.Implementations
 
         internal void BindSink() => _presenter.BindCloseSink(this);
 
-        internal void WireFormEvents()
+        /// <param name="adopted">Connect: the caller may hand over a Form that is already on screen, or was
+        /// shown and hidden. Managed (false): the navigator ends the opening itself with
+        /// <see cref="BeginShowing"/> — a handle created during initialization says nothing about showing.</param>
+        internal void WireFormEvents(bool adopted = false)
         {
             if (_wired) return;
             _wired = true;
@@ -108,7 +111,7 @@ namespace WinformsMVP.Services.Implementations
 
             // Connected to a Form that is on screen, or was shown and hidden (Load already ran and will not
             // run again — its handle stays): it is past opening.
-            if (_form.Visible || _form.IsHandleCreated) EndOpeningAsShown();
+            if (adopted && (_form.Visible || _form.IsHandleCreated)) EndOpeningAsShown();
         }
 
         /// <summary>Undo <see cref="WireFormEvents"/> (Connect failed after wiring).</summary>

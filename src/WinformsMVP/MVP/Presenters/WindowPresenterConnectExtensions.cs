@@ -81,7 +81,7 @@ namespace WinformsMVP.MVP.Presenters
             // requested during initialization) is converged; until the Form's Load it cancels the opening:
             // the window is made invisible and closed there, so the caller's Show / Application.Run shows
             // nothing.
-            controller.WireFormEvents();
+            controller.WireFormEvents(adopted: true);
             try
             {
                 if (!attachable.IsViewAttached)
