@@ -106,8 +106,9 @@ namespace WinformsMVP.Services.Implementations
             _form.HandleDestroyed += OnHandleDestroyed;
             if (_form.IsHandleCreated) _sessionHook.AssignHandle(_form.Handle);
 
-            // Connected to a Form that is already on screen: it is past opening.
-            if (_form.Visible) EndOpeningAsShown();
+            // Connected to a Form that is on screen, or was shown and hidden (Load already ran and will not
+            // run again — its handle stays): it is past opening.
+            if (_form.Visible || _form.IsHandleCreated) EndOpeningAsShown();
         }
 
         /// <summary>Undo <see cref="WireFormEvents"/> (Connect failed after wiring).</summary>
@@ -288,18 +289,26 @@ namespace WinformsMVP.Services.Implementations
         {
             if (_bypassGateOnce) { _bypassGateOnce = false; return; }
 
-            // A close attempt from inside the gate (e.g. a dialog it shows pumps a message) is not asked again.
-            if (_gateRunning) { e.Cancel = true; return; }
-
-            // Already refused (an owned window's "Cancel" reaches its owner as e.Cancel = true):
-            // there is nothing to ask, and answering "allow" would override that veto. A RequestClose
-            // candidate stays for the replay of this close (the owned window may still allow later).
-            if (e.Cancel) return;
-
             var winFormsReason = e.CloseReason;
             var reason = CloseReasonMap.From(winFormsReason);
             if (reason == WinformsMVP.Common.CloseReason.ParentClosing && s_sessionEnding > 0)
                 reason = WinformsMVP.Common.CloseReason.SystemShutdown;   // the owner is closing because the session ends
+            bool systemClose = reason == WinformsMVP.Common.CloseReason.SystemShutdown
+                            || reason == WinformsMVP.Common.CloseReason.TaskManager;
+
+            // A close attempt from inside the gate (e.g. a dialog it shows pumps a message) is not asked
+            // again — except a system-level close, which is never blocked.
+            if (_gateRunning) { e.Cancel = !systemClose; return; }
+
+            // Already refused (an owned window's "Cancel" reaches its owner as e.Cancel = true):
+            // there is nothing to ask, and answering "allow" would override that veto. The candidate of
+            // the RequestClose (or replay) this close belongs to stays for its replay; any other close
+            // attempt drops it, so it can never be delivered for an unrelated close.
+            if (e.Cancel)
+            {
+                if (!_pushClosing && !_replay) ClearSeed();
+                return;
+            }
 
             if (_gatePending)
             {
@@ -307,8 +316,7 @@ namespace WinformsMVP.Services.Implementations
                 // late answer then finds the form disposed and is ignored); anything else keeps the
                 // window open without asking again (a second X click must not raise a second
                 // prompt / save).
-                e.Cancel = !(reason == WinformsMVP.Common.CloseReason.SystemShutdown
-                          || reason == WinformsMVP.Common.CloseReason.TaskManager);
+                e.Cancel = !systemClose;
                 return;
             }
 

@@ -390,5 +390,27 @@ namespace WinformsMVP.Samples.Tests.Services
             Assert.Empty(results);
             form.Dispose();
         }
+
+        [Fact]
+        public void OwnerPushVetoedByChild_ALaterUserCloseReplayed_DoesNotReuseThePushedResult()
+        {
+            var (owner, ownerPresenter, ownerResults, _) = Build();
+            var (child, childPresenter, _, _) = Build();
+            Action<bool> pending = null;
+            childPresenter.SyncDecision = _ => false;                       // first: the child refuses
+
+            owner.Show();
+            child.Show(owner);
+            ownerPresenter.Push("saved", InteractionStatus.Ok);             // refused by the child
+            Assert.Empty(ownerResults);
+
+            childPresenter.AsyncGate = (r, proceed) => pending = proceed;   // now the child decides later
+            owner.Close();                                                  // a plain user close of the owner
+            pending(true);                                                  // the child allows: the owner's close is replayed
+
+            Assert.Single(ownerResults);
+            Assert.Null(ownerResults[0].Item1);                             // not the earlier "saved"
+            Assert.Equal(InteractionStatus.Cancel, ownerResults[0].Item2);
+        }
     }
 }

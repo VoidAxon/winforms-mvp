@@ -150,5 +150,31 @@ namespace WinformsMVP.Samples.Tests.Presenters
             Assert.True(form.Visible);
             form.Dispose();
         }
+
+        private sealed class ClosingPresenter : WindowPresenterBase<IFakeView>
+        {
+            private static readonly ViewAction Close = ViewAction.Create("ConnectTests.Close");
+            public int GateCalls;
+            protected override void OnViewAttached() { }
+            protected override void RegisterViewActions() => Dispatcher.Register(Close, () => RequestClose(InteractionStatus.Cancel));
+            protected override bool CanClose(CloseReason reason) { GateCalls++; return true; }
+            internal static ViewAction CloseAction => Close;
+        }
+
+        [Fact]
+        public void Connect_ToAFormShownThenHidden_IsPastOpening_RequestCloseRunsTheGate()
+        {
+            var form = new FakeWindowForm();
+            form.Show();
+            form.Hide();                               // Load already ran; it will not run again
+            var presenter = new ClosingPresenter();
+            InteractionResult closed = null;
+            presenter.Connect(form, r => closed = r);
+
+            ((CapturingActionBinder)form.ActionBinder).Dispatch(ClosingPresenter.CloseAction);
+
+            Assert.Equal(1, presenter.GateCalls);
+            Assert.NotNull(closed);
+        }
     }
 }
