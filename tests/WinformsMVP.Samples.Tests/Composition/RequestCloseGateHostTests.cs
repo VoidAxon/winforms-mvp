@@ -190,5 +190,21 @@ namespace WinformsMVP.Samples.Tests.Composition
                 Assert.Throws<UnscriptedInteractionException>(() => _view.Binder.Dispatch(Close));
             }
         }
+
+        [Fact]
+        public void AfterAnAcceptedClose_FurtherRequestsAreIgnored_LikeAClosedWindow()
+        {
+            var presenter = new EditPresenter();
+            using (var host = PresenterTestHost.Start(_fakes.Provider, presenter, _view))
+            {
+                _view.Binder.Dispatch(Save);              // accepted
+                presenter.Dirty = true;
+                _view.Binder.Dispatch(Close);             // the window is gone: not asked, not recorded
+
+                Assert.Equal(1, presenter.GateCalls);
+                Assert.Equal(1, host.CloseCount);
+                Assert.Equal("saved", host.CloseResult);
+            }
+        }
     }
 }

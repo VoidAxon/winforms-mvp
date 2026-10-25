@@ -299,6 +299,8 @@ namespace WinformsMVP.Testing
                         _host._gateStatus = status;
                         return;
                     }
+                    // A close was accepted: the real window is gone and ignores further requests.
+                    if (!_host._opening && _host.CloseCount > 0) return;
                     if (_host._opening)
                     {
                         // Cancelling the opening: no gate; repeated requests are one cancellation.
