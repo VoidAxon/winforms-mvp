@@ -15,6 +15,7 @@
 - [第三者ライブラリの差し込み](#第三者ライブラリの差し込み)
 - [項目を比較から外す (画面ごと)](#項目を比較から外す-画面ごと)
 - [2 つの使い方](#2-つの使い方)
+- [一覧 (明細) を追跡する単位 — 保存のタイミングで決まる](#一覧-明細-を追跡する単位--保存のタイミングで決まる)
 - [なぜ深いコピーが必要か](#なぜ深いコピーが必要か)
 - [主要 API](#主要-api)
 - [変更の通知](#変更の通知)
@@ -300,6 +301,65 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView, int>
 - **元に戻す**: tracker は検出だけを行い、データを復元しません (`RejectChanges` / `GetOriginalValue` は削除されました)。画面に留まったまま編集を取り消したい場合は、リポジトリから読み直して表示し、tracker を新しく作ります。
 - **「破棄して閉じる」**: `RequestClose` の前に `AcceptChanges()` (書き方 1) / `AcceptChanges(ReadModel())` (書き方 2) を呼び、`RequestClose` が通る `CanClose` が確認しないようにします ([ウィンドウクローズとの連携](#3-ウィンドウクローズとの連携))。これは破棄した編集の追跡を終えるという意味で、保存したという意味ではありません。
 - **データの保持**: 現在値を取り出すプロパティはありません (`CurrentValue` / `UpdateCurrentValue` は削除されました)。データは Presenter (書き方 1) か View (書き方 2) が持ちます。
+
+---
+
+## 一覧 (明細) を追跡する単位 — 保存のタイミングで決まる
+
+明細をグリッドで直接編集する画面では、**何が「未保存」になり得るか** で tracker の単位を決めます。保存のタイミングは画面ごとに 2 通りあり、どちらも今の `ChangeTracker` で書けます。
+
+| 保存のタイミング | 未保存になり得るもの | tracker の単位 |
+|---|---|---|
+| **A. 全部「登録」でまとめて保存** (行の追加・削除・並べ替えも、セルの編集も) | 行の内容 + 行の増減 + 順序 | **一覧全体に 1 つ** (単一のモデル) |
+| **B. 行の追加・削除・並べ替えはその場で保存、セルの編集は「登録」で** | 各行の内容だけ | **行ごとに 1 つ** (行の数だけスナップショット) |
+
+### A. 一覧全体に 1 つ
+
+行の一覧を持つモデル (画面の入力) をそのまま追跡します。行の追加・削除・移動も内容の比較に現れるので、`IsChanged` 1 つで「保存しますか？」が決まります。
+
+```csharp
+// 画面の入力: 表示順の行。新しい行は保存まで ID がないので、画面内のキーで行を識別する
+public sealed class OrderLinesInput
+{
+    private readonly List<OrderLineEntry> _lines = new List<OrderLineEntry>();   // (Key, Line)
+    // Add / Remove / Move …
+}
+
+_input = LoadInput(orderId);
+_tracker = TrackChanges(_input);              // 書き方 1
+// 追加・削除・移動・セル編集はすべて _input に → View.IsDirty = _tracker.IsChanged
+// 「登録」: repository.SaveLines(orderId, _input.Lines) → 読み直して tracker を作り直す (ID が付くため)
+```
+
+- **画面内の行キーの採番カウンタはモデルに入れない** (Presenter に置く)。比較はフィールド単位で private フィールドも含むので、カウンタがモデルにあると「追加して削除しただけ」で変更ありになります。
+- 「登録」の後は保存結果 (ID 付き) を読み直して、新しい tracker を作ります。
+
+### B. 行ごとに 1 つ
+
+行の追加・削除・並べ替えはその場でリポジトリに書くので、未保存になり得るのは各行の内容だけです。行ごとに tracker を持ちます。
+
+```csharp
+private readonly Dictionary<int, ChangeTracker<OrderLine>> _trackers = new Dictionary<int, ChangeTracker<OrderLine>>();
+private bool IsChanged => _trackers.Values.Any(t => t.IsChanged);
+
+private void Track(OrderLineEntry entry) => _trackers[entry.Key] = TrackChanges(entry.Line);
+
+// 読み込み: 全行を Track
+// 追加:     repository.AddLine(...) で書いてから Track(新しい行)   — 書いた直後なので変更なし
+// 削除:     repository.DeleteLine(...) の後 _trackers.Remove(key)
+// 並べ替え: repository.MoveLine(...) のみ                         — tracker は関係ない
+// 「登録」:
+var edited = _entries.Where(e => _trackers[e.Key].IsChanged).ToList();
+_repository.UpdateLines(edited.Select(e => e.Line).ToList());
+foreach (var e in edited) _trackers[e.Key].AcceptChanges();
+```
+
+- 「どの行が変わったか」は各 tracker が答えるので、自前の比較は要りません。
+- 閉じるときの「保存しますか？」は A と同じく `CanClose` / `CanCloseAsync` で `IsChanged` を見るだけです。「いいえ」はセルの編集だけを捨て、その場で保存した行はそのまま残ります。
+
+### 避ける書き方
+
+B のタイミングなのに一覧全体に 1 つの tracker を使い、「その場で保存した分だけ確定する」ために **保存済みの状態の複製を別に持って `AcceptChanges(複製)` する** 書き方。動きますが、その場の操作ごとにリポジトリ・入力・複製の 3 か所を同じように変え、「どの行が変わったか」も自分で比べることになります。追跡の単位を行に変えれば (B) どちらも不要です。
 
 ---
 
