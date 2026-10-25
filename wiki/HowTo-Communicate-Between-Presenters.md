@@ -221,6 +221,52 @@ public sealed class ContactsPanelPresenter : ControlPresenterBase<IContactsPanel
 - **EventAggregator は使わない。** アプリ全体で 1 つなので、同じ画面を 2 つ開くと画面 A の操作が画面 B のパネルにも届く。
 - **パネル同士・親子でメソッドを呼び合わない。** 「パネル B を更新して」と頼むのではなく、Model を変更する。受け手は Model の変化だけを見る。
 
+#### キーごとの値 (明細・動的な項目)
+
+値が「ID → 値」の形 (アンケートの回答、実行時に作る入力項目) で、各パネルが自分のキーだけを見るときは、`PropertyChanged` の名前にキーを入れます:
+
+- **1 つのキーの変化:** `"Answer[12]"` — データバインディングのインデクサーの約定 (`Item[]`) にならう。名前を作るメソッドを Model に 1 つ置き、発行側も購読側も同じものを使う。
+- **全部の変化** (読み込み直し、クリア): 空の名前 (`string.Empty`)。WinForms / WPF のバインディングでも「すべてのプロパティ」の意味。
+- **購読側は判定メソッドで絞る:** 自分のキーか、全部か。
+
+```csharp
+public sealed class SurveyInput : NotifyingObject
+{
+    private readonly Dictionary<int, string> _answers = new Dictionary<int, string>();
+
+    public static string AnswerProperty(int questionId) => "Answer[" + questionId + "]";
+
+    /// <summary>この通知が questionId の値に関係するか (そのキー、または全部)。</summary>
+    public static bool Concerns(string propertyName, int questionId)
+        => string.IsNullOrEmpty(propertyName) || propertyName == AnswerProperty(questionId);
+
+    public string GetAnswer(int questionId) => _answers.TryGetValue(questionId, out var a) ? a : "";
+
+    public void SetAnswer(int questionId, string answer)
+    {
+        if (GetAnswer(questionId) == (answer ?? "")) return;
+        if (string.IsNullOrEmpty(answer)) _answers.Remove(questionId);   // 空は持たない: 入力して消した = 未変更
+        else _answers[questionId] = answer;
+        OnPropertyChanged(AnswerProperty(questionId));
+    }
+
+    public void Load(IEnumerable<KeyValuePair<int, string>> answers)
+    {
+        _answers.Clear();
+        foreach (var a in answers) if (!string.IsNullOrEmpty(a.Value)) _answers[a.Key] = a.Value;
+        OnPropertyChanged(string.Empty);                                   // 全部
+    }
+}
+
+// 各項目のパネル
+private void OnInputChanged(object sender, PropertyChangedEventArgs e)
+{
+    if (SurveyInput.Concerns(e.PropertyName, _questionId)) View.Answer = _input.GetAnswer(_questionId);
+}
+```
+
+同じ名前を検証の項目名にも使えます (`Validation.SetError(SurveyInput.AnswerProperty(id), "...")`)。項目がモデルのプロパティではないので、送信失敗時の「最初のエラー」は画面の順を渡して決めます — [HowTo: フォーム入力の検証](HowTo-Validate-Form-Input) の `ErrorsInOrder(params fieldOrder)` を参照。
+
 この形は Martin Fowler が [GUI Architectures](https://martinfowler.com/eaaDev/uiArchs.html) で説明している *Observer Synchronization* (各画面が共有ドメインオブジェクトを観察して同期する) と同じ考え方です。パネルの Presenter は親 Presenter が `AttachChild(new CustomerPanelPresenter(deps), View.CustomerPanel, _input)` で組み立てます (親 View は子 View のインターフェイスを公開し、依存は親のコンストラクタから来る) — [HowTo: マスター/詳細](HowTo-Implement-Master-Detail#組み立て-親-presenter-が子を所有する) を参照。テストでは 2 つのパネルの Presenter を同じ入力に接続し、片方の操作でもう片方の表示が変わることを確認します:
 
 ```csharp
