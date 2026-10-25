@@ -8,6 +8,8 @@
 
 ## [Unreleased]
 
+## [1.0.0-preview.8] - 2026-10-25
+
 ### Added (追加)
 
 - `FakeWindowNavigator.RespondTo<TPresenter, TParam, TResult>(Func<TParam, InteractionResult<TResult>>)` — 開いた画面のパラメータを型付きで受け取って答える (`(PickerParameters)r.Parameters` のキャストが不要)。`TParam` は Presenter が受け取る型でなければコンパイルエラー。
