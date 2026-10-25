@@ -44,7 +44,6 @@ namespace Kibinago.Samples.Tests.Composition
         {
             private bool _hasSelection;
             public TaskCompletionSource<bool> Load;
-            protected override void OnViewAttached() { }
             protected override void RegisterViewActions() => Dispatcher.Register(Delete, () => { }, canExecute: () => _hasSelection);
             protected override void OnInitialize() { if (Load == null) _hasSelection = true; }   // data shown, first row selected
             protected override async Task OnInitializeAsync(System.Threading.CancellationToken ct)

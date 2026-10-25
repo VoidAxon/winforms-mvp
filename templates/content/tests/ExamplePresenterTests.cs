@@ -64,8 +64,6 @@ namespace MvpApp.Tests
 
         public sealed class GreetingPresenter : WindowPresenterBase<IGreetingView>
         {
-            protected override void OnViewAttached() { }
-
             protected override void RegisterViewActions()
                 => Dispatcher.Register(GreetingActions.Ok, OnOkAsync, canExecute: () => !string.IsNullOrEmpty(View.Name));
 

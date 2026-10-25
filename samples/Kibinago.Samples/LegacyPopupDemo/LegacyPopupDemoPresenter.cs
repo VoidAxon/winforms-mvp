@@ -10,8 +10,6 @@ namespace Kibinago.Samples.LegacyPopupDemo
     {
         private CustomerData _customer;
 
-        protected override void OnViewAttached() { }
-
         protected override void RegisterViewActions()
             => Dispatcher.Register(LegacyPopupDemoActions.EditCustomer, OnEditCustomer);
 

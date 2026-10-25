@@ -159,7 +159,7 @@ dotnet new kibinago-tests -n MyApp.Tests [--framework net10.0-windows|net472] [-
 
 生成されるファイル:
 
-- `MyApp.Tests.csproj` — xUnit 2.9 + `Kibinago` + `Kibinago.Testing` (`PresenterTestHost`、`TestServices`、モック View 用の `CapturingActionBinder`、フレームワークサービスのフェイク。バージョンは `--kibinago-version` と同じ)
+- `MyApp.Tests.csproj` — xUnit 2.9 + `Kibinago` + `Kibinago.Testing` (`PresenterTestHost`、`TestServices`、モック View 用の `CapturingActionBinder`、フレームワークサービスのフェイク。バージョンは `--kibinago-version` と同じ)。Windows Desktop ランタイムを参照しない (`DisableTransitiveFrameworkReferences`) ので、`net10.0-windows` のテストは **Linux / macOS でも `dotnet test` で実行できます** (Presenter は WinForms 型を使えないため、テストが WinForms を読み込むことはない)。Form をテストに持ち込むと Windows でしか動かなくなります。`net472` のテストは Windows (または mono) が必要です
 - `ExamplePresenterTests.cs` — `TestServices.CreateFakes()` → `PresenterTestHost.Start(fakes.Provider, presenter, view)` → `await host.Initialized` → `view.Binder.DispatchAsync(...)` → `host.CloseStatus` / `host.CloseResult` を検証する例。自分の Presenter と View に置き換えて使う
 
 テストの書き方は [HowTo: Presenter をテストする](HowTo-Test-A-Presenter) を参照してください。
@@ -201,7 +201,7 @@ public string Title
 
 **テンプレートを変更した (メンテナ向け)**
 
-`tests/templates/verify-templates.sh` がテンプレートをローカルフィードにパックし、両フレームワーク向けに全テンプレートを生成して名前空間・バリアントを検証し、`-warnaserror` でビルドします (`RUN_TESTS=1` で生成されたテストも実行、Windows のみ)。CI でも実行されます。
+`tests/templates/verify-templates.sh` がテンプレートをローカルフィードにパックし、両フレームワーク向けに全テンプレートを生成して名前空間・バリアントを検証し、`-warnaserror` でビルドします (生成された net10 のテストはどの OS でも実行。`RUN_TESTS=1` で net472 のテストも実行、Windows のみ)。CI でも実行されます。
 
 ---
 

@@ -16,8 +16,6 @@ namespace Kibinago.Samples.Tests.Testing
         {
             public int Picked;
 
-            protected override void OnViewAttached() { }
-
             protected override void RegisterViewActions() => Dispatcher.Register(Export, OnExport);
 
             private void OnExport()

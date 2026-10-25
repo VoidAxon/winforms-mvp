@@ -67,8 +67,6 @@ namespace Kibinago.Samples.Tests.Composition
             if (useServicesInConstructor) { var _ = Services; }   // fixes the ambient provider (a mistake)
         }
 
-        protected override void OnViewAttached() { }
-
         protected override void RegisterViewActions()
             => Dispatcher.Register(PanelActions.Fill, () => { _input.Name = _source.Next; SeenMessages = Messages; });
 
@@ -116,8 +114,6 @@ namespace Kibinago.Samples.Tests.Composition
             _compose = compose;
             _log = log;
         }
-
-        protected override void OnViewAttached() { }
 
         protected override void OnInitialize(EditInput input)
         {

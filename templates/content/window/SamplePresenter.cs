@@ -23,8 +23,8 @@ namespace MvpNamespace
         protected override void OnViewAttached()
         {
 //#if (Validation)
-            View.DataChanged += OnDataChanged;
-            Disposable.Create(() => View.DataChanged -= OnDataChanged).DisposeWith(Disposables);
+            // Unsubscribed when the presenter is disposed.
+            SubscribeViewEvent(h => View.DataChanged += h, h => View.DataChanged -= h, OnDataChanged);
 //#endif
         }
 
@@ -52,7 +52,7 @@ namespace MvpNamespace
         private SampleModel ReadModel() => new SampleModel { Title = View.Title };
 
         // Errors appear next to a field once the user has left it.
-        private void OnDataChanged(object sender, System.EventArgs e) => Validation.Validate(ReadModel());
+        private void OnDataChanged() => Validation.Validate(ReadModel());
 //#endif
 
         // Disabled while it runs; double clicks are ignored; cancelled if the window closes.
@@ -60,7 +60,14 @@ namespace MvpNamespace
         {
 //#if (Validation)
             var model = ReadModel();
-            if (!Validation.Check(model)) return;   // shows every error
+            if (!Validation.Check(model))   // shows every error next to its field
+            {
+                // The first error in screen order (the model's declaration order): tell, then go there.
+                var first = Validation.FirstError;
+                Messages.ShowWarning(first.Message);
+                View.FocusError(first.Field);
+                return;
+            }
 
 //#endif
             await Task.CompletedTask;               // save here, passing cancellationToken

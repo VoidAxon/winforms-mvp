@@ -23,7 +23,6 @@ namespace Kibinago.Samples.Tests.Presenters
 
         private sealed class FakePresenter : WindowPresenterBase<IFakeView>
         {
-            protected override void OnViewAttached() { }
         }
 
         [Fact]
@@ -45,7 +44,6 @@ namespace Kibinago.Samples.Tests.Presenters
         private sealed class ResultPresenter : WindowPresenterBase<IFakeView>
         {
             public bool Initialized;
-            protected override void OnViewAttached() { }
             protected override void OnInitialize() => Initialized = true;
             public void PushDone(string r) => RequestClose(r, InteractionStatus.Ok);
         }
@@ -109,7 +107,6 @@ namespace Kibinago.Samples.Tests.Presenters
         {
             public int GateCalls;
             public bool Disposed;
-            protected override void OnViewAttached() { }
             protected override void OnInitialize() => RequestClose(InteractionStatus.Cancel);
             protected override bool CanClose(CloseReason reason) { GateCalls++; return false; }
             protected override void Cleanup() => Disposed = true;
@@ -155,7 +152,6 @@ namespace Kibinago.Samples.Tests.Presenters
         {
             private static readonly ViewAction Close = ViewAction.Create("ConnectTests.Close");
             public int GateCalls;
-            protected override void OnViewAttached() { }
             protected override void RegisterViewActions() => Dispatcher.Register(Close, () => RequestClose(InteractionStatus.Cancel));
             protected override bool CanClose(CloseReason reason) { GateCalls++; return true; }
             internal static ViewAction CloseAction => Close;
@@ -197,7 +193,6 @@ namespace Kibinago.Samples.Tests.Presenters
 
         private sealed class RefusingWithResultPresenter : WindowPresenterBase<IFakeView>
         {
-            protected override void OnViewAttached() { }
             protected override void OnInitialize() => RequestClose("gone", InteractionStatus.Error);
         }
 

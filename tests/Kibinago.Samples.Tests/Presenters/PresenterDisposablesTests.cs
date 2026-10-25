@@ -13,7 +13,6 @@ namespace Kibinago.Samples.Tests.Presenters
         {
             public readonly List<string> Log = new List<string>();
 
-            protected override void OnViewAttached() { }
             protected override void Cleanup() { Log.Add("cleanup"); }
 
             public void AddToBag(IDisposable d) { Disposables.Add(d); }

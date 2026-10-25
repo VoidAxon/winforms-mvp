@@ -11,8 +11,6 @@ namespace MultiProjectDemo.OrderModule
             _repository = repository;
         }
 
-        protected override void OnViewAttached() { }
-
         protected override void OnInitialize()
         {
             ReloadList();

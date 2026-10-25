@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Instantiates every Kibinago template against locally packed packages and builds the result
-# for each target framework; with RUN_TESTS=1 (Windows only) also runs the generated tests.
+# for each target framework, then runs the generated tests (net10 on any OS; net472 with RUN_TESTS=1, Windows).
 #
-#   tests/templates/verify-templates.sh            # build only (works on Linux / macOS / Windows)
-#   RUN_TESTS=1 tests/templates/verify-templates.sh
+#   tests/templates/verify-templates.sh            # Linux / macOS / Windows
+#   RUN_TESTS=1 tests/templates/verify-templates.sh # also the net472 tests (Windows)
 set -euo pipefail
 
 # Lets MSBuild evaluate *-windows projects on non-Windows hosts (also needed for the item
@@ -76,10 +76,16 @@ NUGET
     grep -q "SetHighDpiMode" "$dir/DemoApp/Program.cs"
   fi
   [ -f "$dir/DemoApp/OrderEditModel.cs" ] && [ ! -f "$dir/DemoApp/AboutModel.cs" ]
+  [ -f "$dir/DemoApp/.gitignore" ]
+  # Current idioms in the generated code.
+  grep -q "SubscribeViewEvent(h => View.DataChanged" "$dir/DemoApp/OrderEditPresenter.cs"
+  grep -q "View.FocusError(first.Field)" "$dir/DemoApp/OrderEditPresenter.cs"
+  grep -q "AttachChild(new CustomerPanelPresenter(), View.CustomerPanel)" "$dir/DemoApp/CustomerPanelPresenter.cs"
 
   # -warnaserror: generated code must compile without warnings, MVP analyzer rules included.
   dotnet build "$dir/DemoApp.Tests/DemoApp.Tests.csproj" -warnaserror -nologo -v quiet
-  if [ "${RUN_TESTS:-0}" = "1" ]; then
+  # The generated tests need no Windows Desktop runtime: net10 runs them on any OS; net472 needs Windows.
+  if [ "$framework" = "net10.0-windows" ] || [ "${RUN_TESTS:-0}" = "1" ]; then
     dotnet test "$dir/DemoApp.Tests/DemoApp.Tests.csproj" --no-build -nologo
   fi
 done

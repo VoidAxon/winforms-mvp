@@ -8,6 +8,15 @@
 
 ## [Unreleased]
 
+### Changed (変更)
+
+- `OnViewAttached()` は `abstract` から `virtual` (既定は空) に。View のイベントを購読しない Presenter は書かなくてよい (既存の override はそのまま動く)。テンプレート・サンプル・Wiki の空の override を削除。
+- **テンプレート**: 生成するコードを今の推奨に合わせた (新人試用で、生成コードが文書の推奨と違うと指摘された)。
+  - `mvp-window --validation`: View イベントは `SubscribeViewEvent`、送信失敗時は `Validation.FirstError` を `Messages.ShowWarning` で出して `View.FocusError(field)` (View インターフェイスに `FocusError`、Form は `TryFocusError`)。
+  - `mvp-control`: コメントで `AttachChild(new XxxPresenter(), View.Xxx)` を基本に (WinForms 側が持つ場合だけ `Connect`)。プロジェクト名が小文字に変換された変数名 (`customerdetailControl`) が出ていた例を削除。
+  - `kibinago-tests`: Windows Desktop ランタイムを参照しない (`DisableTransitiveFrameworkReferences`) ので、net10 のテストは Linux / macOS でも実行できる。
+  - `kibinago`: `.gitignore` を生成。
+
 ## [1.0.0-preview.9] - 2026-10-25
 
 ### Changed (変更)

@@ -47,8 +47,6 @@ namespace Kibinago.Samples.Tests.Presenters
                 _dep = dep ?? throw new ArgumentNullException(nameof(dep));
             }
 
-            protected override void OnViewAttached() { }
-
             protected override void OnInitialize()
             {
                 // Before the fix this threw NullReferenceException: _dep was still null because
@@ -121,7 +119,6 @@ namespace Kibinago.Samples.Tests.Presenters
             private readonly Action _duringInitialize;
             public bool CleanedUp;
             public DisposingPresenter(Action duringInitialize) => _duringInitialize = duringInitialize;
-            protected override void OnViewAttached() { }
             protected override void OnInitialize() => _duringInitialize();
             protected override void Cleanup() => CleanedUp = true;
         }

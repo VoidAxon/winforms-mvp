@@ -34,7 +34,6 @@ namespace Kibinago.Samples.Tests.Services
         {
             public ScopedDependency Dependency { get; }
             public ScopedPresenter(ScopedDependency dependency) => Dependency = dependency;
-            protected override void OnViewAttached() { }
         }
 
         private static IServiceProvider BuildProvider()

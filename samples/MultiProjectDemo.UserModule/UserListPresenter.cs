@@ -24,8 +24,6 @@ namespace MultiProjectDemo.UserModule
             _presenterFactory = presenterFactory;
         }
 
-        protected override void OnViewAttached() { }
-
         protected override void OnInitialize()
         {
             View.SelectionChanged += (s, e) => Dispatcher.RaiseCanExecuteChanged();

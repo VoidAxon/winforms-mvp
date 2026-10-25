@@ -20,8 +20,6 @@ namespace MultiProjectDemo.UserModule
             _repository = repository;
         }
 
-        protected override void OnViewAttached() { }
-
         protected override void OnInitialize(UserEditParameters parameters)
         {
             _userId = parameters.UserId;

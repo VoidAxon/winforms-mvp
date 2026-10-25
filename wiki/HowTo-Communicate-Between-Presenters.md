@@ -181,8 +181,6 @@ public sealed class CustomerPanelPresenter : ControlPresenterBase<ICustomerPanel
 {
     private OrderEditInput _input;
 
-    protected override void OnViewAttached() { }
-
     protected override void OnInitialize(OrderEditInput input) => _input = input;
 
     private void OnCopyToContacts() => _input.AddContact(View.SelectedCustomerAsContact);
@@ -192,8 +190,6 @@ public sealed class CustomerPanelPresenter : ControlPresenterBase<ICustomerPanel
 public sealed class ContactsPanelPresenter : ControlPresenterBase<IContactsPanelView, OrderEditInput>
 {
     private OrderEditInput _input;
-
-    protected override void OnViewAttached() { }
 
     protected override void OnInitialize(OrderEditInput input)
     {

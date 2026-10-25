@@ -19,8 +19,6 @@ namespace MultiProjectDemo.Shell
             _presenters = presenters;
         }
 
-        protected override void OnViewAttached() { }
-
         protected override void RegisterViewActions()
         {
             Dispatcher.Register(MainActions.OpenUsers, OnOpenUsers);

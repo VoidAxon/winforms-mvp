@@ -9,8 +9,6 @@ namespace MyMvpApp
     /// </summary>
     public sealed class MainPresenter : WindowPresenterBase<IMainView>
     {
-        protected override void OnViewAttached() { }
-
         protected override void RegisterViewActions()
         {
             Dispatcher.Register(MainActions.SayHello, OnSayHello);

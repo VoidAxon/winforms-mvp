@@ -28,7 +28,6 @@ namespace Kibinago.Samples.Tests.Composition
         private sealed class RunPresenter : WindowPresenterBase<IRunView>
         {
             public int Runs;
-            protected override void OnViewAttached() { }
             protected override void RegisterViewActions() => Dispatcher.Register(Run, () => Runs++);
         }
 

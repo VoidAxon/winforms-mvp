@@ -1,0 +1,7 @@
+# Build output and IDE state
+bin/
+obj/
+.vs/
+*.user
+*.suo
+TestResults/
