@@ -10,6 +10,7 @@
 
 ### Added (追加)
 
+- `CapturingActionBinder.BindCount` / `UnbindCount` — 同じ View が旧 Presenter から解除され、新しい Presenter にバインドし直されたことをテストで確かめられる (インターフェイスを再実装して呼び出しを記録する必要がない)。
 - **`ViewActionBinder`: `Bind` 後の `Add` と `Remove`** — バインド後に `Add` したコントロールはその場で購読され、`canExecute` に従って `Enabled` も更新される (子 View が初期化中に作る選択肢など)。`Remove(controls)` で外せる。破棄されたコントロールは自動で外れる。
 - `TextBox` / `RichTextBox` / `MaskedTextBox` (`TextBoxBase`) は `TextChanged` で、ツールバーの `ToolStripTextBox` / `ToolStripComboBox` は `TextChanged` / `SelectionChangeCommitted` で発火する。
 - `PresenterTestHost.WaitForCloseDecisionAsync()` — `RequestClose` が始めた非同期の `CanCloseAsync` の判断を待つ (`DispatchAsync` は待たない)。

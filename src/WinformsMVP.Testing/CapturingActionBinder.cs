@@ -35,6 +35,15 @@ namespace WinformsMVP.Testing
         /// <summary>True between the framework's bind and <see cref="Unbind"/> (the presenter's disposal).</summary>
         public bool IsBound => Dispatcher != null;
 
+        /// <summary>
+        /// How many times the framework bound this binder. With <see cref="UnbindCount"/> it shows a view
+        /// handed from a disposed presenter to a new one (bound, unbound, bound again).
+        /// </summary>
+        public int BindCount { get; private set; }
+
+        /// <summary>How many times a bound binder was unbound (its presenter was disposed).</summary>
+        public int UnbindCount { get; private set; }
+
         private bool _unbound;
 
         /// <inheritdoc />
@@ -42,6 +51,7 @@ namespace WinformsMVP.Testing
         {
             Dispatcher = dispatcher;
             _unbound = false;
+            BindCount++;
         }
 
         /// <summary>
@@ -54,6 +64,7 @@ namespace WinformsMVP.Testing
             if (Dispatcher == null) return;
             Dispatcher = null;
             _unbound = true;
+            UnbindCount++;
         }
 
         /// <summary>Dispatches through the captured dispatcher — the same path a bound control uses.</summary>

@@ -146,6 +146,8 @@ public CapturingActionBinder Binder { get; } = new CapturingActionBinder();
 public IViewActionBinder ActionBinder => Binder;
 ```
 
+> **View が別の Presenter に付け直されたか** (モード切替で子パネルの Presenter を入れ替えるなど) は `IsBound` / `Dispatcher` に加えて `BindCount` / `UnbindCount` で確かめます。旧 Presenter の破棄で 1 回解除、新しい Presenter で 2 回目のバインド — `Assert.Equal(2, view.Binder.BindCount); Assert.Equal(1, view.Binder.UnbindCount);`。
+
 > **業務依存はコンストラクタ、フレームワークサービスは `PresenterTestHost.Start(services, ...)`。** `TestServices.CreateFakes()` が登録するのは Message/Toast/Dialog/File/Navigator/Logger の **フレームワークサービス** だけです。`IUserRepository` のような業務依存は Presenter のコンストラクタに注入します (`new UserEditorPresenter(_repository)`)。実例は [`MainEmailPresenterTests.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/tests/WinformsMVP.Samples.Tests/Presenters/MainEmailPresenterTests.cs) を参照。
 
 > **自分でプロバイダを組むときは `TestServices.Create()` から始めます。** どの Presenter もアタッチ時に `ILoggerFactory` を必要とするため、それだけを登録済みで返します。渡したプロバイダにないサービスはエラーになり、グローバルの既定サービスで補われることはありません (テストが何に依存しているかがコードに現れるように)。プロバイダは呼び出し側の所有で、ホストは破棄しません。Presenter がコンストラクタで `Logger` や `Messages` を使っていると、`Start(services, ...)` は `InvalidOperationException` になります — その処理は `OnViewAttached` / `OnInitialize` に移してください。
