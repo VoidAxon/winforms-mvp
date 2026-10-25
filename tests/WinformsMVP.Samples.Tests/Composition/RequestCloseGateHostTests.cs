@@ -180,5 +180,15 @@ namespace WinformsMVP.Samples.Tests.Composition
             using (var host = PresenterTestHost.Start(_fakes.Provider, new EditPresenter(), _view))
                 await host.WaitForCloseDecisionAsync();
         }
+
+        [Fact]
+        public void Push_GateAsksAnUnscriptedQuestion_TheTestFails()
+        {
+            var presenter = new EditPresenter { Dirty = true };   // the gate asks; the test scripted no answer
+            using (PresenterTestHost.Start(_fakes.Provider, presenter, _view))
+            {
+                Assert.Throws<UnscriptedInteractionException>(() => _view.Binder.Dispatch(Close));
+            }
+        }
     }
 }

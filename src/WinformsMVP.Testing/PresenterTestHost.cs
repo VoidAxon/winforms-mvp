@@ -311,8 +311,9 @@ namespace WinformsMVP.Testing
                 // A RequestClose on an open window goes through the gate, like X.
                 var participant = _host._presenter as ICloseParticipant;
                 if (participant == null) { lock (_host._gateLock) _host.Record(result, status); return; }
-                try { _host.RunGate(participant, CloseReason.Normal, hasSeed: true, seedResult: result, seedStatus: status); }
-                catch (Exception) { /* a throwing gate blocks the close, as in a real window (which logs it) */ }
+                // A gate that throws synchronously (e.g. an unscripted fake confirmation) fails the test
+                // through the RequestClose call — a real window would log it and stay open.
+                _host.RunGate(participant, CloseReason.Normal, hasSeed: true, seedResult: result, seedStatus: status);
             }
         }
     }
