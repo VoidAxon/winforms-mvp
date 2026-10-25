@@ -56,6 +56,8 @@ IUserEditorView ⟷ UserEditorService      // Service ではない
 
 **Why**: 命名で対応関係が明確になり、F12 ナビと結果のフィルタリングが楽になる。
 
+複数の Presenter の共通部分をまとめた `abstract` な基底クラスは対象外 (フレームワーク自身の基底クラスと同じく `XxxPresenterBase` と名付けてよい)。
+
 ---
 
 ## Rule 3: 責務分離
