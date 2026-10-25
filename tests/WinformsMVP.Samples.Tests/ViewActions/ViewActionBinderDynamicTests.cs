@@ -53,6 +53,9 @@ namespace WinformsMVP.Samples.Tests.ViewActions
             using (var rich = new RichTextBox())
             using (var masked = new MaskedTextBox())
             {
+                // A RichTextBox raises TextChanged only once it has a window handle (on a shown form it has one).
+                rich.CreateControl();
+                var _ = rich.Handle;
                 var (dispatcher, calls) = Dispatcher();
                 var binder = new ViewActionBinder();
                 binder.Add(Run, rich);
