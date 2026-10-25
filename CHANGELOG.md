@@ -8,6 +8,8 @@
 
 ## [Unreleased]
 
+## [1.0.0-preview.7] - 2026-10-25
+
 ### Added (追加)
 
 - `CapturingActionBinder.BindCount` / `UnbindCount` — 同じ View が旧 Presenter から解除され、新しい Presenter にバインドし直されたことをテストで確かめられる (インターフェイスを再実装して呼び出しを記録する必要がない)。
