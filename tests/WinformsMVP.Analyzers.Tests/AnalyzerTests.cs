@@ -65,6 +65,16 @@ public class OrderPresenter : AppPresenter<IOrderView> { }"));
         }
 
         [Fact]
+        public void MVP002_AbstractBaseClass_NoDiagnostic()
+        {
+            // A shared base of several presenters is named like the framework's own bases.
+            Assert.Empty(Ids(Usings + @"
+public interface IItemView : IViewBase { }
+public abstract class ItemPresenterBase<T> : ControlPresenterBase<T> where T : IViewBase { }
+public class TextItemPresenter : ItemPresenterBase<IItemView> { }"));
+        }
+
+        [Fact]
         public void MVP002_LookalikePresenterBaseInOtherNamespace_NoDiagnostic()
         {
             Assert.Empty(Ids(@"

@@ -29,6 +29,25 @@ namespace WinformsMVP.Samples.Tests.Testing
         }
 
         [Fact]
+        public void BindAndUnbindCounts_ShowAViewHandedToANewPresenter()
+        {
+            var view = new FixtureView();
+            Assert.Equal(0, view.Binder.BindCount);
+
+            var first = PresenterTestHost.Start(TestServices.Create(), new CounterPresenter(), view);
+            var firstDispatcher = view.Binder.Dispatcher;
+            first.Dispose();                                    // the old presenter releases the view
+            using (PresenterTestHost.Start(TestServices.Create(), new CounterPresenter(), view))
+            {
+                Assert.Equal(2, view.Binder.BindCount);
+                Assert.Equal(1, view.Binder.UnbindCount);
+                Assert.True(view.Binder.IsBound);
+                Assert.NotSame(firstDispatcher, view.Binder.Dispatcher);
+            }
+            Assert.Equal(2, view.Binder.UnbindCount);
+        }
+
+        [Fact]
         public void Dispatch_BeforeBind_ThrowsWithAHint()
         {
             var binder = new CapturingActionBinder();

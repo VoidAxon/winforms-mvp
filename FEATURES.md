@@ -178,7 +178,7 @@ Callbacks run on the creating thread's context; without `onError` a failure reac
 | Run a presenter's real init with a mock view (no Form) | `using var host = PresenterTestHost.Start([services,] presenter, view[, param])` |
 | Fake every framework service at once | `var fakes = TestServices.CreateFakes();` → `Start(fakes.Provider, …)`; `fakes.Messages` / `Toasts` / `Dialogs` / `Files` / `Navigator` / `Logs` |
 | Only the services you register (own fakes, Moq, …) | `var sp = TestServices.Create(); sp.RegisterInstance<IMessageService>(mine);` (or replace one in `fakes.Provider` before `Start`) |
-| Trigger actions like a bound control | the mock view exposes `CapturingActionBinder Binder` as its `ActionBinder` → `view.Binder.Dispatch(...)`, `await DispatchAsync(...)`, `CanDispatch(...)` |
+| Trigger actions like a bound control | the mock view exposes `CapturingActionBinder Binder` as its `ActionBinder` → `view.Binder.Dispatch(...)`, `await DispatchAsync(...)`, `CanDispatch(...)`; `IsBound`, `BindCount` / `UnbindCount` (view handed to a new presenter) |
 | Results and closing | `host.CloseRequested`, `CloseStatus`, `CloseResult`; `host.CanClose(reason)`, `await host.CanCloseAsync(reason)`; `await host.Initialized` |
 | Messages | `FakeMessageService`: `Calls` (`Kind`, `Text`, `Caption`, `IsConfirmation`); answers `EnqueueYesNo(...)` → `YesNoHandler` → `AnswerUnscripted(yes)`, otherwise `UnscriptedInteractionException` |
 | Dialogs | `FakeDialogProvider`: `EnqueueSaveFile(InteractionResult<string>.Ok(path))`, `SaveFileHandler = o => …`, `CancelUnscripted()`; `Calls` |

@@ -32,6 +32,11 @@ namespace WinformsMVP.Analyzers
             if (!InheritsFromPresenterBase(context, classDeclaration))
                 return;
 
+            // An abstract class is a shared base of presenters, not a screen's presenter: it may be
+            // named like the framework's own bases (XxxPresenterBase).
+            if (classDeclaration.Modifiers.Any(SyntaxKind.AbstractKeyword))
+                return;
+
             // Check if class name ends with 'Presenter'
             if (!className.EndsWith("Presenter"))
             {
