@@ -7,7 +7,7 @@ namespace Kibinago.Services.Implementations.DialogOptions
     {
         /// <summary>The font selected when the dialog opens; <c>null</c> uses the system default font.</summary>
         public Font InitialFont { get; set; }
-        /// <summary>Whether the dialog offers a color choice. Not applied by the built-in <see cref="DialogProvider"/>.</summary>
+        /// <summary>Whether the dialog offers a color choice. Defaults to <c>false</c>.</summary>
         public bool ShowColor { get; set; } = false;
     }
 }

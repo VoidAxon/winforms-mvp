@@ -34,6 +34,44 @@ namespace Kibinago.Services.Implementations
         internal static string ResolveFolderDescription(FolderBrowserDialogOptions perCall, DialogProviderOptions options)
             => perCall?.Description ?? options.FolderBrowserDescription;
 
+        // Per-call options onto the WinForms dialog (null options = the option class's defaults).
+        internal static void Configure(FolderBrowserDialog dialog, FolderBrowserDialogOptions perCall, DialogProviderOptions options)
+        {
+            perCall = perCall ?? new FolderBrowserDialogOptions();
+            dialog.Description = ResolveFolderDescription(perCall, options);
+            dialog.SelectedPath = perCall.SelectedPath ?? "";
+            dialog.ShowNewFolderButton = perCall.ShowNewFolderButton;
+        }
+
+        internal static void Configure(ColorDialog dialog, ColorDialogOptions options)
+        {
+            options = options ?? new ColorDialogOptions();
+            dialog.Color = options.InitialColor ?? Color.Black;
+            dialog.AllowFullOpen = options.AllowFullOpen;
+            dialog.AnyColor = options.AnyColor;
+        }
+
+        internal static void Configure(FontDialog dialog, FontDialogOptions options)
+        {
+            options = options ?? new FontDialogOptions();
+            dialog.Font = options.InitialFont ?? SystemFonts.DefaultFont;
+            dialog.ShowColor = options.ShowColor;
+        }
+
+        internal static void Configure(PrintDialog dialog, PrintDialogOptions options)
+        {
+            options = options ?? new PrintDialogOptions();
+            dialog.PrinterSettings = options.PrinterSettings ?? new PrinterSettings();
+            dialog.AllowSelection = options.AllowSelection;
+            dialog.AllowSomePages = options.AllowSomePages;
+        }
+
+        internal static void Configure(PageSetupDialog dialog, PageSetupDialogOptions options)
+        {
+            dialog.PageSettings = options?.PageSettings ?? new PageSettings();
+            if (options?.PrinterSettings != null) dialog.PrinterSettings = options.PrinterSettings;
+        }
+
         /// <inheritdoc />
         public InteractionResult<string> ShowOpenFileDialog(OpenFileDialogOptions options = null)
         {
@@ -133,8 +171,7 @@ namespace Kibinago.Services.Implementations
             {
                 using (var dialog = new FolderBrowserDialog())
                 {
-                    dialog.Description = ResolveFolderDescription(options, _options);
-                    dialog.SelectedPath = options?.SelectedPath ?? "";
+                    Configure(dialog, options, _options);
 
                     var result = dialog.ShowDialog();
                     return result == DialogResult.OK
@@ -158,7 +195,7 @@ namespace Kibinago.Services.Implementations
             {
                 using (var dialog = new ColorDialog())
                 {
-                    dialog.Color = options?.InitialColor ?? Color.Black;
+                    Configure(dialog, options);
 
                     var result = dialog.ShowDialog();
                     return result == DialogResult.OK
@@ -179,7 +216,7 @@ namespace Kibinago.Services.Implementations
             {
                 using (var dialog = new FontDialog())
                 {
-                    dialog.Font = options?.InitialFont ?? SystemFonts.DefaultFont;
+                    Configure(dialog, options);
 
                     var result = dialog.ShowDialog();
                     return result == DialogResult.OK
@@ -203,8 +240,7 @@ namespace Kibinago.Services.Implementations
             {
                 using (var dialog = new PrintDialog())
                 {
-                    dialog.AllowSomePages = options?.AllowSomePages ?? true;
-                    dialog.PrinterSettings = options?.PrinterSettings ?? new PrinterSettings();
+                    Configure(dialog, options);
 
                     var result = dialog.ShowDialog();
                     return result == DialogResult.OK
@@ -225,7 +261,7 @@ namespace Kibinago.Services.Implementations
             {
                 using (var dialog = new PageSetupDialog())
                 {
-                    dialog.PageSettings = options?.PageSettings ?? new PageSettings();
+                    Configure(dialog, options);
 
                     var result = dialog.ShowDialog();
                     return result == DialogResult.OK
