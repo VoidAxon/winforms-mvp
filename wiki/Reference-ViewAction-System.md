@@ -658,11 +658,19 @@ void IChoiceView.ShowChoices(IReadOnlyList<Choice> choices)
     {
         var radio = new RadioButton { Text = choice.Name, Tag = choice.Id };
         pnlChoices.Controls.Add(radio);
-        _binder.Add(ChoiceActions.Select, radio, r => (int)r.Tag);
+        _binder.Add(ChoiceActions.Check, radio, r => ((int)r.Tag, r.Checked));   // ViewAction<(int Id, bool Checked)>
         _radios.Add(radio);
     }
 }
 ```
+
+> ⚠️ `RadioButton` / `CheckBox` は **チェックが外れたときも** `CheckedChanged` で発火します (ラジオボタンを選ぶと、外れた側も発火する。コードで `Checked = false` にしたときも)。ペイロードに `Checked` を含め、Presenter は外れた通知を無視するか (ラジオ) そのまま反映します (チェックリスト):
+>
+> ```csharp
+> Dispatcher.Register(ChoiceActions.Check, ((int Id, bool Checked) e) => { if (e.Checked) _input.SelectedChoiceId = e.Id; });
+> ```
+>
+> ID だけを渡すと、外れたボタンの ID で「選択」され、コードでの選択解除が取り消されてしまいます。View が選択状態を書き戻すときは、値が違うコントロールだけを変更します。
 
 - `Remove(controls...)`: そのコントロールはアクションを発火しなくなり、`Enabled` の管理も外れます (値はそのまま)。外したコントロールは別のアクションに `Add` し直せます。未登録・削除済みのコントロールは無視されます。
 - **破棄 (`Dispose`) されたコントロールは自動的に外れます** (`Bind` 前・バインド中・`Unbind` 後のいずれでも)。破棄済みのコントロールの `Add` は `ObjectDisposedException`。
