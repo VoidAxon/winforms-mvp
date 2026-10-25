@@ -18,9 +18,9 @@
 
 <!-- どのように動作を確認したか -->
 
-- [ ] `dotnet build src/winforms-mvp.sln` 成功
+- [ ] `dotnet build src/Kibinago.sln` 成功
 - [ ] `dotnet test src/WindowsMVP.Samples.Tests/WindowsMVP.Samples.Tests.csproj` がすべて緑
-- [ ] サンプルアプリ (`WinformsMVP.Samples`) で動作確認
+- [ ] サンプルアプリ (`Kibinago.Samples`) で動作確認
 
 ## チェックリスト
 
@@ -29,7 +29,7 @@
 - [ ] 動作変更時は `CHANGELOG.md` の `[Unreleased]` セクションを更新
 - [ ] 関連する Wiki ドキュメントを更新 (該当する場合)
 - [ ] 新規コードに対してテストを追加 (該当する場合)
-- [ ] `WinformsMVP.Core` (`netstandard2.0`) に WinForms 依存を持ち込んでいない / `net472` と `net10.0-windows` の両方でビルドできる
+- [ ] `Kibinago.Core` (`netstandard2.0`) に WinForms 依存を持ち込んでいない / `net472` と `net10.0-windows` の両方でビルドできる
 
 ## 影響範囲
 

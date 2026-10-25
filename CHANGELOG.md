@@ -8,6 +8,22 @@
 
 ## [Unreleased]
 
+### Changed (変更)
+
+- **BREAKING: 名前を Kibinago に変更** — nuget.org に別の作者の `WinFormsMvp` 1.0.1 / `WinFormsMVP.Core` 1.0.2008.2017 (2015–2017) があり、NuGet の ID は大文字小文字を区別しないため、テンプレート既定の `*-*` がそちらを取り込んでいた (新人試用で発覚)。パッケージ・アセンブリ・名前空間・API・テンプレートをすべて改名し、名前空間の冗長な `.MVP.` 段も外した。コードの変更は `using` と下の API 名の置き換えだけ:
+
+  | 旧 | 新 |
+  |---|---|
+  | パッケージ `WinformsMVP` / `.Core` / `.Testing` / `.DependencyInjection` / `.Templates` | `Kibinago` / `Kibinago.Core` / `Kibinago.Testing` / `Kibinago.DependencyInjection` / `Kibinago.Templates` |
+  | `WinformsMVP.MVP.Presenters` / `.Views` / `.ViewActions` / `.Models` | `Kibinago.Presenters` / `Kibinago.Views` / `Kibinago.ViewActions` / `Kibinago.Models` |
+  | `WinformsMVP.Services` / `.Common` / `.Logging` / `.Configuration` / `.Testing` … | `Kibinago.Services` / `Kibinago.Common` / `Kibinago.Logging` / `Kibinago.Configuration` / `Kibinago.Testing` … |
+  | `AddWinformsMVP` / `UseWinformsMVP` / `WinformsMvpBuilder` | `AddKibinago` / `UseKibinago` / `KibinagoBuilder` |
+  | `dotnet new winformsmvp` / `winformsmvp-tests`、`--mvp-version` | `dotnet new kibinago` / `kibinago-tests`、`--kibinago-version` (`mvp-window` / `mvp-control` は変更なし) |
+
+  `MvpApplication`、アナライザーの `MVP001`〜`MVP017` は変更なし (MVP はパターンの名前)。
+- **テンプレートが参照するパッケージの版**: 既定は「最新 (`*-*`)」ではなく、そのテンプレートと一緒にリリースされた版。
+- README: ローカルフォルダのソース登録はソリューションの `nuget.config` に (`--configfile`)。
+
 ## [1.0.0-preview.8] - 2026-10-25
 
 ### Added (追加)

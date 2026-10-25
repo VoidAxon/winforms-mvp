@@ -54,7 +54,7 @@ MVP パターン自体の思想は [MVP パターンとは](Concept-MVP-Pattern)
 | **Model Layer** | データとビジネスルール (Repository、DTO、ドメインロジック) | ゼロ |
 | **Platform Services Layer** | UI 操作・I/O・ロギング等の抽象化 | サービス実装にのみ存在 |
 
-この境界はパッケージ構成でも強制されています。Presenter 基底クラス・ViewAction ディスパッチャ・サービスインターフェイス等は **`WinformsMVP.Core`** (`netstandard2.0`、WinForms 非参照) にあり、Presenter だけを置くプロジェクトが Core のみを参照すれば WinForms 型はコンパイルできません。View 側の実装 (`WindowNavigator`、`ViewActionBinder`、ダイアログ、トースト、`MessageService`) は **`WinformsMVP`** (`net472` / `net10.0-windows`) にあります。名前空間は共通です。
+この境界はパッケージ構成でも強制されています。Presenter 基底クラス・ViewAction ディスパッチャ・サービスインターフェイス等は **`Kibinago.Core`** (`netstandard2.0`、WinForms 非参照) にあり、Presenter だけを置くプロジェクトが Core のみを参照すれば WinForms 型はコンパイルできません。View 側の実装 (`WindowNavigator`、`ViewActionBinder`、ダイアログ、トースト、`MessageService`) は **`Kibinago`** (`net472` / `net10.0-windows`) にあります。名前空間は共通です。
 
 ---
 

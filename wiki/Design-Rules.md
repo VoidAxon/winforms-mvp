@@ -157,7 +157,7 @@ SubscribeViewEvent<ValueChangingEventArgs<int>>(h => View.SelectedRecordChanging
     e => { if (_tracker.IsChanged) e.Cancel = !Messages.ConfirmYesNo("保存されていない変更があります。移動しますか？"); });
 ```
 
-`ValueChangedEventArgs<T>` / `ValueChangingEventArgs<T>` は `WinformsMVP.Common.Events` (Core) にあります。`ValueChanged` は変わった後 (元に戻すと画面が一瞬変わる)、`ValueChanging` は変わる前に止められます。
+`ValueChangedEventArgs<T>` / `ValueChangingEventArgs<T>` は `Kibinago.Common.Events` (Core) にあります。`ValueChanged` は変わった後 (元に戻すと画面が一瞬変わる)、`ValueChanging` は変わる前に止められます。
 
 ---
 
@@ -520,7 +520,7 @@ public class GoodPresenter : WindowPresenterBase<IMyView>
 ## 自動検証 (Roslyn Analyzer)
 
 これらのルールの **一部は、すでに Roslyn Analyzer によってコンパイル時に自動検証されています**。
-アナライザは `WinformsMVP.Core` パッケージに同梱されており (`analyzers/dotnet/cs`)、`WinformsMVP` (Core に依存) を参照するだけで推移的に有効になり、消費側のビルドでも自動的に走ります — 別途インストールは不要です。
+アナライザは `Kibinago.Core` パッケージに同梱されており (`analyzers/dotnet/cs`)、`Kibinago` (Core に依存) を参照するだけで推移的に有効になり、消費側のビルドでも自動的に走ります — 別途インストールは不要です。
 
 | 診断 ID | タイトル | 対応ルール |
 |---------|---------|----------|
@@ -536,7 +536,7 @@ public class GoodPresenter : WindowPresenterBase<IMyView>
 | `MVP016` | Presenter に public イベントを宣言しない | [Rule 17](#rule-17-presenter-イベントの可視性) |
 | `MVP017` | `IEventAggregator.Subscribe` の戻り値 (購読トークン) を捨てない | [EventAggregator — 購読の生存期間](Reference-EventAggregator#購読の生存期間) |
 
-> Presenter / View インターフェイスの判定は名前ではなく型で行います: Presenter は `WinformsMVP.MVP.Presenters.PresenterBase<T>` の派生クラス、View インターフェイスは `WinformsMVP.MVP.Views.IViewBase` の派生インターフェイス、UI 型は `System.Windows.Forms` 名前空間の型 (およびその派生) です。
+> Presenter / View インターフェイスの判定は名前ではなく型で行います: Presenter は `Kibinago.Presenters.PresenterBase<T>` の派生クラス、View インターフェイスは `Kibinago.Views.IViewBase` の派生インターフェイス、UI 型は `System.Windows.Forms` 名前空間の型 (およびその派生) です。
 
 > 既定の重大度はすべて **Warning** です (フレームワークをインストールしただけでビルドが壊れないように)。チームで厳格化したい場合は `.editorconfig` で個別に `error` へ引き上げられます。
 

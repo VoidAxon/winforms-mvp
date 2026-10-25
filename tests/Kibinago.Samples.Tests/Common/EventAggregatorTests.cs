@@ -1,0 +1,746 @@
+// These tests exercise the aggregator itself: each test owns a short-lived aggregator, so its
+// subscriptions are released with it and the tokens are deliberately not kept.
+#pragma warning disable MVP017
+
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using Kibinago.Common.EventAggregator;
+using Xunit;
+using Xunit.Abstractions;
+
+namespace Kibinago.Samples.Tests.Common
+{
+    /// <summary>
+    /// Comprehensive tests for EventAggregator including functionality, thread safety, and stress tests.
+    /// </summary>
+    public class EventAggregatorTests
+    {
+        private readonly ITestOutputHelper _output;
+
+        public EventAggregatorTests(ITestOutputHelper output)
+        {
+            _output = output;
+        }
+
+        #region Test Messages
+
+        public class TestMessage
+        {
+            public string Content { get; set; }
+            public int Value { get; set; }
+        }
+
+        public class AnotherMessage
+        {
+            public string Data { get; set; }
+        }
+
+        #endregion
+
+        #region Basic Functionality Tests
+
+        [Fact]
+        public void Subscribe_WhenHandlerIsNull_ThrowsArgumentNullException()
+        {
+            // Arrange
+            var aggregator = new EventAggregator();
+
+            // Act & Assert
+            Assert.Throws<ArgumentNullException>(() => aggregator.Subscribe<TestMessage>(null));
+        }
+
+        [Fact]
+        public void Publish_WhenMessageIsNull_ThrowsArgumentNullException()
+        {
+            // Arrange
+            var aggregator = new EventAggregator();
+
+            // Act & Assert
+            Assert.Throws<ArgumentNullException>(() => aggregator.Publish<TestMessage>(null));
+        }
+
+        [Fact]
+        public void Publish_WithNoSubscribers_DoesNotThrow()
+        {
+            // Arrange
+            var aggregator = new EventAggregator();
+
+            // Act & Assert (should not throw)
+            aggregator.Publish(new TestMessage { Content = "test" });
+        }
+
+        [Fact]
+        public void Subscribe_AndPublish_InvokesHandler()
+        {
+            // Arrange
+            var aggregator = new EventAggregator();
+            string receivedContent = null;
+
+            // Act
+            aggregator.Subscribe<TestMessage>(msg => receivedContent = msg.Content);
+            aggregator.Publish(new TestMessage { Content = "Hello" });
+
+            // Assert
+            Assert.Equal("Hello", receivedContent);
+        }
+
+        [Fact]
+        public void Subscribe_MultipleHandlers_AllAreInvoked()
+        {
+            // Arrange
+            var aggregator = new EventAggregator();
+            var results = new List<string>();
+
+            // Act
+            aggregator.Subscribe<TestMessage>(msg => results.Add("Handler1: " + msg.Content));
+            aggregator.Subscribe<TestMessage>(msg => results.Add("Handler2: " + msg.Content));
+            aggregator.Subscribe<TestMessage>(msg => results.Add("Handler3: " + msg.Content));
+
+            aggregator.Publish(new TestMessage { Content = "Test" });
+
+            // Assert
+            Assert.Equal(3, results.Count);
+            Assert.Contains("Handler1: Test", results);
+            Assert.Contains("Handler2: Test", results);
+            Assert.Contains("Handler3: Test", results);
+        }
+
+        [Fact]
+        public void Subscribe_DifferentMessageTypes_OnlyMatchingHandlersInvoked()
+        {
+            // Arrange
+            var aggregator = new EventAggregator();
+            bool testMessageReceived = false;
+            bool anotherMessageReceived = false;
+
+            // Act
+            aggregator.Subscribe<TestMessage>(msg => testMessageReceived = true);
+            aggregator.Subscribe<AnotherMessage>(msg => anotherMessageReceived = true);
+
+            aggregator.Publish(new TestMessage { Content = "test" });
+
+            // Assert
+            Assert.True(testMessageReceived);
+            Assert.False(anotherMessageReceived);
+        }
+
+        [Fact]
+        public void Dispose_UnsubscribesHandler()
+        {
+            // Arrange
+            var aggregator = new EventAggregator();
+            int callCount = 0;
+
+            var subscription = aggregator.Subscribe<TestMessage>(msg => callCount++);
+
+            // Act
+            aggregator.Publish(new TestMessage());
+            subscription.Dispose();
+            aggregator.Publish(new TestMessage());
+
+            // Assert
+            Assert.Equal(1, callCount); // Only first publish should invoke handler
+        }
+
+        // Queues posted callbacks until Pump() — lets a test hold a delivery in flight.
+        private sealed class ManualContext : SynchronizationContext
+        {
+            private readonly System.Collections.Generic.Queue<(SendOrPostCallback, object)> _queue =
+                new System.Collections.Generic.Queue<(SendOrPostCallback, object)>();
+            public int Posted;
+            public override void Post(SendOrPostCallback d, object state) { Posted++; _queue.Enqueue((d, state)); }
+            public void Pump() { while (_queue.Count > 0) { var (d, st) = _queue.Dequeue(); d(st); } }
+        }
+
+        private static T OnThreadWithContext<T>(SynchronizationContext context, Func<T> body)
+        {
+            T result = default(T);
+            var thread = new Thread(() =>
+            {
+                SynchronizationContext.SetSynchronizationContext(context);
+                result = body();
+            });
+            thread.Start();
+            thread.Join();
+            return result;
+        }
+
+        [Fact]
+        public void Dispose_ClearsSubscriptions_AndRejectsNew()
+        {
+            var aggregator = new EventAggregator();
+            int callCount = 0;
+            aggregator.Subscribe<TestMessage>(msg => callCount++);
+
+            aggregator.Dispose();
+            aggregator.Publish(new TestMessage());
+
+            Assert.Equal(0, callCount);
+            Assert.Throws<ObjectDisposedException>(() => aggregator.Subscribe<TestMessage>(msg => { }));
+        }
+
+        [Fact]
+        public void Dispose_IsIdempotent()
+        {
+            var aggregator = new EventAggregator();
+            aggregator.Dispose();
+            aggregator.Dispose();
+        }
+
+        [Fact]
+        public void Dispose_DropsQueuedDeliveries()
+        {
+            var aggregator = new EventAggregator();
+            var ui = new ManualContext();
+            int callCount = 0;
+            OnThreadWithContext(ui, () => aggregator.Subscribe<TestMessage>(msg => callCount++));
+
+            aggregator.Publish(new TestMessage());   // test thread has no context -> posted to ui
+            Assert.Equal(1, ui.Posted);
+            aggregator.Dispose();
+            ui.Pump();
+
+            Assert.Equal(0, callCount);
+        }
+
+        [Fact]
+        public void Subscribe_CapturesSubscriberContext_NotConstructorContext()
+        {
+            var constructionContext = new ManualContext();
+            var aggregator = OnThreadWithContext(constructionContext, () => new EventAggregator());
+            var subscriberContext = new ManualContext();
+            int callCount = 0;
+            OnThreadWithContext(subscriberContext, () => aggregator.Subscribe<TestMessage>(msg => callCount++));
+
+            aggregator.Publish(new TestMessage());
+
+            Assert.Equal(0, constructionContext.Posted);
+            Assert.Equal(1, subscriberContext.Posted);
+            subscriberContext.Pump();
+            Assert.Equal(1, callCount);
+        }
+
+        #endregion
+
+        #region Filter Tests
+
+        [Fact]
+        public void Subscribe_WithFilter_OnlyMatchingMessagesInvokeHandler()
+        {
+            // Arrange
+            var aggregator = new EventAggregator();
+            var receivedValues = new List<int>();
+
+            // Subscribe with filter: only values > 10
+            aggregator.Subscribe<TestMessage>(
+                msg => receivedValues.Add(msg.Value),
+                filter: msg => msg.Value > 10);
+
+            // Act
+            aggregator.Publish(new TestMessage { Value = 5 });   // Filtered out
+            aggregator.Publish(new TestMessage { Value = 15 });  // Passes filter
+            aggregator.Publish(new TestMessage { Value = 3 });   // Filtered out
+            aggregator.Publish(new TestMessage { Value = 20 });  // Passes filter
+
+            // Assert
+            Assert.Equal(2, receivedValues.Count);
+            Assert.Contains(15, receivedValues);
+            Assert.Contains(20, receivedValues);
+        }
+
+        [Fact]
+        public void Subscribe_WithFilterThatThrows_DoesNotInvokeHandler()
+        {
+            // Arrange
+            var aggregator = new EventAggregator();
+            bool handlerInvoked = false;
+
+            // Subscribe with filter that throws
+            aggregator.Subscribe<TestMessage>(
+                msg => handlerInvoked = true,
+                filter: msg => throw new InvalidOperationException("Filter error"));
+
+            // Act
+            aggregator.Publish(new TestMessage());
+
+            // Assert - Handler should not be invoked when filter throws
+            Assert.False(handlerInvoked);
+        }
+
+        #endregion
+
+        #region Exception Isolation Tests
+
+        [Fact]
+        public void Publish_HandlerThrowsException_OtherHandlersStillInvoked()
+        {
+            // Arrange
+            var aggregator = new EventAggregator();
+            var results = new List<string>();
+
+            // Act
+            aggregator.Subscribe<TestMessage>(msg => results.Add("Handler1"));
+            aggregator.Subscribe<TestMessage>(msg => throw new Exception("Handler2 failed"));
+            aggregator.Subscribe<TestMessage>(msg => results.Add("Handler3"));
+
+            aggregator.Publish(new TestMessage());
+
+            // Assert - Despite Handler2 throwing, Handler1 and Handler3 should still execute
+            Assert.Equal(2, results.Count);
+            Assert.Contains("Handler1", results);
+            Assert.Contains("Handler3", results);
+        }
+
+        #endregion
+
+        #region Subscription Lifetime Tests
+
+        [Fact]
+        public void Subscribe_CapturingLambda_SurvivesGarbageCollection()
+        {
+            // A lambda that captures a local compiles to a closure object nothing else references.
+            // Subscriptions hold their handler strongly, so a GC must not end the subscription.
+            var aggregator = new EventAggregator();
+            int callCount = 0;
+            SubscribeWithClosure(aggregator, () => callCount++);
+
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+
+            aggregator.Publish(new TestMessage());
+
+            Assert.Equal(1, callCount);
+        }
+
+        private static IDisposable SubscribeWithClosure(IEventAggregator aggregator, Action callback)
+        {
+            var subscriber = new TestSubscriber(callback);
+            return aggregator.Subscribe<TestMessage>(msg => subscriber.OnMessage(msg));
+        }
+
+        private class TestSubscriber
+        {
+            private readonly Action _callback;
+
+            public TestSubscriber(Action callback)
+            {
+                _callback = callback;
+            }
+
+            public void OnMessage(TestMessage msg)
+            {
+                _callback();
+            }
+        }
+
+        [Fact]
+        public void Subscribe_DisposedToken_StopsDelivery()
+        {
+            var aggregator = new EventAggregator();
+            int callCount = 0;
+            var token = SubscribeWithClosure(aggregator, () => callCount++);
+
+            aggregator.Publish(new TestMessage());
+            token.Dispose();
+            aggregator.Publish(new TestMessage());
+
+            Assert.Equal(1, callCount);
+        }
+
+        [Fact]
+        public void DisposedToken_DoesNotKeepTheSubscriberAlive()
+        {
+            var aggregator = new EventAggregator();
+            var (token, subscriberRef) = SubscribeAndForget(aggregator);
+
+            token.Dispose();   // the caller keeps the disposed token
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+
+            Assert.False(subscriberRef.IsAlive);
+            GC.KeepAlive(token);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private static (IDisposable, WeakReference) SubscribeAndForget(IEventAggregator aggregator)
+        {
+            var subscriber = new TestSubscriber(() => { });
+            var token = aggregator.Subscribe<TestMessage>(subscriber.OnMessage);
+            return (token, new WeakReference(subscriber));
+        }
+
+        [Fact]
+        public void Subscribe_StaticMethod_IsDelivered()
+        {
+            var aggregator = new EventAggregator();
+            StaticTestHandler.CallCount = 0;
+
+            using (aggregator.Subscribe<TestMessage>(StaticTestHandler.Handle))
+            {
+                aggregator.Publish(new TestMessage());
+                aggregator.Publish(new TestMessage());
+            }
+
+            Assert.Equal(2, StaticTestHandler.CallCount);
+        }
+
+        private static class StaticTestHandler
+        {
+            public static int CallCount = 0;
+
+            public static void Handle(TestMessage msg)
+            {
+                CallCount++;
+            }
+        }
+
+        #endregion
+
+        #region Thread Safety Tests
+
+        [Fact]
+        public void Publish_ConcurrentPublishing_AllMessagesProcessed()
+        {
+            // EventAggregator captures SynchronizationContext.Current at construction time.
+            //    Under xUnit the test thread can have a non-null SyncContext that does not
+            //    synchronously drain posted callbacks, so subscriber dispatches from Task.Run
+            //    threads end up queued but never run before the assertion. Construct the
+            //    aggregator under a null SyncContext so all dispatches take the direct path.
+
+            var prevSyncContext = SynchronizationContext.Current;
+            SynchronizationContext.SetSynchronizationContext(null);
+            try
+            {
+                var aggregator = new EventAggregator();
+                int messageCount = 0;
+                var lockObj = new object();
+
+                Action<TestMessage> handler = msg =>
+                {
+                    lock (lockObj)
+                    {
+                        messageCount++;
+                    }
+                };
+                aggregator.Subscribe(handler);
+
+                const int threadCount = 10;
+                const int messagesPerThread = 100;
+
+                var tasks = new Task[threadCount];
+                for (int i = 0; i < threadCount; i++)
+                {
+                    tasks[i] = Task.Run(() =>
+                    {
+                        for (int j = 0; j < messagesPerThread; j++)
+                        {
+                            aggregator.Publish(new TestMessage { Value = j });
+                        }
+                    });
+                }
+
+                Task.WaitAll(tasks);
+
+                Assert.Equal(threadCount * messagesPerThread, messageCount);
+            }
+            finally
+            {
+                SynchronizationContext.SetSynchronizationContext(prevSyncContext);
+            }
+        }
+
+        [Fact]
+        public void Subscribe_ConcurrentSubscribing_AllSubscriptionsRegistered()
+        {
+            // Arrange
+            var aggregator = new EventAggregator();
+            const int subscriberCount = 100;
+            var counters = new int[subscriberCount];
+            var subscriptions = new IDisposable[subscriberCount];
+            var handlers = new Action<TestMessage>[subscriberCount];
+
+            // Act - Subscribe concurrently
+            var tasks = new Task[subscriberCount];
+            for (int i = 0; i < subscriberCount; i++)
+            {
+                int index = i; // Capture for closure
+                tasks[i] = Task.Run(() =>
+                {
+                    handlers[index] = msg => Interlocked.Increment(ref counters[index]);
+                    subscriptions[index] = aggregator.Subscribe(handlers[index]);
+                });
+            }
+
+            Task.WaitAll(tasks);
+
+            // Publish a message
+            aggregator.Publish(new TestMessage());
+
+            // Wait a bit for message processing
+            Thread.Sleep(100);
+
+            // Assert - All subscribers should have received the message
+            for (int i = 0; i < subscriberCount; i++)
+            {
+                Assert.Equal(1, counters[i]);
+            }
+        }
+
+        [Fact]
+        public void SubscribeAndPublish_ConcurrentOperations_ThreadSafe()
+        {
+            // Arrange
+            var aggregator = new EventAggregator();
+            int messageCount = 0;
+            var lockObj = new object();
+
+            const int operationCount = 1000;
+
+            // Act - Mix subscribe and publish operations concurrently
+            var tasks = new Task[operationCount];
+            for (int i = 0; i < operationCount; i++)
+            {
+                if (i % 2 == 0)
+                {
+                    // Subscribe
+                    tasks[i] = Task.Run(() =>
+                    {
+                        aggregator.Subscribe<TestMessage>(msg =>
+                        {
+                            lock (lockObj)
+                            {
+                                messageCount++;
+                            }
+                        });
+                    });
+                }
+                else
+                {
+                    // Publish
+                    tasks[i] = Task.Run(() =>
+                    {
+                        aggregator.Publish(new TestMessage());
+                    });
+                }
+            }
+
+            Task.WaitAll(tasks);
+
+            // Assert - Should not throw and should complete
+            Assert.True(messageCount >= 0); // At least some messages were processed
+        }
+
+        #endregion
+
+        #region Stress Tests
+
+        [Fact]
+        public void StressTest_LargeNumberOfSubscribers_PerformanceAcceptable()
+        {
+            // Arrange
+            var aggregator = new EventAggregator();
+            const int subscriberCount = 10000;
+            int totalCallCount = 0;
+            var lockObj = new object();
+
+            for (int i = 0; i < subscriberCount; i++)
+            {
+                aggregator.Subscribe<TestMessage>(msg =>
+                {
+                    lock (lockObj)
+                    {
+                        totalCallCount++;
+                    }
+                });
+            }
+
+            // Act
+            var sw = Stopwatch.StartNew();
+            aggregator.Publish(new TestMessage { Content = "Stress test" });
+            sw.Stop();
+
+            // Assert
+            Assert.Equal(subscriberCount, totalCallCount);
+
+            _output.WriteLine($"Published to {subscriberCount} subscribers in {sw.ElapsedMilliseconds}ms");
+            _output.WriteLine($"Average time per subscriber: {sw.Elapsed.TotalMilliseconds / subscriberCount:F4}ms");
+
+            // Should complete in reasonable time (< 500ms for 10k subscribers on modern hardware)
+            Assert.True(sw.ElapsedMilliseconds < 500, $"Performance issue: took {sw.ElapsedMilliseconds}ms");
+        }
+
+        [Fact]
+        public void StressTest_HighFrequencyPublishing_HandlesLoad()
+        {
+            // Arrange
+            var aggregator = new EventAggregator();
+            int messageCount = 0;
+
+            aggregator.Subscribe<TestMessage>(msg => Interlocked.Increment(ref messageCount));
+
+            const int messageVolume = 100000;
+
+            // Act
+            var sw = Stopwatch.StartNew();
+            for (int i = 0; i < messageVolume; i++)
+            {
+                aggregator.Publish(new TestMessage { Value = i });
+            }
+            sw.Stop();
+
+            // Assert
+            Assert.Equal(messageVolume, messageCount);
+
+            _output.WriteLine($"Published {messageVolume} messages in {sw.ElapsedMilliseconds}ms");
+            _output.WriteLine($"Throughput: {messageVolume / sw.Elapsed.TotalSeconds:F0} messages/second");
+
+            // Should handle at least 50k messages/second
+            var messagesPerSecond = messageVolume / sw.Elapsed.TotalSeconds;
+            Assert.True(messagesPerSecond > 50000, $"Throughput too low: {messagesPerSecond:F0} msg/s");
+        }
+
+        [Fact]
+        public void StressTest_ManyMessageTypes_ScalesWell()
+        {
+            // Arrange
+            var aggregator = new EventAggregator();
+            const int messageTypeCount = 100;
+            var counters = new int[messageTypeCount];
+
+            // Create different message types and subscribe to each
+            for (int i = 0; i < messageTypeCount; i++)
+            {
+                int index = i; // Capture for closure
+                aggregator.Subscribe<TestMessage>(msg =>
+                {
+                    if (msg.Value == index)
+                    {
+                        Interlocked.Increment(ref counters[index]);
+                    }
+                });
+            }
+
+            // Act
+            var sw = Stopwatch.StartNew();
+            for (int i = 0; i < messageTypeCount; i++)
+            {
+                aggregator.Publish(new TestMessage { Value = i });
+            }
+            sw.Stop();
+
+            // Assert
+            for (int i = 0; i < messageTypeCount; i++)
+            {
+                Assert.True(counters[i] >= 1, $"Counter {i} was not incremented");
+            }
+
+            _output.WriteLine($"Handled {messageTypeCount} different message patterns in {sw.ElapsedMilliseconds}ms");
+        }
+
+        [Fact]
+        public void StressTest_ConcurrentSubscribePublishUnsubscribe_Stable()
+        {
+            // Arrange
+            var aggregator = new EventAggregator();
+            int messageCount = 0;
+            const int iterations = 1000;
+            var random = new Random();
+
+            // Act - Chaotic mix of operations
+            var tasks = Enumerable.Range(0, iterations).Select(i => Task.Run(() =>
+            {
+                var operation = random.Next(3);
+
+                switch (operation)
+                {
+                    case 0: // Subscribe
+                        var subscription = aggregator.Subscribe<TestMessage>(msg =>
+                        {
+                            Interlocked.Increment(ref messageCount);
+                        });
+                        // Sometimes immediately dispose
+                        if (random.Next(2) == 0)
+                        {
+                            subscription.Dispose();
+                        }
+                        break;
+
+                    case 1: // Publish
+                        aggregator.Publish(new TestMessage { Value = i });
+                        break;
+
+                    case 2: // Subscribe and unsubscribe immediately
+                        aggregator.Subscribe<TestMessage>(msg => { }).Dispose();
+                        break;
+                }
+            })).ToArray();
+
+            Task.WaitAll(tasks);
+
+            // Assert - Should complete without exceptions
+            _output.WriteLine($"Completed {iterations} random operations with {messageCount} messages processed");
+            Assert.True(true, "Stress test completed successfully");
+        }
+
+        [Fact]
+        public void StressTest_SubscribeDisposeCycles_LeaveNoLiveSubscriptions()
+        {
+            var aggregator = new EventAggregator();
+            int delivered = 0;
+
+            for (int cycle = 0; cycle < 100; cycle++)
+            {
+                var tokens = new List<IDisposable>();
+                for (int i = 0; i < 100; i++)
+                    tokens.Add(SubscribeWithClosure(aggregator, () => delivered++));
+                tokens.ForEach(t => t.Dispose());
+            }
+
+            aggregator.Publish(new TestMessage());
+
+            Assert.Equal(0, delivered);
+        }
+
+        #endregion
+
+        #region Performance Comparison Tests
+
+        [Fact]
+        public void PerformanceTest_CompareFilteredVsUnfiltered()
+        {
+            // Arrange
+            var aggregator = new EventAggregator();
+            const int messageCount = 10000;
+            int unfilteredCount = 0;
+            int filteredCount = 0;
+
+            aggregator.Subscribe<TestMessage>(msg => unfilteredCount++);
+            aggregator.Subscribe<TestMessage>(
+                msg => filteredCount++,
+                filter: msg => msg.Value % 2 == 0); // Only even numbers
+
+            // Act - Unfiltered
+            var sw1 = Stopwatch.StartNew();
+            for (int i = 0; i < messageCount; i++)
+            {
+                aggregator.Publish(new TestMessage { Value = i });
+            }
+            sw1.Stop();
+
+            // Assert
+            Assert.Equal(messageCount, unfilteredCount);
+            Assert.Equal(messageCount / 2, filteredCount);
+
+            _output.WriteLine($"Processed {messageCount} messages (filtered + unfiltered) in {sw1.ElapsedMilliseconds}ms");
+            _output.WriteLine($"Unfiltered received: {unfilteredCount}, Filtered received: {filteredCount}");
+        }
+
+        #endregion
+    }
+}

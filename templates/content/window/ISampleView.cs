@@ -1,7 +1,7 @@
 //#if (Validation)
 using System;
 //#endif
-using WinformsMVP.MVP.Views;
+using Kibinago.Views;
 
 namespace MvpNamespace
 {

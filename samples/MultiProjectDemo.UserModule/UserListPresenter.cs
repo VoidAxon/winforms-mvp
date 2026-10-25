@@ -1,5 +1,5 @@
-using WinformsMVP.MVP.Presenters;
-using WinformsMVP.Services;
+using Kibinago.Presenters;
+using Kibinago.Services;
 
 namespace MultiProjectDemo.UserModule
 {

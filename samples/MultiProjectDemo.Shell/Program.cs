@@ -5,14 +5,14 @@ using Microsoft.Extensions.Logging;
 using MultiProjectDemo.OrderModule;
 using MultiProjectDemo.UserModule;
 using MultiProjectDemo.Shell.Logging;
-using WinformsMVP.DependencyInjection;
-using WinformsMVP.Services;
-using WinformsMVP.Services.Implementations;
+using Kibinago.DependencyInjection;
+using Kibinago.Services;
+using Kibinago.Services.Implementations;
 
 namespace MultiProjectDemo.Shell
 {
     /// <summary>
-    /// Reference Shell that wires multiple UI modules through the WinformsMVP DI
+    /// Reference Shell that wires multiple UI modules through the Kibinago DI
     /// integration. The Shell does not know what types live inside each module —
     /// it just instantiates each module's <c>IModuleRegistrar</c> and lets the
     /// framework do the wiring.
@@ -37,12 +37,12 @@ namespace MultiProjectDemo.Shell
 
             // 3. Framework's own services (IPresenterFactory, IViewMappingRegister,
             //    IMessageService, IWindowNavigator, ...).
-            services.AddWinformsMVP(viewRegistry);
+            services.AddKibinago(viewRegistry);
 
             // 4. Override the framework logger with a real M.E.Logging-backed factory.
-            // Plain AddSingleton (not TryAdd) overrides AddWinformsMVP's TryAddSingleton(NullLoggerFactory) regardless of registration order.
+            // Plain AddSingleton (not TryAdd) overrides AddKibinago's TryAddSingleton(NullLoggerFactory) regardless of registration order.
             var loggerFactory = LoggerFactory.Create(b => b.AddDebug());
-            services.AddSingleton<WinformsMVP.Logging.ILoggerFactory>(
+            services.AddSingleton<Kibinago.Logging.ILoggerFactory>(
                 loggerFactory.AsFrameworkLoggerFactory());
 
             // 5. Shell-owned Presenters.
@@ -52,7 +52,7 @@ namespace MultiProjectDemo.Shell
             //    convenience accessors (Messages, Dialogs, Navigator, ...) resolve
             //    through M.E.DI.
             var provider = services.BuildServiceProvider();
-            provider.UseWinformsMVP();
+            provider.UseKibinago();
 
             // 7. Resolve the root Presenter from DI, show it, and pump messages.
             var mainPresenter = provider.GetRequiredService<MainPresenter>();

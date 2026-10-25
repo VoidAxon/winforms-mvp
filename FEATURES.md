@@ -1,18 +1,18 @@
-# WinformsMVP — feature catalog
+# Kibinago — feature catalog
 
 A map of everything the framework offers, so you can find the right API without reading the source.
 One line per feature: **what it is for → entry point**. Details and examples live in the linked wiki page
 (Japanese) and in [CLAUDE.md](CLAUDE.md) (the rules: what a presenter may and may not do).
 
-**Packages** — **Core** = `WinformsMVP.Core` (netstandard2.0, no WinForms; everything a presenter uses) ·
-**WinForms** = `WinformsMVP` (net472 / net10.0-windows; forms, dialogs, toasts, binding) ·
-**DI** = `WinformsMVP.DependencyInjection` (optional M.E.DI) · **Testing** = `WinformsMVP.Testing` (test projects only) ·
-**Templates** = `WinformsMVP.Templates`.
-Namespaces are the same in Core and WinForms (`WinformsMVP.MVP.*`, `WinformsMVP.Services`, `WinformsMVP.Common`, …).
+**Packages** — **Core** = `Kibinago.Core` (netstandard2.0, no WinForms; everything a presenter uses) ·
+**WinForms** = `Kibinago` (net472 / net10.0-windows; forms, dialogs, toasts, binding) ·
+**DI** = `Kibinago.DependencyInjection` (optional M.E.DI) · **Testing** = `Kibinago.Testing` (test projects only) ·
+**Templates** = `Kibinago.Templates`.
+Namespaces are the same in Core and WinForms (`Kibinago.*`, `Kibinago.Services`, `Kibinago.Common`, …).
 
 ---
 
-## 1. Presenters and their lifecycle — Core, `WinformsMVP.MVP.Presenters` · [wiki](wiki/Reference-Presenter-Base-Classes.md)
+## 1. Presenters and their lifecycle — Core, `Kibinago.Presenters` · [wiki](wiki/Reference-Presenter-Base-Classes.md)
 
 | Need | Use |
 |---|---|
@@ -29,22 +29,22 @@ Namespaces are the same in Core and WinForms (`WinformsMVP.MVP.*`, `WinformsMVP.
 | Panels added / removed at runtime (rows, tabs) | `var handle = AttachChild(...)` keyed by the child view; remove: `handle.Dispose()` then `View.RemoveXxx(view)` |
 | Host a UserControl presenter without an MVP parent (WinForms) | `presenter.Connect(view[, param])` — attaches, initializes, disposes with the control |
 | Host a Form you create yourself (shell, legacy) | `presenter.Connect(form[, param][, onClosed])` (WinForms) |
-| Input model the form binds to | `NotifyingObject` (`SetProperty(ref field, value)`), `WinformsMVP.MVP.Models` |
+| Input model the form binds to | `NotifyingObject` (`SetProperty(ref field, value)`), `Kibinago.Models` |
 
 Public surface of a presenter: the constructor only (Rules 16/17, analyzer-enforced). Handlers are `private`.
 
-## 2. Views — Core, `WinformsMVP.MVP.Views`
+## 2. Views — Core, `Kibinago.Views`
 
 | Need | Use |
 |---|---|
 | Any view (UserControl) / a view with actions / a window | `IViewBase` / `IActionableView` (`ActionBinder`) / `IWindowView` |
 | A view that shows validation errors | `IValidatableView` (`ValidationErrors`) — connected to `Validation` automatically |
-| View events — no hand-written EventArgs, never a WinForms one (MVP004) | `EventHandler` (presenter reads the view) · `EventHandler<int>` / any business type · a tuple `EventHandler<(int Id, string Column)>` · `EventHandler<ValueChangedEventArgs<T>>` (after a change: `OldValue`, `NewValue`) · `EventHandler<ValueChangingEventArgs<T>>` (before it; the presenter may set `Cancel`) · BCL `EventHandler<CancelEventArgs>` — `WinformsMVP.Common.Events` · [wiki § Rule 4](wiki/Design-Rules.md) |
+| View events — no hand-written EventArgs, never a WinForms one (MVP004) | `EventHandler` (presenter reads the view) · `EventHandler<int>` / any business type · a tuple `EventHandler<(int Id, string Column)>` · `EventHandler<ValueChangedEventArgs<T>>` (after a change: `OldValue`, `NewValue`) · `EventHandler<ValueChangingEventArgs<T>>` (before it; the presenter may set `Cancel`) · BCL `EventHandler<CancelEventArgs>` — `Kibinago.Common.Events` · [wiki § Rule 4](wiki/Design-Rules.md) |
 | Open a legacy (non-MVP) popup from a migrated screen | a semantic view method returning `InteractionResult<T>` (`InteractionResult<Customer> EditCustomer(Customer current)`), implemented by the Form; a form shared by many screens: a small relay service · [migration wiki, Step 7](wiki/HowTo-Migrate-From-Legacy-WinForms.md) |
 
 View interfaces expose data and behavior, never controls. Forms need no closing code.
 
-## 3. ViewAction (commands) — Core + WinForms, `WinformsMVP.MVP.ViewActions` · [wiki](wiki/Reference-ViewAction-System.md)
+## 3. ViewAction (commands) — Core + WinForms, `Kibinago.ViewActions` · [wiki](wiki/Reference-ViewAction-System.md)
 
 Optional: a simple screen can use plain view events instead.
 
@@ -78,7 +78,7 @@ A list's double-click: raise a view event, the presenter calls `Dispatcher.Dispa
 | The screen must not open (data gone, no permission) | in `OnInitialize`: `Messages.ShowWarning(why); RequestClose(InteractionStatus.Cancel); return;` (or `RequestClose(why, Error)` for the caller to show): never shown (Navigator does not show it; `Connect` hides and closes it in `Load`); modeless `ShowWindow` returns `null` |
 | Result type | `InteractionResult<T>` (`IsOk`, `IsCancelled`, `IsError`, `Value`, `ErrorMessage`), `InteractionStatus`, `CloseReason` |
 | Map view interfaces to Forms (WinForms) | `IViewMappingRegister`: `RegisterFromAssembly`, `RegisterFromNamespace`, `Register<IView, Form>()`, `Register<IView>(() => new Form(deps))` |
-| UI module registers its own views | `IViewModuleRegistrar` + `register.RegisterModules(...)` (`WinformsMVP.Modules`) |
+| UI module registers its own views | `IViewModuleRegistrar` + `register.RegisterModules(...)` (`Kibinago.Modules`) |
 
 System shutdown / Task Manager never reach `CanClose`. Save-on-close: call `RequestClose(result)` inside `CanClose` and return `true`. Save / 破棄 handlers `AcceptChanges()` before `RequestClose`, so the gate does not ask; tests: `await host.WaitForCloseDecisionAsync()` for an async gate.
 
@@ -101,15 +101,15 @@ System shutdown / Task Manager never reach `CanClose`. Save-on-close: call `Requ
 | Need | Use |
 |---|---|
 | One startup call (no DI container) | `MvpApplication.Configure(framework: mvp => ..., services: reg => ...)`, then `MvpApplication.Run(mainForm)` |
-| Replace / tune framework parts | `WinformsMvpBuilder`: `mvp.Messages`, `.Toasts`, `.Dialogs`, `.ChangeTracking`, `.Events`, `.Logging`, `.Actions` |
+| Replace / tune framework parts | `KibinagoBuilder`: `mvp.Messages`, `.Toasts`, `.Dialogs`, `.ChangeTracking`, `.Events`, `.Logging`, `.Actions` |
 | Register business services / a module | `IServiceRegistry.RegisterInstance<T>`, `RegisterFactory<T>`; a module = a static `Register(IServiceRegistry)` |
 | Ambient provider / built-in container | `ServiceLocator.Current`, `ServiceLocator.Configure(...)`; `DefaultServiceProvider`; `sp.Resolve<T>()`, `ResolveRequired<T>()` |
-| M.E.DI | (DI) `services.AddWinformsMVP(viewRegistry[, mvp => ...])`, `provider.UseWinformsMVP()`, `RegisterModules(...)` with `IModuleRegistrar` |
+| M.E.DI | (DI) `services.AddKibinago(viewRegistry[, mvp => ...])`, `provider.UseKibinago()`, `RegisterModules(...)` with `IModuleRegistrar` |
 | Child presenters built by DI, one scope each | `IPresenterFactory.Create<T>()` (implemented by the DI package) |
 
 Precedence: a directly registered service > the `mvp.` choice > the built-in default.
 
-## 7. Change tracking — Core, `WinformsMVP.Common` · [wiki](wiki/Reference-ChangeTracker.md)
+## 7. Change tracking — Core, `Kibinago.Common` · [wiki](wiki/Reference-ChangeTracker.md)
 
 | Need | Use |
 |---|---|
@@ -124,7 +124,7 @@ Precedence: a directly registered service > the `mvp.` choice > the built-in def
 
 Detection only (no undo, no events). The model's own `Equals` is ignored by design.
 
-## 8. Validation — `WinformsMVP.Common.Validation(.Core)` · [wiki](wiki/HowTo-Validate-Form-Input.md)
+## 8. Validation — `Kibinago.Common.Validation(.Core)` · [wiki](wiki/HowTo-Validate-Form-Input.md)
 
 | Need | Use |
 |---|---|
@@ -137,7 +137,7 @@ Detection only (no undo, no events). The model's own `Equals` is ignored by desi
 
 Two display styles, both supported: **message only** (the view does not implement `IValidatableView`; the usual WinForms style) or **message + icons**. Keep Submit enabled while there are errors (it reveals unvisited fields).
 
-## 9. Binding helpers — WinForms, `WinformsMVP.Common.Extensions` · [wiki](wiki/Reference-Data-Binding.md)
+## 9. Binding helpers — WinForms, `Kibinago.Common.Extensions` · [wiki](wiki/Reference-Data-Binding.md)
 
 Expression-based two-way binding of controls to an `INotifyPropertyChanged` model (Supervising Controller):
 `control.BindProperty(model, x => x.Prop, "ControlProperty"[, updateMode, formattingEnabled])`, `textBox.Bind(...)`,
@@ -159,7 +159,7 @@ Expression-based two-way binding of controls to an `INotifyPropertyChanged` mode
 Delivered on the subscriber's UI thread; held strongly until the token is disposed (analyzer MVP017).
 For modules / screens that do not know each other — not for parent-child or panels of one window (use a shared model).
 
-## 12. Rate limiting — Core, `WinformsMVP.Common` · [wiki](wiki/Reference-RateLimiting.md)
+## 12. Rate limiting — Core, `Kibinago.Common` · [wiki](wiki/Reference-RateLimiting.md)
 
 | Need | Use |
 |---|---|
@@ -170,11 +170,11 @@ For modules / screens that do not know each other — not for parent-child or pa
 
 Callbacks run on the creating thread's context; without `onError` a failure reaches `Application.ThreadException`.
 
-## 13. Disposables — Core, `WinformsMVP.Common`
+## 13. Disposables — Core, `Kibinago.Common`
 
 `CompositeDisposable` (`Disposables` in presenters), `x.DisposeWith(Disposables)`, `Disposable.Create(() => ...)` (e.g. unsubscribe from a model that outlives the presenter).
 
-## 14. Testing — `WinformsMVP.Testing` (netstandard2.0, test projects only) · [wiki](wiki/HowTo-Test-A-Presenter.md)
+## 14. Testing — `Kibinago.Testing` (netstandard2.0, test projects only) · [wiki](wiki/HowTo-Test-A-Presenter.md)
 
 | Need | Use |
 |---|---|
@@ -198,16 +198,16 @@ MVP001 view interface ends with `View` · MVP002 presenter ends with `Presenter`
 MVP004 UI types in view interfaces / presenters · MVP006 public presenter methods return void · MVP007 presenter uses a concrete Form ·
 MVP008 public Form method not in its view interface · MVP013 UI control names in interface method names ·
 MVP014 presenter references WinForms types · MVP016 presenter declares public events · MVP017 `Subscribe` result discarded.
-With a `ProjectReference`, reference `WinformsMVP.Analyzers` as an analyzer explicitly (see `samples/`).
+With a `ProjectReference`, reference `Kibinago.Analyzers` as an analyzer explicitly (see `samples/`).
 
-**`dotnet new` templates** (`dotnet new install WinformsMVP.Templates`) · [wiki](wiki/HowTo-Use-Templates.md):
-`winformsmvp` (app; `--framework net10.0-windows|net472`, `--mvp-version`, `--no-restore`) ·
+**`dotnet new` templates** (`dotnet new install Kibinago.Templates`) · [wiki](wiki/HowTo-Use-Templates.md):
+`kibinago` (app; `--framework net10.0-windows|net472`, `--kibinago-version`, `--no-restore`) ·
 `mvp-window` (`--param-type`, `--validation`, `--namespace`) · `mvp-control` (`--namespace`) ·
-`winformsmvp-tests` (`--framework`, `--mvp-version`, `--app-project`).
+`kibinago-tests` (`--framework`, `--kibinago-version`, `--app-project`).
 
 ## 16. Where to read more
 
 Concepts: [MVP pattern](wiki/Concept-MVP-Pattern.md) · [architecture](wiki/Concept-Architecture-Overview.md) · [presenter responsibilities](wiki/Concept-Presenter-Responsibilities.md) · [design rules](wiki/Design-Rules.md) ·
 How-tos: [large edit screen](wiki/HowTo-Build-Large-Edit-Screen.md) · [async](wiki/HowTo-Handle-Async-Operations.md) · [errors](wiki/HowTo-Handle-Errors.md) · [window closing](wiki/HowTo-Handle-Window-Closing.md) · [subscriptions](wiki/HowTo-Manage-Presenter-Subscriptions.md) · [legacy migration](wiki/HowTo-Migrate-From-Legacy-WinForms.md) ·
 Start: [getting started](wiki/Getting-Started.md) · [tutorial](wiki/Tutorial-Building-Your-First-App.md) · [FAQ](wiki/FAQ.md) · [troubleshooting](wiki/Troubleshooting.md) · [glossary](wiki/Glossary.md) ·
-Samples: `samples/WinformsMVP.Samples` (one folder per feature), `samples/MultiProjectDemo.*` (modules, logging adapter).
+Samples: `samples/Kibinago.Samples` (one folder per feature), `samples/MultiProjectDemo.*` (modules, logging adapter).

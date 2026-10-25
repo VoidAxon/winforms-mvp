@@ -40,7 +40,7 @@ A. 状況次第です。新規プロジェクトで自由に選べるなら WPF 
 
 ### Q. このフレームワークは何 KB ですか?
 
-A. `WinformsMVP.Core` (`netstandard2.0`) と `WinformsMVP` (`net472` / `net10.0-windows`) の 2 つの DLL で構成され、小さなライブラリです。外部依存は Core の `System.ComponentModel.Annotations` (netstandard2.0 に DataAnnotations が無いため) のみで、WinformsMVP は Core に依存します。
+A. `Kibinago.Core` (`netstandard2.0`) と `Kibinago` (`net472` / `net10.0-windows`) の 2 つの DLL で構成され、小さなライブラリです。外部依存は Core の `System.ComponentModel.Annotations` (netstandard2.0 に DataAnnotations が無いため) のみで、Kibinago は Core に依存します。
 
 ---
 
@@ -118,7 +118,7 @@ A. 不要です。Presenter からは `Messages` プロパティで直接アク�
 
 ### Q. `Microsoft.Extensions.DependencyInjection` を使えますか?
 
-A. はい、オプションで `WinformsMVP.DependencyInjection` パッケージを併用すれば統合できます (`net472` / `net10.0-windows`)。詳しくは [Dependency Injection § M.E.DI との統合](Reference-DependencyInjection#medi-との統合) を参照。
+A. はい、オプションで `Kibinago.DependencyInjection` パッケージを併用すれば統合できます (`net472` / `net10.0-windows`)。詳しくは [Dependency Injection § M.E.DI との統合](Reference-DependencyInjection#medi-との統合) を参照。
 
 ### Q. ロギングはどう設定しますか?
 
@@ -166,7 +166,7 @@ A. 不要です。Presenter は WinForms に依存しないので、UI スレッ
 
 ### Q. `MessageBox` の確認ダイアログをテストできますか?
 
-A. はい。`WinformsMVP.Testing` の `FakeMessageService` (`TestServices.CreateFakes()` の `fakes.Messages`) に答えを用意します。
+A. はい。`Kibinago.Testing` の `FakeMessageService` (`TestServices.CreateFakes()` の `fakes.Messages`) に答えを用意します。
 
 ```csharp
 _fakes.Messages.EnqueueYesNo(false);   // 次の ConfirmYesNo に No と答える
@@ -178,7 +178,7 @@ Assert.False(_view.WasDeleted);
 
 ### Q. テストで View を実体化する必要がありますか?
 
-A. 不要です。`MockXxxView` を実装してインターフェイス越しにテストします。モック View は `CapturingActionBinder` (`WinformsMVP.Testing`) を公開して、テストからアクションを Dispatch します。サンプルは `tests/WinformsMVP.Samples.Tests/Mocks/` を参照。
+A. 不要です。`MockXxxView` を実装してインターフェイス越しにテストします。モック View は `CapturingActionBinder` (`Kibinago.Testing`) を公開して、テストからアクションを Dispatch します。サンプルは `tests/Kibinago.Samples.Tests/Mocks/` を参照。
 
 ---
 
@@ -188,15 +188,15 @@ A. 不要です。`MockXxxView` を実装してインターフェイス越しに
 
 A.
 
-- コアパッケージ (`WinformsMVP.Core`) — `netstandard2.0` (WinForms 非参照。Presenter・ViewAction ディスパッチャ・サービスインターフェイス等)
-- メインパッケージ (`WinformsMVP`) — `net472` および `net10.0-windows` のマルチターゲット (WinForms 実装、Core に依存)
-- オプションパッケージ (`WinformsMVP.DependencyInjection`) — `net472` および `net10.0-windows`
+- コアパッケージ (`Kibinago.Core`) — `netstandard2.0` (WinForms 非参照。Presenter・ViewAction ディスパッチャ・サービスインターフェイス等)
+- メインパッケージ (`Kibinago`) — `net472` および `net10.0-windows` のマルチターゲット (WinForms 実装、Core に依存)
+- オプションパッケージ (`Kibinago.DependencyInjection`) — `net472` および `net10.0-windows`
 
 最低バージョンは .NET Framework 4.7.2 です。`net40` のサポートは終了しました。
 
 ### Q. .NET 5/6/7/8 で使えますか?
 
-A. モダン .NET 向けには `net10.0-windows` をターゲットにしています (.NET 10 以降、Windows)。.NET 5〜9 専用のビルドはありません。なお `WinformsMVP.Core` は `netstandard2.0` なので、Presenter だけを切り出したライブラリやそのテストはどのランタイムでもビルドできます。
+A. モダン .NET 向けには `net10.0-windows` をターゲットにしています (.NET 10 以降、Windows)。.NET 5〜9 専用のビルドはありません。なお `Kibinago.Core` は `netstandard2.0` なので、Presenter だけを切り出したライブラリやそのテストはどのランタイムでもビルドできます。
 
 ### Q. Visual Studio のフォームデザイナは使えますか?
 

@@ -6,10 +6,10 @@
     "WinForms",
     "MVP"
   ],
-  "identity": "WinformsMVP.Templates.App",
-  "name": "WinformsMVP Application",
-  "description": "A WinForms application wired for WinformsMVP: service and view registration plus a main window (view interface, actions, presenter, Form).",
-  "shortName": "winformsmvp",
+  "identity": "Kibinago.Templates.App",
+  "name": "Kibinago Application",
+  "description": "A WinForms application wired for Kibinago: service and view registration plus a main window (view interface, actions, presenter, Form).",
+  "shortName": "kibinago",
   "sourceName": "MyMvpApp",
   "preferNameDirectory": true,
   "tags": {
@@ -34,12 +34,12 @@
       "replaces": "TARGET_FRAMEWORK",
       "description": "Target framework."
     },
-    "MvpVersion": {
+    "KibinagoVersion": {
       "type": "parameter",
       "datatype": "text",
-      "defaultValue": "*-*",
+      "defaultValue": "__KIBINAGO_VERSION__",
       "replaces": "MVP_PACKAGE_VERSION",
-      "description": "WinformsMVP package version (default: latest, prereleases included)."
+      "description": "Kibinago package version (default: the version these templates were released with)."
     },
     "skipRestore": {
       "type": "parameter",

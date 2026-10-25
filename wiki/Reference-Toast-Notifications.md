@@ -5,9 +5,9 @@
 1 回ごとの外観指定ができる `IWinFormsToastService` と、特定の画面座標に**単一の**トーストを出す
 `AnchoredToast` も使えます。
 
-> **2 つのインターフェイス:** `IToastService` (`WinformsMVP.Core`) は Presenter 用で
+> **2 つのインターフェイス:** `IToastService` (`Kibinago.Core`) は Presenter 用で
 > `Show(text, type[, duration])` だけを持ちます。`IWinFormsToastService : IToastService`
-> (`WinformsMVP` パッケージ) は `ToastOptions` / 画面座標といった WinForms 型を取るオーバーロードを
+> (`Kibinago` パッケージ) は `ToastOptions` / 画面座標といった WinForms 型を取るオーバーロードを
 > 追加した View 用です。既定の `IToastService` 登録は `IWinFormsToastService` に転送するため、
 > Presenter と View のトーストは 1 つのスタックを共有します。`IMessageService` にはトーストの
 > メンバーはありません。
@@ -110,7 +110,7 @@ public enum ToastPosition { TopLeft, TopRight, BottomLeft, BottomRight }
 ## 3. `mvp.Toasts` — アプリ全体の既定値
 
 起動時の設定 (`MvpApplication.Configure(framework: mvp => ...)` または M.E.DI の
-`AddWinformsMVP(viewRegistry, mvp => ...)`) で一度だけ設定します。値は `ToastHostOptions` として
+`AddKibinago(viewRegistry, mvp => ...)`) で一度だけ設定します。値は `ToastHostOptions` として
 登録され、トーストサービスの生成時に検証・コピーされます (以後の変更は効きません)。外観系
 (`Position` / `Size` / `Font` / `Duration`) は `ToastOptions` で 1 回ごとに上書きできますが、
 積み上げポリシー系 (`Margin` / `Gap` / `MaxVisibleToasts` / `Opacity`) はスタック全体に効くため

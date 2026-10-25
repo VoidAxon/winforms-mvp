@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using WinformsMVP.MVP.Views;
+using Kibinago.Views;
 
 namespace MultiProjectDemo.UserModule
 {

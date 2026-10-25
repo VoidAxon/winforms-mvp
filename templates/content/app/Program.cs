@@ -1,9 +1,9 @@
 using System;
 using System.Windows.Forms;
-using WinformsMVP;
-using WinformsMVP.MVP.Presenters;
-using WinformsMVP.Services;
-using WinformsMVP.Services.Implementations;
+using Kibinago;
+using Kibinago.Presenters;
+using Kibinago.Services;
+using Kibinago.Services.Implementations;
 
 namespace MyMvpApp
 {

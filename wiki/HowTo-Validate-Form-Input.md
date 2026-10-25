@@ -10,7 +10,7 @@
 - **表示** — View が `IValidatableView` を実装して `IValidationErrorDisplay ValidationErrors` を公開。Form では `ErrorProviderDisplay` でフィールド名をコントロールに対応付ける。接続はフレームワークが自動で行う
 - **タイミング** — フィールドのエラーは、ユーザーがそのコントロールを離れた (フォーカスが外れた) 後、または送信 (`Validation.Check(model)`) の後に表示される
 
-完全な実装例は `samples/WinformsMVP.Samples/ValidationDemo/` (`RegistrationModel` / `ValidationDemoPresenter` / `ValidationDemoForm`) です。
+完全な実装例は `samples/Kibinago.Samples/ValidationDemo/` (`RegistrationModel` / `ValidationDemoPresenter` / `ValidationDemoForm`) です。
 
 ---
 
@@ -100,20 +100,20 @@ public interface IRegistrationView : IWindowView, IValidatableView
 ```
 
 ```csharp
-// WinformsMVP.MVP.Views (WinformsMVP.Core)
+// Kibinago.Views (Kibinago.Core)
 public interface IValidatableView : IViewBase
 {
     IValidationErrorDisplay ValidationErrors { get; }
 }
 ```
 
-`IValidationErrorDisplay` (`WinformsMVP.Common.Validation.Core`) は View 側のエラーの受け口で、WinForms 型を含みません。`ShowErrors(errors, revealAll)` で全エラーを受け取り、`Reset()` で「訪問済みフィールド」を忘れます。通常は自分で実装せず、WinForms パッケージの `ErrorProviderDisplay` を使います。
+`IValidationErrorDisplay` (`Kibinago.Common.Validation.Core`) は View 側のエラーの受け口で、WinForms 型を含みません。`ShowErrors(errors, revealAll)` で全エラーを受け取り、`Reset()` で「訪問済みフィールド」を忘れます。通常は自分で実装せず、WinForms パッケージの `ErrorProviderDisplay` を使います。
 
 ### 3. Form: ErrorProviderDisplay でフィールドとコントロールを対応付ける
 
 ```csharp
-using WinformsMVP.Common.Validation;        // ErrorProviderDisplay / ControlErrorDisplay
-using WinformsMVP.Common.Validation.Core;   // ValidationState / IValidationErrorDisplay
+using Kibinago.Common.Validation;        // ErrorProviderDisplay / ControlErrorDisplay
+using Kibinago.Common.Validation.Core;   // ValidationState / IValidationErrorDisplay
 
 public partial class RegistrationForm : Form, IRegistrationView
 {
@@ -316,7 +316,7 @@ private void CheckUserNameAvailable(RegistrationModel model)
 
 ### ValidationState API
 
-`WinformsMVP.Common.Validation.Core.ValidationState` (`WinformsMVP.Core`)。Presenter では基底クラスの `Validation` プロパティで使います。
+`Kibinago.Common.Validation.Core.ValidationState` (`Kibinago.Core`)。Presenter では基底クラスの `Validation` プロパティで使います。
 
 | メンバー | 説明 |
 |---|---|
@@ -465,7 +465,7 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView>
 
 ## リファレンス: ModelValidator (DataAnnotations 連携)
 
-`Validation.Validate` / `Check` は内部で `ModelValidator.For<T>().ValidateAll(model)` を使います。画面のエラー表示とは関係なく Model を検証したい場合 (インポート処理、サービス層、Model の単体テストなど) は `IModelValidator<T>` (`WinformsMVP.Common.Validation.Core`) を直接使えます。
+`Validation.Validate` / `Check` は内部で `ModelValidator.For<T>().ValidateAll(model)` を使います。画面のエラー表示とは関係なく Model を検証したい場合 (インポート処理、サービス層、Model の単体テストなど) は `IModelValidator<T>` (`Kibinago.Common.Validation.Core`) を直接使えます。
 
 ```csharp
 private readonly IModelValidator<UserModel> _validator = ModelValidator.For<UserModel>();
@@ -496,7 +496,7 @@ foreach (var err in errors)
 > | 場面 | 使う型 | 特徴 |
 > |---|---|---|
 > | `IValidatableObject.Validate` / `[CustomValidation]` メソッドの戻り値 | **`System.ComponentModel.DataAnnotations.ValidationResult`** (BCL) | `IsValid` プロパティは **ない**。成功は `ValidationResult.Success` (= `null`) を返す/何も `yield` しない |
-> | `IModelValidator<T>.ValidateAll` / `ValidateSequential` の戻り値 | **`WinformsMVP.Common.Validation.Core.ModelValidationResult`** (フレームワーク) | `IsValid` プロパティが **ある** |
+> | `IModelValidator<T>.ValidateAll` / `ValidateSequential` の戻り値 | **`Kibinago.Common.Validation.Core.ModelValidationResult`** (フレームワーク) | `IsValid` プロパティが **ある** |
 >
 > `IValidatableObject.Validate` を実装するファイルでは **`using System.ComponentModel.DataAnnotations;`** を入れ、戻り値は BCL の `ValidationResult` を `yield` してください (フレームワークの `ModelValidationResult` を返すと契約を満たさずコンパイルエラー)。
 
@@ -534,7 +534,7 @@ public class MinimumAgeAttribute : ValidationAttribute
 
 ## `[ValidationOrder]` でフィールド順序を制御
 
-`ErrorsInOrder()` / `FirstError` は、ふつうはモデルの **宣言順** で十分です。宣言順と画面の順が違うプロパティにだけ `[ValidationOrder(N)]` (`WinformsMVP.Common.Validation.Attributes`) を付けて動かします。
+`ErrorsInOrder()` / `FirstError` は、ふつうはモデルの **宣言順** で十分です。宣言順と画面の順が違うプロパティにだけ `[ValidationOrder(N)]` (`Kibinago.Common.Validation.Attributes`) を付けて動かします。
 
 ```csharp
 public sealed class OrderInput : NotifyingObject
@@ -646,4 +646,4 @@ public void ValidationState_GroupsErrorsByField()
 - [HowTo: エラーを扱う](HowTo-Handle-Errors) — 検証以外のエラー処理
 - [入力項目の多い編集画面を作る](HowTo-Build-Large-Edit-Screen) — バインドした入力モデルの検証と、登録失敗時のメッセージ・フォーカス
 - サンプル:
-  - `samples/WinformsMVP.Samples/ValidationDemo/` — `RegistrationModel` (DataAnnotations + `[CustomValidation]`)、`ValidationDemoPresenter` (`Validate` / `Check` / `Reset` / `SetError`)、`ValidationDemoForm` (`ErrorProviderDisplay`) の完全実装
+  - `samples/Kibinago.Samples/ValidationDemo/` — `RegistrationModel` (DataAnnotations + `[CustomValidation]`)、`ValidationDemoPresenter` (`Validate` / `Check` / `Reset` / `SetError`)、`ValidationDemoForm` (`ErrorProviderDisplay`) の完全実装

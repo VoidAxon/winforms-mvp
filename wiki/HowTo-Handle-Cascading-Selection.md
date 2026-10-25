@@ -80,7 +80,7 @@ public interface IProductSelectionService     { Product Selected { get; } event 
 
 ## フレームワークプリミティブ
 
-汎用の選択保持オブジェクト (`WinformsMVP.Common`)。判定の既定は「`T` が `ISelectable` を実装していれば Key 同値 (`SelectableKeyComparer<T>` を自動採用)、そうでなければ `EqualityComparer<T>.Default`」で、`IEqualityComparer<T>` を明示注入すればそれが最優先です ([選択の同一性と値型](#選択の同一性と値型) 参照)。
+汎用の選択保持オブジェクト (`Kibinago.Common`)。判定の既定は「`T` が `ISelectable` を実装していれば Key 同値 (`SelectableKeyComparer<T>` を自動採用)、そうでなければ `EqualityComparer<T>.Default`」で、`IEqualityComparer<T>` を明示注入すればそれが最優先です ([選択の同一性と値型](#選択の同一性と値型) 参照)。
 
 ```csharp
 public interface ISelection<T> where T : class
@@ -161,7 +161,7 @@ public static class Cascade
 
 ## 選択の同一性と値型
 
-`ISelection<T>` には `where T : class` 制約があります。これは「**未選択 = `null`**」を `Current` で表現するための制約で、値型 (`int` / `enum` / `Guid` / `DateTime` / `bool`) は `null` を持てないため直接は載りません (`string` は参照型なのでそのまま使えます)。そこで `WinformsMVP.Common` は同一性まわりの小さな補助を 3 つ用意します。
+`ISelection<T>` には `where T : class` 制約があります。これは「**未選択 = `null`**」を `Current` で表現するための制約で、値型 (`int` / `enum` / `Guid` / `DateTime` / `bool`) は `null` を持てないため直接は載りません (`string` は参照型なのでそのまま使えます)。そこで `Kibinago.Common` は同一性まわりの小さな補助を 3 つ用意します。
 
 ### エンティティ — `ISelectable` を実装する
 
@@ -376,7 +376,7 @@ productP.Connect(productListControl);
 
 「サブカテゴリ再読込・選択クリア・商品リスト空・商品選択クリア」が一回で漏れなく揃います。各 Presenter はクリアを 1 行も書いていません。束縛時 (`initialSync = true`) は各層が現在値で自己同期するので、既定選択があっても・attach 順が前後しても、下位が空のまま取り残されません。
 
-完全に動くサンプル: `samples/WinformsMVP.Samples/CascadeDemo/`。
+完全に動くサンプル: `samples/Kibinago.Samples/CascadeDemo/`。
 
 ---
 

@@ -34,13 +34,13 @@ WinForms MVP Framework への貢献を検討いただきありがとうござい
 # クローンしてビルド
 git clone https://github.com/VoidAxon/winforms-mvp.git
 cd winforms-mvp
-dotnet build winforms-mvp.sln
+dotnet build Kibinago.sln
 
 # テスト実行
-dotnet test tests/WinformsMVP.Samples.Tests/WinformsMVP.Samples.Tests.csproj
+dotnet test tests/Kibinago.Samples.Tests/Kibinago.Samples.Tests.csproj
 
 # サンプルアプリ実行
-dotnet run --project samples/WinformsMVP.Samples/WinformsMVP.Samples.csproj
+dotnet run --project samples/Kibinago.Samples/Kibinago.Samples.csproj
 ```
 
 すべてのテストが緑になることを確認してください。
@@ -155,7 +155,7 @@ Closes #42
 
 ### スタイル
 
-- `WinformsMVP.Core` (`netstandard2.0`) には WinForms / System.Drawing への参照を入れない (Presenter から使う型はすべて Core に置く)
+- `Kibinago.Core` (`netstandard2.0`) には WinForms / System.Drawing への参照を入れない (Presenter から使う型はすべて Core に置く)
 - 4 スペースインデント
 - 行末セミコロン必須
 - `var` は型が右辺から明らかな場合のみ使う

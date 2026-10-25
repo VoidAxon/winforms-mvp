@@ -1,6 +1,6 @@
 # レート制限 (Debounce / Throttle)
 
-高頻度に発生するイベント (キー入力・スクロール・ドラッグ・リサイズなど) を間引くための 2 つのユーティリティ、`Debouncer` と `Throttler` を提供します。いずれも `WinformsMVP.Common` 名前空間にあり、**特定の UI フレームワークに依存しません** (WinForms / WPF いずれでも同じコードで動作)。
+高頻度に発生するイベント (キー入力・スクロール・ドラッグ・リサイズなど) を間引くための 2 つのユーティリティ、`Debouncer` と `Throttler` を提供します。いずれも `Kibinago.Common` 名前空間にあり、**特定の UI フレームワークに依存しません** (WinForms / WPF いずれでも同じコードで動作)。
 
 > **位置づけ**: 「入力のたびに重い処理が走る」「ドラッグ中に更新が殺到する」といった状況を、UI スレッドに安全な形で抑制します。`ViewActionBinder` には組み込まず、必要な箇所で個別に組み合わせる独立した部品です (コア原語を単純に保つ方針)。
 
@@ -46,14 +46,14 @@
 
 つまり **UI スレッド上で `new` する (または `RateLimit.Debounce(...)` する) だけで、コールバックは自動的に UI スレッドに戻されます**。明示的にコンテキストを渡すことも、`null` を渡してインライン実行 (編組なし) にすることもできます。
 
-> **外部依存ゼロ**。コアパッケージ (`WinformsMVP.Core`) に余計な依存を持ち込まないため、Rx (System.Reactive) などには依存していません。
+> **外部依存ゼロ**。コアパッケージ (`Kibinago.Core`) に余計な依存を持ち込まないため、Rx (System.Reactive) などには依存していません。
 
 ---
 
 ## 基本的な使い方
 
 ```csharp
-using WinformsMVP.Common;
+using Kibinago.Common;
 
 // Debounce: 入力が 300ms 止まったら検索する
 _searchDebouncer = RateLimit.Debounce(300, OnSearchSettled);
@@ -211,7 +211,7 @@ _search = RateLimit.Debounce(300, OnSearchSettled,
 
 - `onError` を渡せば、アクションが投げた例外はそこへ転送されます。
 - `onError` が `null` の場合、例外は**捕捉した `SynchronizationContext` 上でそのまま伝わります**。WinForms では `Application.ThreadException` に届きます (ViewAction のハンドラや非同期ハンドラと同じ扱い)。黙って消えることはありません。
-- `SynchronizationContext` がない場合 (ワーカースレッドで生成した等) は、タイマーのスレッドプールスレッドで未捕捉例外を投げるとプロセスが終了するため、`ServiceLocator` の `ILoggerFactory` (カテゴリ `WinformsMVP.Common.RateLimit`) でエラーログに出力してから握り潰します。
+- `SynchronizationContext` がない場合 (ワーカースレッドで生成した等) は、タイマーのスレッドプールスレッドで未捕捉例外を投げるとプロセスが終了するため、`ServiceLocator` の `ILoggerFactory` (カテゴリ `Kibinago.Common.RateLimit`) でエラーログに出力してから握り潰します。
 - `Flush()` はアクションを呼び出しスレッドで実行するので、例外は呼び出し元に伝わります。
 - `onError` 自身が投げた例外は握り潰されます。
 
@@ -222,7 +222,7 @@ _search = RateLimit.Debounce(300, OnSearchSettled,
 ## 主要 API
 
 ```csharp
-namespace WinformsMVP.Common
+namespace Kibinago.Common
 {
     public sealed class Debouncer : IDisposable
     {
@@ -276,4 +276,4 @@ namespace WinformsMVP.Common
 - [Presenter の購読ライフサイクルを管理する](HowTo-Manage-Presenter-Subscriptions) — `DisposeWith(Disposables)` の使い方
 - [非同期処理を扱う](HowTo-Handle-Async-Operations)
 
-サンプル: `samples/WinformsMVP.Samples/DebounceThrottleDemo/` (ランチャーの「Architecture」セクション)
+サンプル: `samples/Kibinago.Samples/DebounceThrottleDemo/` (ランチャーの「Architecture」セクション)

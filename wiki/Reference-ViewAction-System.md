@@ -248,7 +248,7 @@ public interface IViewActionBinder
 `StandardActions` のキーも画面のアクションと同じく修飾されています: `StandardActions.Save` のキーは `"Standard.Save"` (`"Standard."` + メンバー名)。そのため同梱のキー同士が重なることはなく (`FileSave` と `Save` は別のアクション)、ログやミドルウェアでもどこのキーか分かります。Presenter ごとに登録するので、2 つの画面が両方 `StandardActions.Save` を使っても衝突しません。
 
 ```csharp
-using WinformsMVP.MVP.ViewActions;
+using Kibinago.ViewActions;
 
 // 標準動詞は出荷済みの StandardActions を使う (再定義しない)
 Dispatcher.Register(StandardActions.Save, OnSave);
@@ -360,7 +360,7 @@ _binder.Add(DocumentActions.SetZoom, _numZoom, n => (int)n.Value);
 Dispatcher.Register(DocumentActions.SetZoom, zoom => _model.Zoom = zoom);
 Dispatcher.Register(DocumentActions.Open, async (path, ct) => await LoadAsync(path, ct));
 
-// テスト: CapturingActionBinder (WinformsMVP.Testing) も型付きで呼べる
+// テスト: CapturingActionBinder (Kibinago.Testing) も型付きで呼べる
 view.Binder.Dispatch(DocumentActions.SetZoom, 150);
 ```
 
@@ -512,7 +512,7 @@ private async Task OnRefreshAsync(CancellationToken ct)
 
 ```csharp
 await Dispatcher.DispatchAsync(CustomerActions.Refresh);
-// テストではモック View の CapturingActionBinder (WinformsMVP.Testing) から:
+// テストではモック View の CapturingActionBinder (Kibinago.Testing) から:
 await view.Binder.DispatchAsync(CustomerActions.Refresh);
 ```
 
@@ -703,7 +703,7 @@ _binder.RegisterStrategy<TreeView>((c, h) =>
 
 `subscribe` が返すクロージャは購読した実際のデリゲートインスタンスをキャプチャするため、`Unbind()` が正しく解除できます (ラムダで包んだ別インスタンスを `-=` しようとして解除できない、という問題を回避します)。`EventHandler` 版 (1.) は内部でこの `subscribe` 版に橋渡しされています。
 
-実装の詳細は `src/WinformsMVP/MVP/ViewActions/ViewActionBinder.cs` を参照してください。
+実装の詳細は `src/Kibinago/ViewActions/ViewActionBinder.cs` を参照してください。
 
 ---
 
@@ -951,10 +951,10 @@ Dispatcher.Use((ctx, next) =>
 - [Platform Services](Reference-Platform-Services) — Dispatcher を含むサービスの構成
 - [MVP 設計ルール](Design-Rules) — ルール 4 (UI 型を View インターフェイスに露出しない) 、ルール 7 (Tell-Don't-Ask)
 - サンプルコード:
-  - `samples/WinformsMVP.Samples/ViewActionExample.cs` — Implicit パターンの最小例
-  - `samples/WinformsMVP.Samples/ViewActionExplicitEventExample.cs` — Explicit パターン
-  - `samples/WinformsMVP.Samples/ViewActionWithParametersExample.cs` — パラメータ付きアクション
-  - `samples/WinformsMVP.Samples/ViewActionStateChangedExample.cs` — 状態駆動更新
-  - `samples/WinformsMVP.Samples/CheckBoxDemo/` — CheckBox/RadioButton バインド
-  - `samples/WinformsMVP.Samples/BulkBindingDemo/` — 一括バインド
-  - `samples/WinformsMVP.Samples/ViewActionMiddlewareExample.cs` — ミドルウェア (Audit / Performance / ErrorDialog)
+  - `samples/Kibinago.Samples/ViewActionExample.cs` — Implicit パターンの最小例
+  - `samples/Kibinago.Samples/ViewActionExplicitEventExample.cs` — Explicit パターン
+  - `samples/Kibinago.Samples/ViewActionWithParametersExample.cs` — パラメータ付きアクション
+  - `samples/Kibinago.Samples/ViewActionStateChangedExample.cs` — 状態駆動更新
+  - `samples/Kibinago.Samples/CheckBoxDemo/` — CheckBox/RadioButton バインド
+  - `samples/Kibinago.Samples/BulkBindingDemo/` — 一括バインド
+  - `samples/Kibinago.Samples/ViewActionMiddlewareExample.cs` — ミドルウェア (Audit / Performance / ErrorDialog)

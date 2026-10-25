@@ -2,7 +2,7 @@
 # Checks all sample code against the 14 MVP design rules
 
 param(
-    [string]$SamplesPath = "src\WinformsMVP.Samples",
+    [string]$SamplesPath = "src\Kibinago.Samples",
     [switch]$Verbose
 )
 

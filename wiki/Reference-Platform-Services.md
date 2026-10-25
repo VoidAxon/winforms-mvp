@@ -157,7 +157,7 @@ if (View.ConfirmDelete()) { ... }
 > **既定の選択は `Messages`**(コーナートースト/中央ダイアログ)です。トリガーがマウスでも
 > キーボードでもコードでも常に正しく、ほとんどのフィードバックはこれで足ります。アンカー付きは
 > 「この位置に出ることに意味がある」場合だけの選択肢です。実例は
-> `samples/WinformsMVP.Samples/AnchoredMessageDemo/` を参照してください。
+> `samples/Kibinago.Samples/AnchoredMessageDemo/` を参照してください。
 
 `AnchoredToast` はマルチモニター対応です(`Screen.FromPoint` でアンカーのあるスクリーンにクランプ)。
 
@@ -179,7 +179,7 @@ public interface IDialogProvider
     InteractionResult<Color>  ShowColorDialog(ColorDialogOptions options = null);
 }
 
-// WinformsMVP パッケージ — 戻り値が GDI+ / 印刷の型になるダイアログ
+// Kibinago パッケージ — 戻り値が GDI+ / 印刷の型になるダイアログ
 public interface IWinFormsDialogProvider : IDialogProvider
 {
     InteractionResult<Font>            ShowFontDialog(FontDialogOptions options = null);
@@ -189,7 +189,7 @@ public interface IWinFormsDialogProvider : IDialogProvider
 }
 ```
 
-> フォント / 印刷系ダイアログは `IDialogProvider` から `IWinFormsDialogProvider` に移動しました。Presenter 向けの `IDialogProvider` (WinformsMVP.Core) をプラットフォーム非依存に保つためです。必要な場合は View 側コード (または WinForms を知るサービス) で `IWinFormsDialogProvider` を解決してください。`ServiceLocator` の既定プロバイダは同じ `DialogProvider` インスタンスを両方のインターフェイスで登録し、`AddWinformsMVP` も `IWinFormsDialogProvider` を既定登録します。
+> フォント / 印刷系ダイアログは `IDialogProvider` から `IWinFormsDialogProvider` に移動しました。Presenter 向けの `IDialogProvider` (Kibinago.Core) をプラットフォーム非依存に保つためです。必要な場合は View 側コード (または WinForms を知るサービス) で `IWinFormsDialogProvider` を解決してください。`ServiceLocator` の既定プロバイダは同じ `DialogProvider` インスタンスを両方のインターフェイスで登録し、`AddKibinago` も `IWinFormsDialogProvider` を既定登録します。
 
 ### 使用例
 
@@ -274,7 +274,7 @@ private void LoadFile(string path)
 
 ## `ILogger` / `ILoggerFactory` — ロギング
 
-`Microsoft.Extensions.Logging` 互換の API を持つ自社抽象です。外部依存なしで `WinformsMVP.Core` に収めるため、BCL のみに依存しています。
+`Microsoft.Extensions.Logging` 互換の API を持つ自社抽象です。外部依存なしで `Kibinago.Core` に収めるため、BCL のみに依存しています。
 
 詳細は **[Logging](Reference-Logging)** を参照してください。ここでは Presenter からの呼び出し方だけ示します。
 
@@ -401,7 +401,7 @@ else
 // 設定不要 — ServiceLocator.Current は初回アクセス時に自動的に DefaultServiceProvider を生成する。
 // Messages / Toasts / Dialogs / Files は標準実装、View マッピングは空、ロギングは NullLoggerFactory。
 // WinForms 系の組み込み (MessageService / トースト / DialogProvider / WindowNavigator / ViewMappingRegister) は
-// 実行時に WinformsMVP アセンブリの内部フックから登録される。WinformsMVP.Core だけを配置した場合
+// 実行時に Kibinago アセンブリの内部フックから登録される。Kibinago.Core だけを配置した場合
 // (Presenter 単体テストなど) は FileService・NullLoggerFactory・EventAggregator・組み込みの変更追跡エンジンのみ。
 ```
 
@@ -440,7 +440,7 @@ register.RegisterFromAssembly(Assembly.GetExecutingAssembly());
 ServiceLocator.Configure(reg =>
 {
     reg.RegisterInstance<IViewMappingRegister>(register);
-    reg.RegisterInstance<WinformsMVP.Logging.ILoggerFactory>(new DebugLoggerFactory());
+    reg.RegisterInstance<Kibinago.Logging.ILoggerFactory>(new DebugLoggerFactory());
 });
 ```
 
@@ -451,13 +451,13 @@ ServiceLocator.Configure(reg =>
 ### M.E.DI コンテナ統合
 
 ```csharp
-// AddWinformsMVP → BuildServiceProvider → UseWinformsMVP の順で設定する
-services.AddWinformsMVP(viewRegistry, mvp =>
+// AddKibinago → BuildServiceProvider → UseKibinago の順で設定する
+services.AddKibinago(viewRegistry, mvp =>
 {
     mvp.Toasts.Duration = 4500;   // MvpApplication.Configure の framework: と同じビルダー
 });
 var provider = services.BuildServiceProvider();
-provider.UseWinformsMVP();   // ServiceLocator.Current = provider
+provider.UseKibinago();   // ServiceLocator.Current = provider
 ```
 
 詳細は [Dependency Injection](Reference-DependencyInjection) を参照。
@@ -466,7 +466,7 @@ provider.UseWinformsMVP();   // ServiceLocator.Current = provider
 
 ## モックでのテスト
 
-> **パッケージ:** フェイクと `PresenterTestHost` / `TestServices` は `WinformsMVP.Testing` パッケージ (`netstandard2.0`、`WinformsMVP.Core` のみに依存) にあります。テストプロジェクトから参照してください (`dotnet new winformsmvp-tests` は参照済み)。フェイクは任意で、自作のフェイクや Moq と混ぜて使えます。
+> **パッケージ:** フェイクと `PresenterTestHost` / `TestServices` は `Kibinago.Testing` パッケージ (`netstandard2.0`、`Kibinago.Core` のみに依存) にあります。テストプロジェクトから参照してください (`dotnet new kibinago-tests` は参照済み)。フェイクは任意で、自作のフェイクや Moq と混ぜて使えます。
 
 テスト用サービスは `PresenterTestHost.Start` の第 1 引数で、その Presenter だけに渡します。グローバルな `ServiceLocator.Current` を差し替える必要はないので、テストを並列に実行できます。`TestServices.CreateFakes()` は下表のフェイクをすべて登録したプロバイダ (`fakes.Provider`) を返します。`TestServices.Create()` は無出力の `ILoggerFactory` (どの Presenter もアタッチ時に必要) だけを登録したプロバイダを返します (自作のフェイクだけで組むとき)。
 

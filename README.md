@@ -1,10 +1,10 @@
-# WinForms MVP Framework
+# Kibinago — WinForms MVP Framework
 
 [![.NET Framework](https://img.shields.io/badge/.NET%20Framework-4.7.2%2B-blue.svg)](https://dotnet.microsoft.com/download/dotnet-framework)
 [![.NET](https://img.shields.io/badge/.NET-10%20(Windows)-blue.svg)](https://dotnet.microsoft.com/download/dotnet)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE.txt)
 
-.NET Framework / .NET (Windows) 上で WinForms アプリケーションを **構築・保守する** チームのための、**Model-View-Presenter (MVP)** フレームワーク。Presenter から WinForms 型を完全に切り離し、**UI スレッドなしで単体テストできる** クリーンな関心の分離をもたらします。
+**Kibinago** (きびなご。旧名 WinformsMVP) は、.NET Framework / .NET (Windows) 上で WinForms アプリケーションを **構築・保守する** チームのための、**Model-View-Presenter (MVP)** フレームワーク。Presenter から WinForms 型を完全に切り離し、**UI スレッドなしで単体テストできる** クリーンな関心の分離をもたらします。
 
 **こんな課題に効きます:**
 
@@ -12,7 +12,7 @@
 - `MessageBox.Show()` やダイアログ呼び出しが UI と密結合していて、モックできない
 - 画面遷移・ウィンドウのクローズ処理・dirty 判定が場当たり的で、再利用も検証も難しい
 
-WPF 風のコマンドバインドとサービス抽象 (`IMessageService` / `IDialogProvider` …) でこれらを解きほぐします。コアライブラリ (`WinformsMVP.Core`, `netstandard2.0`) は **WinForms 非参照** で、外部依存は `System.ComponentModel.Annotations` (DataAnnotations) のみ — Presenter のコードはコンパイル時点で WinForms 型に触れられません。WinForms 実装 (`WinformsMVP`) は .NET Framework 4.7.2 以降と .NET 10 (Windows) をターゲットにします。
+WPF 風のコマンドバインドとサービス抽象 (`IMessageService` / `IDialogProvider` …) でこれらを解きほぐします。コアライブラリ (`Kibinago.Core`, `netstandard2.0`) は **WinForms 非参照** で、外部依存は `System.ComponentModel.Annotations` (DataAnnotations) のみ — Presenter のコードはコンパイル時点で WinForms 型に触れられません。WinForms 実装 (`Kibinago`) は .NET Framework 4.7.2 以降と .NET 10 (Windows) をターゲットにします。
 
 > **ドキュメントは [GitHub Wiki](https://github.com/VoidAxon/winforms-mvp/wiki) を参照してください。**
 > 本 README はプロジェクトの入口です。詳細な使い方・設計指針・サンプル解説は Wiki に集約されています。
@@ -27,11 +27,11 @@ WPF 風のコマンドバインドとサービス抽象 (`IMessageService` / `ID
 - 🪟 **ウィンドウナビゲーション** — Modal / 非 Modal、パラメータ付き、Fluent API、基底 `RequestClose` による結果返却
 - 🔁 **二方向ウィンドウクローズモデル** — Push (Presenter 主導) と Pull (フレームワーク主導) を明確に分離。dirty 判定の単一情報源
 - 🚀 **サービス抽象化レイヤー** — `IMessageService` / `IDialogProvider` / `IFileService` で `MessageBox.Show()` から脱却。完全モック可能
-- 📊 **構造化ロギング** — `Microsoft.Extensions.Logging` 互換 API の自社抽象。BCL のみ依存 (`WinformsMVP.Core`)
+- 📊 **構造化ロギング** — `Microsoft.Extensions.Logging` 互換 API の自社抽象。BCL のみ依存 (`Kibinago.Core`)
 - ✅ **入力検証とエラー表示** — Model の DataAnnotations + Presenter のルール (`Validation.SetError`) を `Validation` で一元管理。View は `IValidatableView` を実装して `ErrorProviderDisplay` でフィールドとコントロールを対応付けるだけ。エラーはフィールドを離れた後、または送信 (`Validation.Check`) 後に表示
 - 🔄 **ChangeTracker** — 未保存の変更を検出するだけの軽量な仕組み (データは Presenter が持つ)。深いコピーのスナップショットと内容比較、2 つの使い方 (同じオブジェクトを編集: `IsChanged` / `AcceptChanges()`、毎回新しいモデル: `IsChangedWith(x)` / `AcceptChanges(x)`)、画面ごとの除外 (`Ignore`)
 - 📡 **EventAggregator** — Presenter 横断の pub/sub。購読は返されたトークンを Dispose するまで有効 (`.DisposeWith(Disposables)`)、UI スレッドへの自動マーシャリング、アナライザ MVP017 がトークンの破棄忘れを検出
-- 🎨 **柔軟な DI** — Service Locator / Constructor Injection / Hybrid の 3 パターンに対応。`Microsoft.Extensions.DependencyInjection` 連携用の `WinformsMVP.DependencyInjection` パッケージも同梱
+- 🎨 **柔軟な DI** — Service Locator / Constructor Injection / Hybrid の 3 パターンに対応。`Microsoft.Extensions.DependencyInjection` 連携用の `Kibinago.DependencyInjection` パッケージも同梱
 - 🧪 **テストファースト設計** — Presenter は UI スレッド不要で単体テスト可能
 
 ---
@@ -119,50 +119,50 @@ navigator.ShowWindow(new UserEditorPresenter());
 3. インストールします（プレビュー版しか無い間は `--prerelease` が必須です）:
 
    ```bash
-   dotnet add package WinformsMVP --prerelease
-   dotnet add package WinformsMVP.DependencyInjection --prerelease
-   dotnet add package WinformsMVP.Testing --prerelease   # テストプロジェクトのみ
+   dotnet add package Kibinago --prerelease
+   dotnet add package Kibinago.DependencyInjection --prerelease
+   dotnet add package Kibinago.Testing --prerelease   # テストプロジェクトのみ
    ```
 
-   `WinformsMVP` は `WinformsMVP.Core` に依存しているため、Core と同梱のアナライザーは自動で入ります。Presenter だけを別プロジェクトに切り出す場合は、そのプロジェクトで `WinformsMVP.Core` のみを参照すると WinForms 型を使えなくなります (`dotnet add package WinformsMVP.Core --prerelease`)。
+   `Kibinago` は `Kibinago.Core` に依存しているため、Core と同梱のアナライザーは自動で入ります。Presenter だけを別プロジェクトに切り出す場合は、そのプロジェクトで `Kibinago.Core` のみを参照すると WinForms 型を使えなくなります (`dotnet add package Kibinago.Core --prerelease`)。
 
 ### 方法B — Releases から .nupkg をダウンロード（認証不要）
 
 1. リポジトリの **Releases** ページを開き、目的のバージョンの `.nupkg` ファイルをダウンロードします。
-2. ローカルフォルダに置き、ソースとして登録してインストールします (`WinformsMVP` は `WinformsMVP.Core` に依存するので、両方の `.nupkg` を同じフォルダに置いてください):
+2. ローカルフォルダに置き、ソースとして登録してインストールします (`Kibinago` は `Kibinago.Core` に依存するので、両方の `.nupkg` を同じフォルダに置いてください):
 
    ```bash
-   dotnet nuget add source C:\path\to\folder --name winformsmvp-local
-   dotnet add package WinformsMVP --prerelease
+   dotnet nuget add source C:\path\to\folder --name kibinago-local --configfile nuget.config   # ソリューションの nuget.config に登録
+   dotnet add package Kibinago --prerelease
    ```
 
 ### ソースをプロジェクト参照で使う場合
 
-このリポジトリを clone して `ProjectReference` で参照すると、**MVP アナライザーは入りません** (アナライザーは `WinformsMVP.Core` の NuGet パッケージに同梱されるため)。何も警告されないまま、Presenter で WinForms 型を使ってもビルドが通ってしまいます。Presenter を含むプロジェクトに、アナライザーのプロジェクト参照を 1 行足してください (`samples/` も同じ書き方です):
+このリポジトリを clone して `ProjectReference` で参照すると、**MVP アナライザーは入りません** (アナライザーは `Kibinago.Core` の NuGet パッケージに同梱されるため)。何も警告されないまま、Presenter で WinForms 型を使ってもビルドが通ってしまいます。Presenter を含むプロジェクトに、アナライザーのプロジェクト参照を 1 行足してください (`samples/` も同じ書き方です):
 
 ```xml
 <ItemGroup>
-  <ProjectReference Include="path\to\winforms-mvp\src\WinformsMVP\WinformsMVP.csproj" />
-  <ProjectReference Include="path\to\winforms-mvp\src\WinformsMVP.Analyzers\WinformsMVP.Analyzers.csproj"
+  <ProjectReference Include="path\to\winforms-mvp\src\Kibinago\Kibinago.csproj" />
+  <ProjectReference Include="path\to\winforms-mvp\src\Kibinago.Analyzers\Kibinago.Analyzers.csproj"
                     OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
 </ItemGroup>
 ```
 
-### プロジェクトテンプレート (`WinformsMVP.Templates`)
+### プロジェクトテンプレート (`Kibinago.Templates`)
 
 新規アプリはテンプレートから始めるのがおすすめです。テンプレートパッケージも同じ方法 (GitHub Packages フィード、またはダウンロードした `.nupkg`) で入手できます:
 
 ```bash
-dotnet new install WinformsMVP.Templates::<version>                   # フィード経由。プレビュー期間中はバージョン指定が必須 (例: ::1.0.0-preview.1)
-dotnet new install C:\path\to\folder\WinformsMVP.Templates.<version>.nupkg   # ローカルの .nupkg から
+dotnet new install Kibinago.Templates::<version>                   # フィード経由。プレビュー期間中はバージョン指定が必須 (例: ::1.0.0-preview.1)
+dotnet new install C:\path\to\folder\Kibinago.Templates.<version>.nupkg   # ローカルの .nupkg から
 ```
 
-生成されるプロジェクトは `WinformsMVP` パッケージを参照するので、上記 A / B どちらかのソースを `nuget.config` に設定しておいてください。4 行で動くアプリ + ウィンドウ + テストができます:
+生成されるプロジェクトは `Kibinago` パッケージを参照するので、上記 A / B どちらかのソースを `nuget.config` に設定しておいてください。4 行で動くアプリ + ウィンドウ + テストができます:
 
 ```bash
-dotnet new winformsmvp -n MyApp                 # アプリ (net10.0-windows。--framework net472 も可)
+dotnet new kibinago -n MyApp                 # アプリ (net10.0-windows。--framework net472 も可)
 cd MyApp && dotnet new mvp-window -n OrderEdit  # View インターフェイス + Actions + Presenter + Form
-cd .. && dotnet new winformsmvp-tests -n MyApp.Tests --app-project ../MyApp/MyApp.csproj
+cd .. && dotnet new kibinago-tests -n MyApp.Tests --app-project ../MyApp/MyApp.csproj
 dotnet build MyApp.Tests && dotnet run --project MyApp
 ```
 
@@ -181,19 +181,19 @@ dotnet build MyApp.Tests && dotnet run --project MyApp
 2. ソリューションをビルド
 
    ```bash
-   dotnet build winforms-mvp.sln
+   dotnet build Kibinago.sln
    ```
 
 3. サンプルアプリを実行
 
    ```bash
-   dotnet run --project samples/WinformsMVP.Samples/WinformsMVP.Samples.csproj
+   dotnet run --project samples/Kibinago.Samples/Kibinago.Samples.csproj
    ```
 
 4. テストを実行 (テストプロジェクトは `net48` ターゲットのため、実行には Windows (または mono) が必要です。ビルド自体は `EnableWindowsTargeting` により Linux / macOS でも可能)
 
    ```bash
-   dotnet test tests/WinformsMVP.Samples.Tests/WinformsMVP.Samples.Tests.csproj
+   dotnet test tests/Kibinago.Samples.Tests/Kibinago.Samples.Tests.csproj
    ```
 
 ---
@@ -238,7 +238,7 @@ dotnet build MyApp.Tests && dotnet run --project MyApp
 
 | | 対応バージョン |
 |---|---|
-| ターゲットフレームワーク | `WinformsMVP.Core`: `netstandard2.0` / `WinformsMVP`・`WinformsMVP.DependencyInjection`: `net472` + `net10.0-windows` (.NET Framework 4.7.2 以降 / .NET 10 Windows) |
+| ターゲットフレームワーク | `Kibinago.Core`: `netstandard2.0` / `Kibinago`・`Kibinago.DependencyInjection`: `net472` + `net10.0-windows` (.NET Framework 4.7.2 以降 / .NET 10 Windows) |
 | 言語 | コンパイル済み DLL を配布するため利用側の C# バージョンは不問（ライブラリ本体は `LangVersion=latest` でビルド） |
 | プロジェクト形式 | SDK-style `.csproj` |
 | テストフレームワーク | xUnit 2.9 |
@@ -248,11 +248,11 @@ dotnet build MyApp.Tests && dotnet run --project MyApp
 
 | パッケージ | ターゲット | 内容 |
 |---|---|---|
-| `WinformsMVP.Core` | `netstandard2.0` | Presenter 基底クラス、ViewAction ディスパッチャ、EventAggregator、ChangeTracker、検証、ロギング、サービスインターフェイス。WinForms 非参照 (外部依存は `System.ComponentModel.Annotations` のみ)。MVP アナライザーを同梱 |
-| `WinformsMVP` | `net472`; `net10.0-windows` | WinForms 実装 (WindowNavigator、ViewActionBinder、ダイアログ、トースト、MessageService、View マッピング)。`WinformsMVP.Core` に依存し、アナライザーも推移的に有効 |
-| `WinformsMVP.DependencyInjection` | `net472`; `net10.0-windows` | `Microsoft.Extensions.DependencyInjection` 連携 (オプション) |
-| `WinformsMVP.Testing` | `netstandard2.0` | Presenter テスト支援 (`PresenterTestHost`、`TestServices`、`CapturingActionBinder`、メッセージ / トースト / ダイアログ / ファイル / ナビゲーター / ロガーのフェイク)。テストフレームワーク非依存。テストプロジェクトからのみ参照 |
-| `WinformsMVP.Templates` | (テンプレート) | `dotnet new` テンプレート: `winformsmvp` (アプリ) / `mvp-window` / `mvp-control` / `winformsmvp-tests` |
+| `Kibinago.Core` | `netstandard2.0` | Presenter 基底クラス、ViewAction ディスパッチャ、EventAggregator、ChangeTracker、検証、ロギング、サービスインターフェイス。WinForms 非参照 (外部依存は `System.ComponentModel.Annotations` のみ)。MVP アナライザーを同梱 |
+| `Kibinago` | `net472`; `net10.0-windows` | WinForms 実装 (WindowNavigator、ViewActionBinder、ダイアログ、トースト、MessageService、View マッピング)。`Kibinago.Core` に依存し、アナライザーも推移的に有効 |
+| `Kibinago.DependencyInjection` | `net472`; `net10.0-windows` | `Microsoft.Extensions.DependencyInjection` 連携 (オプション) |
+| `Kibinago.Testing` | `netstandard2.0` | Presenter テスト支援 (`PresenterTestHost`、`TestServices`、`CapturingActionBinder`、メッセージ / トースト / ダイアログ / ファイル / ナビゲーター / ロガーのフェイク)。テストフレームワーク非依存。テストプロジェクトからのみ参照 |
+| `Kibinago.Templates` | (テンプレート) | `dotnet new` テンプレート: `kibinago` (アプリ) / `mvp-window` / `mvp-control` / `kibinago-tests` |
 
 名前空間はアセンブリをまたいで変わりません。`net40` のサポートは終了しました (最低 .NET Framework 4.7.2)。
 `Microsoft.Extensions.Logging` 連携については出荷パッケージは無く、M.E.L. の `ILoggerFactory` を框架の `ILoggerFactory` に橋渡しする **~30 行のアダプタを自分で書きます** ([Logging](https://github.com/VoidAxon/winforms-mvp/wiki/Reference-Logging) 参照、全ターゲットで利用可)。
@@ -264,16 +264,16 @@ dotnet build MyApp.Tests && dotnet run --project MyApp
 ```
 winforms-mvp/
 ├── src/
-│   ├── WinformsMVP.Core/                     プラットフォーム非依存コア (netstandard2.0、WinForms 非参照)
-│   ├── WinformsMVP/                          WinForms 実装 (net472;net10.0-windows)
-│   ├── WinformsMVP.DependencyInjection/      M.E.DI 連携 (オプション、net472;net10.0-windows)
-│   ├── WinformsMVP.Testing/                  Presenter テスト支援とフェイク (netstandard2.0、テスト専用)
-│   └── WinformsMVP.Analyzers/                Roslyn アナライザー (WinformsMVP.Core パッケージに同梱)
+│   ├── Kibinago.Core/                     プラットフォーム非依存コア (netstandard2.0、WinForms 非参照)
+│   ├── Kibinago/                          WinForms 実装 (net472;net10.0-windows)
+│   ├── Kibinago.DependencyInjection/      M.E.DI 連携 (オプション、net472;net10.0-windows)
+│   ├── Kibinago.Testing/                  Presenter テスト支援とフェイク (netstandard2.0、テスト専用)
+│   └── Kibinago.Analyzers/                Roslyn アナライザー (Kibinago.Core パッケージに同梱)
 ├── samples/
-│   ├── WinformsMVP.Samples/                  サンプル WinForms アプリ
+│   ├── Kibinago.Samples/                  サンプル WinForms アプリ
 │   └── MultiProjectDemo.*/                   複数プロジェクト DI 構成のデモ
 ├── tests/
-│   └── WinformsMVP.Samples.Tests/            xUnit テストプロジェクト (net48)
+│   └── Kibinago.Samples.Tests/            xUnit テストプロジェクト (net48)
 ├── docs/archive/                             過去のレポート類 (参照用)
 └── README.md                                 このファイル
 ```

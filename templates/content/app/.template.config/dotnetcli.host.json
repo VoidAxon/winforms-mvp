@@ -5,8 +5,8 @@
       "longName": "framework",
       "shortName": "f"
     },
-    "MvpVersion": {
-      "longName": "mvp-version",
+    "KibinagoVersion": {
+      "longName": "kibinago-version",
       "shortName": ""
     },
     "skipRestore": {

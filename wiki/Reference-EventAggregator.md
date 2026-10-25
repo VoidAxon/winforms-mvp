@@ -1,6 +1,6 @@
 # EventAggregator
 
-`EventAggregator` (`WinformsMVP.Common.EventAggregator.EventAggregator`) は、**Presenter 間の疎結合な pub/sub** のためのスレッドセーフなメッセージング機構です。
+`EventAggregator` (`Kibinago.Common.EventAggregator.EventAggregator`) は、**Presenter 間の疎結合な pub/sub** のためのスレッドセーフなメッセージング機構です。
 複数の Presenter が同じイベントに反応する必要があるが、互いに直接参照を持たせたくない場面で使います。
 
 > **位置づけ**: 親子の Presenter 間や、同一機能内の通信には **使うべきではありません**。それらは直接メソッド呼び出しや共有 Service で扱います。EventAggregator は「直接の関係を持たない複数 Presenter が共通の出来事に反応する」場合の専用ツールです。
@@ -73,7 +73,7 @@ public class OrderClearedMessage { }
 ### Step 2: 共有 `IEventAggregator` を受け取る
 
 `IEventAggregator` はフレームワークが**シングルトンとして既定登録**します (`ServiceLocator` /
-`MvpApplication.Configure` の経路でも、M.E.DI の `AddWinformsMVP` でも同じ)。自分で `new` する必要はありません。
+`MvpApplication.Configure` の経路でも、M.E.DI の `AddKibinago` でも同じ)。自分で `new` する必要はありません。
 コンストラクタ注入で受け取るか、サービスプロバイダから解決します。
 
 ```csharp
@@ -401,11 +401,11 @@ public void ProductSelector_PublishesMessage_OrderSummaryReceives()
     var productSelectorPresenter = new ProductSelectorPresenter(eventAggregator);
     var orderSummaryPresenter = new OrderSummaryPresenter(eventAggregator);
 
-    // PresenterTestHost (WinformsMVP.Testing) が View のアタッチと初期化を行う
+    // PresenterTestHost (Kibinago.Testing) が View のアタッチと初期化を行う
     PresenterTestHost.Start(productSelectorPresenter, productSelectorView);
     PresenterTestHost.Start(orderSummaryPresenter, orderSummaryView);
 
-    // Act — モック View の CapturingActionBinder (WinformsMVP.Testing) 経由で実際のアクションを Dispatch
+    // Act — モック View の CapturingActionBinder (Kibinago.Testing) 経由で実際のアクションを Dispatch
     productSelectorView.SelectedProduct = new Product { Name = "Laptop" };
     productSelectorView.Quantity = 1;
     productSelectorView.Binder.Dispatch(ProductActions.AddToOrder);   // ProductAddedMessage を発行
@@ -423,6 +423,6 @@ public void ProductSelector_PublishesMessage_OrderSummaryReceives()
 - [Presenter 基底クラス](Reference-Presenter-Base-Classes) — Presenter のライフサイクルと `Cleanup` フック
 - [HowTo: Presenter 間の通信方法](HowTo-Communicate-Between-Presenters) — 4 つの選択肢の使い分け
 - サンプル:
-  - `samples/WinformsMVP.Samples/ComplexInteractionDemo_EventBased/` — EventAggregator の完全例
-  - `samples/WinformsMVP.Samples/ComplexInteractionDemo_ServiceBased/` — Service ベース比較
-  - `tests/WinformsMVP.Samples.Tests/Common/EventAggregatorTests.cs` — ストレステスト含む網羅テスト
+  - `samples/Kibinago.Samples/ComplexInteractionDemo_EventBased/` — EventAggregator の完全例
+  - `samples/Kibinago.Samples/ComplexInteractionDemo_ServiceBased/` — Service ベース比較
+  - `tests/Kibinago.Samples.Tests/Common/EventAggregatorTests.cs` — ストレステスト含む網羅テスト

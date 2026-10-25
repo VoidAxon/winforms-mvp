@@ -17,7 +17,7 @@ PresenterBase<TView>                              [共通基底・直接継承�
 └─ ControlPresenterBase<TView, TParam>            [UserControl、パラメータあり]
 ```
 
-これらの基底クラスはすべて `WinformsMVP.Core` パッケージ (`netstandard2.0`、WinForms 非参照) にあります。`Connect` 拡張メソッドや `WindowNavigator` など WinForms に触れる部分は `WinformsMVP` パッケージ側です (名前空間は共通)。
+これらの基底クラスはすべて `Kibinago.Core` パッケージ (`netstandard2.0`、WinForms 非参照) にあります。`Connect` 拡張メソッドや `WindowNavigator` など WinForms に触れる部分は `Kibinago` パッケージ側です (名前空間は共通)。
 
 `WindowPresenterBaseCore<TView>` にはクローズゲート (`CanClose` / `CanCloseAsync` オーバーライド)、Push helper (`RequestClose`)、および `Connect` で使われるクローズシンクバインディングが集約されています。直接継承せず、`WindowPresenterBase<TView>` または `WindowPresenterBase<TView, TParam>` を使ってください。
 
@@ -467,7 +467,7 @@ Presenter を **本物のエントリーポイントから** 駆動してくだ�
 // ✅ Right:   view.Binder.Dispatch(StandardActions.Save);
 
 // Presenter のホスト — AttachView / Initialize は明示的インターフェイス実装なので直接は呼べない。
-// PresenterTestHost (WinformsMVP.Testing) がモック View をアタッチして実際の初期化を走らせる
+// PresenterTestHost (Kibinago.Testing) がモック View をアタッチして実際の初期化を走らせる
 using (var host = PresenterTestHost.Start(presenter, view))
 {
     // Push (RequestClose) のテスト — ゲートを通って受理されたクローズをホストが記録する

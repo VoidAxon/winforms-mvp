@@ -2,8 +2,8 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
 using System.Windows.Forms;
-using WinformsMVP.MVP.Views;
-using WinformsMVP.MVP.ViewActions;
+using Kibinago.Views;
+using Kibinago.ViewActions;
 
 namespace MultiProjectDemo.OrderModule
 {

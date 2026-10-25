@@ -1,6 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
-using WinformsMVP.DependencyInjection;
-using WinformsMVP.Services;
+using Kibinago.DependencyInjection;
+using Kibinago.Services;
 
 namespace MultiProjectDemo.UserModule
 {

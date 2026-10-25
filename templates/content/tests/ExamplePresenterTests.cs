@@ -1,9 +1,9 @@
 using System.Threading.Tasks;
-using WinformsMVP.Common;
-using WinformsMVP.MVP.Presenters;
-using WinformsMVP.MVP.ViewActions;
-using WinformsMVP.MVP.Views;
-using WinformsMVP.Testing;
+using Kibinago.Common;
+using Kibinago.Presenters;
+using Kibinago.ViewActions;
+using Kibinago.Views;
+using Kibinago.Testing;
 using Xunit;
 
 namespace MvpApp.Tests

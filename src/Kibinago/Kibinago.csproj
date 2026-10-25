@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net472;net10.0-windows</TargetFrameworks>
+    <OutputType>Library</OutputType>
+    <RootNamespace>Kibinago</RootNamespace>
+    <AssemblyName>Kibinago</AssemblyName>
+    <LangVersion>latest</LangVersion>
+    <UseWindowsForms>true</UseWindowsForms>
+
+    <!-- Shippable: opt in to packing (Directory.Build.props defaults to false). -->
+    <IsPackable>true</IsPackable>
+    <PackageId>Kibinago</PackageId>
+    <Description>A WinForms Model-View-Presenter (Supervising Controller) framework for .NET Framework 4.7.2+ and .NET 10 (Windows). WinForms implementation (navigator, action binder, dialogs, toasts) on top of Kibinago.Core, which brings the MVP design-rule analyzers.</Description>
+    <PackageTags>mvp;winforms;model-view-presenter;desktop;dotnet-framework;analyzers</PackageTags>
+  </PropertyGroup>
+
+  <!-- net10.0-windows gets WinForms via UseWindowsForms; .NET Framework needs explicit references. -->
+  <ItemGroup Condition="'$(TargetFrameworkIdentifier)' == '.NETFramework'">
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Drawing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- PrivateAssets="none": let the Core package's bundled analyzers flow through to Kibinago consumers
+         (the default would emit exclude="Build,Analyzers" on the package dependency). -->
+    <ProjectReference Include="..\Kibinago.Core\Kibinago.Core.csproj" PrivateAssets="none" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Kibinago.Samples.Tests" />
+    <InternalsVisibleTo Include="Kibinago.DependencyInjection" />
+  </ItemGroup>
+
+  <!-- Pack the repo-root README into the package (referenced by PackageReadmeFile in Directory.Build.props). -->
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" Visible="false" />
+  </ItemGroup>
+
+  <!-- Exclude old-style project folders that are not needed in SDK-style -->
+  <ItemGroup>
+    <Compile Remove="obj\**" />
+    <EmbeddedResource Remove="obj\**" />
+    <None Remove="obj\**" />
+  </ItemGroup>
+
+</Project>

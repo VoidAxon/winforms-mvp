@@ -106,7 +106,7 @@ dotnet_diagnostic.CS1591.severity = suggestion
 # ---------------------------------------------------------------------------
 # MVP analyzers — scoped relaxations
 #
-# The MVP analyzers ship inside the WinformsMVP package and run on every consumer
+# The MVP analyzers ship inside the Kibinago package and run on every consumer
 # project. They stay at full strength in src/ (the framework itself). The rules
 # below are relaxed only for sample and test code, where the violations are
 # intentional scaffolding rather than real design problems:

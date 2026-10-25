@@ -140,7 +140,7 @@ public class OrderSummaryPresenter : ControlPresenterBase<IOrderSummaryView>
 - ❌ Model の抽象化が必要
 - ❌ Model インスタンスを共有する仕組みが必要 (アプリ全体なら DI、画面単位ならパラメータ — 下記)
 
-完全なサンプルは `samples/WinformsMVP.Samples/ComplexInteractionDemo_ServiceBased/` 参照。
+完全なサンプルは `samples/Kibinago.Samples/ComplexInteractionDemo_ServiceBased/` 参照。
 
 ### ウィンドウ単位の共有 Model (1 画面の中のパネル同士)
 
@@ -353,7 +353,7 @@ _orderModel.AddProduct(product);                          // Model がステー�
 _eventAggregator.Publish(new ProductAddedNotification(...)); // 他モジュールへの通知だけ pub/sub
 ```
 
-詳細は [EventAggregator](Reference-EventAggregator) を参照。完全サンプルは `samples/WinformsMVP.Samples/ComplexInteractionDemo_EventBased/`。
+詳細は [EventAggregator](Reference-EventAggregator) を参照。完全サンプルは `samples/Kibinago.Samples/ComplexInteractionDemo_EventBased/`。
 
 ---
 
@@ -632,5 +632,5 @@ public class MyForm : Form, IMyView
 - [MVP パターンとは](Concept-MVP-Pattern) — 鉄則 3 (依存方向)
 - [連鎖選択 (カスケード) を扱う](HowTo-Handle-Cascading-Selection) — 主従/N 段連鎖を `ISelection<T>` + `Cascade` で
 - サンプル:
-  - `samples/WinformsMVP.Samples/ComplexInteractionDemo_ServiceBased/` — Model ベース
-  - `samples/WinformsMVP.Samples/ComplexInteractionDemo_EventBased/` — EventAggregator ベース
+  - `samples/Kibinago.Samples/ComplexInteractionDemo_ServiceBased/` — Model ベース
+  - `samples/Kibinago.Samples/ComplexInteractionDemo_EventBased/` — EventAggregator ベース

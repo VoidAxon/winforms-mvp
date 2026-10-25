@@ -34,4 +34,4 @@ assignees: ''
 
 - [ ] 既存の Issue で同じ提案がないか検索した
 - [ ] [MVP 設計ルール](https://github.com/VoidAxon/winforms-mvp/wiki/Design-Rules) と矛盾しない提案である
-- [ ] Presenter 向けの API なら `WinformsMVP.Core` (`netstandard2.0`、WinForms 非参照) に置ける
+- [ ] Presenter 向けの API なら `Kibinago.Core` (`netstandard2.0`、WinForms 非参照) に置ける

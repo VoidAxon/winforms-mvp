@@ -1,6 +1,6 @@
 using System.ComponentModel;
 using System.Windows.Forms;
-using WinformsMVP.MVP.ViewActions;
+using Kibinago.ViewActions;
 
 namespace MvpNamespace
 {

@@ -34,7 +34,7 @@ register.RegisterFromAssembly(Assembly.GetExecutingAssembly());
 ServiceLocator.Configure(reg =>
 {
     reg.RegisterInstance<IViewMappingRegister>(register);
-    reg.RegisterInstance<WinformsMVP.Logging.ILoggerFactory>(new DebugLoggerFactory());
+    reg.RegisterInstance<Kibinago.Logging.ILoggerFactory>(new DebugLoggerFactory());
 });
 ```
 
@@ -420,7 +420,7 @@ public class EditUserParameters
 ServiceLocator.Configure(reg =>
 {
     reg.RegisterInstance<IViewMappingRegister>(register);
-    reg.RegisterInstance<WinformsMVP.Logging.ILoggerFactory>(new DebugLoggerFactory());   // VS Debug ウィンドウに出力
+    reg.RegisterInstance<Kibinago.Logging.ILoggerFactory>(new DebugLoggerFactory());   // VS Debug ウィンドウに出力
 });
 ```
 
@@ -441,7 +441,7 @@ ServiceLocator.Configure(reg =>
 **対処**: プロバイダを第 1 引数で渡し、差し替えは `Start` の **前** に登録する。
 
 ```csharp
-var fakes = TestServices.CreateFakes();                              // WinformsMVP.Testing
+var fakes = TestServices.CreateFakes();                              // Kibinago.Testing
 fakes.Provider.RegisterInstance<IFileService>(new MyFileService());  // 差し替えるなら先に
 
 PresenterTestHost.Start(fakes.Provider, new MyPresenter(), mockView); // 後 (アタッチ + 初期化)

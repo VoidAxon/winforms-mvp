@@ -37,10 +37,10 @@
 ### 1.1 NuGet 参照を追加
 
 ```bash
-dotnet add package WinformsMVP
+dotnet add package Kibinago
 ```
 
-(`WinformsMVP.Core` は依存として自動的に入ります。プロジェクト参照も可。移行先のプロジェクトは .NET Framework 4.7.2 以降、または .NET 10 (Windows) が必要です)
+(`Kibinago.Core` は依存として自動的に入ります。プロジェクト参照も可。移行先のプロジェクトは .NET Framework 4.7.2 以降、または .NET 10 (Windows) が必要です)
 
 ### 1.2 `Program.cs` にサービス構成を追加
 
@@ -60,7 +60,7 @@ internal static class Program
         ServiceLocator.Configure(reg =>
         {
             reg.RegisterInstance<IViewMappingRegister>(register);
-            reg.RegisterInstance<WinformsMVP.Logging.ILoggerFactory>(new DebugLoggerFactory());
+            reg.RegisterInstance<Kibinago.Logging.ILoggerFactory>(new DebugLoggerFactory());
         });
         // ← ここまで追加
 
@@ -418,7 +418,7 @@ private void OnEditCustomer()
 - メソッド名は「従来 Form で」ではなく、やること (`EditCustomer`) にします。あとで従来 Form を MVP に置き換えても、Presenter とテストは変わりません。
 - テストではモック View が `InteractionResult<CustomerData>.Ok(...)` / `Cancel()` / `Error(...)` を返すだけです。
 - モードレスで開く場合は `Task<InteractionResult<CustomerData>> EditCustomerAsync(CustomerData current, CancellationToken ct)` とし、Form が閉じたときに結果を返します (Presenter は非同期アクションで `await`)。
-- サンプル: `samples/WinformsMVP.Samples/LegacyPopupDemo/`。
+- サンプル: `samples/Kibinago.Samples/LegacyPopupDemo/`。
 
 ### 方法 B: 中継サービス (ILegacyFormService)
 

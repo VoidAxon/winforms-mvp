@@ -1,13 +1,13 @@
 using System;
 using Ms = Microsoft.Extensions.Logging;
-using Fx = WinformsMVP.Logging;
+using Fx = Kibinago.Logging;
 
 namespace MultiProjectDemo.Shell.Logging
 {
     /// <summary>
     /// Application-level adapter that bridges <see cref="Ms.ILogger"/> to the
     /// framework's <see cref="Fx.ILogger"/> contract. This is NOT framework code —
-    /// the WinformsMVP framework intentionally has zero dependency on
+    /// the Kibinago framework intentionally has zero dependency on
     /// Microsoft.Extensions.Logging so it can multi-target net40/net48. A real host
     /// application that wants the M.E.L. ecosystem (Debug, Console, Application
     /// Insights, Seq, Serilog, ...) writes this ~30-line adapter once and is done.
