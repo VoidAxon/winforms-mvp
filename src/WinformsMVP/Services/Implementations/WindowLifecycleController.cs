@@ -55,8 +55,9 @@ namespace WinformsMVP.Services.Implementations
         private bool _hasSeed;
         private object _seedResult;
         private InteractionStatus _seedStatus;
-        private bool _pushClosing;             // inside the Form.Close() a RequestClose started
-        private bool _replay;                  // the next FormClosing replays a close an owned window held
+        private bool _pushPending;             // a RequestClose started a close whose FormClosing has not run yet
+                                               // (a modal dialog runs it later, inside its modal loop)
+        private bool _replay;                  // the next FormClosing replays a close an owned window held (consumed there)
 
         // A RequestClose made while the gate is deciding (X -> "Save changes?" -> Yes -> saved) is the
         // result of that close: held here and applied only if the gate allows.
@@ -311,9 +312,8 @@ namespace WinformsMVP.Services.Implementations
             _hasSeed = true;
             _seedResult = result;
             _seedStatus = status;
-            _pushClosing = true;
-            try { _form.Close(); }
-            finally { _pushClosing = false; }
+            _pushPending = true;
+            _form.Close();
         }
 
         // ---------------- Gate (FormClosing) ----------------
@@ -339,7 +339,9 @@ namespace WinformsMVP.Services.Implementations
             // attempt drops it, so it can never be delivered for an unrelated close.
             if (e.Cancel)
             {
-                if (!_pushClosing && !_replay) ClearSeed();
+                if (!_pushPending && !_replay) ClearSeed();
+                _pushPending = false;
+                _replay = false;
                 return;
             }
 
@@ -358,12 +360,13 @@ namespace WinformsMVP.Services.Implementations
             // refused attempt leaks in.
             _pendingResult = null;
             _pendingStatus = InteractionStatus.Cancel;
-            if (_hasSeed && (_pushClosing || _replay))
+            if (_hasSeed && (_pushPending || _replay))
             {
                 _pendingResult = _seedResult;
                 _pendingStatus = _seedStatus;
             }
             _replay = false;
+            _pushPending = false;
             ClearSeed();
 
             var gate = new object();
@@ -459,9 +462,9 @@ namespace WinformsMVP.Services.Implementations
         // RequestClose candidate if it had one.
         private static void ReplayClose(Form owner)
         {
+            // Consumed by the owner's next FormClosing (a modal owner runs it later, inside its loop).
             if (Controllers.TryGetValue(owner, out var controller)) controller._replay = true;
             owner.Close();
-            if (controller != null) controller._replay = false;
         }
 
         private void TakeGateResult(bool allowed)

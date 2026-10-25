@@ -412,5 +412,19 @@ namespace WinformsMVP.Samples.Tests.Services
             Assert.Null(ownerResults[0].Item1);                             // not the earlier "saved"
             Assert.Equal(InteractionStatus.Cancel, ownerResults[0].Item2);
         }
+
+        [Fact]
+        public void PresenterPush_OnAModalDialog_KeepsItsResult()
+        {
+            var (form, presenter, results, _) = Build();
+            presenter.SyncDecision = _ => true;
+            form.Shown += (s, e) => presenter.Push("payload", InteractionStatus.Ok);   // e.g. a Save button
+
+            form.ShowDialog();                       // FormClosing runs later, inside the modal loop
+
+            Assert.Single(results);
+            Assert.Equal("payload", results[0].Item1);
+            Assert.Equal(InteractionStatus.Ok, results[0].Item2);
+        }
     }
 }
