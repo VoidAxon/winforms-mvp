@@ -105,6 +105,7 @@ void IOrderLinesView.ShowRow(OrderLineRow row)
 }
 ```
 
+- 編集コントロールに入れた値は、検証の後にグリッドが確定する値になります (.NET 10 の DataGridView で、全角「１．２３４５」→「1.234」を実機で確認)。グリッドの種類や版によって確定の仕組みが違う場合は、確定の後 (`CellEndEdit` / `AfterEdit`) に `ShowRow` の値でセルを表示し直す形にします。
 - 拒否のメッセージはトースト (`Toasts`) が無難です。`CellValidating` の中でモーダルを出すと、グリッドのフォーカスと競合しやすくなります。
 - コンボのセルは `CurrentCellDirtyStateChanged` で `CommitEdit` してすぐ `CellValueChanged` を出させ、`ChoiceChanged` に翻訳します。
 
