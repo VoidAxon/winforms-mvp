@@ -175,9 +175,13 @@ namespace WinformsMVP.MVP.ViewActions
             RegisterStrategy<ToolStripTextBox>(
                 (c, h) => c.TextChanged += (EventHandler)h,
                 (c, h) => c.TextChanged -= (EventHandler)h);
-            RegisterStrategy<ToolStripComboBox>(
-                (c, h) => c.ComboBox.SelectionChangeCommitted += (EventHandler)h,
-                (c, h) => c.ComboBox.SelectionChangeCommitted -= (EventHandler)h);
+            // The host clears its ComboBox before raising Disposed: detach from the captured instance.
+            RegisterStrategy<ToolStripComboBox>((c, h) =>
+            {
+                var combo = c.ComboBox;
+                combo.SelectionChangeCommitted += (EventHandler)h;
+                return () => combo.SelectionChangeCommitted -= (EventHandler)h;
+            });
             _bindingStrategies[typeof(ToolStripControlHost)] = null;   // other hosted controls: register explicitly
             _bindingStrategies[typeof(ToolStripSeparator)] = null;     // nothing to trigger
         }

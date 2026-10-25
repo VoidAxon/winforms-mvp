@@ -254,6 +254,20 @@ namespace WinformsMVP.Samples.Tests.ViewActions
         }
 
         [Fact]
+        public void BoundToolStripComboBox_CanBeDisposed()
+        {
+            var (dispatcher, calls) = Dispatcher();
+            var binder = new ViewActionBinder();
+            var combo = new ToolStripComboBox();       // the host clears its ComboBox before Disposed
+            binder.Add(Run, combo);
+            binder.Bind(dispatcher);
+
+            combo.Dispose();
+
+            Assert.Empty(binder);
+        }
+
+        [Fact]
         public void ADisposedControl_CannotBeAdded()
         {
             var button = new Button();
