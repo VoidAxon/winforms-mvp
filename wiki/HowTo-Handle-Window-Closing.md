@@ -19,7 +19,7 @@
 - [シナリオ 5: システムシャットダウンはフレームワークが許可する](#シナリオ-5-システムシャットダウンはフレームワークが許可する)
 - [シナリオ 6: 非同期クローズ判断](#シナリオ-6-非同期クローズ判断)
 - [シナリオ 7: Adopted ホスティング (シェル / レガシー Form)](#シナリオ-7-adopted-ホスティング-シェル--レガシー-form)
-- [シナリオ 8: 表示前に開くのを取りやめる](#シナリオ-8-表示前に開くのを取りやめる)
+- [シナリオ 8: 表示前に開くのを取りやめる](#シナリオ-8-表示前に開くのを取りやめる) (開けない理由の伝え方を含む)
 - [テストパターン](#テストパターン)
 
 ---
@@ -415,6 +415,73 @@ Adopted の制限:
 - 他の `FormClosing` ハンドラがこのクローズを拒否した場合は、Form を元に戻して通常どおり表示します。
 
 `OnInitializeAsync` の最初の `await` より後で `RequestClose` を呼ぶと、ウィンドウはすでに表示されているので通常の (ゲートを通る) クローズになります。
+
+### 開けない理由をユーザーに伝える
+
+開けないときはたいてい理由を伝えます (データが削除された、権限がない、ロック中、マスタが未設定など)。書き方は 2 つです。
+
+**書き方 A — 開こうとした画面が自分でメッセージを出す (単に知らせるだけならこれ)**
+
+```csharp
+protected override void OnInitialize(int recordId)
+{
+    _record = _records.Find(recordId);
+    if (_record == null)
+    {
+        Messages.ShowWarning("このデータは削除されています。");   // ① 普通のモーダルメッセージ
+        RequestClose(InteractionStatus.Cancel);                   // ② 開くのを取りやめる
+        return;                                                    // ③ 以降の初期化はしない
+    }
+    ...
+}
+```
+
+- メッセージはこの画面が表示される **前** に出るので、呼び出し元の画面 (一覧など) の上に表示されます。ユーザーには「メッセージ → OK → 元の画面のまま」と見え、開かなかった画面は一瞬も見えません。
+- 順番は「メッセージ → `RequestClose` → `return`」。表示前の `RequestClose` はその場では何も閉じないので、`return` を忘れると後続の初期化 (View への表示など) が無駄に走ります。
+- 呼び出し元は `Cancel` を受け取るだけです (モーダル: `IsCancelled`、モードレス: `ShowWindow` が `null` を返し `onClosed` に `Cancel`)。
+
+**書き方 B — 理由を結果として返し、呼び出し元が出す (呼び出し元が後続処理をするならこれ)**
+
+```csharp
+// 開こうとした画面
+RequestClose("このデータは削除されています。", InteractionStatus.Error);
+
+// 呼び出し元 (一覧)
+var r = Navigator.For(new RecordEditPresenter(...)).WithParam(id).ShowAsModal<int>();
+if (r.IsError)
+{
+    Messages.ShowWarning(r.ErrorMessage);
+    Reload();                       // 削除済みの行を一覧から消す、など
+}
+```
+
+呼び出し元が理由に応じて動く (一覧を更新する、別の画面を開く) ときに使います。メッセージを出すのは 1 か所 (呼び出し元) だけにして、両方で出さないこと。
+
+**やってはいけない書き方**
+
+| 書き方 | 問題 |
+|---|---|
+| Form の `Load` / `Shown` で判定して `Close()` / `BeginInvoke(Close)` | Form に業務判断が入る。モーダルは表示されてから閉じるのでちらつく (Windows 上で確認済み)。判定は Presenter の `OnInitialize` で |
+| 画面を開いてから判定する (`OnInitializeAsync` の `await` の後でメッセージ → `RequestClose`) | 画面が一度表示されてから閉じる。判定に非同期の読み込みが必要なら、呼び出し元で開く前に確認するか、読み込み中表示の画面を出してから閉じる (このときは通常のクローズ: ゲートを通るが、未編集なので確認は出ない) |
+| メッセージを出さずに `RequestClose` だけする | ユーザーには「ボタンを押したのに何も起きない」と見える |
+| メッセージを開こうとした画面と呼び出し元の両方で出す | 同じ内容が 2 回出る |
+
+**テスト** (`PresenterTestHost` は表示前の `RequestClose` を表示のキャンセルとして記録します。ゲートは呼ばれません):
+
+```csharp
+[Fact]
+public void DeletedRecord_ShowsAMessage_AndDoesNotOpen()
+{
+    var fakes = TestServices.CreateFakes();
+    var view = new FakeRecordEditView();
+    using (var host = PresenterTestHost.Start(fakes.Provider, new RecordEditPresenter(emptyRepository), view, 7))
+    {
+        Assert.Equal("このデータは削除されています。", Assert.Single(fakes.Messages.Calls).Text);
+        Assert.True(host.CloseRequested);
+        Assert.Equal(InteractionStatus.Cancel, host.CloseStatus);
+    }
+}
+```
 
 ---
 

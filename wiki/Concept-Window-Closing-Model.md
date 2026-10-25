@@ -184,6 +184,8 @@ protected void RequestClose<TResult>(TResult result, InteractionStatus status = 
 
 ## 表示前の RequestClose — 表示のキャンセル
 
+> 開けない理由をユーザーに伝える書き方 (メッセージ → `RequestClose`、または理由を結果で返す) は [HowTo: ウィンドウクローズを扱う § 開けない理由をユーザーに伝える](HowTo-Handle-Window-Closing#開けない理由をユーザーに伝える) を参照。
+
 `OnInitialize`、`OnInitializeAsync` の同期部分 (最初の `await` まで)、または close sink のバインド前に呼ばれた `RequestClose` は、ウィンドウを閉じるのではなく **開くのを取りやめます**。ユーザーはまだ何も編集できないので、ゲートは通りません。複数回呼んだ場合は最後の結果が使われます。
 
 ```csharp
