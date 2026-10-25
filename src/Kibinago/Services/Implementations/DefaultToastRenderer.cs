@@ -16,6 +16,7 @@ namespace Kibinago.Services.Implementations
     /// </remarks>
     public class DefaultToastRenderer : ToastRenderer
     {
+        /// <inheritdoc />
         public override void Render(ToastRenderContext context)
         {
             Graphics g = context.Graphics;

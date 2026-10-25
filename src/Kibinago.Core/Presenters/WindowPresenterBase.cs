@@ -16,6 +16,10 @@ namespace Kibinago.Presenters
         IInitializable
         where TView : IWindowView
     {
+        /// <summary>
+        /// Creates the presenter. Derived constructors take only the presenter's own dependencies; the
+        /// view is attached and the presenter initialized later, by WindowNavigator or <c>Connect</c>.
+        /// </summary>
         protected WindowPresenterBase()
         {
         }

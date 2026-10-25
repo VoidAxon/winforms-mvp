@@ -56,6 +56,7 @@ namespace Kibinago.Services
         /// <summary>
         /// Shows the presenter as a non-modal window.
         /// </summary>
+        /// <param name="owner">The owner window, or <c>null</c> for none.</param>
         /// <param name="keySelector">Optional singleton key. When non-null and a window of the
         /// same presenter type (runtime type) with the same key is already open, that window is
         /// activated instead of creating a new one; other presenter types keep their own keys. The

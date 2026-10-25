@@ -280,6 +280,7 @@ namespace Kibinago.Testing
             lock (_gateLock) _opening = false;
         }
 
+        /// <summary>Disposes the presenter (its <c>Cleanup</c>, children and <c>Disposables</c>), as closing the window would.</summary>
         public void Dispose() => _presenter.Dispose();
 
         private sealed class RecordingSink : ICloseSink

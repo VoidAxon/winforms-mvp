@@ -11,6 +11,10 @@ namespace Kibinago.Logging
     /// </summary>
     public interface ILogger
     {
+        /// <summary>
+        /// Returns whether records at <paramref name="level"/> are written; check it before building
+        /// expensive log arguments.
+        /// </summary>
         bool IsEnabled(LogLevel level);
 
         /// <summary>

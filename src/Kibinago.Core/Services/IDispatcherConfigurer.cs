@@ -11,6 +11,11 @@ namespace Kibinago.Services
     /// </summary>
     public interface IDispatcherConfigurer
     {
+        /// <summary>
+        /// Configures a presenter's dispatcher, typically by adding middleware with
+        /// <c>Use</c>. Called once per presenter, on the dispatcher's first use.
+        /// </summary>
+        /// <param name="dispatcher">The presenter's dispatcher.</param>
         void Configure(ViewActionDispatcher dispatcher);
     }
 }

@@ -11,8 +11,12 @@ namespace Kibinago.Services
     public sealed class ActionDispatcherConfigurer : IDispatcherConfigurer
     {
         private readonly Action<ViewActionDispatcher> _configure;
+        /// <summary>Creates a configurer that runs <paramref name="configure"/> on each presenter's dispatcher.</summary>
+        /// <param name="configure">The configuration to apply, typically <c>d =&gt; d.Use(...)</c>.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="configure"/> is <c>null</c>.</exception>
         public ActionDispatcherConfigurer(Action<ViewActionDispatcher> configure)
             => _configure = configure ?? throw new ArgumentNullException(nameof(configure));
+        /// <inheritdoc />
         public void Configure(ViewActionDispatcher dispatcher) => _configure(dispatcher);
     }
 }

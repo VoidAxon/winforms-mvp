@@ -11,6 +11,7 @@ namespace Kibinago.Services.Implementations
     {
         #region File Existence and Info
 
+        /// <inheritdoc />
         public bool Exists(string path)
         {
             if (string.IsNullOrEmpty(path))
@@ -19,6 +20,7 @@ namespace Kibinago.Services.Implementations
             return File.Exists(path);
         }
 
+        /// <inheritdoc />
         public long GetFileSize(string path)
         {
             if (string.IsNullOrEmpty(path))
@@ -32,6 +34,7 @@ namespace Kibinago.Services.Implementations
 
         #region File Operations
 
+        /// <inheritdoc />
         public void Delete(string path)
         {
             if (string.IsNullOrEmpty(path))
@@ -40,6 +43,7 @@ namespace Kibinago.Services.Implementations
             File.Delete(path);
         }
 
+        /// <inheritdoc />
         public void Copy(string source, string destination, bool overwrite = false)
         {
             if (string.IsNullOrEmpty(source))
@@ -50,6 +54,7 @@ namespace Kibinago.Services.Implementations
             File.Copy(source, destination, overwrite);
         }
 
+        /// <inheritdoc />
         public void Move(string source, string destination)
         {
             if (string.IsNullOrEmpty(source))
@@ -64,6 +69,7 @@ namespace Kibinago.Services.Implementations
 
         #region Read Operations
 
+        /// <inheritdoc />
         public string ReadAllText(string path)
         {
             if (string.IsNullOrEmpty(path))
@@ -72,6 +78,7 @@ namespace Kibinago.Services.Implementations
             return File.ReadAllText(path);
         }
 
+        /// <inheritdoc />
         public string ReadAllText(string path, Encoding encoding)
         {
             if (string.IsNullOrEmpty(path))
@@ -82,6 +89,7 @@ namespace Kibinago.Services.Implementations
             return File.ReadAllText(path, encoding);
         }
 
+        /// <inheritdoc />
         public byte[] ReadAllBytes(string path)
         {
             if (string.IsNullOrEmpty(path))
@@ -90,6 +98,7 @@ namespace Kibinago.Services.Implementations
             return File.ReadAllBytes(path);
         }
 
+        /// <inheritdoc />
         public string[] ReadAllLines(string path)
         {
             if (string.IsNullOrEmpty(path))
@@ -98,6 +107,7 @@ namespace Kibinago.Services.Implementations
             return File.ReadAllLines(path);
         }
 
+        /// <inheritdoc />
         public string[] ReadAllLines(string path, Encoding encoding)
         {
             if (string.IsNullOrEmpty(path))
@@ -112,6 +122,7 @@ namespace Kibinago.Services.Implementations
 
         #region Write Operations
 
+        /// <inheritdoc />
         public void WriteAllText(string path, string contents)
         {
             if (string.IsNullOrEmpty(path))
@@ -120,6 +131,7 @@ namespace Kibinago.Services.Implementations
             File.WriteAllText(path, contents ?? string.Empty);
         }
 
+        /// <inheritdoc />
         public void WriteAllText(string path, string contents, Encoding encoding)
         {
             if (string.IsNullOrEmpty(path))
@@ -130,6 +142,7 @@ namespace Kibinago.Services.Implementations
             File.WriteAllText(path, contents ?? string.Empty, encoding);
         }
 
+        /// <inheritdoc />
         public void WriteAllBytes(string path, byte[] bytes)
         {
             if (string.IsNullOrEmpty(path))
@@ -140,6 +153,7 @@ namespace Kibinago.Services.Implementations
             File.WriteAllBytes(path, bytes);
         }
 
+        /// <inheritdoc />
         public void WriteAllLines(string path, string[] lines)
         {
             if (string.IsNullOrEmpty(path))
@@ -150,6 +164,7 @@ namespace Kibinago.Services.Implementations
             File.WriteAllLines(path, lines);
         }
 
+        /// <inheritdoc />
         public void WriteAllLines(string path, string[] lines, Encoding encoding)
         {
             if (string.IsNullOrEmpty(path))
@@ -166,6 +181,7 @@ namespace Kibinago.Services.Implementations
 
         #region Append Operations
 
+        /// <inheritdoc />
         public void AppendAllText(string path, string contents)
         {
             if (string.IsNullOrEmpty(path))
@@ -174,6 +190,7 @@ namespace Kibinago.Services.Implementations
             File.AppendAllText(path, contents ?? string.Empty);
         }
 
+        /// <inheritdoc />
         public void AppendAllText(string path, string contents, Encoding encoding)
         {
             if (string.IsNullOrEmpty(path))
@@ -184,6 +201,7 @@ namespace Kibinago.Services.Implementations
             File.AppendAllText(path, contents ?? string.Empty, encoding);
         }
 
+        /// <inheritdoc />
         public void AppendAllLines(string path, string[] lines)
         {
             if (string.IsNullOrEmpty(path))
@@ -198,6 +216,7 @@ namespace Kibinago.Services.Implementations
 
         #region Directory Operations
 
+        /// <inheritdoc />
         public bool DirectoryExists(string path)
         {
             if (string.IsNullOrEmpty(path))
@@ -206,6 +225,7 @@ namespace Kibinago.Services.Implementations
             return Directory.Exists(path);
         }
 
+        /// <inheritdoc />
         public void CreateDirectory(string path)
         {
             if (string.IsNullOrEmpty(path))
@@ -214,6 +234,7 @@ namespace Kibinago.Services.Implementations
             Directory.CreateDirectory(path);
         }
 
+        /// <inheritdoc />
         public void DeleteDirectory(string path, bool recursive = false)
         {
             if (string.IsNullOrEmpty(path))
@@ -222,6 +243,7 @@ namespace Kibinago.Services.Implementations
             Directory.Delete(path, recursive);
         }
 
+        /// <inheritdoc />
         public string[] GetFiles(string path, string searchPattern = "*")
         {
             if (string.IsNullOrEmpty(path))
@@ -230,6 +252,7 @@ namespace Kibinago.Services.Implementations
             return Directory.GetFiles(path, searchPattern);
         }
 
+        /// <inheritdoc />
         public string[] GetDirectories(string path, string searchPattern = "*")
         {
             if (string.IsNullOrEmpty(path))
@@ -242,6 +265,7 @@ namespace Kibinago.Services.Implementations
 
         #region Path Operations
 
+        /// <inheritdoc />
         public string GetFileName(string path)
         {
             if (string.IsNullOrEmpty(path))
@@ -250,6 +274,7 @@ namespace Kibinago.Services.Implementations
             return Path.GetFileName(path);
         }
 
+        /// <inheritdoc />
         public string GetFileNameWithoutExtension(string path)
         {
             if (string.IsNullOrEmpty(path))
@@ -258,6 +283,7 @@ namespace Kibinago.Services.Implementations
             return Path.GetFileNameWithoutExtension(path);
         }
 
+        /// <inheritdoc />
         public string GetDirectoryName(string path)
         {
             if (string.IsNullOrEmpty(path))
@@ -266,6 +292,7 @@ namespace Kibinago.Services.Implementations
             return Path.GetDirectoryName(path);
         }
 
+        /// <inheritdoc />
         public string GetExtension(string path)
         {
             if (string.IsNullOrEmpty(path))
@@ -274,6 +301,7 @@ namespace Kibinago.Services.Implementations
             return Path.GetExtension(path);
         }
 
+        /// <inheritdoc />
         public string Combine(params string[] paths)
         {
             if (paths == null)
@@ -282,6 +310,7 @@ namespace Kibinago.Services.Implementations
             return Path.Combine(paths);
         }
 
+        /// <inheritdoc />
         public string GetFullPath(string path)
         {
             if (string.IsNullOrEmpty(path))

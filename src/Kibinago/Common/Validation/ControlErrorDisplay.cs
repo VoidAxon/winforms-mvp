@@ -116,6 +116,9 @@ namespace Kibinago.Common.Validation
     {
         private readonly ErrorProvider _provider;
 
+        /// <summary>Creates a display that sets errors on <paramref name="provider"/>.</summary>
+        /// <param name="provider">The form's error provider (typically from the designer).</param>
+        /// <exception cref="ArgumentNullException"><paramref name="provider"/> is <c>null</c>.</exception>
         public ErrorProviderDisplay(ErrorProvider provider)
         {
             _provider = provider ?? throw new ArgumentNullException(nameof(provider));
@@ -129,6 +132,7 @@ namespace Kibinago.Common.Validation
             return this;
         }
 
+        /// <inheritdoc />
         protected override void SetControlError(Control control, string message) => _provider.SetError(control, message);
     }
 }

@@ -18,6 +18,9 @@ namespace Kibinago.Common.Events
     /// </remarks>
     public class ValueChangingEventArgs<T> : CancelEventArgs
     {
+        /// <summary>Creates event data for a pending change from <paramref name="oldValue"/> to <paramref name="newValue"/>; <c>Cancel</c> starts false.</summary>
+        /// <param name="oldValue">The current value.</param>
+        /// <param name="newValue">The value the view is about to change to.</param>
         public ValueChangingEventArgs(T oldValue, T newValue)
         {
             OldValue = oldValue;

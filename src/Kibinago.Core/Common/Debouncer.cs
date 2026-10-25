@@ -83,6 +83,10 @@ namespace Kibinago.Common
         /// (the default) it also cancels the token of the run in flight, so the latest request wins (search as you
         /// type). <see cref="Dispose"/> cancels the run in flight. A cancellation the debouncer asked for is silent.
         /// </summary>
+        /// <param name="delay">Quiet period after the last signal before the action fires. Must be between 0 and Int32.MaxValue milliseconds.</param>
+        /// <param name="action">The async action to invoke; it receives a token cancelled when the run is superseded or the instance is disposed. Required.</param>
+        /// <param name="onError">Optional handler for exceptions thrown by <paramref name="action"/>. Without one, an exception propagates on the captured context (the UI thread's unhandled-exception handler, like an event handler's); with no context it is logged and dropped.</param>
+        /// <param name="synchronizationContext">Context to marshal the callback onto. If null, <see cref="SynchronizationContext.Current"/> at construction time is captured.</param>
         /// <param name="cancelPrevious">True: a newer fire cancels the run in flight. False: the run in flight finishes first (e.g. saving a draft).</param>
         public Debouncer(TimeSpan delay, Func<CancellationToken, Task> action, Action<Exception> onError = null,
                          SynchronizationContext synchronizationContext = null, bool cancelPrevious = true)

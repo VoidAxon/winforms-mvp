@@ -58,6 +58,8 @@ git push origin v1.0.0
 6. **Assert analyzer is bundled** — `Kibinago.Core` パッケージ内に
    `analyzers/dotnet/cs/Kibinago.Analyzers.dll` が含まれているかを検証し、
    無ければジョブを失敗させます（後述の「アナライザー同梱」を守るガード）。
+   続けて、4 つのライブラリパッケージの `lib/*/<id>.dll` ごとに XML ドキュメント (`<id>.xml`) が入っているかも検証します
+   (利用者の IDE に説明を出すため。各 `.csproj` の `GenerateDocumentationFile`)。
 7. **Push to GitHub Packages** — `dotnet nuget push` で各 `.nupkg` を発行。
 8. **Create GitHub Release** — `gh release create` で Release を作成し、`.nupkg` を添付。
    同名タグの Release が既にある場合は資産を `--clobber` で上書きアップロード（再実行に強い）。

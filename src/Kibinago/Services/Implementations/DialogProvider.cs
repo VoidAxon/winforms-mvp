@@ -34,6 +34,7 @@ namespace Kibinago.Services.Implementations
         internal static string ResolveFolderDescription(FolderBrowserDialogOptions perCall, DialogProviderOptions options)
             => perCall?.Description ?? options.FolderBrowserDescription;
 
+        /// <inheritdoc />
         public InteractionResult<string> ShowOpenFileDialog(OpenFileDialogOptions options = null)
         {
             try
@@ -63,6 +64,7 @@ namespace Kibinago.Services.Implementations
             }
         }
 
+        /// <inheritdoc />
         public InteractionResult<string[]> ShowOpenMultipleFilesDialog(OpenFileDialogOptions options = null)
         {
             try
@@ -92,6 +94,7 @@ namespace Kibinago.Services.Implementations
             }
         }
 
+        /// <inheritdoc />
         public InteractionResult<string> ShowSaveFileDialog(SaveFileDialogOptions options = null)
         {
             try
@@ -123,6 +126,7 @@ namespace Kibinago.Services.Implementations
             }
         }
 
+        /// <inheritdoc />
         public InteractionResult<string> ShowFolderBrowserDialog(FolderBrowserDialogOptions options = null)
         {
             try
@@ -147,6 +151,7 @@ namespace Kibinago.Services.Implementations
         // -----------------------
         // Style Selection Dialogs
         // -----------------------
+        /// <inheritdoc />
         public InteractionResult<Color> ShowColorDialog(ColorDialogOptions options = null)
         {
             try
@@ -167,6 +172,7 @@ namespace Kibinago.Services.Implementations
             }
         }
 
+        /// <inheritdoc />
         public InteractionResult<Font> ShowFontDialog(FontDialogOptions options = null)
         {
             try
@@ -190,6 +196,7 @@ namespace Kibinago.Services.Implementations
         // -----------------------
         // Print Dialogs
         // -----------------------
+        /// <inheritdoc />
         public InteractionResult<PrinterSettings> ShowPrintDialog(PrintDialogOptions options = null)
         {
             try
@@ -211,6 +218,7 @@ namespace Kibinago.Services.Implementations
             }
         }
 
+        /// <inheritdoc />
         public InteractionResult<PageSettings> ShowPageSetupDialog(PageSetupDialogOptions options = null)
         {
             try
@@ -231,6 +239,7 @@ namespace Kibinago.Services.Implementations
             }
         }
 
+        /// <inheritdoc />
         public InteractionResult<bool> ShowPrintPreviewDialog(PrintPreviewDialogOptions options = null)
         {
             try

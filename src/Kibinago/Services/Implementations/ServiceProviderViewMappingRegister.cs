@@ -37,6 +37,10 @@ namespace Kibinago.Services.Implementations
         private readonly IViewMappingRegister _inner;
         private readonly IServiceProvider _serviceProvider;
 
+        /// <summary>Creates a decorator over <paramref name="inner"/> that falls back to <paramref name="serviceProvider"/>.</summary>
+        /// <param name="inner">The register that holds the explicit mappings; registrations are forwarded to it.</param>
+        /// <param name="serviceProvider">Resolves view interfaces the inner register does not know.</param>
+        /// <exception cref="ArgumentNullException">Either argument is <c>null</c>.</exception>
         public ServiceProviderViewMappingRegister(
             IViewMappingRegister inner,
             IServiceProvider serviceProvider)
@@ -45,24 +49,33 @@ namespace Kibinago.Services.Implementations
             _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
         }
 
+        /// <inheritdoc />
         public void Register<TViewInterface, TViewImplementation>(bool allowOverride = false)
             where TViewImplementation : Form, TViewInterface
         {
             _inner.Register<TViewInterface, TViewImplementation>(allowOverride);
         }
 
+        /// <inheritdoc />
         public void Register<TViewInterface>(Func<TViewInterface> factory, bool allowOverride = false)
             where TViewInterface : class
         {
             _inner.Register(factory, allowOverride);
         }
 
+        /// <inheritdoc />
+        /// <remarks>Reflects the inner register only.</remarks>
         public Type GetViewImplementationType(Type viewInterfaceType)
             => _inner.GetViewImplementationType(viewInterfaceType);
 
+        /// <inheritdoc />
+        /// <remarks>Reflects the inner register only; <see cref="CreateInstance"/> may still succeed through the service provider.</remarks>
         public bool IsRegistered(Type viewInterfaceType)
             => _inner.IsRegistered(viewInterfaceType);
 
+        /// <inheritdoc />
+        /// <remarks>Uses the inner register when it knows the interface, otherwise the service provider;
+        /// throws <see cref="KeyNotFoundException"/> when neither can supply it.</remarks>
         public object CreateInstance(Type viewInterfaceType)
         {
             if (viewInterfaceType == null)

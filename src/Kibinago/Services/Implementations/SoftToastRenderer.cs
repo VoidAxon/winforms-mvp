@@ -28,6 +28,7 @@ namespace Kibinago.Services.Implementations
             get { return 10; }
         }
 
+        /// <inheritdoc />
         public override void Render(ToastRenderContext context)
         {
             Graphics g = context.Graphics;

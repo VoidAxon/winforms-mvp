@@ -10,10 +10,15 @@ namespace Kibinago.Testing
     /// <summary>The dialog a <see cref="DialogCall"/> records.</summary>
     public enum DialogKind
     {
+        /// <summary><see cref="IDialogProvider.ShowOpenFileDialog"/>.</summary>
         OpenFile,
+        /// <summary><see cref="IDialogProvider.ShowOpenMultipleFilesDialog"/>.</summary>
         OpenMultipleFiles,
+        /// <summary><see cref="IDialogProvider.ShowSaveFileDialog"/>.</summary>
         SaveFile,
+        /// <summary><see cref="IDialogProvider.ShowFolderBrowserDialog"/>.</summary>
         FolderBrowser,
+        /// <summary><see cref="IDialogProvider.ShowColorDialog"/>.</summary>
         Color
     }
 

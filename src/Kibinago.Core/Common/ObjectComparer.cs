@@ -15,13 +15,25 @@ namespace Kibinago.Common
     /// </summary>
     public static class ObjectComparer
     {
+        /// <summary>Typed form of <see cref="DeepEquals(object, object)"/>.</summary>
+        /// <param name="a">The first object.</param>
+        /// <param name="b">The second object.</param>
         public static bool DeepEquals<T>(T a, T b) => DeepEquals((object)a, (object)b);
 
+        /// <summary>
+        /// Compares deeply: uses a type's own Equals/IEquatable wherever it has one, otherwise compares
+        /// field by field; collections are compared element by element.
+        /// </summary>
+        /// <param name="a">The first object.</param>
+        /// <param name="b">The second object.</param>
         public static bool DeepEquals(object a, object b)
         {
             return AreEqual(a, b, new Visited(contentMode: false, ignores: null));
         }
 
+        /// <summary>Typed form of <see cref="ContentEquals(object, object)"/>.</summary>
+        /// <param name="a">The first object.</param>
+        /// <param name="b">The second object.</param>
         public static bool ContentEquals<T>(T a, T b) => ContentEquals((object)a, (object)b);
 
         /// <summary>

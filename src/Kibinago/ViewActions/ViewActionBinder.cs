@@ -111,6 +111,7 @@ namespace Kibinago.ViewActions
         /// </remarks>
         public event EventHandler<ActionRequestEventArgs> ActionTriggered;
 
+        /// <summary>Creates a binder with the built-in trigger strategies registered (buttons, ToolStrip items, check boxes, text boxes, ...).</summary>
         public ViewActionBinder()
         {
             RegisterDefaultStrategies();

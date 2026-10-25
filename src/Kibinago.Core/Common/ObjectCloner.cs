@@ -33,8 +33,12 @@ namespace Kibinago.Common
     /// </remarks>
     public static class ObjectCloner
     {
+        /// <summary>Returns a deep copy of <paramref name="source"/> (null for null); typed form of <see cref="DeepCopy(object)"/>.</summary>
+        /// <param name="source">The object to copy.</param>
         public static T DeepCopy<T>(T source) => (T)DeepCopy((object)source);
 
+        /// <summary>Returns a deep copy of <paramref name="source"/> (null for null), preserving shared references and cycles.</summary>
+        /// <param name="source">The object to copy.</param>
         public static object DeepCopy(object source)
         {
             return Copy(source, new Dictionary<object, object>(

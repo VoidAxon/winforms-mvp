@@ -8,6 +8,11 @@ using System.Windows.Forms;
 
 namespace Kibinago.Common.Extensions
 {
+    /// <summary>
+    /// Typed WinForms data-binding helpers for view code: bind a control property to a property of an
+    /// <see cref="INotifyPropertyChanged"/> model with a lambda (<c>txtName.Bind(model, m =&gt; m.Name)</c>)
+    /// instead of a property-name string. Binding a control property again replaces its previous binding.
+    /// </summary>
     public static class ControlBindingExtensions
     {
         /// <summary>
@@ -121,24 +126,37 @@ namespace Kibinago.Common.Extensions
             return names[0];
         }
 
+        /// <summary>
+        /// Two-way binds TextBox.Text to a ViewModel property, written back on every change.
+        /// </summary>
         public static void Bind<TViewModel>(this TextBox textBox, TViewModel viewModel, Expression<Func<TViewModel, object>> propertyExpression)
             where TViewModel : INotifyPropertyChanged
         {
             textBox.BindProperty(viewModel, propertyExpression, nameof(textBox.Text));
         }
 
+        /// <summary>
+        /// Two-way binds CheckBox.Checked to a ViewModel property.
+        /// </summary>
         public static void Bind<TViewModel>(this CheckBox checkBox, TViewModel viewModel, Expression<Func<TViewModel, bool>> propertyExpression)
             where TViewModel : INotifyPropertyChanged
         {
             checkBox.BindProperty(viewModel, propertyExpression, nameof(checkBox.Checked));
         }
 
+        /// <summary>
+        /// Two-way binds NumericUpDown.Value to a ViewModel property.
+        /// </summary>
         public static void Bind<TViewModel>(this NumericUpDown numericUpDown, TViewModel viewModel, Expression<Func<TViewModel, decimal>> propertyExpression)
             where TViewModel : INotifyPropertyChanged
         {
             numericUpDown.BindProperty(viewModel, propertyExpression, nameof(numericUpDown.Value));
         }
 
+        /// <summary>
+        /// Two-way binds ComboBox.SelectedValue to a ViewModel property.
+        /// For an editable combo whose typed text matters use <see cref="BindText{TViewModel}"/>.
+        /// </summary>
         public static void Bind<TViewModel, TValue>(this ComboBox comboBox, TViewModel viewModel, Expression<Func<TViewModel, TValue>> propertyExpression)
             where TViewModel : INotifyPropertyChanged
         {

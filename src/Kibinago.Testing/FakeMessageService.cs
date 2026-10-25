@@ -8,11 +8,17 @@ namespace Kibinago.Testing
     /// <summary>The kind of message-service call a <see cref="MessageCall"/> records.</summary>
     public enum MessageKind
     {
+        /// <summary><see cref="IMessageService.ShowInfo"/>.</summary>
         Info,
+        /// <summary><see cref="IMessageService.ShowWarning"/>.</summary>
         Warning,
+        /// <summary><see cref="IMessageService.ShowError"/>.</summary>
         Error,
+        /// <summary><see cref="IMessageService.ConfirmYesNo"/>.</summary>
         YesNo,
+        /// <summary><see cref="IMessageService.ConfirmOkCancel"/>.</summary>
         OkCancel,
+        /// <summary><see cref="IMessageService.ConfirmYesNoCancel"/>.</summary>
         YesNoCancel
     }
 

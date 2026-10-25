@@ -18,6 +18,8 @@
 
     <!-- Shippable: opt in to packing (Directory.Build.props defaults to false). -->
     <IsPackable>true</IsPackable>
+    <!-- Ship the XML docs (IntelliSense for consumers); missing / broken docs are errors (.editorconfig, src/). -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <PackageId>Kibinago.Core</PackageId>
     <Description>Platform-neutral core of the Kibinago framework (netstandard2.0): presenter base classes, ViewAction dispatcher, EventAggregator, ChangeTracker, validation, logging and service abstractions. Bundles the MVP design-rule analyzers. Reference Kibinago for the WinForms implementation.</Description>
     <PackageTags>mvp;winforms;model-view-presenter;desktop;analyzers</PackageTags>

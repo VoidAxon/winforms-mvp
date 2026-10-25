@@ -9,11 +9,14 @@ namespace Kibinago.Common.Events
     /// </summary>
     public class ActionExecutedEventArgs : EventArgs
     {
+        /// <summary>Creates event data for the action that has executed.</summary>
+        /// <param name="actionKey">The action whose handler completed.</param>
         public ActionExecutedEventArgs(ViewAction actionKey)
         {
             ActionKey = actionKey;
         }
 
+        /// <summary>The action whose handler completed.</summary>
         public ViewAction ActionKey { get; }
     }
 }

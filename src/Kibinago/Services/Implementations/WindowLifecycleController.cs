@@ -76,6 +76,9 @@ namespace Kibinago.Services.Implementations
         private static readonly ConditionalWeakTable<Form, WindowLifecycleController> Controllers =
             new ConditionalWeakTable<Form, WindowLifecycleController>();
 
+        /// <param name="view">The window's view; must be a <see cref="Form"/>.</param>
+        /// <param name="presenter">The presenter whose close gate and close sink this controller drives.</param>
+        /// <param name="onClosed">Receives the close result and status once the window has closed.</param>
         /// <param name="disposeForm">True when this controller owns the Form lifetime (Managed
         /// modal, Adopted). False for non-modal Managed, where WinForms disposes on close.</param>
         internal WindowLifecycleController(IWindowView view, ICloseParticipant presenter,

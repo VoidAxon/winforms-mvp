@@ -8,6 +8,10 @@
 
 ## [Unreleased]
 
+### Added (追加)
+
+- **XML ドキュメントをパッケージに同梱** — `Kibinago.Core` / `Kibinago` / `Kibinago.DependencyInjection` / `Kibinago.Testing` の `.nupkg` に `.xml` が入り、IDE のツールチップ・IntelliSense に説明が出る (新人試用で、説明が何も出ないと指摘された)。足りなかった公開メンバーのコメントを補い、`src/` では公開メンバーのコメント漏れ・`<param>` 漏れ・壊れた `cref` をビルドエラーに (`.editorconfig`)。リリースワークフローは各パッケージに `.xml` が入っていることを検査する。
+
 ### Changed (変更)
 
 - `OnViewAttached()` は `abstract` から `virtual` (既定は空) に。View のイベントを購読しない Presenter は書かなくてよい (既存の override はそのまま動く)。テンプレート・サンプル・Wiki の空の override を削除。

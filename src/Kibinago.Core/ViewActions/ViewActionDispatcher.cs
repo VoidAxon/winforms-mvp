@@ -459,6 +459,10 @@ namespace Kibinago.ViewActions
             return DispatchThroughPipeline(actionKey, entry, payload, delivery);
         }
 
+        /// <param name="actionKey">The action being dispatched.</param>
+        /// <param name="entry">The registered handler.</param>
+        /// <param name="payload">The payload passed to the handler.</param>
+        /// <param name="pending">The handler's task (null for a synchronous handler); null when it failed.</param>
         /// <param name="failure">The handler's exception to propagate; null for a cancellation.</param>
         private bool TryExecuteHandlerDirect(ViewAction actionKey, ActionHandlerEntry entry, object payload, out Task pending,
             out ExceptionDispatchInfo failure)
@@ -499,6 +503,11 @@ namespace Kibinago.ViewActions
         /// or one that already completed finishes inline; otherwise the action stays "running"
         /// (CanDispatch = false) until the task completes, on the dispatching thread's context.
         /// </summary>
+        /// <param name="actionKey">The dispatched action.</param>
+        /// <param name="entry">The registered handler, kept "running" until <paramref name="pending"/> completes.</param>
+        /// <param name="pending">The handler's task; null for a synchronous handler.</param>
+        /// <param name="context">The middleware pipeline's context; null on the fast path.</param>
+        /// <param name="delivery">How a handler failure leaves the dispatcher (faulted task, or thrown / posted).</param>
         /// <param name="succeeded">False when the dispatch already failed around a handler that did
         /// start (a middleware threw after calling next): the handler is still tracked to its end,
         /// but no ActionExecuted is raised.</param>

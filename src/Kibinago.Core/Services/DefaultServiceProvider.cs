@@ -85,11 +85,19 @@ namespace Kibinago.Services
             }
         }
 
+        /// <inheritdoc />
         public bool IsRegistered(Type serviceType)
         {
             lock (_lock) { return _entries.ContainsKey(serviceType); }
         }
 
+        /// <summary>
+        /// Returns the service registered for <paramref name="serviceType"/>, or <c>null</c> when there is
+        /// none. A factory registration runs on the first request and its result is cached.
+        /// </summary>
+        /// <param name="serviceType">The service type to resolve.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="serviceType"/> is <c>null</c>.</exception>
+        /// <exception cref="ObjectDisposedException">The provider has been disposed.</exception>
         public object GetService(Type serviceType)
         {
             if (serviceType == null) throw new ArgumentNullException(nameof(serviceType));

@@ -9,7 +9,7 @@ namespace Kibinago.Services.Implementations
 {
     /// <summary>
     /// The WinForms side of <see cref="IViewDisposalObserver"/>: a control-backed view is disposed when
-    /// its <see cref="Control.Disposed"/> event fires. Found by Core through <c>ViewDisposal</c> (by name).
+    /// its <see cref="System.ComponentModel.Component.Disposed"/> event fires. Found by Core through <c>ViewDisposal</c> (by name).
     /// </summary>
     /// <remarks>
     /// Presenter tests may load this assembly without the Windows Desktop runtime (a test project that

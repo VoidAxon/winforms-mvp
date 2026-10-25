@@ -34,6 +34,12 @@ namespace Kibinago.Common
         // list -- which holds NEW instances -- still matches "the same" row); otherwise fall back
         // to EqualityComparer<T>.Default (reference, or the type's own Equals -- e.g. string).
         // An explicit comparer always wins.
+        /// <summary>Creates an empty selection.</summary>
+        /// <param name="comparer">
+        /// Decides whether a newly selected item is "the same" as the current one; null compares by
+        /// <see cref="ISelectable.Key"/> when <typeparamref name="T"/> implements <see cref="ISelectable"/>,
+        /// otherwise with <see cref="EqualityComparer{T}.Default"/>.
+        /// </param>
         public Selection(IEqualityComparer<T> comparer = null)
         {
             _comparer = comparer
@@ -42,8 +48,11 @@ namespace Kibinago.Common
                         : EqualityComparer<T>.Default);
         }
 
+        /// <inheritdoc />
         public T Current { get; private set; }
 
+        /// <inheritdoc />
+        /// <remarks>Selecting an item equal to <see cref="Current"/> does nothing (no event).</remarks>
         public void Select(T item)
         {
             // Short-circuit when unchanged so clearing an already-empty downstream level does not
@@ -57,6 +66,7 @@ namespace Kibinago.Common
             if (handler != null) handler(this, EventArgs.Empty);
         }
 
+        /// <inheritdoc />
         public event EventHandler CurrentChanged;
     }
 }
