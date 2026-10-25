@@ -8,6 +8,10 @@
 
 ## [Unreleased]
 
+### Added (追加)
+
+- `FakeWindowNavigator.RespondTo<TPresenter, TParam, TResult>(Func<TParam, InteractionResult<TResult>>)` — 開いた画面のパラメータを型付きで受け取って答える (`(PickerParameters)r.Parameters` のキャストが不要)。`TParam` は Presenter が受け取る型でなければコンパイルエラー。
+
 ### Changed (変更)
 
 - Wiki (ChangeTracker): 明細を追跡する単位の選び方 — 全部「登録」でまとめて保存する画面は一覧全体に 1 つ、行の追加・削除・並べ替えをその場で保存する画面は行ごとに 1 つの tracker。画面内のキーの採番カウンタは追跡するモデルに入れない (private フィールドも比較される)。
