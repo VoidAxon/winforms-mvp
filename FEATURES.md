@@ -115,6 +115,7 @@ Precedence: a directly registered service > the `mvp.` choice > the built-in def
 |---|---|
 | "Is the screen dirty?" for one model edited in place | `var t = TrackChanges(model)` → `t.IsChanged`, `t.AcceptChanges()` after saving |
 | A new model read from the view each time | `t.IsChangedWith(ReadModel())`, `t.AcceptChanges(savedModel)` |
+| Editing rows in a grid (DataGridView / third-party) | no grid component by design: view translates grid events to business events; [wiki](wiki/HowTo-Implement-Editable-Grid.md) (row keys, reject / rewrite a cell, row errors on cells, pitfalls, C1FlexGrid mapping) |
 | Grid rows: everything saved on 登録 | one tracker over the whole list model (adds / removes / order are unsaved too) |
 | Grid rows: adds / removes / order saved at once, cells on 登録 | one tracker per row; `IsChanged` = any row; save and `AcceptChanges()` the changed rows ([wiki](wiki/Reference-ChangeTracker.md#一覧-明細-を追跡する単位--保存のタイミングで決まる)) |
 | Ignore members / types | `.Ignore(x => x.UpdatedAt)`, `.Ignore<Line>(l => l.Cache)`, `.IgnoreMember("Name")`, `.IgnoreType<Audit>()` |

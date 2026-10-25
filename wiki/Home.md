@@ -68,6 +68,7 @@ WinForms アプリケーションのための **Model-View-Presenter** フレー
 - [入力項目の多い編集画面を作る](HowTo-Build-Large-Edit-Screen) — Supervising Controller (入力モデルへのバインド) で View インターフェイスを小さく保つ
 - [非同期処理を扱う](HowTo-Handle-Async-Operations) — async/await、`IProgress<T>`、キャンセル
 - [マスター/詳細パターンを実装する](HowTo-Implement-Master-Detail) — 親子データの連動
+- [グリッドで明細を直接編集する](HowTo-Implement-Editable-Grid) — セルの確定・拒否・書き換え、行の検証、保存のタイミング
 - [Presenter をテストする](HowTo-Test-A-Presenter) — モック、テストパターン
 - [Presenter の購読ライフサイクルを管理する](HowTo-Manage-Presenter-Subscriptions) — `Disposables` バッグ、`DisposeWith`、自動解放
 - [従来の WinForms から移行する](HowTo-Migrate-From-Legacy-WinForms) — 段階的なリファクタリング
