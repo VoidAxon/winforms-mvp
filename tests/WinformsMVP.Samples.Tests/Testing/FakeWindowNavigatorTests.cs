@@ -38,6 +38,27 @@ namespace WinformsMVP.Samples.Tests.Testing
         }
 
         [Fact]
+        public void Modal_TypedParameters_ReachTheResponder()
+        {
+            var navigator = new FakeWindowNavigator();
+            navigator.RespondTo<ParamFixturePresenter, int, int>(n => InteractionResult<int>.Ok(n * 2));   // n is the int passed
+            IWindowNavigator nav = navigator;
+
+            Assert.Equal(42, nav.For(new ParamFixturePresenter()).WithParam(21).ShowAsModal<int>().Value);
+        }
+
+        [Fact]
+        public void Modal_TypedParameters_WrongType_ThrowsWithAHint()
+        {
+            var navigator = new FakeWindowNavigator();
+            navigator.RespondTo<ParamFixturePresenter, int, int>(n => InteractionResult<int>.Ok(n));
+
+            var ex = Assert.Throws<InvalidOperationException>(
+                () => navigator.ShowWindowAsModal<ParamFixturePresenter, int>(new ParamFixturePresenter()));
+            Assert.Contains("Int32", ex.Message);
+        }
+
+        [Fact]
         public void Modal_RequestCarriesPresenterAndOwner()
         {
             var navigator = new FakeWindowNavigator();

@@ -312,6 +312,14 @@ public void OnEditUser_WhenCancelled_DoesNotReload()
 
 `RespondTo` の関数は `ModalRequest` (`Presenter`、`Parameters`、`Owner`) を受け取ります。呼び出し側が期待する型と違う値を返すと、本番と同じく `Error` になります。
 
+開いた画面のパラメータで答えを変えるときは、パラメータの型を書く `RespondTo<TPresenter, TParam, TResult>` を使います。関数はパラメータそのものを受け取るので、`(PickerParameters)r.Parameters` のようなキャストが要りません。`TParam` は Presenter が受け取る型でなければコンパイルエラーになります (`IInitializable<TParam>`)。
+
+```csharp
+// 選択画面を用途ごとに答え分ける: 渡された候補から目的の項目を選ぶ
+_fakes.Navigator.RespondTo<PickerPresenter, PickerParameters, int>(
+    p => InteractionResult<int>.Ok(p.Items.First(i => i.Text == "毎食後").Id));
+```
+
 **非モーダル** — 開いたウィンドウが `fakes.Navigator.Windows` に残るので、画面が閉じたときの結果をテストから渡します:
 
 ```csharp

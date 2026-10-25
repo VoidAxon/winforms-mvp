@@ -115,6 +115,7 @@ Precedence: a directly registered service > the `mvp.` choice > the built-in def
 |---|---|
 | "Is the screen dirty?" for one model edited in place | `var t = TrackChanges(model)` → `t.IsChanged`, `t.AcceptChanges()` after saving |
 | A new model read from the view each time | `t.IsChangedWith(ReadModel())`, `t.AcceptChanges(savedModel)` |
+| Editing rows in a grid (DataGridView / third-party) | no grid component by design: view translates grid events to business events; [wiki](wiki/HowTo-Implement-Editable-Grid.md) (row keys, reject / rewrite a cell, row errors on cells, pitfalls, C1FlexGrid mapping) |
 | Grid rows: everything saved on 登録 | one tracker over the whole list model (adds / removes / order are unsaved too) |
 | Grid rows: adds / removes / order saved at once, cells on 登録 | one tracker per row; `IsChanged` = any row; save and `AcceptChanges()` the changed rows ([wiki](wiki/Reference-ChangeTracker.md#一覧-明細-を追跡する単位--保存のタイミングで決まる)) |
 | Ignore members / types | `.Ignore(x => x.UpdatedAt)`, `.Ignore<Line>(l => l.Cache)`, `.IgnoreMember("Name")`, `.IgnoreType<Audit>()` |
@@ -184,7 +185,7 @@ Callbacks run on the creating thread's context; without `onError` a failure reac
 | Results and closing | `host.CloseRequested`, `CloseStatus`, `CloseResult`; `host.CanClose(reason)`, `await host.CanCloseAsync(reason)`; `await host.Initialized` |
 | Messages | `FakeMessageService`: `Calls` (`Kind`, `Text`, `Caption`, `IsConfirmation`); answers `EnqueueYesNo(...)` → `YesNoHandler` → `AnswerUnscripted(yes)`, otherwise `UnscriptedInteractionException` |
 | Dialogs | `FakeDialogProvider`: `EnqueueSaveFile(InteractionResult<string>.Ok(path))`, `SaveFileHandler = o => …`, `CancelUnscripted()`; `Calls` |
-| Child windows | `FakeWindowNavigator`: modal `RespondTo<TPresenter, TResult>(r => InteractionResult<TResult>.Ok(…))`, `LastModalParameters<T>()`; non-modal `Windows[i].CloseWithResult(value)` / `Close()` / `CloseWithError(...)`; same key / disposal / result-type rules as `WindowNavigator` |
+| Child windows | `FakeWindowNavigator`: modal `RespondTo<TPresenter, TResult>(r => InteractionResult<TResult>.Ok(…))` or typed by the parameters `RespondTo<TPresenter, TParam, TResult>(p => …)`, `LastModalParameters<T>()`; non-modal `Windows[i].CloseWithResult(value)` / `Close()` / `CloseWithError(...)`; same key / disposal / result-type rules as `WindowNavigator` |
 | Files | `InMemoryFileService`: Windows path rules on any host (base `C:\test`), `SeedFile`, `FilePaths`, `Failure = c => new IOException(...)` |
 | Logs and toasts | `RecordingLoggerFactory.Entries` (`Level`, `Message`, `Exception`), `FakeToastService.Calls` |
 

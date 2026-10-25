@@ -135,6 +135,27 @@ namespace WinformsMVP.Testing
             });
         }
 
+        /// <summary>
+        /// Answers modal requests for presenters of type <typeparamref name="TPresenter"/> from the parameters
+        /// they were shown with, typed: <c>RespondTo&lt;PickerPresenter, PickerParameters, int&gt;(p =&gt; ...)</c>.
+        /// The presenter must take <typeparamref name="TParam"/> (checked at compile time); a request without
+        /// such parameters throws <see cref="InvalidOperationException"/>.
+        /// </summary>
+        public void RespondTo<TPresenter, TParam, TResult>(Func<TParam, InteractionResult<TResult>> responder)
+            where TPresenter : IInitializable<TParam>
+        {
+            if (responder == null) throw new ArgumentNullException(nameof(responder));
+            RespondTo<TPresenter, TResult>(r =>
+            {
+                if (r.HasParameters && r.Parameters == null) return responder(default(TParam));   // WithParam(null)
+                if (!r.HasParameters || !(r.Parameters is TParam parameters))
+                    throw new InvalidOperationException(
+                        $"{typeof(TPresenter).Name} was shown without {typeof(TParam).Name} parameters, but the responder expects them " +
+                        "(use RespondTo<TPresenter, TResult> for a parameterless request).");
+                return responder(parameters);
+            });
+        }
+
         /// <summary>Answers modal requests without a result value for presenters of type <typeparamref name="TPresenter"/>.</summary>
         public void RespondTo<TPresenter>(Func<ModalRequest<TPresenter>, InteractionResult> responder)
         {

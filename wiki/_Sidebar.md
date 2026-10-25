@@ -38,6 +38,7 @@
 - [入力項目の多い編集画面を作る](HowTo-Build-Large-Edit-Screen)
 - [非同期処理を扱う](HowTo-Handle-Async-Operations)
 - [マスター/詳細パターン](HowTo-Implement-Master-Detail)
+- [グリッドで明細を編集](HowTo-Implement-Editable-Grid)
 - [連鎖選択 (カスケード) を扱う](HowTo-Handle-Cascading-Selection)
 - [Presenter をテストする](HowTo-Test-A-Presenter)
 - [Presenter の購読ライフサイクルを管理する](HowTo-Manage-Presenter-Subscriptions)

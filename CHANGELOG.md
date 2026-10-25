@@ -8,8 +8,13 @@
 
 ## [Unreleased]
 
+### Added (追加)
+
+- `FakeWindowNavigator.RespondTo<TPresenter, TParam, TResult>(Func<TParam, InteractionResult<TResult>>)` — 開いた画面のパラメータを型付きで受け取って答える (`(PickerParameters)r.Parameters` のキャストが不要)。`TParam` は Presenter が受け取る型でなければコンパイルエラー。
+
 ### Changed (変更)
 
+- Wiki: 新ページ「グリッドで明細を直接編集する」(業務イベントとグリッド操作の分担、行キー、セルの拒否と書き換え、行の検証とセルのエラー表示、落とし穴、C1FlexGrid の対応表)。非同期処理のページに「処理中にウィンドウを閉じる」(確認 → 停止 → 処理の終わりを待つ、`await` の後は `Lifetime` を見る、確認の間に状態が変わる)。
 - Wiki (ChangeTracker): 明細を追跡する単位の選び方 — 全部「登録」でまとめて保存する画面は一覧全体に 1 つ、行の追加・削除・並べ替えをその場で保存する画面は行ごとに 1 つの tracker。画面内のキーの採番カウンタは追跡するモデルに入れない (private フィールドも比較される)。
 
 ## [1.0.0-preview.7] - 2026-10-25

@@ -23,6 +23,7 @@
 - [シナリオ 3: キャンセルをサポートする](#シナリオ-3-キャンセルをサポートする)
 - [シナリオ 4: 複数の async 操作を並行実行](#シナリオ-4-複数の-async-操作を並行実行)
 - [シナリオ 5: ウィンドウを開いたときに読み込む](#シナリオ-5-ウィンドウを開いたときに読み込む)
+- [処理中にウィンドウを閉じる](#処理中にウィンドウを閉じる)
 - [`async void` を書かない](#async-void-を書かない)
 - [UI スレッド注意点](#ui-スレッド注意点)
 - [ベストプラクティス](#ベストプラクティス)
@@ -323,6 +324,42 @@ protected override async Task OnInitializeAsync(CancellationToken ct)
 ```
 
 未処理の例外はログ出力されます。`ct` は `Lifetime` なので、読み込み中にウィンドウを閉じると静かに止まります。
+
+---
+
+## 処理中にウィンドウを閉じる
+
+時間のかかる処理 (一括変換、取り込み) の途中で ✕ / 「閉じる」が押されたら、`CanCloseAsync` で「中止して閉じますか？」と聞き、はい なら止めて **処理が本当に終わるのを待ってから** 閉じます。止める指示だけ出してすぐ閉じると、処理の続きが破棄済みの View に触ります。
+
+```csharp
+private CancellationTokenSource _stop;   // 実行中だけ非 null (シナリオ 3 と同じ)
+private Task _run = Task.CompletedTask;
+private bool _closing;
+
+protected override async Task<bool> CanCloseAsync(CloseReason reason)
+{
+    if (_stop == null) return true;
+    var yes = Messages.ConfirmYesNo("処理中です。中止して閉じますか？");
+    if (_stop == null) return yes;            // 質問の間に処理が終わった (下の注意 2)
+    if (!yes) return false;
+    _closing = true;                           // 処理の終わりに「中止しました」を出さない
+    _stop.Cancel();
+    await _run;                                // 今の 1 件が終わるまで待つ (待っている間の ✕ は聞き直されない)
+    return true;
+}
+```
+
+注意:
+
+1. **`await` の後は `Lifetime` を見てから View に触る。** システムのシャットダウンはクローズ判断を通らずに閉じる (Presenter が破棄され `Lifetime` がキャンセルされる) ので、処理の続きが破棄済みの View を触ることがあります。フレームワークは Dispatcher を止めますが、View のメソッド呼び出しは止められません。
+
+   ```csharp
+   var result = await _converter.ConvertAsync(item);
+   if (Lifetime.IsCancellationRequested) return;   // ウィンドウはもうない
+   View.ShowItemState(item.Id, ItemState.Done);
+   ```
+
+2. **確認の後は状態を見直す。** `Messages.ConfirmYesNo` はモーダルで、表示中もメッセージループが回るため、`await` の続きが進んで処理が終わることがあります。質問から戻ったら「まだ処理中か」を確かめます。質問中に終わった処理の完了メッセージは、質問に重ねず、いいえ と答えた後に出します。テストでは `FakeMessageService.YesNoHandler` の中で処理を進めると再現できます。
 
 ---
 
