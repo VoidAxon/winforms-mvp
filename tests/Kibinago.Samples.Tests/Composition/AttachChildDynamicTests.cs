@@ -69,8 +69,6 @@ namespace Kibinago.Samples.Tests.Composition
             public TaskCompletionSource<bool> SlowGate = new TaskCompletionSource<bool>();
             public int SlowFinished;
 
-            protected override void OnViewAttached() { }
-
             protected override void RegisterViewActions()
             {
                 Dispatcher.Register(LineActions.SetQuantity, (int q) => _line.Quantity = q);

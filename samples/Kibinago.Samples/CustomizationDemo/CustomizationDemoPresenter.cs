@@ -17,8 +17,6 @@ namespace Kibinago.Samples.CustomizationDemo
 
         private ChangeTracker<Customer> _tracker;
 
-        protected override void OnViewAttached() { }
-
         protected override void RegisterViewActions()
         {
             Dispatcher.Register(CustomizationDemoActions.Info, () => Messages.ShowInfo("This is the company-styled dialog."));

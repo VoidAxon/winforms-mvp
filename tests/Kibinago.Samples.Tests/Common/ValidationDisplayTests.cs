@@ -154,8 +154,6 @@ namespace Kibinago.Samples.Tests.Common
         {
             public bool Saved;
 
-            protected override void OnViewAttached() { }
-
             protected override void RegisterViewActions()
             {
                 Dispatcher.Register(Edit, () => Validation.Validate(Read()));
@@ -304,7 +302,6 @@ namespace Kibinago.Samples.Tests.Common
 
         private sealed class ResettingPresenter : WindowPresenterBase<ICustomerView>
         {
-            protected override void OnViewAttached() { }
             protected override void RegisterViewActions() => Dispatcher.Register(New, () => Validation.Reset());
         }
 

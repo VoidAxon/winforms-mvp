@@ -20,14 +20,12 @@ namespace Kibinago.Samples.Tests.Testing
     public sealed class FixturePresenter : WindowPresenterBase<IFixtureView>
     {
         public bool Disposed { get; private set; }
-        protected override void OnViewAttached() { }
         protected override void Cleanup() => Disposed = true;
     }
 
     public sealed class OtherFixturePresenter : WindowPresenterBase<IFixtureView>
     {
         public bool Disposed { get; private set; }
-        protected override void OnViewAttached() { }
         protected override void Cleanup() => Disposed = true;
     }
 
@@ -35,7 +33,6 @@ namespace Kibinago.Samples.Tests.Testing
     public sealed class ParamFixturePresenter : WindowPresenterBase<IFixtureView, int>
     {
         public bool Disposed { get; private set; }
-        protected override void OnViewAttached() { }
         protected override void OnInitialize(int parameters) { }
         protected override void Cleanup() => Disposed = true;
     }

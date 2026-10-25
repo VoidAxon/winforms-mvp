@@ -238,9 +238,10 @@ namespace Kibinago.Presenters
         }
 
         /// <summary>
-        /// Called when the view is attached to this presenter.
+        /// Called when the view is attached to this presenter: subscribe to view events here
+        /// (<c>SubscribeViewEvent</c>). Override only when there is something to do.
         /// </summary>
-        protected abstract void OnViewAttached();
+        protected virtual void OnViewAttached() { }
 
         /// <summary>
         /// The single Initialize sequence behind every presenter base: guard, register actions,

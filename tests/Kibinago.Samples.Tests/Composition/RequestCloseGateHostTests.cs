@@ -32,8 +32,6 @@ namespace Kibinago.Samples.Tests.Composition
             public TaskCompletionSource<bool> AsyncGate;
             public object SaveInGate;
 
-            protected override void OnViewAttached() { }
-
             protected override void RegisterViewActions()
             {
                 Dispatcher.Register(Close, () => RequestClose(InteractionStatus.Cancel));

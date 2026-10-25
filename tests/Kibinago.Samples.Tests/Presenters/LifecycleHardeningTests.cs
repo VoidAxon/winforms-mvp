@@ -41,7 +41,6 @@ namespace Kibinago.Samples.Tests.Presenters
         {
             public bool Disposed;
             public bool Initialized;
-            protected override void OnViewAttached() { }
             protected override void OnInitialize(int parameters) => Initialized = true;
             protected override void Cleanup() => Disposed = true;
         }
@@ -51,7 +50,6 @@ namespace Kibinago.Samples.Tests.Presenters
         {
             public int InitCount;
             public bool Disposed;
-            protected override void OnViewAttached() { }
             protected override void OnInitialize() => InitCount++;
             protected override void Cleanup() => Disposed = true;
         }
@@ -65,7 +63,6 @@ namespace Kibinago.Samples.Tests.Presenters
             public int CleanupCount;
             public bool Disposed => CleanupCount > 0;
 
-            protected override void OnViewAttached() { }
             protected override void OnInitialize()
             {
                 InitCount++;
@@ -481,7 +478,6 @@ namespace Kibinago.Samples.Tests.Presenters
         private sealed class ThrowingControlPresenter : ControlPresenterBase<IHardControlView>
         {
             public bool Disposed;
-            protected override void OnViewAttached() { }
             protected override void OnInitialize() => throw new InvalidOperationException("boom");
             protected override void Cleanup() => Disposed = true;
         }

@@ -133,8 +133,6 @@ public class SettingsPanelPresenter : ControlPresenterBase<ISettingsPanelView>
     // コンストラクタは Presenter 自身の依存だけを受け取る (この例では無し)。
     // View は Connect で渡す — Window 系と同じ二段構築。
 
-    protected override void OnViewAttached() { }
-
     protected override void OnInitialize()
     {
         // Connect は構築後に走るため、View も注入済みの依存もここで安全に使える。
@@ -192,8 +190,6 @@ public class SearchPanelPresenter : ControlPresenterBase<ISearchPanelView, Searc
 {
     // コンストラクタは Presenter 自身の依存のみ。View とパラメータは Connect で渡す。
 
-    protected override void OnViewAttached() { }
-
     protected override void OnInitialize(SearchParameters parameters)
     {
         View.Keyword = parameters.DefaultKeyword;
@@ -236,8 +232,6 @@ public class OrderEditPresenter : WindowPresenterBase<IOrderEditView, OrderEditI
     private readonly ICustomerRepository _customers;
 
     public OrderEditPresenter(ICustomerRepository customers) => _customers = customers;
-
-    protected override void OnViewAttached() { }
 
     protected override void OnInitialize(OrderEditInput input)
     {

@@ -32,7 +32,6 @@ namespace Kibinago.Samples.Tests.Presenters
 
         private sealed class EditPresenter : WindowPresenterBase<IFakeView>
         {
-            protected override void OnViewAttached() { }
             protected override bool CanClose(CloseReason reason)
             {
                 if (reason != CloseReason.Normal) return true;

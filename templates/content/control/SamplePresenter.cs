@@ -12,8 +12,6 @@ namespace MvpNamespace
     /// </summary>
     public sealed class SamplePresenter : ControlPresenterBase<ISampleView>
     {
-        protected override void OnViewAttached() { }
-
         protected override void RegisterViewActions()
         {
             Dispatcher.Register(SampleActions.Refresh, OnRefreshAsync);

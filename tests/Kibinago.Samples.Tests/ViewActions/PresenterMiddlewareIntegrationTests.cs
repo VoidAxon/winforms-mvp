@@ -128,8 +128,6 @@ namespace Kibinago.Samples.Tests.ViewActions
             private readonly List<string> _trace;
             public TestPresenter(List<string> trace) { _trace = trace; }
 
-            protected override void OnViewAttached() { }
-
             protected override void RegisterViewActions()
             {
                 // Local middleware - should be added AFTER global, ending up innermost.
@@ -142,8 +140,6 @@ namespace Kibinago.Samples.Tests.ViewActions
         {
             private readonly List<string> _trace;
             public FastPathPresenter(List<string> trace) { _trace = trace; }
-
-            protected override void OnViewAttached() { }
 
             protected override void RegisterViewActions()
             {

@@ -51,7 +51,6 @@ namespace Kibinago.Samples.Tests.Presenters
         {
             private System.Threading.Tasks.TaskCompletionSource<bool> _decision;
             public Action<bool> Pending => ok => _decision.SetResult(ok);
-            protected override void OnViewAttached() { }
             protected override System.Threading.Tasks.Task<bool> CanCloseAsync(CloseReason reason)
             {
                 _decision = new System.Threading.Tasks.TaskCompletionSource<bool>(
@@ -67,7 +66,6 @@ namespace Kibinago.Samples.Tests.Presenters
         /// </summary>
         private sealed class DirtyGuardPresenter : WindowPresenterBase<IFakeView>
         {
-            protected override void OnViewAttached() { }
             protected override bool CanClose(CloseReason reason)
             {
                 if (reason != CloseReason.Normal) return true;

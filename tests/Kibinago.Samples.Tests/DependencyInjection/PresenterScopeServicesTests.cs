@@ -41,7 +41,6 @@ namespace Kibinago.Samples.Tests.DependencyInjection
                 FrameworkLogger = () => Logger;
             }
 
-            protected override void OnViewAttached() { }
         }
 
         /// <summary>Uses a framework service in its constructor, before the factory can bind the scope.</summary>
@@ -55,7 +54,6 @@ namespace Kibinago.Samples.Tests.DependencyInjection
 
             public ScopedDependency Dependency { get; }
             public IMessageService Resolved { get; }
-            protected override void OnViewAttached() { }
         }
 
         private static IPresenterFactory Factory(Action<IServiceCollection> configure)

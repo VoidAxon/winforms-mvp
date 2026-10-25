@@ -30,7 +30,6 @@ namespace Kibinago.Samples.Tests.Presenters
             public System.Threading.Tasks.Task<bool> AsyncGate;
             public bool Disposed;
 
-            protected override void OnViewAttached() { }
             protected override void RegisterViewActions()
                 => Dispatcher.Register(Save, () => RequestClose("saved", InteractionStatus.Ok));
             protected override void OnInitialize()
@@ -46,7 +45,6 @@ namespace Kibinago.Samples.Tests.Presenters
         private sealed class ParamPresenter : WindowPresenterBase<IEditView, int>
         {
             public int Received;
-            protected override void OnViewAttached() { }
             protected override void OnInitialize(int parameters) => Received = parameters;
         }
 
@@ -104,7 +102,6 @@ namespace Kibinago.Samples.Tests.Presenters
             public bool Allow = true;
             public System.Threading.Tasks.Task SaveTask;   // null => the gate answers synchronously
 
-            protected override void OnViewAttached() { }
             protected override bool CanClose(CloseReason reason)
             {
                 RequestClose("saved", InteractionStatus.Ok);
@@ -202,7 +199,6 @@ namespace Kibinago.Samples.Tests.Presenters
             public System.Threading.Tasks.Task SaveTask;
             public int GateRuns;
 
-            protected override void OnViewAttached() { }
             protected override async System.Threading.Tasks.Task<bool> CanCloseAsync(CloseReason reason)
             {
                 GateRuns++;
@@ -216,20 +212,17 @@ namespace Kibinago.Samples.Tests.Presenters
 
         private sealed class GreetingPresenter : WindowPresenterBase<IEditView>
         {
-            protected override void OnViewAttached() { }
             protected override void OnInitialize() => Messages.ShowInfo("hello");
         }
 
         private sealed class GreetingParamPresenter : WindowPresenterBase<IEditView, string>
         {
-            protected override void OnViewAttached() { }
             protected override void OnInitialize(string text) => Messages.ShowInfo(text);
         }
 
         private sealed class ServicesInConstructorPresenter : WindowPresenterBase<IEditView>
         {
             public ServicesInConstructorPresenter() { Logger.LogInformation("constructed"); }
-            protected override void OnViewAttached() { }
         }
 
         private sealed class RecordingConfigurer : IDispatcherConfigurer
@@ -347,7 +340,6 @@ namespace Kibinago.Samples.Tests.Presenters
         private sealed class CountingGatePresenter : WindowPresenterBase<IEditView>
         {
             public int SyncCalls, AsyncCalls;
-            protected override void OnViewAttached() { }
             protected override bool CanClose(CloseReason reason) { SyncCalls++; return false; }
             protected override System.Threading.Tasks.Task<bool> CanCloseAsync(CloseReason reason)
             {
@@ -396,7 +388,6 @@ namespace Kibinago.Samples.Tests.Presenters
         private sealed class PanelPresenter : ControlPresenterBase<IPanelView>
         {
             public bool Initialized;
-            protected override void OnViewAttached() { }
             protected override void OnInitialize() => Initialized = true;
         }
 
@@ -413,7 +404,6 @@ namespace Kibinago.Samples.Tests.Presenters
         private sealed class FailingPresenter : ControlPresenterBase<IPanelView>
         {
             public bool Disposed;
-            protected override void OnViewAttached() { }
             protected override void OnInitialize() => throw new InvalidOperationException("boom");
             protected override void Cleanup() => Disposed = true;
         }

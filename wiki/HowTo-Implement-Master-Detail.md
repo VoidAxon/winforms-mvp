@@ -253,8 +253,6 @@ public class CustomerOrderShellPresenter : WindowPresenterBase<ICustomerOrderShe
         _orderRepo    = orderRepo;
     }
 
-    protected override void OnViewAttached() { }
-
     protected override void OnInitialize()
     {
         // この画面だけの選択状態。両方の子に同じインスタンスを渡す
@@ -364,8 +362,6 @@ public class OrderLinePresenter : ControlPresenterBase<IOrderLineView, OrderLine
     private OrderLine _line;
 
     public OrderLinePresenter(IProductRepository products) => _products = products;
-
-    protected override void OnViewAttached() { }
 
     protected override void RegisterViewActions()
         => Dispatcher.Register(OrderLineActions.ChangeQuantity, (int quantity) => _line.Quantity = quantity);

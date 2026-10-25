@@ -165,8 +165,6 @@ namespace Kibinago.Samples.Tests.ViewActions
             public CancellationToken SaveToken;
             public bool SaveSawCancellation;
 
-            protected override void OnViewAttached() { }
-
             protected override void RegisterViewActions()
             {
                 Dispatcher.Register(Save, async ct =>

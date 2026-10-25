@@ -37,7 +37,6 @@ namespace Kibinago.Samples.Tests.Presenters
 
             public OrderPresenter(Func<Tracking, ChangeTracker<Order>> create) { _create = create; }
 
-            protected override void OnViewAttached() { }
             protected override void OnInitialize() => Tracker = _create(new Tracking(this));
 
             public sealed class Tracking

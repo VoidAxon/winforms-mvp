@@ -12,8 +12,6 @@ namespace Kibinago.Samples.AnchoredMessageDemo
     /// </summary>
     public class AnchoredMessageDemoPresenter : WindowPresenterBase<IAnchoredMessageDemoView>
     {
-        protected override void OnViewAttached() { }
-
         protected override void RegisterViewActions()
         {
             Dispatcher.Register(AnchoredMessageDemoActions.Save, OnSave);

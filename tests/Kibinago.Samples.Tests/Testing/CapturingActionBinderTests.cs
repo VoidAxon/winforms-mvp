@@ -19,13 +19,26 @@ namespace Kibinago.Samples.Tests.Testing
             public int Count;
             public TaskCompletionSource<bool> Gate = new TaskCompletionSource<bool>();
 
-            protected override void OnViewAttached() { }
             protected override void RegisterViewActions()
             {
                 Dispatcher.Register(Run, () => Count++, canExecute: () => Enabled);
                 Dispatcher.Register(RunAsync, async () => { await Gate.Task; Count += 10; });
                 Dispatcher.Register(Add, (int n) => Count += n);
             }
+        }
+
+        // Nothing to override: OnViewAttached has an empty default.
+        private sealed class MinimalPresenter : WindowPresenterBase<IFixtureView>
+        {
+            protected override void RegisterViewActions() => Dispatcher.Register(Run, () => { });
+        }
+
+        [Fact]
+        public void APresenterNeedsNoOnViewAttached()
+        {
+            var view = new FixtureView();
+            using (PresenterTestHost.Start(TestServices.Create(), new MinimalPresenter(), view))
+                Assert.True(view.Binder.CanDispatch(Run));
         }
 
         [Fact]

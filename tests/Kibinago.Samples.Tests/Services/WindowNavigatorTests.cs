@@ -43,7 +43,6 @@ namespace Kibinago.Samples.Tests.Services
         private sealed class TestNavPresenterWithParam : WindowPresenterBase<ITestNavView, int>
         {
             public bool Disposed { get; private set; }
-            protected override void OnViewAttached() { }
             protected override void OnInitialize(int parameters) { }
             protected override void Cleanup() => Disposed = true;
         }
@@ -72,7 +71,6 @@ namespace Kibinago.Samples.Tests.Services
         {
             public bool Throw = true;
             public bool Disposed { get; private set; }
-            protected override void OnViewAttached() { }
             protected override void OnInitialize()
             {
                 if (Throw) throw new InvalidOperationException("boom in init");
@@ -199,7 +197,6 @@ namespace Kibinago.Samples.Tests.Services
         {
             public bool Disposed { get; private set; }
             public int GateCalls;
-            protected override void OnViewAttached() { }
             protected override void OnInitialize() => RequestClose("not found", Kibinago.Common.InteractionStatus.Error);
             protected override bool CanClose(Kibinago.Common.CloseReason reason) { GateCalls++; return false; }
             protected override void Cleanup() => Disposed = true;
@@ -254,7 +251,6 @@ namespace Kibinago.Samples.Tests.Services
             private readonly Action _viewOperation;
             public int GateCalls;
             public HandleTouchingRefusingPresenter(Action viewOperation) => _viewOperation = viewOperation;
-            protected override void OnViewAttached() { }
             protected override void OnInitialize()
             {
                 RequestClose(Kibinago.Common.InteractionStatus.Cancel);
