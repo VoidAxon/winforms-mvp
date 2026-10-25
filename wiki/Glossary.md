@@ -67,7 +67,7 @@ UserControl 系の View を扱う Presenter 基底クラス。`ControlPresenterB
 
 ### DialogProvider
 
-`IDialogProvider`。`OpenFileDialog` / `SaveFileDialog` / `FolderBrowserDialog` / `ColorDialog` のシステムダイアログを抽象化したサービス。Presenter からは `Dialogs` プロパティでアクセスする。フォント・印刷系ダイアログは `WinformsMVP` パッケージの `IWinFormsDialogProvider : IDialogProvider` にある。
+`IDialogProvider`。`OpenFileDialog` / `SaveFileDialog` / `FolderBrowserDialog` / `ColorDialog` のシステムダイアログを抽象化したサービス。Presenter からは `Dialogs` プロパティでアクセスする。フォント・印刷系ダイアログは `Kibinago` パッケージの `IWinFormsDialogProvider : IDialogProvider` にある。
 
 詳細: [Platform Services § IDialogProvider](Reference-Platform-Services#idialogprovider--システムダイアログ)
 
@@ -117,7 +117,7 @@ ViewAction の使い方の 2 種類。Implicit ではフレームワークが自
 
 ### IModuleRegistrar
 
-複数プロジェクト構成での View と Service の登録を担うインターフェイス。`WinformsMVP.DependencyInjection` パッケージで提供。
+複数プロジェクト構成での View と Service の登録を担うインターフェイス。`Kibinago.DependencyInjection` パッケージで提供。
 
 詳細: [Dependency Injection § IModuleRegistrar](Reference-DependencyInjection#imoduleregistrar-モジュール単位の登録)
 
@@ -177,7 +177,7 @@ View インターフェイスと Form クラスの紐付けを管理するレジ
 
 ### Mock
 
-テスト用のモックオブジェクト。View インターフェイスのモック (Mock View) はテスト側で書き、フレームワークサービスは `WinformsMVP.Testing` パッケージのフェイク (`TestServices.CreateFakes()` → `FakeMessageService`、`FakeDialogProvider`、`FakeWindowNavigator` 等) を `PresenterTestHost.Start(fakes.Provider, presenter, view)` で渡して一緒に使う。
+テスト用のモックオブジェクト。View インターフェイスのモック (Mock View) はテスト側で書き、フレームワークサービスは `Kibinago.Testing` パッケージのフェイク (`TestServices.CreateFakes()` → `FakeMessageService`、`FakeDialogProvider`、`FakeWindowNavigator` 等) を `PresenterTestHost.Start(fakes.Provider, presenter, view)` で渡して一緒に使う。
 
 詳細: [HowTo: Presenter をテストする](HowTo-Test-A-Presenter)
 
@@ -207,7 +207,7 @@ Model-View-Presenter。本フレームワークが採用する設計パターン
 
 ### ServiceLocator
 
-`ServiceLocator.Current` (静的プロパティ)。アプリ全体で使われる `IServiceProvider` 実体を保持する。`Program.Main` で 1 回だけ `ServiceLocator.Configure(...)` か `ServiceLocator.Current =` で設定する。M.E.DI の場合は `provider.UseWinformsMVP()` で設定される。
+`ServiceLocator.Current` (静的プロパティ)。アプリ全体で使われる `IServiceProvider` 実体を保持する。`Program.Main` で 1 回だけ `ServiceLocator.Configure(...)` か `ServiceLocator.Current =` で設定する。M.E.DI の場合は `provider.UseKibinago()` で設定される。
 
 ### Presenter
 
@@ -233,7 +233,7 @@ DI パターンの 1 つ。`ServiceLocator.Current` (`IServiceProvider`) 経由�
 
 ### StandardActions
 
-`WinformsMVP.MVP.ViewActions.StandardActions` 静的クラス。アプリ横断で使われる標準アクション (`Save`、`Cancel`、`Delete`、`Refresh`、`Ok`、`Reset` 等) を出荷時に提供する。キーは `"Standard."` + メンバー名 (`"Standard.Save"`)。モジュール固有のアクションは自前の静的クラスで `ViewAction.Factory.WithQualifier("Module")` の Factory から宣言する。
+`Kibinago.ViewActions.StandardActions` 静的クラス。アプリ横断で使われる標準アクション (`Save`、`Cancel`、`Delete`、`Refresh`、`Ok`、`Reset` 等) を出荷時に提供する。キーは `"Standard."` + メンバー名 (`"Standard.Save"`)。モジュール固有のアクションは自前の静的クラスで `ViewAction.Factory.WithQualifier("Module")` の Factory から宣言する。
 
 ### Supervising Controller
 

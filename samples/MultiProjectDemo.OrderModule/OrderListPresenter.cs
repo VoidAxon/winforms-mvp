@@ -1,4 +1,4 @@
-using WinformsMVP.MVP.Presenters;
+using Kibinago.Presenters;
 
 namespace MultiProjectDemo.OrderModule
 {

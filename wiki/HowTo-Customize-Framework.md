@@ -97,11 +97,11 @@ MvpApplication.Configure(
 
 ## M.E.DI を使う場合
 
-`AddWinformsMVP` に同じ `mvp` を渡せます。既定値も優先順位も `MvpApplication.Configure` と同じです。
+`AddKibinago` に同じ `mvp` を渡せます。既定値も優先順位も `MvpApplication.Configure` と同じです。
 
 ```csharp
 var services = new ServiceCollection();
-services.AddWinformsMVP(viewRegistry, mvp =>
+services.AddKibinago(viewRegistry, mvp =>
 {
     mvp.Messages.UseDialogs(new CompanyStyleDialogBackend());
     mvp.Toasts.Duration = 4500;
@@ -109,10 +109,10 @@ services.AddWinformsMVP(viewRegistry, mvp =>
 services.AddBilling();      // 業務サービスは通常どおり AddXxx で
 
 var provider = services.BuildServiceProvider();
-provider.UseWinformsMVP();
+provider.UseKibinago();
 ```
 
-`AddWinformsMVP` はフレームワークの登録に `TryAdd` を使います。`AddWinformsMVP` より **前** に登録したサービスはそのまま残り、**後** に登録したサービスは M.E.DI の規則 (最後の登録が勝つ) で優先されます。
+`AddKibinago` はフレームワークの登録に `TryAdd` を使います。`AddKibinago` より **前** に登録したサービスはそのまま残り、**後** に登録したサービスは M.E.DI の規則 (最後の登録が勝つ) で優先されます。
 
 ---
 
@@ -135,7 +135,7 @@ public sealed class CompanyStyleDialogBackend : IMessageDialogBackend
 }
 ```
 
-完全なサンプルは `samples/WinformsMVP.Samples/CustomizationDemo/` (サンプルランチャーの "Framework Customization") を参照してください。
+完全なサンプルは `samples/Kibinago.Samples/CustomizationDemo/` (サンプルランチャーの "Framework Customization") を参照してください。
 
 ---
 

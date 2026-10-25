@@ -2,10 +2,10 @@
   "$schema": "http://json.schemastore.org/template",
   "author": "VoidAxon",
   "classifications": [ "Desktop", "WinForms", "MVP", "Test", "xUnit" ],
-  "identity": "WinformsMVP.Templates.Tests",
-  "name": "WinformsMVP Presenter Tests",
-  "description": "An xUnit project for presenter tests: references WinformsMVP.Testing (PresenterTestHost, CapturingActionBinder, service fakes) and contains an example test.",
-  "shortName": "winformsmvp-tests",
+  "identity": "Kibinago.Templates.Tests",
+  "name": "Kibinago Presenter Tests",
+  "description": "An xUnit project for presenter tests: references Kibinago.Testing (PresenterTestHost, CapturingActionBinder, service fakes) and contains an example test.",
+  "shortName": "kibinago-tests",
   "sourceName": "MvpApp.Tests",
   "preferNameDirectory": true,
   "tags": { "language": "C#", "type": "project" },
@@ -21,12 +21,12 @@
       "replaces": "TARGET_FRAMEWORK",
       "description": "Target framework (use the application's)."
     },
-    "MvpVersion": {
+    "KibinagoVersion": {
       "type": "parameter",
       "datatype": "text",
-      "defaultValue": "*-*",
+      "defaultValue": "__KIBINAGO_VERSION__",
       "replaces": "MVP_PACKAGE_VERSION",
-      "description": "WinformsMVP package version (default: latest, prereleases included)."
+      "description": "Kibinago package version (default: the version these templates were released with)."
     },
     "AppProject": {
       "type": "parameter",

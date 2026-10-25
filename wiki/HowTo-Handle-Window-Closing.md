@@ -258,7 +258,7 @@ protected override bool CanClose(CloseReason reason)
 
 クローズ判断に `await` が必要な場合 (閉じる前に保存する、サーバーに確認する) は `CanCloseAsync` をオーバーライドします。`true` で許可、`false` でブロックです。以前のコールバック形式 `CanClose(reason, Action<bool> proceed)` は削除されました (BREAKING) — `proceed(x)` は `return x;` に置き換えます。
 
-典型例は「未保存の変更があれば下書き保存してから閉じる」です (`samples/WinformsMVP.Samples/EmailDemo/ComposeEmailPresenter.cs` より):
+典型例は「未保存の変更があれば下書き保存してから閉じる」です (`samples/Kibinago.Samples/EmailDemo/ComposeEmailPresenter.cs` より):
 
 ```csharp
 protected override async Task<bool> CanCloseAsync(CloseReason reason)
@@ -487,7 +487,7 @@ public void DeletedRecord_ShowsAMessage_AndDoesNotOpen()
 
 ## テストパターン
 
-テストでは `PresenterTestHost` (`WinformsMVP.Testing` パッケージ) で Presenter をモック View にホストします。`Start` は本番と同じ初期化を実行し、`RequestClose` を本番と同じくゲートに通して **受理されたクローズ** を記録し (`CloseRequested` / `CloseCount` / `CloseResult` / `CloseStatus`)、`CanClose(reason)` / `CanCloseAsync(reason)` でゲートを直接駆動します。`Start` の同期部分の中の `RequestClose` は表示のキャンセルとして (ゲートなしで) 記録されます。Form も `InternalsVisibleTo` も不要です:
+テストでは `PresenterTestHost` (`Kibinago.Testing` パッケージ) で Presenter をモック View にホストします。`Start` は本番と同じ初期化を実行し、`RequestClose` を本番と同じくゲートに通して **受理されたクローズ** を記録し (`CloseRequested` / `CloseCount` / `CloseResult` / `CloseStatus`)、`CanClose(reason)` / `CanCloseAsync(reason)` でゲートを直接駆動します。`Start` の同期部分の中の `RequestClose` は表示のキャンセルとして (ゲートなしで) 記録されます。Form も `InternalsVisibleTo` も不要です:
 
 ```csharp
 private readonly FakeServices _platform = TestServices.CreateFakes();   // フェイクのフレームワークサービス
@@ -620,7 +620,7 @@ await _host.WaitForCloseDecisionAsync();   // the async gate a RequestClose star
 Assert.True(_host.CloseRequested);
 ```
 
-完全なテスト例: `tests/WinformsMVP.Samples.Tests/Presenters/WindowClosingDemoPresenterTests.cs` および `PresenterTestHostTests.cs`。
+完全なテスト例: `tests/Kibinago.Samples.Tests/Presenters/WindowClosingDemoPresenterTests.cs` および `PresenterTestHostTests.cs`。
 テスト駆動の完全なガイド: [HowTo: Presenter をテストする](HowTo-Test-A-Presenter)。
 
 ---

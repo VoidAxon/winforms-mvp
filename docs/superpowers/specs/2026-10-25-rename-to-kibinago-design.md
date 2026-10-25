@@ -1,6 +1,6 @@
 # Rename to Kibinago — design
 
-Date: 2026-10-25 · Status: draft (for the owner's review) · Scope: B (packages + namespaces + public naming; the repository keeps its name)
+Date: 2026-10-25 · Status: approved by the owner (2026-10-25) · Scope: B (packages + namespaces + public naming; the repository keeps its name)
 
 ## Why
 
@@ -22,14 +22,14 @@ that name. Trademarks not checked.
 - Scope **B**: package IDs, assembly / project names, namespaces and public naming all become Kibinago; the
   GitHub repository stays `winforms-mvp` (renaming it is a later, separate step).
 
-### Proposed here (to confirm)
+### Approved table
 
 | What | Now | After |
 |---|---|---|
 | Packages | `WinformsMVP`, `WinformsMVP.Core`, `WinformsMVP.Testing`, `WinformsMVP.DependencyInjection`, `WinformsMVP.Templates` | `Kibinago`, `Kibinago.Core`, `Kibinago.Testing`, `Kibinago.DependencyInjection`, `Kibinago.Templates` |
 | Projects / folders / assemblies | `src/WinformsMVP.Core/WinformsMVP.Core.csproj` → `WinformsMVP.Core.dll` … (also `WinformsMVP.Analyzers`, tests, `samples/WinformsMVP.Samples`) | `src/Kibinago.Core/Kibinago.Core.csproj` → `Kibinago.Core.dll` … (`Kibinago.Analyzers`, `tests/Kibinago.Samples.Tests`, `tests/Kibinago.Analyzers.Tests`, `samples/Kibinago.Samples`); `MultiProjectDemo.*` keep their names |
 | Solution | `winforms-mvp.sln` | `Kibinago.sln` |
-| Namespaces | `WinformsMVP.*` (`WinformsMVP.MVP.Presenters`, `WinformsMVP.Services`, `WinformsMVP.Common`, `WinformsMVP.Logging`, `WinformsMVP.Testing` …) | `Kibinago.*` with the same structure (`Kibinago.MVP.Presenters`, `Kibinago.Services` …) |
+| Namespaces | `WinformsMVP.*` (`WinformsMVP.MVP.Presenters`, `WinformsMVP.Services`, `WinformsMVP.Common`, `WinformsMVP.Logging`, `WinformsMVP.Testing` …) | `Kibinago.*` **without the redundant `.MVP.` level** (owner): `Kibinago.Presenters`, `Kibinago.Views`, `Kibinago.ViewActions`, `Kibinago.Models`, `Kibinago.Services`, `Kibinago.Common` … (no name clashes). The `MVP/` source folders move up a level to match |
 | API names carrying the old name | `AddWinformsMVP`, `UseWinformsMVP`, `WinformsMvpBuilder` | `AddKibinago`, `UseKibinago`, `KibinagoBuilder` |
 | API names saying "MVP" (the pattern, not the product) | `MvpApplication`, `MvpCloseReason` (internal), `MvpSymbols` (internal) | unchanged |
 | Analyzer diagnostic IDs | `MVP001`…`MVP017` | unchanged (they name the pattern's rules; users may have suppressions) |
@@ -45,6 +45,12 @@ that name. Trademarks not checked.
   the local feed, so the "template pulls its own version" rule is tested.
 - README install steps: no `*-*`; the `nuget add source` example writes to the solution's `nuget.config`
   (`--configfile`), matching the templates' guidance.
+
+### Settled after the builder check
+- No open PRs / branches to merge first (the old remote branches are merged).
+- Trademark: a web search found no software named Kibinago; J-PlatPat (classes 9 / 42) is checked before 1.0.0, not a gate for the preview.
+- Local sample: updated after the framework PR merges (impl, then main / mvvm), tests run locally, the owner opens a few screens on Windows.
+- Template version stamping: `template.json` carries a token; a pack target writes stamped copies into the package.
 
 ## Not in this change
 - Renaming the GitHub repository / wiki URL.

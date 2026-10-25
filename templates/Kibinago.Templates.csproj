@@ -1,0 +1,66 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    dotnet new templates for Kibinago:
+      kibinago        - WinForms application with a main window
+      mvp-window         - View interface + actions + presenter + Form
+      mvp-control        - View interface + presenter + UserControl
+      kibinago-tests  - xUnit presenter-test project
+    Install: dotnet new install Kibinago.Templates
+    The content folders are template sources, not part of this build; tests/templates/verify-templates.sh
+    instantiates and builds every template.
+  -->
+  <PropertyGroup>
+    <PackageType>Template</PackageType>
+    <PackageId>Kibinago.Templates</PackageId>
+    <Description>dotnet new templates for Kibinago: an application, a window (View interface + actions + presenter + Form), a UserControl, and a presenter test project.</Description>
+    <PackageTags>mvp;winforms;templates;dotnet-new</PackageTags>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <IsPackable>true</IsPackable>
+    <IncludeContentInPack>true</IncludeContentInPack>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <ContentTargetFolders>content</ContentTargetFolders>
+    <NoDefaultExcludes>true</NoDefaultExcludes>
+    <!-- No lib/ folder in a template package. -->
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="content\**\*" Exclude="content\**\bin\**;content\**\obj\**;content\**\.template.config\template.json" />
+    <TemplateJson Include="content\**\.template.config\template.json" />
+    <Compile Remove="**\*" />
+    <None Include="..\README.md" Pack="true" PackagePath="\" Visible="false" />
+  </ItemGroup>
+
+  <!--
+    A generated project references the Kibinago packages of the version these templates were packed with
+    (not "latest": other packages on nuget.org once used similar IDs). template.json carries a token that is
+    replaced here; the package gets the stamped copies.
+  -->
+  <!-- Text in, text out (WriteLinesToFile would treat each line as a path and turn \ into / on Unix). -->
+  <UsingTask TaskName="StampVersion" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <Source ParameterType="System.String" Required="true" />
+      <Destination ParameterType="System.String" Required="true" />
+      <Version ParameterType="System.String" Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Destination));
+        System.IO.File.WriteAllText(Destination, System.IO.File.ReadAllText(Source).Replace("__KIBINAGO_VERSION__", Version));
+      ]]></Code>
+    </Task>
+  </UsingTask>
+
+  <Target Name="StampTemplateVersion" BeforeTargets="_GetPackageFiles">
+    <PropertyGroup>
+      <_StampDir>$(IntermediateOutputPath)stamped\</_StampDir>
+    </PropertyGroup>
+    <StampVersion Source="%(TemplateJson.FullPath)" Destination="$(_StampDir)%(TemplateJson.RecursiveDir)template.json" Version="$(Version)" />
+    <ItemGroup>
+      <Content Include="$(_StampDir)%(TemplateJson.RecursiveDir)template.json" Pack="true"
+               PackagePath="content\content\%(TemplateJson.RecursiveDir)template.json" />
+    </ItemGroup>
+  </Target>
+
+</Project>

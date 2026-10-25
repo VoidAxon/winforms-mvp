@@ -1,6 +1,6 @@
 using System.Threading;
 using System.Threading.Tasks;
-using WinformsMVP.MVP.Presenters;
+using Kibinago.Presenters;
 
 namespace MvpNamespace
 {

@@ -21,8 +21,8 @@
 新しいアプリを作るなら、`dotnet new` テンプレートが最短です。サービス登録・View 登録・メインウィンドウ (View インターフェイス + Actions + Presenter + Form) が揃った、警告ゼロでビルドできるプロジェクトが生成されます。
 
 ```bash
-dotnet new install WinformsMVP.Templates::<version>   # 初回のみ。プレビュー期間中はバージョン指定が必須 (入手方法は README のインストール節)
-dotnet new winformsmvp -n MyApp
+dotnet new install Kibinago.Templates::<version>   # 初回のみ。プレビュー期間中はバージョン指定が必須 (入手方法は README のインストール節)
+dotnet new kibinago -n MyApp
 cd MyApp && dotnet run
 dotnet new mvp-window -n OrderEdit         # ウィンドウを追加
 ```
@@ -40,8 +40,8 @@ dotnet new mvp-window -n OrderEdit         # ウィンドウを追加
 ```bash
 git clone https://github.com/VoidAxon/winforms-mvp.git
 cd winforms-mvp
-dotnet build winforms-mvp.sln
-dotnet run --project samples/WinformsMVP.Samples/WinformsMVP.Samples.csproj
+dotnet build Kibinago.sln
+dotnet run --project samples/Kibinago.Samples/Kibinago.Samples.csproj
 ```
 
 サンプルメニューが表示されたら準備は完了です。
@@ -50,7 +50,7 @@ dotnet run --project samples/WinformsMVP.Samples/WinformsMVP.Samples.csproj
 
 ## 2. 最小サンプルを作る (Hello MVP)
 
-ここからは、新しい WinForms プロジェクトに `WinformsMVP` を参照した状態で、最小の MVP 構成を組み立てていきます。
+ここからは、新しい WinForms プロジェクトに `Kibinago` を参照した状態で、最小の MVP 構成を組み立てていきます。
 構成要素は **3 つだけ**:
 
 | 役割 | 何をするか |
@@ -62,7 +62,7 @@ dotnet run --project samples/WinformsMVP.Samples/WinformsMVP.Samples.csproj
 ### 2.1 View インターフェイス
 
 ```csharp
-using WinformsMVP.MVP.Views;
+using Kibinago.Views;
 
 namespace MyFirstMvpApp
 {
@@ -81,7 +81,7 @@ namespace MyFirstMvpApp
 ### 2.2 Presenter
 
 ```csharp
-using WinformsMVP.MVP.Presenters;
+using Kibinago.Presenters;
 
 namespace MyFirstMvpApp
 {
@@ -156,7 +156,7 @@ namespace MyFirstMvpApp
 ```csharp
 using System;
 using System.Windows.Forms;
-using WinformsMVP.MVP.Presenters;   // Connect 拡張メソッド
+using Kibinago.Presenters;   // Connect 拡張メソッド
 
 namespace MyFirstMvpApp
 {
@@ -193,7 +193,7 @@ namespace MyFirstMvpApp
 
 ```csharp
 using System;
-using WinformsMVP.MVP.Views;
+using Kibinago.Views;
 
 namespace MyFirstMvpApp
 {
@@ -298,7 +298,7 @@ public class MainForm : Form, IMainView
 ### 4.1 ViewAction を定義する
 
 ```csharp
-using WinformsMVP.MVP.ViewActions;
+using Kibinago.ViewActions;
 
 public static class MainActions
 {
@@ -474,4 +474,4 @@ register.RegisterFromAssembly(Assembly.GetExecutingAssembly());
 
 **`MessageBox.Show()` を Presenter から呼んでテストできない**
 
-Presenter は WinForms 型に直接依存してはいけません。`Messages.ShowInfo()` 等のサービス経由に書き換えてください。テスト時は `WinformsMVP.Testing` の `TestServices.CreateFakes()` で得たフェイク (`fakes.Messages` 等) を `PresenterTestHost.Start(fakes.Provider, presenter, view)` で渡せば、ダイアログの呼び出しを検証できます ([HowTo: Presenter をテストする](HowTo-Test-A-Presenter))。
+Presenter は WinForms 型に直接依存してはいけません。`Messages.ShowInfo()` 等のサービス経由に書き換えてください。テスト時は `Kibinago.Testing` の `TestServices.CreateFakes()` で得たフェイク (`fakes.Messages` 等) を `PresenterTestHost.Start(fakes.Provider, presenter, view)` で渡せば、ダイアログの呼び出しを検証できます ([HowTo: Presenter をテストする](HowTo-Test-A-Presenter))。

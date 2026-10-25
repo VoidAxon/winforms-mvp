@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Test support for presenters: PresenterTestHost, TestServices and ready-made fakes of the
+    presenter-facing framework services (messages, toasts, dialogs, files, navigator, logging).
+    Referenced only by test projects; it depends on Kibinago.Core and on no test framework
+    or mocking library, so it works with xUnit, NUnit, MSTest and hand-written or Moq fakes alike.
+  -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <RootNamespace>Kibinago.Testing</RootNamespace>
+    <AssemblyName>Kibinago.Testing</AssemblyName>
+    <LangVersion>latest</LangVersion>
+
+    <!-- Shippable: opt in to packing (Directory.Build.props defaults to false). -->
+    <IsPackable>true</IsPackable>
+    <PackageId>Kibinago.Testing</PackageId>
+    <Description>Test support for Kibinago presenters: PresenterTestHost, TestServices and optional fakes of the framework services (messages, toasts, dialogs, in-memory files, window navigator, recording logger). No test-framework dependency. Reference it from test projects only.</Description>
+    <PackageTags>mvp;winforms;model-view-presenter;testing;fakes</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Kibinago.Core\Kibinago.Core.csproj" />
+  </ItemGroup>
+
+  <!-- Pack the repo-root README into the package (referenced by PackageReadmeFile in Directory.Build.props). -->
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" Visible="false" />
+  </ItemGroup>
+
+</Project>

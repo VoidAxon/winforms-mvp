@@ -1,6 +1,6 @@
 using System;
 using Ms = Microsoft.Extensions.Logging;
-using Fx = WinformsMVP.Logging;
+using Fx = Kibinago.Logging;
 
 namespace MultiProjectDemo.Shell.Logging
 {

@@ -6,8 +6,8 @@
     "WinForms",
     "MVP"
   ],
-  "identity": "WinformsMVP.Templates.Control",
-  "name": "WinformsMVP UserControl",
+  "identity": "Kibinago.Templates.Control",
+  "name": "Kibinago UserControl",
   "description": "A UserControl: view interface, actions, presenter and control (with designer file). The parent creates the presenter and calls Connect.",
   "shortName": "mvp-control",
   "sourceName": "Sample",

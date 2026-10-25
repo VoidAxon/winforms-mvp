@@ -1,7 +1,7 @@
 # Logging
 
-本フレームワークは独自の **`WinformsMVP.Logging`** 名前空間に **`Microsoft.Extensions.Logging` 互換** の最小ロギング抽象を持っています。
-ロギング抽象はコアパッケージ (`WinformsMVP.Core`, `netstandard2.0`) にあり **外部依存ゼロ** です。`Microsoft.Extensions.Logging` の豊富なプロバイダエコシステムは **オプションでアプリ側のアダプタ** から接続します。
+本フレームワークは独自の **`Kibinago.Logging`** 名前空間に **`Microsoft.Extensions.Logging` 互換** の最小ロギング抽象を持っています。
+ロギング抽象はコアパッケージ (`Kibinago.Core`, `netstandard2.0`) にあり **外部依存ゼロ** です。`Microsoft.Extensions.Logging` の豊富なプロバイダエコシステムは **オプションでアプリ側のアダプタ** から接続します。
 
 > **位置づけ**: Presenter は `Logger.LogInformation(...)` を呼ぶだけ。プロバイダ (Debug / Console / File / Application Insights / Seq) の有無は構成側 (Composition Root) でしか決まらないため、業務コードは無修正で出力先を切り替えられます。
 
@@ -38,7 +38,7 @@
 ## 契約 (3 つの型)
 
 ```csharp
-namespace WinformsMVP.Logging
+namespace Kibinago.Logging
 {
     public interface ILogger
     {
@@ -62,7 +62,7 @@ namespace WinformsMVP.Logging
 
 `LogLevel` の数値は `Microsoft.Extensions.Logging.LogLevel` と一致しているので、Adapter は単純キャストで変換できます。
 
-便利な拡張メソッド (`LogInformation` / `LogWarning` / `LogError(ex, ...)` / `LogCritical` 等) は `WinformsMVP.Logging.LoggerExtensions` にあり、M.E.L. と同じシグネチャを使えます。
+便利な拡張メソッド (`LogInformation` / `LogWarning` / `LogError(ex, ...)` / `LogCritical` 等) は `Kibinago.Logging.LoggerExtensions` にあり、M.E.L. と同じシグネチャを使えます。
 
 ---
 
@@ -125,7 +125,7 @@ public class MyPresenter : WindowPresenterBase<IMyView>
 
 ## 構造化ロギングのベストプラクティス
 
-名前付きプレースホルダー (`{UserName}`) と古典的なインデックス形式 (`{0}`) の両方が受け付けられます。名前付きは `WinformsMVP.Logging.MessageFormatter` で宣言順にインデックスへ正規化されます。M.E.L. / Serilog のキャプチャ指定 `{@Name}` / `{$Name}` も名前として受け付け、同じ名前が繰り返し現れた場合は同じ引数を再利用します (`"{Id} ... {Id}"` は引数 1 つ)。
+名前付きプレースホルダー (`{UserName}`) と古典的なインデックス形式 (`{0}`) の両方が受け付けられます。名前付きは `Kibinago.Logging.MessageFormatter` で宣言順にインデックスへ正規化されます。M.E.L. / Serilog のキャプチャ指定 `{@Name}` / `{$Name}` も名前として受け付け、同じ名前が繰り返し現れた場合は同じ引数を再利用します (`"{Id} ... {Id}"` は引数 1 つ)。
 
 M.E.L. に橋渡しするアダプタを使った場合、構造化プロパティは **そのまま** 下流に流れます (アダプタが文字列を pre-format せず、M.E.L. の `Log<TState>` に委譲するため)。
 
@@ -172,8 +172,8 @@ Logger.LogInformation($"User {userName} opened document {docId}");
 ### パス 2: `DebugLoggerFactory`
 
 ```csharp
-using WinformsMVP.Logging;
-using WinformsMVP.Services.Implementations;
+using Kibinago.Logging;
+using Kibinago.Services.Implementations;
 
 internal static class Program
 {
@@ -185,7 +185,7 @@ internal static class Program
 
         // 外部依存ゼロ、出力は Trace (VS 出力ウィンドウ / 登録済み TraceListener)
         ServiceLocator.Configure(reg =>
-            reg.RegisterInstance<WinformsMVP.Logging.ILoggerFactory>(new DebugLoggerFactory()));
+            reg.RegisterInstance<Kibinago.Logging.ILoggerFactory>(new DebugLoggerFactory()));
 
         Application.Run(new MainForm());
     }
@@ -202,7 +202,7 @@ internal static class Program
 ```csharp
 using Microsoft.Extensions.Logging;
 using MyApp.Logging;                              // 自分のアプリのアダプタ名前空間
-using WinformsMVP.Services.Implementations;
+using Kibinago.Services.Implementations;
 
 internal static class Program
 {
@@ -223,7 +223,7 @@ internal static class Program
 
         // 自分のアダプタの拡張メソッドでフレームワーク契約に変換
         ServiceLocator.Configure(reg =>
-            reg.RegisterInstance<WinformsMVP.Logging.ILoggerFactory>(msFactory.AsFrameworkLoggerFactory()));
+            reg.RegisterInstance<Kibinago.Logging.ILoggerFactory>(msFactory.AsFrameworkLoggerFactory()));
 
         Application.Run(new MainForm());
     }
@@ -255,7 +255,7 @@ var msFactory = LoggerFactory.Create(builder =>
 ServiceLocator.Configure(reg =>
 {
     reg.RegisterInstance<IViewMappingRegister>(register);
-    reg.RegisterInstance<WinformsMVP.Logging.ILoggerFactory>(msFactory.AsFrameworkLoggerFactory());
+    reg.RegisterInstance<Kibinago.Logging.ILoggerFactory>(msFactory.AsFrameworkLoggerFactory());
 });
 
 // Presenter
@@ -273,7 +273,7 @@ var msFactory = LoggerFactory.Create(builder => builder.AddSeq("http://localhost
 ServiceLocator.Configure(reg =>
 {
     reg.RegisterInstance<IViewMappingRegister>(register);
-    reg.RegisterInstance<WinformsMVP.Logging.ILoggerFactory>(msFactory.AsFrameworkLoggerFactory());
+    reg.RegisterInstance<Kibinago.Logging.ILoggerFactory>(msFactory.AsFrameworkLoggerFactory());
 });
 // ブラウザで http://localhost:5341 を開いて確認
 ```
@@ -287,7 +287,7 @@ var msFactory = LoggerFactory.Create(builder =>
 ServiceLocator.Configure(reg =>
 {
     reg.RegisterInstance<IViewMappingRegister>(register);
-    reg.RegisterInstance<WinformsMVP.Logging.ILoggerFactory>(msFactory.AsFrameworkLoggerFactory());
+    reg.RegisterInstance<Kibinago.Logging.ILoggerFactory>(msFactory.AsFrameworkLoggerFactory());
 });
 ```
 
@@ -302,7 +302,7 @@ ServiceLocator.Configure(reg =>
 public void Test_MyPresenter()
 {
     // TestServices.Create() は無出力の ILoggerFactory (NullLoggerFactory) だけを登録したプロバイダ
-    var sp = TestServices.Create();   // WinformsMVP.Testing
+    var sp = TestServices.Create();   // Kibinago.Testing
 
     PresenterTestHost.Start(sp, new MyPresenter(), mockView);   // アタッチ + 実際の初期化
 
@@ -312,7 +312,7 @@ public void Test_MyPresenter()
 
 ### 記録用 Logger でメッセージを検証する
 
-`WinformsMVP.Testing` の `RecordingLoggerFactory` はすべてのレベルを記録します。`TestServices.CreateFakes()` が登録済みで、`fakes.Logs` として公開されています (自作のロガーを書く必要はありません):
+`Kibinago.Testing` の `RecordingLoggerFactory` はすべてのレベルを記録します。`TestServices.CreateFakes()` が登録済みで、`fakes.Logs` として公開されています (自作のロガーを書く必要はありません):
 
 ```csharp
 [Fact]
@@ -330,7 +330,7 @@ public void OnSave_ShouldLogSuccess()
 
 `LogEntry` は `Category`、`Level`、`Exception`、`Message` (プレースホルダー展開済み)、`Template`、`Args` を持ちます。フェイクを使わずに組む場合は `TestServices.Create()` のプロバイダに `new RecordingLoggerFactory()` を `ILoggerFactory` として登録します (無出力のものを置き換えます)。
 
-完全なテストパターン集は `tests/WinformsMVP.Samples.Tests/LoggingIntegrationTests.cs` にあります。
+完全なテストパターン集は `tests/Kibinago.Samples.Tests/LoggingIntegrationTests.cs` にあります。
 
 ---
 
@@ -353,5 +353,5 @@ public void OnSave_ShouldLogSuccess()
 - [Dependency Injection](Reference-DependencyInjection) — Logging を含む DI コンテナ統合
 - [HowTo: Presenter をテストする](HowTo-Test-A-Presenter) — テスト時のサイレント化・キャプチャパターン
 - サンプル:
-  - [`samples/WinformsMVP.Samples/LoggingDemoExample.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/samples/WinformsMVP.Samples/LoggingDemoExample.cs) — 基本デモ
+  - [`samples/Kibinago.Samples/LoggingDemoExample.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/samples/Kibinago.Samples/LoggingDemoExample.cs) — 基本デモ
   - [`samples/MultiProjectDemo.Shell/Logging/`](https://github.com/VoidAxon/winforms-mvp/tree/master/samples/MultiProjectDemo.Shell/Logging) — M.E.L. アダプタの実装例

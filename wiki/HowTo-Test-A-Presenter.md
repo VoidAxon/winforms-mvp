@@ -1,13 +1,13 @@
 # HowTo: Presenter をテストする
 
-このページでは、Presenter の単体テストを **モック View + フェイクサービス** (`WinformsMVP.Testing` パッケージ) で書く方法を、典型的なシナリオ別に示します。
+このページでは、Presenter の単体テストを **モック View + フェイクサービス** (`Kibinago.Testing` パッケージ) で書く方法を、典型的なシナリオ別に示します。
 Presenter は WinForms に依存しないため、**UI スレッド不要・実行高速・完全独立** で動かせます。
 
 > **本フレームワークの主要メリットの 1 つが、まさにこのテスタビリティです。**
 
-> **パッケージ:** テストプロジェクトは `WinformsMVP.Testing` (`netstandard2.0`、`WinformsMVP.Core` に依存、テストフレームワーク非依存) を参照します (`dotnet add package WinformsMVP.Testing --prerelease`。`dotnet new winformsmvp-tests` は参照済み)。`PresenterTestHost`、`TestServices`、`CapturingActionBinder` と、フレームワークサービスのフェイクが入っています。どれも任意で、自作のフェイクや Moq と混ぜて使えます。
+> **パッケージ:** テストプロジェクトは `Kibinago.Testing` (`netstandard2.0`、`Kibinago.Core` に依存、テストフレームワーク非依存) を参照します (`dotnet add package Kibinago.Testing --prerelease`。`dotnet new kibinago-tests` は参照済み)。`PresenterTestHost`、`TestServices`、`CapturingActionBinder` と、フレームワークサービスのフェイクが入っています。どれも任意で、自作のフェイクや Moq と混ぜて使えます。
 >
-> **ターゲットについて:** Presenter と基底クラスは `WinformsMVP.Core` (`netstandard2.0`、WinForms 非参照) にあるため、Presenter だけのテストプロジェクトは任意のランタイムで動かせます。本リポジトリの `WinformsMVP.Samples.Tests` は Form も扱う `net48` プロジェクトなので、`dotnet test` には Windows (または mono) が必要です。
+> **ターゲットについて:** Presenter と基底クラスは `Kibinago.Core` (`netstandard2.0`、WinForms 非参照) にあるため、Presenter だけのテストプロジェクトは任意のランタイムで動かせます。本リポジトリの `Kibinago.Samples.Tests` は Form も扱う `net48` プロジェクトなので、`dotnet test` には Windows (または mono) が必要です。
 
 ---
 
@@ -46,7 +46,7 @@ Presenter は WinForms に依存しないため、**UI スレッド不要・実�
 ## モックの全体像
 
 ```
-TestServices.CreateFakes()      → FakeServices (WinformsMVP.Testing)
+TestServices.CreateFakes()      → FakeServices (Kibinago.Testing)
    ├── Messages   FakeMessageService      呼び出しを記録し、確認ダイアログの答えをスクリプトで返す
    ├── Toasts     FakeToastService        トーストを記録
    ├── Dialogs    FakeDialogProvider      ファイル / フォルダ / 色ダイアログの答えをスクリプトで返す
@@ -124,7 +124,7 @@ public class UserEditorPresenterTests
 > **アクションは `_view.Binder.Dispatch(...)` で駆動します。** Presenter の `Dispatcher` は protected で、テスト用に公開されることはありません。代わりにモック View が `CapturingActionBinder` を公開します — フレームワークは初期化中 (`PresenterTestHost.Start` の中) に `View.ActionBinder.Bind(dispatcher)` を自動で呼ぶため、binder はそこで dispatcher を捕捉できます。本物の Form のボタンが使うのと同一の経路なので、`CanExecute` もミドルウェアも production と同じように評価されます。
 
 ```csharp
-// WinformsMVP.Testing.CapturingActionBinder (パッケージ同梱 — 要点のみ抜粋)
+// Kibinago.Testing.CapturingActionBinder (パッケージ同梱 — 要点のみ抜粋)
 public class CapturingActionBinder : IViewActionBinder
 {
     public ViewActionDispatcher Dispatcher { get; private set; }
@@ -148,7 +148,7 @@ public IViewActionBinder ActionBinder => Binder;
 
 > **View が別の Presenter に付け直されたか** (モード切替で子パネルの Presenter を入れ替えるなど) は `IsBound` / `Dispatcher` に加えて `BindCount` / `UnbindCount` で確かめます。旧 Presenter の破棄で 1 回解除、新しい Presenter で 2 回目のバインド — `Assert.Equal(2, view.Binder.BindCount); Assert.Equal(1, view.Binder.UnbindCount);`。
 
-> **業務依存はコンストラクタ、フレームワークサービスは `PresenterTestHost.Start(services, ...)`。** `TestServices.CreateFakes()` が登録するのは Message/Toast/Dialog/File/Navigator/Logger の **フレームワークサービス** だけです。`IUserRepository` のような業務依存は Presenter のコンストラクタに注入します (`new UserEditorPresenter(_repository)`)。実例は [`MainEmailPresenterTests.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/tests/WinformsMVP.Samples.Tests/Presenters/MainEmailPresenterTests.cs) を参照。
+> **業務依存はコンストラクタ、フレームワークサービスは `PresenterTestHost.Start(services, ...)`。** `TestServices.CreateFakes()` が登録するのは Message/Toast/Dialog/File/Navigator/Logger の **フレームワークサービス** だけです。`IUserRepository` のような業務依存は Presenter のコンストラクタに注入します (`new UserEditorPresenter(_repository)`)。実例は [`MainEmailPresenterTests.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/tests/Kibinago.Samples.Tests/Presenters/MainEmailPresenterTests.cs) を参照。
 
 > **自分でプロバイダを組むときは `TestServices.Create()` から始めます。** どの Presenter もアタッチ時に `ILoggerFactory` を必要とするため、それだけを登録済みで返します。渡したプロバイダにないサービスはエラーになり、グローバルの既定サービスで補われることはありません (テストが何に依存しているかがコードに現れるように)。プロバイダは呼び出し側の所有で、ホストは破棄しません。Presenter がコンストラクタで `Logger` や `Messages` を使っていると、`Start(services, ...)` は `InvalidOperationException` になります — その処理は `OnViewAttached` / `OnInitialize` に移してください。
 
@@ -401,7 +401,7 @@ public async Task CloseAction_WithUnsavedChanges_SavesAndCloses()
 - `RequestClose` は `CanClose` / `CanCloseAsync` を通るので、非同期ゲートの答えはハンドラの完了より後に出ることがあります。`await host.WaitForCloseDecisionAsync()` は、`RequestClose` が始めたクローズの判定を待ちます (判定待ちがなければすぐ完了)。`DispatchAsync` はハンドラの完了しか待ちません。
 - `DispatchAsync` はハンドラの例外で fault します (`await Assert.ThrowsAsync<...>(() => view.Binder.DispatchAsync(...))`)。`Initialized` は `OnInitializeAsync` が例外を投げても fault しません (本番と同じくログに出るだけ)。想定内の失敗は、ハンドラ内で表示したメッセージ (`fakes.Messages.Calls`) や View の状態で検証します。
 - 実行中のアクションは `CanDispatch == false` です。「実行中は無効」を検証するなら、完了しない `TaskCompletionSource` をモックリポジトリから返し、`_view.Binder.Dispatch(...)` の直後に `Assert.False(_view.Binder.CanDispatch(...))` とします。
-- 実例: `tests/WinformsMVP.Samples.Tests/Presenters/ComposeEmailPresenterTests.cs`、`MainEmailPresenterTests.cs`、`ViewActions/AsyncActionTests.cs`。
+- 実例: `tests/Kibinago.Samples.Tests/Presenters/ComposeEmailPresenterTests.cs`、`MainEmailPresenterTests.cs`、`ViewActions/AsyncActionTests.cs`。
 
 ### 子 Presenter を含む画面のテスト
 
@@ -461,7 +461,7 @@ public void RemovedLine_IsGoneFromModelAndInert()
 }
 ```
 
-`CapturingActionBinder` の `Unbind()` は Presenter の破棄時にフレームワークが呼び、以後の `Dispatch` / `DispatchAsync` は何もせず (`CanDispatch` は `false`)、`IsBound` は `false` になります。Bind 前の `Dispatch` は従来どおり例外 (Presenter の起動忘れ) です。親の `PresenterTestHost.Initialized` が待つのは親の `OnInitializeAsync` だけです。実例: `tests/WinformsMVP.Samples.Tests/Composition/AttachChildDynamicTests.cs`、`AttachChildTests.cs`。
+`CapturingActionBinder` の `Unbind()` は Presenter の破棄時にフレームワークが呼び、以後の `Dispatch` / `DispatchAsync` は何もせず (`CanDispatch` は `false`)、`IsBound` は `false` になります。Bind 前の `Dispatch` は従来どおり例外 (Presenter の起動忘れ) です。親の `PresenterTestHost.Initialized` が待つのは親の `OnInitializeAsync` だけです。実例: `tests/Kibinago.Samples.Tests/Composition/AttachChildDynamicTests.cs`、`AttachChildTests.cs`。
 
 ---
 
@@ -481,7 +481,7 @@ view.Binder.Dispatch(StandardActions.Save);
 
 ### PresenterTestHost でホストする
 
-`PresenterTestHost` (`WinformsMVP.Testing` パッケージ) は、本番の `WindowNavigator` / `Connect` と同じ初期化をモック View に対して行うテスト用ホストです。Form は不要です。
+`PresenterTestHost` (`Kibinago.Testing` パッケージ) は、本番の `WindowNavigator` / `Connect` と同じ初期化をモック View に対して行うテスト用ホストです。Form は不要です。
 
 | メンバー | 用途 |
 |---|---|
@@ -560,7 +560,7 @@ public class UserEditorClosingTests
 
 `private` だったメソッドを `internal` に変えてテストすると、CanExecute スキップ等の不具合が production で発覚するまで隠れます。
 
-完全な実例: `tests/WinformsMVP.Samples.Tests/Presenters/PresenterTestHostTests.cs`、`WindowClosingDemoPresenterTests.cs` および `Composition/RequestCloseGateHostTests.cs` (ゲートを通る `RequestClose`、表示のキャンセル、`WaitForCloseDecisionAsync`)。(`CanCloseTests.cs` はフレームワーク内部の契約テストで、`ICloseParticipant` を直接使います。)
+完全な実例: `tests/Kibinago.Samples.Tests/Presenters/PresenterTestHostTests.cs`、`WindowClosingDemoPresenterTests.cs` および `Composition/RequestCloseGateHostTests.cs` (ゲートを通る `RequestClose`、表示のキャンセル、`WaitForCloseDecisionAsync`)。(`CanCloseTests.cs` はフレームワーク内部の契約テストで、`ICloseParticipant` を直接使います。)
 
 ---
 
@@ -676,6 +676,6 @@ public class MockUserEditorView : IUserEditorView
 - [HowTo: ウィンドウクローズを扱う](HowTo-Handle-Window-Closing) — クローズ動作のテスト
 - [Reference-Logging#テストでの利用](Reference-Logging#テストでの利用) — ログの検証
 - サンプル:
-  - `tests/WinformsMVP.Samples.Tests/Presenters/` — Presenter 単体テストの実例
-  - `tests/WinformsMVP.Samples.Tests/Mocks/` — View / Repository のモック実装 (サービスのフェイクは `WinformsMVP.Testing`)
-  - `src/WinformsMVP.Testing/` — `PresenterTestHost` とフェイクの実装
+  - `tests/Kibinago.Samples.Tests/Presenters/` — Presenter 単体テストの実例
+  - `tests/Kibinago.Samples.Tests/Mocks/` — View / Repository のモック実装 (サービスのフェイクは `Kibinago.Testing`)
+  - `src/Kibinago.Testing/` — `PresenterTestHost` とフェイクの実装

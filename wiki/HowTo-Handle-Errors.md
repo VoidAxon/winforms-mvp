@@ -182,7 +182,7 @@ MvpApplication.Configure(framework: mvp =>
 });
 ```
 
-M.E.DI を使う場合は `services.AddWinformsMVP(viewRegistry, mvp => { ... })` に同じ設定を書きます。
+M.E.DI を使う場合は `services.AddKibinago(viewRegistry, mvp => { ... })` に同じ設定を書きます。
 ダイアログの見た目そのものを社内標準にしたい場合は `mvp.Messages.UseDialogs(...)` で `IMessageDialogBackend` を差し替えます。
 詳細は [HowTo: フレームワークをカスタマイズする](HowTo-Customize-Framework) を参照してください。
 
@@ -229,7 +229,7 @@ internal static class Program
     private static void HandleUnhandledException(Exception ex)
     {
         // 例外をログに記録
-        ServiceLocator.Current.Resolve<WinformsMVP.Logging.ILoggerFactory>()
+        ServiceLocator.Current.Resolve<Kibinago.Logging.ILoggerFactory>()
             .CreateLogger("UnhandledException")
             .LogCritical(ex, "Unhandled exception");
 

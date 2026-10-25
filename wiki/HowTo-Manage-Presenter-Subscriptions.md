@@ -24,7 +24,7 @@ protected override void Cleanup()
 
 ## 道具:`CompositeDisposable` + `DisposeWith`
 
-`WinformsMVP.Common` にあります。外部依存ゼロ:
+`Kibinago.Common` にあります。外部依存ゼロ:
 
 | 型 | 役割 |
 |----|------|
@@ -93,7 +93,7 @@ protected override void OnViewAttached()
 
 ### Before / After(実例:CascadeDemo)
 
-リファクタ前の `CascadePresenters.cs` は、Presenter 3 つがそれぞれ `_bind` フィールド + null ガード + `Cleanup` オーバーライド + 手動 `-=` を抱えていました。リファクタ後は上記の 2 パターンだけになり、**`Cleanup` オーバーライドは 3 つとも削除**されています。現物は `samples/WinformsMVP.Samples/CascadeDemo/CascadePresenters.cs` を見てください。
+リファクタ前の `CascadePresenters.cs` は、Presenter 3 つがそれぞれ `_bind` フィールド + null ガード + `Cleanup` オーバーライド + 手動 `-=` を抱えていました。リファクタ後は上記の 2 パターンだけになり、**`Cleanup` オーバーライドは 3 つとも削除**されています。現物は `samples/Kibinago.Samples/CascadeDemo/CascadePresenters.cs` を見てください。
 
 ---
 

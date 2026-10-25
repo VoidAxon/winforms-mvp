@@ -278,7 +278,7 @@ internal static class Program
         ServiceLocator.Configure(reg =>
         {
             reg.RegisterInstance<IViewMappingRegister>(register);
-            reg.RegisterInstance<WinformsMVP.Logging.ILoggerFactory>(new DebugLoggerFactory());
+            reg.RegisterInstance<Kibinago.Logging.ILoggerFactory>(new DebugLoggerFactory());
         });
 
         // 3. メインウィンドウを表示
@@ -359,5 +359,5 @@ register.RegisterFromAssembly(Assembly.GetExecutingAssembly());
 - [Dependency Injection](Reference-DependencyInjection) — `IModuleRegistrar` と DI コンテナ連携の詳細
 - [はじめに (Getting Started)](Getting-Started) — 初回セットアップでの登録例
 - サンプル:
-  - `samples/WinformsMVP.Samples/NavigatorDemo/` — 各種登録パターン
+  - `samples/Kibinago.Samples/NavigatorDemo/` — 各種登録パターン
   - `samples/MultiProjectDemo.Shell/Program.cs` — モジュール化された登録の実例

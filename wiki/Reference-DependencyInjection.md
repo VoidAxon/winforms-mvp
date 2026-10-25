@@ -1,7 +1,7 @@
 # Dependency Injection
 
 本フレームワークは、レガシーコードから本格的な DI コンテナまで対応できるよう、**3 つの DI パターン** をサポートします。
-さらに `Microsoft.Extensions.DependencyInjection` (M.E.DI) との連携用にオプションパッケージ `WinformsMVP.DependencyInjection` を提供しており、複数プロジェクト構成の大規模アプリでも整理して構成できます。
+さらに `Microsoft.Extensions.DependencyInjection` (M.E.DI) との連携用にオプションパッケージ `Kibinago.DependencyInjection` を提供しており、複数プロジェクト構成の大規模アプリでも整理して構成できます。
 
 > **メインパッケージは `Microsoft.Extensions.DependencyInjection` に依存していません**。BCL の `IServiceProvider` 抽象だけを知っています。M.E.DI 統合は完全にオプトインです。
 
@@ -16,7 +16,7 @@
 - [選び方の指針](#選び方の指針)
 - [従来コードからの移行](#従来コードからの移行)
 - [M.E.DI との統合](#medi-との統合)
-- [複数プロジェクト構成 (`WinformsMVP.DependencyInjection`)](#複数プロジェクト構成-winformsmvpdependencyinjection)
+- [複数プロジェクト構成 (`Kibinago.DependencyInjection`)](#複数プロジェクト構成-kibinagodependencyinjection)
 - [`IPresenterFactory`: 子 Presenter の生成](#ipresenterfactory-子-presenter-の生成)
 - [`IModuleRegistrar`: モジュール単位の登録](#imoduleregistrar-モジュール単位の登録)
 - [完全な Shell プロジェクトの起動](#完全な-shell-プロジェクトの起動)
@@ -261,13 +261,13 @@ private void OnOpenFile()
 
 ## M.E.DI との統合
 
-`Microsoft.Extensions.DependencyInjection` を使った構成にも完全に対応します。`WinformsMVP.DependencyInjection` パッケージ (`net472` / `net10.0-windows`) を参照してください。
+`Microsoft.Extensions.DependencyInjection` を使った構成にも完全に対応します。`Kibinago.DependencyInjection` パッケージ (`net472` / `net10.0-windows`) を参照してください。
 
 ### `Program.cs` での構成
 
 ```csharp
 using Microsoft.Extensions.DependencyInjection;
-using WinformsMVP.DependencyInjection;
+using Kibinago.DependencyInjection;
 
 internal static class Program
 {
@@ -287,7 +287,7 @@ internal static class Program
 
         // フレームワークサービスを登録 (TryAdd — ホスト登録が優先される)。
         // 別の IViewMappingRegister が登録済みだと InvalidOperationException (そのマッピングが Navigator から見えなくなるため)。
-        services.AddWinformsMVP(viewRegistry);
+        services.AddKibinago(viewRegistry);
 
         // 業務サービス (Scoped は IPresenterFactory で生成した Presenter ごと = ウィンドウごとに 1 つ)
         services.AddScoped<IUserRepository, UserRepository>();
@@ -300,7 +300,7 @@ internal static class Program
         var provider = services.BuildServiceProvider();
 
         // 3. ServiceLocator にプロバイダを登録 — presenter 便利プロパティはここから解決される
-        provider.UseWinformsMVP();
+        provider.UseKibinago();
 
         // 4. メインウィンドウ
         Application.Run(new MainForm(provider));
@@ -308,14 +308,14 @@ internal static class Program
 }
 ```
 
-### フレームワークのカスタマイズ (`AddWinformsMVP(viewRegistry, mvp => ...)`)
+### フレームワークのカスタマイズ (`AddKibinago(viewRegistry, mvp => ...)`)
 
 ダイアログの見た目・トーストの既定値・変更追跡エンジン・ロギング・グローバルミドルウェアなどは、
-`AddWinformsMVP` の第 3 引数で設定します。`MvpApplication.Configure(framework: ...)` (M.E.DI なし) と
-**同じビルダー (`WinformsMvpBuilder`)・同じ既定値** です。
+`AddKibinago` の第 3 引数で設定します。`MvpApplication.Configure(framework: ...)` (M.E.DI なし) と
+**同じビルダー (`KibinagoBuilder`)・同じ既定値** です。
 
 ```csharp
-services.AddWinformsMVP(viewRegistry, mvp =>
+services.AddKibinago(viewRegistry, mvp =>
 {
     mvp.Messages.UseDialogs(new CompanyStyleDialogBackend());
     mvp.Toasts.Duration = 4500;
@@ -324,7 +324,7 @@ services.AddWinformsMVP(viewRegistry, mvp =>
 });
 ```
 
-- フレームワークの登録はすべて `TryAdd` です。`AddWinformsMVP` の**前**にホストが登録したサービスは `mvp.` の選択より優先され、**後**に登録したものは M.E.DI の「最後の登録が勝つ」規則で優先されます。つまり直接登録 > `mvp.` の選択 > 組み込み既定値。
+- フレームワークの登録はすべて `TryAdd` です。`AddKibinago` の**前**にホストが登録したサービスは `mvp.` の選択より優先され、**後**に登録したものは M.E.DI の「最後の登録が勝つ」規則で優先されます。つまり直接登録 > `mvp.` の選択 > 組み込み既定値。
 - ホストが直接登録したオプションオブジェクト (例 `ToastHostOptions`) は `mvp.` で組み立てたものを丸ごと置き換えます (値のマージはしません)。
 - `IEventAggregator` やトーストサービスなどはシングルトンとして登録され、コンテナの破棄時に破棄されます (アプリ終了時に `provider.Dispose()` を呼んでください。`MvpApplication.Shutdown()` は代入されたコンテナを破棄しません)。
 
@@ -363,9 +363,9 @@ public class MainForm : Form
 
 ---
 
-## 複数プロジェクト構成 (`WinformsMVP.DependencyInjection`)
+## 複数プロジェクト構成 (`Kibinago.DependencyInjection`)
 
-複数の UI プロジェクトを持つ大規模ソリューションでは、オプションパッケージ **`WinformsMVP.DependencyInjection`** が `Microsoft.Extensions.DependencyInjection` と本フレームワークを綺麗に統合します。
+複数の UI プロジェクトを持つ大規模ソリューションでは、オプションパッケージ **`Kibinago.DependencyInjection`** が `Microsoft.Extensions.DependencyInjection` と本フレームワークを綺麗に統合します。
 
 メインパッケージ自体は BCL の `IServiceProvider` 抽象だけを知っているので、レガシーなプロジェクトはこの拡張を採用しない選択ができます。
 
@@ -428,7 +428,7 @@ public class MainPresenter : WindowPresenterBase<IMainView>
 
 ### 内部実装: `ServiceProviderPresenterFactory`
 
-`IPresenterFactory` の既定実装は `ServiceProviderPresenterFactory` (`WinformsMVP.DependencyInjection` パッケージ) で、`AddWinformsMVP()` を呼ぶと自動的に DI コンテナに登録されます。
+`IPresenterFactory` の既定実装は `ServiceProviderPresenterFactory` (`Kibinago.DependencyInjection` パッケージ) で、`AddKibinago()` を呼ぶと自動的に DI コンテナに登録されます。
 
 実装 (要約):
 
@@ -474,12 +474,12 @@ public class ServiceProviderPresenterFactory : IPresenterFactory
 
 - **Scoped サービスは Presenter (ウィンドウ) 単位** になります。同じウィンドウの Presenter 内では共有され、別ウィンドウとは共有されません。
 - ルートコンテナが transient な Presenter (とその View・transient 依存) を終了まで保持し続けることがなくなります (以前はルートから解決していたため、`IDisposable` な Presenter が溜まり続けていました)。
-- Presenter の **フレームワークサービス** (`Messages` / `Navigator` / `Toasts` / `Dialogs` / `Files` / `Logger` / `TrackChanges` の設定) も **同じスコープ** から解決されます (`ServiceLocator.Current` ではありません)。コンストラクタで受け取ったサービスと便利プロパティが同じインスタンスになり、Scoped で登録したフレームワークサービスもウィンドウごとになります。フレームワークサービスはコンテナに登録しておきます (`AddWinformsMVP`)。登録がなければ、アクセスしたとき (View のアタッチ時の `Logger` など) に例外になり、`ServiceLocator.Current` には戻りません。
+- Presenter の **フレームワークサービス** (`Messages` / `Navigator` / `Toasts` / `Dialogs` / `Files` / `Logger` / `TrackChanges` の設定) も **同じスコープ** から解決されます (`ServiceLocator.Current` ではありません)。コンストラクタで受け取ったサービスと便利プロパティが同じインスタンスになり、Scoped で登録したフレームワークサービスもウィンドウごとになります。フレームワークサービスはコンテナに登録しておきます (`AddKibinago`)。登録がなければ、アクセスしたとき (View のアタッチ時の `Logger` など) に例外になり、`ServiceLocator.Current` には戻りません。
 - コンストラクタで便利プロパティ (`Messages` など) を使う Presenter は、`Create` が `InvalidOperationException` で拒否します (スコープを結びつける前に別のプロバイダから解決してしまうため)。`OnViewAttached` / `OnInitialize` で使うか、そのサービスをコンストラクタで受け取ってください。
 
 Presenter のコンストラクタ依存は **コンテナの通常の解決ルール** にそのまま乗ります。未登録の Presenter を要求すると `InvalidOperationException` がスローされる、という M.E.DI の標準セマンティクスをそのまま継承します。
 
-カスタム Factory を使いたい場合は、`AddWinformsMVP()` を呼ぶ **前** に独自の `IPresenterFactory` を登録すれば、`TryAdd` セマンティクスにより上書きされません。
+カスタム Factory を使いたい場合は、`AddKibinago()` を呼ぶ **前** に独自の `IPresenterFactory` を登録すれば、`TryAdd` セマンティクスにより上書きされません。
 
 ---
 
@@ -493,8 +493,8 @@ Presenter のコンストラクタ依存は **コンテナの通常の解決ル�
 
 | インターフェイス | 名前空間 | パッケージ | 持つメソッド | 使うべき場面 |
 |---|---|---|---|---|
-| `IViewModuleRegistrar` | `WinformsMVP.Modules` | コア (`WinformsMVP`) | `RegisterViews()` のみ | DI を使わないプロジェクト、または DI ありアプリの中の DI 不要なレガシーモジュール |
-| `IModuleRegistrar` | `WinformsMVP.DependencyInjection` | DI パッケージ | `RegisterViews()` + `RegisterServices()` | M.E.DI で Service・Presenter を登録するモジュール |
+| `IViewModuleRegistrar` | `Kibinago.Modules` | コア (`Kibinago`) | `RegisterViews()` のみ | DI を使わないプロジェクト、または DI ありアプリの中の DI 不要なレガシーモジュール |
+| `IModuleRegistrar` | `Kibinago.DependencyInjection` | DI パッケージ | `RegisterViews()` + `RegisterServices()` | M.E.DI で Service・Presenter を登録するモジュール |
 
 `IModuleRegistrar` は **`IViewModuleRegistrar` を継承** しています (`interface IModuleRegistrar : IViewModuleRegistrar`)。つまり「DI ありモジュール」は自動的に「View 専用モジュール」としても扱え、Shell プロジェクトは登録時にどちらの型でも受け取れます。
 
@@ -544,18 +544,18 @@ internal static class Program
 
         // 3. フレームワーク自身のサービスを登録 (IPresenterFactory, IMessageService 等)。
         //    TryAdd セマンティクスなので、前述のモジュール登録が優先される。
-        services.AddWinformsMVP(viewRegistry);
+        services.AddKibinago(viewRegistry);
 
         // 4. Register the logger bridge before building the provider.
-        //    Plain AddSingleton overrides AddWinformsMVP's TryAddSingleton regardless of order,
+        //    Plain AddSingleton overrides AddKibinago's TryAddSingleton regardless of order,
         //    but the registration must happen before BuildServiceProvider().
         var loggerFactory = LoggerFactory.Create(b => b.AddDebug());
-        services.AddSingleton<WinformsMVP.Logging.ILoggerFactory>(
+        services.AddSingleton<Kibinago.Logging.ILoggerFactory>(
             loggerFactory.AsFrameworkLoggerFactory());
 
         // 5. プロバイダを構築して ServiceLocator に結ぶ
         var provider = services.BuildServiceProvider();
-        provider.UseWinformsMVP();   // ServiceLocator.Current = provider
+        provider.UseKibinago();   // ServiceLocator.Current = provider
 
         // 5. ルート Presenter をコンテナから取得して起動
         var mainPresenter = provider.GetRequiredService<MainShellPresenter>();
@@ -566,7 +566,7 @@ internal static class Program
 }
 ```
 
-> ⚠️ **`AsFrameworkLoggerFactory()` はフレームワーク同梱のメソッドではありません。** コアパッケージは `Microsoft.Extensions.Logging` に依存しない設計なので、`WinformsMVP.DependencyInjection` もログ用アダプタを含みません (依存は `Microsoft.Extensions.DependencyInjection.Abstractions` のみ)。M.E.L. の `ILoggerFactory` を框架の `WinformsMVP.Logging.ILoggerFactory` に橋渡しするには、~30 行のアダプタを自分で書きます (全ターゲットで利用可)。実装例は `samples/MultiProjectDemo.Shell/Logging/MicrosoftLoggingExtensions.cs` と [Logging リファレンス](Reference-Logging) を参照。ログが不要なら `NullLoggerFactory` が自動で使われます。直接登録の代わりに `services.AddWinformsMVP(viewRegistry, mvp => mvp.Logging.Use(loggerFactory.AsFrameworkLoggerFactory()))` と書くこともできます。
+> ⚠️ **`AsFrameworkLoggerFactory()` はフレームワーク同梱のメソッドではありません。** コアパッケージは `Microsoft.Extensions.Logging` に依存しない設計なので、`Kibinago.DependencyInjection` もログ用アダプタを含みません (依存は `Microsoft.Extensions.DependencyInjection.Abstractions` のみ)。M.E.L. の `ILoggerFactory` を框架の `Kibinago.Logging.ILoggerFactory` に橋渡しするには、~30 行のアダプタを自分で書きます (全ターゲットで利用可)。実装例は `samples/MultiProjectDemo.Shell/Logging/MicrosoftLoggingExtensions.cs` と [Logging リファレンス](Reference-Logging) を参照。ログが不要なら `NullLoggerFactory` が自動で使われます。直接登録の代わりに `services.AddKibinago(viewRegistry, mvp => mvp.Logging.Use(loggerFactory.AsFrameworkLoggerFactory()))` と書くこともできます。
 
 ### グローバル Dispatcher ミドルウェアの設定 (`IDispatcherConfigurer`)
 
@@ -581,7 +581,7 @@ MvpApplication.Configure(framework: mvp => mvp.Actions
     .StrictValidation());   // Debug ビルドで配線ミスを例外にしたい場合
 
 // M.E.DI
-services.AddWinformsMVP(viewRegistry, mvp => mvp.Actions.Configure(d => d.Use(...)));
+services.AddKibinago(viewRegistry, mvp => mvp.Actions.Configure(d => d.Use(...)));
 ```
 
 `IDispatcherConfigurer` を直接登録することもできます:
@@ -594,7 +594,7 @@ ServiceLocator.Configure(reg => reg.RegisterInstance<IDispatcherConfigurer>(
         .Use(new AuthorizationMiddleware(currentUser))
         .Use(new ErrorDialogMiddleware(messages, dispatchLogger)))));
 
-// M.E.DI の場合 — AddWinformsMVP の前後どちらでも可
+// M.E.DI の場合 — AddKibinago の前後どちらでも可
 services.AddSingleton<IDispatcherConfigurer>(
     new ActionDispatcherConfigurer(d => d.Use(...)));
 ```
@@ -643,7 +643,7 @@ MvpApplication.Configure(
     services: reg => reg.RegisterInstance<IViewMappingRegister>(viewRegistry));
 ```
 
-`ServiceLocator.Configure` / `MvpApplication.Configure` で作ったプロバイダはフレームワークの所有で、置き換えや `ServiceLocator.Reset()` の際に破棄されます (自分のファクトリが生成したシングルトンを破棄し、`RegisterInstance` したインスタンスは破棄しません)。`ServiceLocator.Current` に代入したプロバイダ (例 `UseWinformsMVP()`) は破棄されません。
+`ServiceLocator.Configure` / `MvpApplication.Configure` で作ったプロバイダはフレームワークの所有で、置き換えや `ServiceLocator.Reset()` の際に破棄されます (自分のファクトリが生成したシングルトンを破棄し、`RegisterInstance` したインスタンスは破棄しません)。`ServiceLocator.Current` に代入したプロバイダ (例 `UseKibinago()`) は破棄されません。
 
 ---
 
@@ -661,7 +661,7 @@ MvpApplication.Configure(
 
 **推奨しません**。`WithServiceProvider(...)` でレジストリにコンテナをブリッジしてください。レジストリの明示登録が常に優先されます。
 
-### 「レガシープロジェクトは `WinformsMVP.DependencyInjection` に依存すべき?」
+### 「レガシープロジェクトは `Kibinago.DependencyInjection` に依存すべき?」
 
 **いいえ**。このパッケージはまさにそういうレガシープロジェクトが依存しなくて済むために存在します。
 

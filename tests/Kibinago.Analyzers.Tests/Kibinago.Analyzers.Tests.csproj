@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Unit tests for the MVP Roslyn analyzers. Targets net10.0 (not net48) so it runs on any OS:
+    test snippets declare their own System.Windows.Forms / Kibinago stubs, so no real
+    WinForms reference is needed.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
+    <!-- Same Roslyn version the analyzer is built against (its own reference is PrivateAssets). -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.3.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Referenced as a normal assembly: the tests run the analyzers in-process. -->
+    <ProjectReference Include="..\..\src\Kibinago.Analyzers\Kibinago.Analyzers.csproj" />
+  </ItemGroup>
+
+</Project>

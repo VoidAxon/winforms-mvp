@@ -1,4 +1,4 @@
-using WinformsMVP.MVP.ViewActions;
+using Kibinago.ViewActions;
 
 namespace MvpNamespace
 {

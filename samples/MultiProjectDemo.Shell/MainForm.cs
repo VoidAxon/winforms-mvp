@@ -1,7 +1,7 @@
 using System.Drawing;
 using System.Windows.Forms;
-using WinformsMVP.MVP.Views;
-using WinformsMVP.MVP.ViewActions;
+using Kibinago.Views;
+using Kibinago.ViewActions;
 
 namespace MultiProjectDemo.Shell
 {
@@ -27,7 +27,7 @@ namespace MultiProjectDemo.Shell
 
             var title = new Label
             {
-                Text = "WinformsMVP — Multi-Project Demo",
+                Text = "Kibinago — Multi-Project Demo",
                 Font = new Font("Segoe UI", 13f, FontStyle.Bold),
                 Location = new Point(20, 20),
                 Size = new Size(400, 26),

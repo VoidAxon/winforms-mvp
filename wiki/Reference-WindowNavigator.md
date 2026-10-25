@@ -256,7 +256,7 @@ Navigator.For(presenter).WithParam(parameters).ShowWindow();
 | 既存テスト/モックへの影響 | — | なし (同じインスタンスメソッドに委譲) |
 | リフレクション/実行時キャスト | なし | なし |
 
-実装: [`WindowNavigatorFluentExtensions.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/src/WinformsMVP.Core/Services/WindowNavigatorFluentExtensions.cs)、[`NavigationContext.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/src/WinformsMVP.Core/Services/NavigationContext.cs)。
+実装: [`WindowNavigatorFluentExtensions.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/src/Kibinago.Core/Services/WindowNavigatorFluentExtensions.cs)、[`NavigationContext.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/src/Kibinago.Core/Services/NavigationContext.cs)。
 
 ---
 
@@ -393,7 +393,7 @@ DI コンテナと連携する場合、Presenter 自身も子 Presenter を DI �
 
 ## テスト時のモック
 
-`WindowNavigator` を本物で動かすと WinForms フォームが立ち上がってしまうため、Presenter のテストでは **`FakeWindowNavigator`** (`WinformsMVP.Testing` パッケージ) に差し替えます。
+`WindowNavigator` を本物で動かすと WinForms フォームが立ち上がってしまうため、Presenter のテストでは **`FakeWindowNavigator`** (`Kibinago.Testing` パッケージ) に差し替えます。
 
 `TestServices.CreateFakes()` が登録済みで、`fakes.Navigator` として公開されています。本番の `WindowNavigator` と同じ規則 (結果の型変換、キーの重複判定、Presenter の破棄、パラメータ必須の Presenter をパラメータなしで開くと例外) で動きます。渡された子 Presenter はアタッチも初期化もされません — 子画面自体は、別のインスタンスを `PresenterTestHost` でテストします。
 
@@ -431,7 +431,7 @@ public async Task OnCompose_OpensComposeWindow()
 
 モーダルの Presenter は答えを返した後に破棄されます (本番でウィンドウが閉じたときと同じ)。非モーダルで同じキーを再度開くと、既存のウィンドウがアクティブになり (`Activations` が増える)、新しい Presenter は破棄されます。
 
-実際の使用例は [`MainEmailPresenterTests.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/tests/WinformsMVP.Samples.Tests/Presenters/MainEmailPresenterTests.cs) を、詳しいテストパターンは [HowTo: Presenter をテストする](HowTo-Test-A-Presenter) を参照してください。
+実際の使用例は [`MainEmailPresenterTests.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/tests/Kibinago.Samples.Tests/Presenters/MainEmailPresenterTests.cs) を、詳しいテストパターンは [HowTo: Presenter をテストする](HowTo-Test-A-Presenter) を参照してください。
 
 ---
 
@@ -443,5 +443,5 @@ public async Task OnCompose_OpensComposeWindow()
 - [Dependency Injection](Reference-DependencyInjection) — `IPresenterFactory` で子 Presenter を DI 経由で解決する方法
 - [HowTo: ウィンドウクローズを扱う](HowTo-Handle-Window-Closing) — ダーティチェック・保存確認の実装
 - サンプル:
-  - `samples/WinformsMVP.Samples/NavigatorDemo/` — Modal / Non-Modal / シングルトン
-  - `samples/WinformsMVP.Samples/WindowClosingDemo/` — `RequestClose` / `CanClose` の完全例
+  - `samples/Kibinago.Samples/NavigatorDemo/` — Modal / Non-Modal / シングルトン
+  - `samples/Kibinago.Samples/WindowClosingDemo/` — `RequestClose` / `CanClose` の完全例

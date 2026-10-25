@@ -10,9 +10,9 @@
 
 > **前提条件**: [はじめに (Getting Started)](Getting-Started) で扱った基本概念 (View インターフェイス、Presenter、ViewAction) を理解していること。
 
-> **ヒント**: プロジェクトは `dotnet new winformsmvp -n MyTodoApp` で作ると、`Program.Main` の登録処理まで揃った状態から始められます ([HowTo: テンプレートを使う](HowTo-Use-Templates))。
+> **ヒント**: プロジェクトは `dotnet new kibinago -n MyTodoApp` で作ると、`Program.Main` の登録処理まで揃った状態から始められます ([HowTo: テンプレートを使う](HowTo-Use-Templates))。
 
-完成形のサンプルコードは `samples/WinformsMVP.Samples/ToDoDemo/` にあります。詰まったらそちらと見比べてください。
+完成形のサンプルコードは `samples/Kibinago.Samples/ToDoDemo/` にあります。詰まったらそちらと見比べてください。
 
 ---
 
@@ -103,8 +103,8 @@ UI 型は一切露出させません ([MVP 鉄則 1](Concept-MVP-Pattern#3-つ�
 ```csharp
 using System;
 using System.Collections.Generic;
-using WinformsMVP.MVP.ViewActions;
-using WinformsMVP.MVP.Views;
+using Kibinago.ViewActions;
+using Kibinago.Views;
 
 namespace MyTodoApp
 {
@@ -136,7 +136,7 @@ namespace MyTodoApp
 ## Step 3: ActionKey を定義する
 
 ```csharp
-using WinformsMVP.MVP.ViewActions;
+using Kibinago.ViewActions;
 
 namespace MyTodoApp
 {
@@ -158,7 +158,7 @@ namespace MyTodoApp
 
 ```csharp
 using System.Collections.Generic;
-using WinformsMVP.MVP.Presenters;
+using Kibinago.Presenters;
 
 namespace MyTodoApp
 {
@@ -218,9 +218,9 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
-using WinformsMVP.Common;
-using WinformsMVP.MVP.Views;
-using WinformsMVP.MVP.ViewActions;
+using Kibinago.Common;
+using Kibinago.Views;
+using Kibinago.ViewActions;
 
 namespace MyTodoApp
 {
@@ -360,7 +360,7 @@ private void OnToggleComplete()
 `ChangeTracker<List<ToDoItem>>` で「未保存の変更があるか」を追跡します。
 
 ```csharp
-using WinformsMVP.Common;
+using Kibinago.Common;
 
 public class ToDoPresenter : WindowPresenterBase<IToDoView>
 {
@@ -473,7 +473,7 @@ Presenter は WinForms に依存しないので、UI なしでテストできま
 ```csharp
 public class ToDoPresenterTests
 {
-    private readonly FakeServices _fakes = TestServices.CreateFakes();   // WinformsMVP.Testing パッケージ
+    private readonly FakeServices _fakes = TestServices.CreateFakes();   // Kibinago.Testing パッケージ
     private readonly MockToDoView _view;
     private readonly ToDoPresenter _presenter;
 
@@ -569,6 +569,6 @@ Mock View はインターフェイスを実装するだけのシンプルなク�
 | 設計ルールを徹底的に理解したい | [MVP 設計ルール (全 17 条)](Design-Rules) |
 | 既存の WinForms アプリを段階的に MVP 化したい | [HowTo: 従来の WinForms から移行する](HowTo-Migrate-From-Legacy-WinForms) |
 
-完成形のコードは `samples/WinformsMVP.Samples/ToDoDemo/` を参照してください。
+完成形のコードは `samples/Kibinago.Samples/ToDoDemo/` を参照してください。
 
 Happy coding!

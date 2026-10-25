@@ -1,6 +1,6 @@
 # HowTo: リリースする（GitHub Releases + GitHub Packages）
 
-このページは、`WinformsMVP.Core` / `WinformsMVP` / `WinformsMVP.DependencyInjection` / `WinformsMVP.Testing` / `WinformsMVP.Templates` の NuGet パッケージを
+このページは、`Kibinago.Core` / `Kibinago` / `Kibinago.DependencyInjection` / `Kibinago.Testing` / `Kibinago.Templates` の NuGet パッケージを
 **GitHub Packages** に発行し、`.nupkg` を **GitHub Release** に添付するまでの、
 メンテナ向けの完全な手順です。仕組みの説明・初回セットアップ・利用者側の使い方・
 トラブルシュート・後片付けまで含みます。
@@ -50,13 +50,13 @@ git push origin v1.0.0
    ハイフンの有無で `IS_PRERELEASE` を決めます。
 3. **Restore / Build (Release)** — `-p:Version=$VERSION` 付きでソリューションをビルド。
 4. **Test (gate)** — テストスイートを実行。**1 件でも失敗するとリリースは中断します。**
-5. **Pack** — `WinformsMVP.Core` / `WinformsMVP` / `WinformsMVP.DependencyInjection` / `WinformsMVP.Testing` / `WinformsMVP.Templates` の 5 つを
-   同じ `-p:Version` でパック (テンプレートパッケージ `templates/WinformsMVP.Templates.csproj` は `dotnet new` 用の
-   テンプレート型パッケージで、生成されるプロジェクトは既定で最新の `WinformsMVP` (`*-*`) を参照します)。
-   `WinformsMVP` と `WinformsMVP.Testing` は `WinformsMVP.Core` を、DI パッケージは `WinformsMVP` を
+5. **Pack** — `Kibinago.Core` / `Kibinago` / `Kibinago.DependencyInjection` / `Kibinago.Testing` / `Kibinago.Templates` の 5 つを
+   同じ `-p:Version` でパック (テンプレートパッケージ `templates/Kibinago.Templates.csproj` は `dotnet new` 用の
+   テンプレート型パッケージで、生成されるプロジェクトは既定で **このテンプレートと同じバージョン** の `Kibinago` を参照します。パック時に `template.json` の `__KIBINAGO_VERSION__` を `-p:Version` に置き換えます)。
+   `Kibinago` と `Kibinago.Testing` は `Kibinago.Core` を、DI パッケージは `Kibinago` を
    ProjectReference 参照しているため、**同一バージョンへの依存**が自動的に記録されます。
-6. **Assert analyzer is bundled** — `WinformsMVP.Core` パッケージ内に
-   `analyzers/dotnet/cs/WinformsMVP.Analyzers.dll` が含まれているかを検証し、
+6. **Assert analyzer is bundled** — `Kibinago.Core` パッケージ内に
+   `analyzers/dotnet/cs/Kibinago.Analyzers.dll` が含まれているかを検証し、
    無ければジョブを失敗させます（後述の「アナライザー同梱」を守るガード）。
 7. **Push to GitHub Packages** — `dotnet nuget push` で各 `.nupkg` を発行。
 8. **Create GitHub Release** — `gh release create` で Release を作成し、`.nupkg` を添付。
@@ -64,7 +64,7 @@ git push origin v1.0.0
 
 ### なぜ `windows-latest` なのか
 
-`WinformsMVP` / `WinformsMVP.DependencyInjection` は `net472;net10.0-windows` をターゲットにし、
+`Kibinago` / `Kibinago.DependencyInjection` は `net472;net10.0-windows` をターゲットにし、
 テストプロジェクトは `net48` の WinForms テストです。**テストの実行**に .NET Framework ランタイムが
 必要なため、ゲートを含むジョブ全体を Windows ランナーで走らせます。
 
@@ -77,19 +77,19 @@ git push origin v1.0.0
 
 ### アナライザーの同梱（最重要の注意点）
 
-MVP 設計ルールの Roslyn アナライザーは**コアパッケージ（`WinformsMVP.Core`）に同梱**されており、
-単独パッケージとしては発行しません（`WinformsMVP.Analyzers` は `IsPackable=false`）。
+MVP 設計ルールの Roslyn アナライザーは**コアパッケージ（`Kibinago.Core`）に同梱**されており、
+単独パッケージとしては発行しません（`Kibinago.Analyzers` は `IsPackable=false`）。
 
 `IsPackable=false` は「このプロジェクトは単独でパッケージを出さない」という意味であって、
 **その成果物が自動的にコアパッケージへ入るわけではありません**。同梱は
-`src/WinformsMVP.Core/WinformsMVP.Core.csproj` で明示的に配線しています：
+`src/Kibinago.Core/Kibinago.Core.csproj` で明示的に配線しています：
 
 - MSBuild Target `BuildMVPAnalyzers` がアナライザーをビルドし、
-- `<None Include="...\WinformsMVP.Analyzers.dll" Pack="true" PackagePath="analyzers/dotnet/cs" />`
+- `<None Include="...\Kibinago.Analyzers.dll" Pack="true" PackagePath="analyzers/dotnet/cs" />`
   が `.nupkg` の `analyzers/dotnet/cs/` に配置します。
 
-アナライザーはパッケージ依存を通じて推移的に流れるため、`WinformsMVP` だけを参照する利用者にも効きます
-（`WinformsMVP.csproj` は Core への ProjectReference に `PrivateAssets="none"` を付け、
+アナライザーはパッケージ依存を通じて推移的に流れるため、`Kibinago` だけを参照する利用者にも効きます
+（`Kibinago.csproj` は Core への ProjectReference に `PrivateAssets="none"` を付け、
 パッケージ依存に `exclude="Build,Analyzers"` が出ないようにしています）。
 
 ワークフローのステップ 6 はこれが効いていることを毎回検証します。
@@ -107,7 +107,7 @@ MVP 設計ルールの Roslyn アナライザーは**コアパッケージ（`Wi
 2. **発行する 4 プロジェクトの `.csproj`** — `<IsPackable>true</IsPackable>` で opt-in し、
    `PackageId` / `Description` / `PackageTags` と、README をパッケージに含める
    `<None Include="..\..\README.md" Pack="true" PackagePath="\" />` を記述
-   (`templates/WinformsMVP.Templates.csproj` は階層が 1 つ浅いので `..\README.md`)。
+   (`templates/Kibinago.Templates.csproj` は階層が 1 つ浅いので `..\README.md`)。
    （README の `<None>` は各 `.csproj` に置きます。`Directory.Build.props` は各プロジェクト本体より
    先に評価されるため、そこに `IsPackable` 条件付きで置くと `true` になる前に評価され効きません。）
 3. **`.github/workflows/release.yml`** — 上記「2. ワークフローが何をしているか」の内容。
@@ -143,11 +143,11 @@ GitHub Packages は public リポジトリでも **NuGet の復元に認証が�
 利用者には次のどちらかを案内します。
 
 - **方法A — GitHub Packages フィード**：`read:packages` スコープの PAT を作り、
-  `nuget.config` にソースと資格情報を設定して `dotnet add package WinformsMVP --prerelease`。
+  `nuget.config` にソースと資格情報を設定して `dotnet add package Kibinago --prerelease`。
 - **方法B — Releases から手動ダウンロード（認証不要）**：Release ページから `.nupkg` を落とし、
-  ローカルフォルダをソースに登録してインストール（`WinformsMVP` は `WinformsMVP.Core` に依存するので両方の `.nupkg` を置く）。
-- **テンプレート**：`dotnet new install WinformsMVP.Templates::<version>`（フィード経由。プレビュー版はバージョン指定が必須）または
-  `dotnet new install <path>/WinformsMVP.Templates.<version>.nupkg`（ダウンロードした `.nupkg`）。
+  ローカルフォルダをソースに登録してインストール（`Kibinago` は `Kibinago.Core` に依存するので両方の `.nupkg` を置く）。
+- **テンプレート**：`dotnet new install Kibinago.Templates::<version>`（フィード経由。プレビュー版はバージョン指定が必須）または
+  `dotnet new install <path>/Kibinago.Templates.<version>.nupkg`（ダウンロードした `.nupkg`）。
   詳細は [テンプレートを使う](HowTo-Use-Templates)。
 
 詳細な手順とサンプル `nuget.config` は [README.md](../README.md) の「インストール」節にあります。
@@ -168,7 +168,7 @@ GitHub Packages は public リポジトリでも **NuGet の復元に認証が�
   .NET 10 SDK が入っているか（ワークフローの `dotnet-version`）、非 Windows ホストなら
   `Directory.Build.props` の `EnableWindowsTargeting` が残っているかを確認。
 - **アナライザー検証ステップで失敗する**
-  `WinformsMVP.Core.csproj` の `BuildMVPAnalyzers` Target と `analyzers/dotnet/cs` への
+  `Kibinago.Core.csproj` の `BuildMVPAnalyzers` Target と `analyzers/dotnet/cs` への
   `<None Include>` が壊れていないか確認。
 - **テストで落ちてリリースが止まる**
   テストはゲートです。先にテストを直してから再度タグを打ちます。

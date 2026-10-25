@@ -2,7 +2,7 @@ WinForms アプリケーションのための **Model-View-Presenter** フレー
 
 > **このフレームワークが初めての方は、まず [はじめに (Getting Started)](Getting-Started) からどうぞ。**
 > 5 分で動くサンプルを作りながら、フレームワークの全体像を掴めます。
-> 新しいアプリを作るなら [テンプレート (`dotnet new winformsmvp`)](HowTo-Use-Templates) から始めるのが推奨です。
+> 新しいアプリを作るなら [テンプレート (`dotnet new kibinago`)](HowTo-Use-Templates) から始めるのが推奨です。
 
 ---
 
@@ -73,7 +73,7 @@ WinForms アプリケーションのための **Model-View-Presenter** フレー
 - [Presenter の購読ライフサイクルを管理する](HowTo-Manage-Presenter-Subscriptions) — `Disposables` バッグ、`DisposeWith`、自動解放
 - [従来の WinForms から移行する](HowTo-Migrate-From-Legacy-WinForms) — 段階的なリファクタリング
 - [エラー処理戦略](HowTo-Handle-Errors) — `IMessageService` / `InteractionResult<T>` / グローバルハンドラ
-- [フレームワークをカスタマイズする](HowTo-Customize-Framework) — 起動時の 1 回の呼び出し (`MvpApplication.Configure` / `AddWinformsMVP`) でダイアログ・トースト・変更追跡などを設定
+- [フレームワークをカスタマイズする](HowTo-Customize-Framework) — 起動時の 1 回の呼び出し (`MvpApplication.Configure` / `AddKibinago`) でダイアログ・トースト・変更追跡などを設定
 - [リリースする](HowTo-Release) — タグ駆動で GitHub Packages へ発行 + GitHub Release 作成
 
 ---
@@ -95,8 +95,8 @@ WinForms アプリケーションのための **Model-View-Presenter** フレー
 ## 外部リンク
 
 - [GitHub リポジトリ](https://github.com/VoidAxon/winforms-mvp) — ソースコード
-- [サンプルコード](https://github.com/VoidAxon/winforms-mvp/tree/master/samples/WinformsMVP.Samples) — 全サンプル
-- [テストプロジェクト](https://github.com/VoidAxon/winforms-mvp/tree/master/tests/WinformsMVP.Samples.Tests) — xUnit テスト
+- [サンプルコード](https://github.com/VoidAxon/winforms-mvp/tree/master/samples/Kibinago.Samples) — 全サンプル
+- [テストプロジェクト](https://github.com/VoidAxon/winforms-mvp/tree/master/tests/Kibinago.Samples.Tests) — xUnit テスト
 
 ---
 

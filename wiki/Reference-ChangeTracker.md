@@ -136,7 +136,7 @@ MvpApplication.Configure(framework: mvp =>
 - エンジンはアプリ全体で 1 インスタンスを共有するため、スレッドセーフに実装してください。
   `IObjectCloner` のコピーは元と状態を共有せず内容的に等しいこと、未対応のグラフは部分コピーではなく例外で失敗することが契約です。
 - `For<T>` は `T` **ちょうど**の型にだけ効きます (基底型・派生型には効きません)。
-- M.E.DI では `AddWinformsMVP(viewRegistry, mvp => ...)` に同じ設定を書きます。
+- M.E.DI では `AddKibinago(viewRegistry, mvp => ...)` に同じ設定を書きます。
 
 通常はデフォルト (リフレクション深い処理) で十分ですが、ホットパスでパフォーマンスが問題になる場合に検討してください。
 設定入口の全体は [フレームワークをカスタマイズする](HowTo-Customize-Framework) を参照してください。
@@ -294,7 +294,7 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView, int>
 
 > ⚠️ **書き方 2 で引数なしの `AcceptChanges()` を呼ばないでください。** 引数なし版は tracker を作ったときのオブジェクト (書き方 2 では古いまま) を撮り直すため、次の `IsChangedWith` が変更ありと報告します。
 
-実例: `samples/WinformsMVP.Samples/EmailDemo/ComposeEmailPresenter.cs` (書き方 2。編集する 3 項目だけを `EmailEditState` に読み出して比較し、非同期の下書き保存後に `AcceptChanges(submitted)`)。
+実例: `samples/Kibinago.Samples/EmailDemo/ComposeEmailPresenter.cs` (書き方 2。編集する 3 項目だけを `EmailEditState` に読み出して比較し、非同期の下書き保存後に `AcceptChanges(submitted)`)。
 
 ### tracker の役割ではないこと
 
@@ -532,7 +532,7 @@ private void OnClose() => RequestClose(InteractionStatus.Cancel);
 - [ViewAction システム](Reference-ViewAction-System) — `canExecute: () => _tracker.IsChanged` パターン
 - [HowTo: ウィンドウクローズを扱う](HowTo-Handle-Window-Closing) — 完全な実装例
 - サンプル:
-  - `samples/WinformsMVP.Samples/EmailDemo/` — ChangeTracker (使い方 2) + クローズモデルの組み合わせ
-  - `tests/WinformsMVP.Samples.Tests/Common/ChangeTrackerTests.cs` — テストパターン
-  - `tests/WinformsMVP.Samples.Tests/Common/ChangeTrackerUsageStyleTests.cs` — 2 つの書き方の動作
-  - `samples/WinformsMVP.Samples/EmailDemo/ComposeEmailPresenter.cs` — 書き方 2 + 非同期保存 + 破棄して閉じる
+  - `samples/Kibinago.Samples/EmailDemo/` — ChangeTracker (使い方 2) + クローズモデルの組み合わせ
+  - `tests/Kibinago.Samples.Tests/Common/ChangeTrackerTests.cs` — テストパターン
+  - `tests/Kibinago.Samples.Tests/Common/ChangeTrackerUsageStyleTests.cs` — 2 つの書き方の動作
+  - `samples/Kibinago.Samples/EmailDemo/ComposeEmailPresenter.cs` — 書き方 2 + 非同期保存 + 破棄して閉じる

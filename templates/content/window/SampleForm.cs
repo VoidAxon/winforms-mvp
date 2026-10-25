@@ -4,10 +4,10 @@ using System;
 using System.ComponentModel;
 using System.Windows.Forms;
 //#if (Validation)
-using WinformsMVP.Common.Validation;
-using WinformsMVP.Common.Validation.Core;
+using Kibinago.Common.Validation;
+using Kibinago.Common.Validation.Core;
 //#endif
-using WinformsMVP.MVP.ViewActions;
+using Kibinago.ViewActions;
 
 namespace MvpNamespace
 {

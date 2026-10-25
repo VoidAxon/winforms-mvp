@@ -9,13 +9,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 A WinForms MVP (Model-View-Presenter) framework for .NET Framework 4.7.2+ and .NET 10 (Windows), providing infrastructure for building desktop applications with clean separation of concerns. All projects use SDK-style `.csproj`.
 
 It ships as five packages:
-- **`WinformsMVP.Core`** (`netstandard2.0`) — presenters, ViewAction dispatcher, EventAggregator, ChangeTracker, validation, logging and the service interfaces. It has **no WinForms reference**, so presenter code compiled against it cannot touch WinForms types. Bundles the MVP Roslyn analyzers.
-- **`WinformsMVP`** (`net472;net10.0-windows`, depends on Core) — the WinForms implementation: `WindowNavigator`, `ViewActionBinder`, dialogs, toasts, `MessageService`, view mapping, `Connect` hosting. The analyzers flow to its consumers transitively.
-- **`WinformsMVP.DependencyInjection`** (`net472;net10.0-windows`) — optional M.E.DI integration.
-- **`WinformsMVP.Testing`** (`netstandard2.0`, depends on Core; test projects only) — `PresenterTestHost`, `TestServices` (`Create()`, `CreateFakes()`), `CapturingActionBinder` and optional fakes of the presenter-facing services (`FakeMessageService`, `FakeToastService`, `FakeDialogProvider`, `FakeWindowNavigator`, `InMemoryFileService`, `RecordingLoggerFactory`). No test-framework dependency.
-- **`WinformsMVP.Templates`** (template package, `templates/`) — `dotnet new` templates: `winformsmvp` (app with service/view registration + main window, `--framework net10.0-windows|net472`, `--mvp-version`, `--no-restore`), `mvp-window` (`--param-type`, `--validation`, `--namespace`), `mvp-control`, `winformsmvp-tests` (`--app-project`). Install with `dotnet new install WinformsMVP.Templates` (or a local `.nupkg` path).
+- **`Kibinago.Core`** (`netstandard2.0`) — presenters, ViewAction dispatcher, EventAggregator, ChangeTracker, validation, logging and the service interfaces. It has **no WinForms reference**, so presenter code compiled against it cannot touch WinForms types. Bundles the MVP Roslyn analyzers.
+- **`Kibinago`** (`net472;net10.0-windows`, depends on Core) — the WinForms implementation: `WindowNavigator`, `ViewActionBinder`, dialogs, toasts, `MessageService`, view mapping, `Connect` hosting. The analyzers flow to its consumers transitively.
+- **`Kibinago.DependencyInjection`** (`net472;net10.0-windows`) — optional M.E.DI integration.
+- **`Kibinago.Testing`** (`netstandard2.0`, depends on Core; test projects only) — `PresenterTestHost`, `TestServices` (`Create()`, `CreateFakes()`), `CapturingActionBinder` and optional fakes of the presenter-facing services (`FakeMessageService`, `FakeToastService`, `FakeDialogProvider`, `FakeWindowNavigator`, `InMemoryFileService`, `RecordingLoggerFactory`). No test-framework dependency.
+- **`Kibinago.Templates`** (template package, `templates/`) — `dotnet new` templates: `kibinago` (app with service/view registration + main window, `--framework net10.0-windows|net472`, `--kibinago-version`, `--no-restore`), `mvp-window` (`--param-type`, `--validation`, `--namespace`), `mvp-control`, `kibinago-tests` (`--app-project`). Install with `dotnet new install Kibinago.Templates` (or a local `.nupkg` path).
 
-Namespaces are the same in both assemblies (`WinformsMVP.MVP.*`, `WinformsMVP.Services`, `WinformsMVP.Common`, ...).
+Namespaces are the same in both assemblies (`Kibinago.*`, `Kibinago.Services`, `Kibinago.Common`, ...).
 
 It implements a **Supervising Controller** variant of MVP with a clear split between Form and UserControl scenarios.
 
@@ -23,17 +23,17 @@ It implements a **Supervising Controller** variant of MVP with a clear split bet
 
 ```bash
 # Build
-dotnet build winforms-mvp.sln
-dotnet build winforms-mvp.sln -c Release
-dotnet build src/WinformsMVP/WinformsMVP.csproj
+dotnet build Kibinago.sln
+dotnet build Kibinago.sln -c Release
+dotnet build src/Kibinago/Kibinago.csproj
 
 # Test (xUnit; the test project targets net48, so running it needs Windows or mono.
 # `dotnet build` works on Linux too thanks to EnableWindowsTargeting)
-dotnet test tests/WinformsMVP.Samples.Tests/WinformsMVP.Samples.Tests.csproj
-dotnet test tests/WinformsMVP.Samples.Tests/WinformsMVP.Samples.Tests.csproj -v detailed
+dotnet test tests/Kibinago.Samples.Tests/Kibinago.Samples.Tests.csproj
+dotnet test tests/Kibinago.Samples.Tests/Kibinago.Samples.Tests.csproj -v detailed
 
 # Analyzer tests (net10.0, runs anywhere)
-dotnet test tests/WinformsMVP.Analyzers.Tests/WinformsMVP.Analyzers.Tests.csproj
+dotnet test tests/Kibinago.Analyzers.Tests/Kibinago.Analyzers.Tests.csproj
 
 # Templates: pack to a local feed, instantiate every template for both frameworks,
 # assert namespaces/variants, build with -warnaserror (RUN_TESTS=1 also runs the generated tests; Windows only)
@@ -41,10 +41,10 @@ tests/templates/verify-templates.sh
 RUN_TESTS=1 tests/templates/verify-templates.sh
 
 # Run the sample app
-dotnet run --project samples/WinformsMVP.Samples/WinformsMVP.Samples.csproj
+dotnet run --project samples/Kibinago.Samples/Kibinago.Samples.csproj
 
 # Restore
-dotnet restore winforms-mvp.sln
+dotnet restore Kibinago.sln
 ```
 
 ## MVP Principles — CRITICAL
@@ -80,11 +80,11 @@ TextBox NameTextBox { get; }             bool HasSelection { get; }
 - `private`: action handlers (`OnSave`), helpers.
 - A Presenter should expose **zero public events**. For cross-presenter notifications use a Service event or `IEventAggregator`. For close results, call the base `RequestClose(result, status)` / `RequestClose(status)` (it goes through the presenter's own `CanClose`) — no interface to implement, no extension method.
 
-View events need no hand-written EventArgs class and never a WinForms one (MVP004): `EventHandler` when the presenter reads the value from the view, `EventHandler<T>` with a business type to send it (`event EventHandler<int> RecordActivated;` — `T` need not derive from EventArgs), a tuple for two or three related values (`EventHandler<(int RecordId, string Column)>`), `EventHandler<ValueChangedEventArgs<T>>` (`WinformsMVP.Common.Events`, `OldValue` / `NewValue`) after a change when the previous value matters, `EventHandler<ValueChangingEventArgs<T>>` (+ `Cancel`) before a change the presenter may veto (the view applies it only when `!e.Cancel`), `EventHandler<CancelEventArgs>` (BCL) for a veto without values.
+View events need no hand-written EventArgs class and never a WinForms one (MVP004): `EventHandler` when the presenter reads the value from the view, `EventHandler<T>` with a business type to send it (`event EventHandler<int> RecordActivated;` — `T` need not derive from EventArgs), a tuple for two or three related values (`EventHandler<(int RecordId, string Column)>`), `EventHandler<ValueChangedEventArgs<T>>` (`Kibinago.Common.Events`, `OldValue` / `NewValue`) after a change when the previous value matters, `EventHandler<ValueChangingEventArgs<T>>` (+ `Cancel`) before a change the presenter may veto (the view applies it only when `!e.Cancel`), `EventHandler<CancelEventArgs>` (BCL) for a veto without values.
 
 Subscribe to view events with the protected `SubscribeViewEvent(h => View.X += h, h => View.X -= h, handler)` (and `SubscribeViewEvent<TEventArgs>(..., e => ...)` for `EventHandler<T>`): one line instead of a `+=` plus a matching `-=`, unsubscribed when the presenter is disposed, and silent once disposal has begun (windows dispose the presenter first, then the form, whose controls can still raise events while torn down). Subscriptions registered via `.DisposeWith(Disposables)` (event tokens, `Cascade.Bind` unsubscribers, `Disposable.Create(() => view.Event -= handler)` wrappers) are released automatically after `Cleanup()`; presenters normally need no `Cleanup` override for unsubscription.
 
-**Testing rule:** never widen visibility for tests. Drive the Presenter through its real entry points so the same `CanExecute` / close logic runs. `AttachView` / `Initialize` are explicit interface implementations (not callable as `presenter.Initialize()`); tests host the presenter with `WinformsMVP.Testing.PresenterTestHost` (in the `WinformsMVP.Testing` package):
+**Testing rule:** never widen visibility for tests. Drive the Presenter through its real entry points so the same `CanExecute` / close logic runs. `AttachView` / `Initialize` are explicit interface implementations (not callable as `presenter.Initialize()`); tests host the presenter with `Kibinago.Testing.PresenterTestHost` (in the `Kibinago.Testing` package):
 ```csharp
 var view = new MockEditView();   // any IViewBase/IWindowView mock — no Form needed
 // Attaches the view, runs the real init (RegisterViewActions, binder auto-bind, OnInitialize)
@@ -92,7 +92,7 @@ var view = new MockEditView();   // any IViewBase/IWindowView mock — no Form n
 using (var host = PresenterTestHost.Start(new EditPresenter(repo), view))
 {
     // Action dispatch — Dispatcher stays protected; the mock view exposes a CapturingActionBinder
-    // (WinformsMVP.Testing) as its ActionBinder; it captures the dispatcher the framework binds,
+    // (Kibinago.Testing) as its ActionBinder; it captures the dispatcher the framework binds,
     // so tests dispatch through the same channel a real Form's bound controls use:
     view.Binder.Dispatch(CommonActions.Save);                 // not presenter.OnSave()
     await view.Binder.DispatchAsync(CommonActions.Load);      // async handler: awaits its completion
@@ -112,7 +112,7 @@ If initialization throws, `Start` disposes the presenter and rethrows. `host.Can
 
 Framework services (`Messages`, `Navigator`, `Toasts`, `Logger`, ...) for one presenter under test: pass a provider as the first argument — `PresenterTestHost.Start(services, presenter, view[, parameters])`. Use `TestServices.CreateFakes()` (`fakes.Provider` plus `fakes.Messages` / `Toasts` / `Dialogs` / `Files` / `Navigator` / `Logs`; an unscripted confirmation, dialog or modal throws `UnscriptedInteractionException` unless the fake is switched to a permissive default), or start from `TestServices.Create()` (a `DefaultServiceProvider` with only a silent `ILoggerFactory`, which every presenter needs at attach) and register your own fakes; replace any service in the provider before `Start`; anything missing is an error, never a fallback to the global `ServiceLocator.Current`, so tests do not touch global state and can run in parallel. The provider stays caller-owned. A presenter that already used framework services in its constructor is rejected (move that code to `OnViewAttached` / `OnInitialize`). The binding seam (`IPresenterServicesBinding`) is internal; there is no public per-presenter setter.
 
-The framework enforces these rules at compile time via Roslyn analyzers in [src/WinformsMVP.Analyzers/](src/WinformsMVP.Analyzers/).
+The framework enforces these rules at compile time via Roslyn analyzers in [src/Kibinago.Analyzers/](src/Kibinago.Analyzers/).
 
 ## Architecture
 
@@ -176,7 +176,7 @@ Always-on guards: `default(ViewAction)` is rejected by `Register` / `Binder.Add`
 
 Routing is decided by the `Bind` overload, never by listeners: `Bind(dispatcher)` always dispatches and then raises `ActionTriggered` as a notification (safe to use for status bars/logging); `Bind()` only raises `ActionTriggered`.
 
-**Middleware (advanced):** `Dispatcher.Use(...)` adds an opt-in onion pipeline (audit, perf, error dialogs). Global tier (registered `IDispatcherConfigurer` in the service provider) runs outermost; per-presenter tier in `RegisterViewActions` runs inside. Zero overhead until `Use(...)` is called. Middleware wraps only the synchronous part of an async handler: observe `ctx.Completion` (the handler task) to time/audit the whole operation, and `ctx.CancellationToken` is the handler's token. If a middleware throws after starting an async handler, the handler is still tracked to its end (action stays disabled until it finishes). See the ViewAction wiki page and [samples/WinformsMVP.Samples/ViewActionMiddlewareExample.cs](samples/WinformsMVP.Samples/ViewActionMiddlewareExample.cs).
+**Middleware (advanced):** `Dispatcher.Use(...)` adds an opt-in onion pipeline (audit, perf, error dialogs). Global tier (registered `IDispatcherConfigurer` in the service provider) runs outermost; per-presenter tier in `RegisterViewActions` runs inside. Zero overhead until `Use(...)` is called. Middleware wraps only the synchronous part of an async handler: observe `ctx.Completion` (the handler task) to time/audit the whole operation, and `ctx.CancellationToken` is the handler's token. If a middleware throws after starting an async handler, the handler is still tracked to its end (action stays disabled until it finishes). See the ViewAction wiki page and [samples/Kibinago.Samples/ViewActionMiddlewareExample.cs](samples/Kibinago.Samples/ViewActionMiddlewareExample.cs).
 
 Samples: `ViewActionExample.cs` (implicit), `ViewActionExplicitEventExample.cs` (explicit), `ViewActionWithParametersExample.cs`, `ViewActionStateChangedExample.cs`, `CheckBoxDemo/`, `BulkBindingDemo/`.
 
@@ -250,7 +250,7 @@ All presenters have built-in access to framework services via convenience proper
 
 - `Messages` — `IMessageService` (`ShowInfo/ShowWarning/ShowError/ConfirmYesNo/ConfirmOkCancel/ConfirmYesNoCancel`), modal dialogs only. Every message box (and `AnchoredMessageBox`) is shown by the registered `IMessageDialogBackend` — replace that one-method interface to restyle all dialogs.
 - `Toasts` — `IToastService` (`Show(text, type, int? duration = null)`; null = the configured default). Safe from worker threads: toasts are always created on the UI thread (dropped and logged when there is none). View code that needs per-call `ToastOptions` or an anchor uses `IWinFormsToastService` (`Show(text, type, options)`, `ShowAnchored`); `AnchoredToast` forwards to it.
-- `Dialogs` — `IDialogProvider` (open/save file, folder browser, color). Font and print dialogs (`ShowFontDialog`, `ShowPrintDialog`, `ShowPageSetupDialog`, `ShowPrintPreviewDialog`) return GDI+ types, so they live on `IWinFormsDialogProvider : IDialogProvider` in the `WinformsMVP` package (registered by default by `ServiceLocator` — same `DialogProvider` instance — and by `AddWinformsMVP`) for view-side code.
+- `Dialogs` — `IDialogProvider` (open/save file, folder browser, color). Font and print dialogs (`ShowFontDialog`, `ShowPrintDialog`, `ShowPageSetupDialog`, `ShowPrintPreviewDialog`) return GDI+ types, so they live on `IWinFormsDialogProvider : IDialogProvider` in the `Kibinago` package (registered by default by `ServiceLocator` — same `DialogProvider` instance — and by `AddKibinago`) for view-side code.
 - `Files` — `IFileService`
 - `Navigator` — `IWindowNavigator`
 - `Logger` — `ILogger`
@@ -265,22 +265,22 @@ See [wiki/Reference-Platform-Services.md](wiki/Reference-Platform-Services.md).
 All framework customization happens once at startup, in one place; there are no mutable static `*Defaults` classes (`ChangeTrackerDefaults`, `ToastDefaults`, `DialogDefaults` were removed — don't add new ones):
 
 ```csharp
-MvpApplication.Configure(                       // WinformsMVP package; installs ServiceLocator.Current
-    framework: mvp =>                           // WinformsMvpBuilder — type "mvp." to see what is replaceable
+MvpApplication.Configure(                       // Kibinago package; installs ServiceLocator.Current
+    framework: mvp =>                           // KibinagoBuilder — type "mvp." to see what is replaceable
     {
         mvp.Messages.UseDialogs(new CompanyStyleDialogBackend());   // IMessageDialogBackend
         mvp.Toasts.Duration = 4500;                                  // ToastHostOptions
         mvp.ChangeTracking.UseComparer(new CompareNetObjectsComparer());
     },
     services: reg => BillingModule.Register(reg));                   // business services
-// M.E.DI: services.AddWinformsMVP(viewRegistry, mvp => { ...same... });
+// M.E.DI: services.AddKibinago(viewRegistry, mvp => { ...same... });
 ```
 
 Groups: `Messages` (DefaultCaption, UseDialogs), `Toasts` (ToastHostOptions properties, UseRenderer, Use), `Dialogs` (DialogProviderOptions properties), `ChangeTracking` (UseCloner, UseComparer, `For<T>(policy)`), `Events` (Use), `Logging` (Use), `Actions` (Configure, StrictValidation). Each `UseXxx(instance)` has a `UseXxx(sp => ...)` factory overload. **Precedence:** a service registered directly (`services:` block / M.E.DI) > the `mvp.` choice > built-in default; a directly registered options object replaces the builder's wholesale (no merge). The builder only produces registrations; the runtime reads the container only. Services take their options/dependencies in the constructor and snapshot them. `ServiceLocator.Configure(reg => ...)` remains as the lower-level entry (defaults only). Instances passed in (`UseXxx(instance)`, `RegisterInstance`) stay caller-owned; `DefaultServiceProvider` disposes only the singletons its factories created, and `ServiceLocator` disposes only providers it built itself (lazy default, `Configure`/`MvpApplication`) when they are replaced or `Reset`; `MvpApplication.Run(mainForm)` (Application.Run, then `MvpApplication.Shutdown()`) disposes that root at exit — an M.E.DI container is disposed by whoever built it. See [wiki/HowTo-Customize-Framework.md](wiki/HowTo-Customize-Framework.md) and `samples/.../CustomizationDemo/`.
 
 ### Dependency injection — three patterns
 
-1. **Service Locator** — framework services resolve through `ServiceLocator.Current` (`IServiceProvider`); use the presenter convenience properties (`Messages`, `Dialogs`, etc.) with no constructor injection. Best for simple presenters / legacy migration. Configure at startup via `MvpApplication.Configure(framework:, services:)` (or the lower-level `ServiceLocator.Configure(reg => ...)`, or by assigning `ServiceLocator.Current` directly). The default provider picks up the WinForms built-ins (`MessageService`, `WinFormsToastService`, `DialogProvider`, `WindowNavigator`, ...) from the `WinformsMVP` assembly at runtime through an internal hook; with only `WinformsMVP.Core` deployed you get `FileService`, `NullLoggerFactory`, the change-tracking engines and an `EventAggregator`.
+1. **Service Locator** — framework services resolve through `ServiceLocator.Current` (`IServiceProvider`); use the presenter convenience properties (`Messages`, `Dialogs`, etc.) with no constructor injection. Best for simple presenters / legacy migration. Configure at startup via `MvpApplication.Configure(framework:, services:)` (or the lower-level `ServiceLocator.Configure(reg => ...)`, or by assigning `ServiceLocator.Current` directly). The default provider picks up the WinForms built-ins (`MessageService`, `WinFormsToastService`, `DialogProvider`, `WindowNavigator`, ...) from the `Kibinago` assembly at runtime through an internal hook; with only `Kibinago.Core` deployed you get `FileService`, `NullLoggerFactory`, the change-tracking engines and an `EventAggregator`.
 2. **Constructor Injection** — inject business services (`IUserRepository`, ...) explicitly. Best for testable production code. Keep DI-resolved deps and runtime args separate (use `IInitializable<TParam>` for the latter).
 3. **Hybrid** — business services in the ctor, framework services via the convenience properties. Best for most apps.
 
@@ -288,11 +288,11 @@ Groups: `Messages` (DefaultCaption, UseDialogs), `Toasts` (ToastHostOptions prop
 
 **Global dispatcher middleware:** `mvp.Actions.Configure(d => d.Use(...))` / `mvp.Actions.StrictValidation()` (or register an `IDispatcherConfigurer` directly); the framework picks it up on each presenter's first dispatch.
 
-**M.E.DI integration (`WinformsMVP.DependencyInjection`, net472 / net10.0-windows):** `services.AddWinformsMVP(viewRegistry[, mvp => ...])` wires all framework defaults (with the same `WinformsMvpBuilder` customization as `MvpApplication.Configure`) using `TryAdd` so host registrations take precedence (it throws if a *different* `IViewMappingRegister` is already registered). `provider.UseWinformsMVP()` sets `ServiceLocator.Current` to the built container. `IPresenterFactory.Create<T>()` resolves child-presenter ctor deps, each presenter in its own `IServiceScope` disposed with the presenter (scoped services are per presenter/window), and its framework-service properties (`Messages`, `Logger`, ...) resolve from that same scope, not `ServiceLocator.Current` (register them with `AddWinformsMVP`; a presenter that uses them in its constructor is rejected by `Create`); `IModuleRegistrar` (`WinformsMVP.DependencyInjection`) lets each UI module own its registrations. View resolution (`IViewMappingRegister`) and service resolution (`IServiceProvider`) stay separate concerns — you need both. See [wiki/Reference-DependencyInjection.md](wiki/Reference-DependencyInjection.md).
+**M.E.DI integration (`Kibinago.DependencyInjection`, net472 / net10.0-windows):** `services.AddKibinago(viewRegistry[, mvp => ...])` wires all framework defaults (with the same `KibinagoBuilder` customization as `MvpApplication.Configure`) using `TryAdd` so host registrations take precedence (it throws if a *different* `IViewMappingRegister` is already registered). `provider.UseKibinago()` sets `ServiceLocator.Current` to the built container. `IPresenterFactory.Create<T>()` resolves child-presenter ctor deps, each presenter in its own `IServiceScope` disposed with the presenter (scoped services are per presenter/window), and its framework-service properties (`Messages`, `Logger`, ...) resolve from that same scope, not `ServiceLocator.Current` (register them with `AddKibinago`; a presenter that uses them in its constructor is rejected by `Create`); `IModuleRegistrar` (`Kibinago.DependencyInjection`) lets each UI module own its registrations. View resolution (`IViewMappingRegister`) and service resolution (`IServiceProvider`) stay separate concerns — you need both. See [wiki/Reference-DependencyInjection.md](wiki/Reference-DependencyInjection.md).
 
 ### Logging
 
-In-house BCL-only abstraction in the `WinformsMVP.Logging` namespace (in `WinformsMVP.Core`) so the core package takes no logging dependency (its only package dependency is `System.ComponentModel.Annotations`, for DataAnnotations on netstandard2.0). Method names and `{Named}` placeholders mirror Microsoft.Extensions.Logging, so migration is mechanical.
+In-house BCL-only abstraction in the `Kibinago.Logging` namespace (in `Kibinago.Core`) so the core package takes no logging dependency (its only package dependency is `System.ComponentModel.Annotations`, for DataAnnotations on netstandard2.0). Method names and `{Named}` placeholders mirror Microsoft.Extensions.Logging, so migration is mechanical.
 
 - Default: `NullLoggerFactory` (silent, zero cost). `DebugLoggerFactory` writes via `Trace.WriteLine` (VS Output window / any trace listener; works in Release builds). `{@Name}` / `{$Name}` placeholders are accepted, and a repeated name reuses its argument.
 - To use the M.E.L. ecosystem (Serilog/Seq/App Insights) on any supported target, write a ~30-line adapter (`AsFrameworkLoggerFactory()`) — see [samples/MultiProjectDemo.Shell/Logging/](samples/MultiProjectDemo.Shell/Logging/).
@@ -341,32 +341,32 @@ Use for cross-presenter/cross-module events. Do **not** use for parent-child coo
 ```
 /
 ├── src/        Core libraries (shippable)
-│   ├── WinformsMVP.Core/              Platform-neutral core (netstandard2.0, no WinForms reference)
-│   │   ├── MVP/Presenters|Views|Models|ViewActions/   presenter bases, ViewAction dispatcher
+│   ├── Kibinago.Core/              Platform-neutral core (netstandard2.0, no WinForms reference)
+│   │   ├── Presenters|Views|Models|ViewActions/   presenter bases, ViewAction dispatcher
 │   │   ├── Services/                  Service interfaces, ServiceLocator, FileService
 │   │   ├── Common/                    EventAggregator, ChangeTracker, validation, utilities
 │   │   └── Logging/                   In-house logging abstraction
-│   ├── WinformsMVP/                   WinForms implementation (net472;net10.0-windows, depends on Core)
-│   │   ├── MVP/                       ViewActionBinder, Connect hosting extensions
+│   ├── Kibinago/                   WinForms implementation (net472;net10.0-windows, depends on Core)
+│   │   ├── Presenters|ViewActions/    ViewActionBinder, Connect hosting extensions
 │   │   ├── Services/                  WindowNavigator, MessageService, DialogProvider, toasts, view mapping
 │   │   └── Common/                    Toast options/renderers, control binding helpers
-│   ├── WinformsMVP.DependencyInjection/   Optional M.E.DI integration (net472;net10.0-windows)
-│   ├── WinformsMVP.Testing/           PresenterTestHost, TestServices, service fakes (netstandard2.0, test projects only)
-│   └── WinformsMVP.Analyzers/             Roslyn analyzers (in the .sln, build-only — bundled into WinformsMVP.Core package)
-├── templates/  WinformsMVP.Templates.csproj + content/{app,window,control,tests} (dotnet new template package; content folders are template sources, not compiled)
-├── samples/    Sample/demo apps (WinformsMVP.Samples, MultiProjectDemo.*)
-├── tests/      WinformsMVP.Samples.Tests (xUnit, net48), WinformsMVP.Analyzers.Tests (xUnit, net10.0), templates/verify-templates.sh
+│   ├── Kibinago.DependencyInjection/   Optional M.E.DI integration (net472;net10.0-windows)
+│   ├── Kibinago.Testing/           PresenterTestHost, TestServices, service fakes (netstandard2.0, test projects only)
+│   └── Kibinago.Analyzers/             Roslyn analyzers (in the .sln, build-only — bundled into Kibinago.Core package)
+├── templates/  Kibinago.Templates.csproj + content/{app,window,control,tests} (dotnet new template package; content folders are template sources, not compiled)
+├── samples/    Sample/demo apps (Kibinago.Samples, MultiProjectDemo.*)
+├── tests/      Kibinago.Samples.Tests (xUnit, net48), Kibinago.Analyzers.Tests (xUnit, net10.0), templates/verify-templates.sh
 ├── docs/  wiki/  tools/
-└── winforms-mvp.sln
+└── Kibinago.sln
 ```
 
 `src/` holds only shippable libraries; the template package lives in `templates/`; samples and tests are siblings outside it.
 
 ## Development Notes
 
-- **Target frameworks:** `WinformsMVP.Core` / `WinformsMVP.Testing` → `netstandard2.0`; `WinformsMVP` / `WinformsMVP.DependencyInjection` → `net472;net10.0-windows`; samples and tests → `net48`. Minimum .NET Framework is 4.7.2; net40 is no longer supported. SDK-style gives automatic file inclusion and `PackageReference`; `EnableWindowsTargeting` (in `Directory.Build.props`) lets `dotnet build` run on non-Windows hosts.
-- **Where code goes:** anything a presenter needs goes in `WinformsMVP.Core` and must not reference WinForms / System.Drawing; WinForms implementations go in `WinformsMVP`.
-- **Tests:** xUnit 2.9.3. `WinformsMVP.Samples.Tests` targets net48, so `dotnet test` on it needs Windows (or mono); `WinformsMVP.Analyzers.Tests` (net10.0) runs anywhere.
+- **Target frameworks:** `Kibinago.Core` / `Kibinago.Testing` → `netstandard2.0`; `Kibinago` / `Kibinago.DependencyInjection` → `net472;net10.0-windows`; samples and tests → `net48`. Minimum .NET Framework is 4.7.2; net40 is no longer supported. SDK-style gives automatic file inclusion and `PackageReference`; `EnableWindowsTargeting` (in `Directory.Build.props`) lets `dotnet build` run on non-Windows hosts.
+- **Where code goes:** anything a presenter needs goes in `Kibinago.Core` and must not reference WinForms / System.Drawing; WinForms implementations go in `Kibinago`.
+- **Tests:** xUnit 2.9.3. `Kibinago.Samples.Tests` targets net48, so `dotnet test` on it needs Windows (or mono); `Kibinago.Analyzers.Tests` (net10.0) runs anywhere.
 - **Adding a Form/Dialog:** define `IXxxView : IWindowView` → presenter extends `WindowPresenterBase<TView>[, TParam]` → implement the Form → register the mapping → show via `WindowNavigator`. In an app project, `dotnet new mvp-window -n Xxx [--param-type int] [--validation]` scaffolds the view interface, actions, presenter and Form (`dotnet new mvp-control` for a UserControl).
 - **WFO1000 (.NET 9+ WinForms analyzer):** public properties on a Form/UserControl — i.e. view-interface implementations — need `[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]`. WFO1000 is a build **error** by default on every Form/UserControl (designer used or not). On a Form it is effectively a false positive (the designer instantiates the base class), but on a UserControl placed on another form the designer really serializes readable public properties into that form's `.Designer.cs`. It cannot be suppressed by a DiagnosticSuppressor (default severity Error). Cheapest fix: in Visual Studio, Ctrl+. on one WFO1000 → "Add DesignerSerializationVisibility" → Fix all in project (WinForms' own code fix). The templates already emit the attribute; explicit interface implementation also avoids it.
 - **Editable grids:** the framework ships no grid component (grids differ: DataGridView, C1FlexGrid, …). The Form translates grid events into business events keyed by a screen row key (`CellCommitting` with `ValueChangingEventArgs<T>` to reject; the presenter rewrites by calling `ShowRow` during the event); editing-control writes, reentrancy guards, key navigation and cell error rendering stay in the Form. See [wiki/HowTo-Implement-Editable-Grid.md](wiki/HowTo-Implement-Editable-Grid.md). A long-running action closed mid-run: `CanCloseAsync` confirms, stops, awaits the run; re-check state after the modal question and check `Lifetime` after each `await` before touching the view (see wiki/HowTo-Handle-Async-Operations.md).
@@ -377,7 +377,7 @@ Use for cross-presenter/cross-module events. Do **not** use for parent-child coo
 
 Every push to `master` and every pull request runs `.github/workflows/ci.yml` (Windows: build + both test projects + `tests/templates/verify-templates.sh` with the generated tests run).
 
-Releases are **tag-driven**. Pushing a tag matching `v*` triggers `.github/workflows/release.yml`, which builds, runs the test suite (gate), packs the five shippable packages (`WinformsMVP.Core`, `WinformsMVP`, `WinformsMVP.DependencyInjection`, `WinformsMVP.Testing`, `WinformsMVP.Templates`), asserts the analyzer is bundled in `WinformsMVP.Core`, publishes to **GitHub Packages**, and creates a **GitHub Release** with the `.nupkg` files attached.
+Releases are **tag-driven**. Pushing a tag matching `v*` triggers `.github/workflows/release.yml`, which builds, runs the test suite (gate), packs the five shippable packages (`Kibinago.Core`, `Kibinago`, `Kibinago.DependencyInjection`, `Kibinago.Testing`, `Kibinago.Templates`), asserts the analyzer is bundled in `Kibinago.Core`, publishes to **GitHub Packages**, and creates a **GitHub Release** with the `.nupkg` files attached.
 
 ```bash
 git tag v1.0.0-preview.1 && git push origin v1.0.0-preview.1   # preview
@@ -386,6 +386,6 @@ git tag v1.0.0           && git push origin v1.0.0             # stable
 
 - The package version is the tag minus the leading `v`. There is no version in any `.csproj` — **never** hardcode one; pass it only via the tag (the workflow injects `-p:Version=`).
 - A tag containing `-` (e.g. `-preview.1`) → NuGet prerelease (hidden by default) **and** the workflow passes `--prerelease` to mark the GitHub Release as pre-release. A clean tag → stable.
-- Only `WinformsMVP.Core`, `WinformsMVP`, `WinformsMVP.DependencyInjection`, `WinformsMVP.Testing` and `WinformsMVP.Templates` publish; everything else is `IsPackable=false` via `Directory.Build.props`. The analyzer ships **inside** `WinformsMVP.Core` (`analyzers/dotnet/cs/`), not standalone, and flows transitively to `WinformsMVP` consumers.
+- Only `Kibinago.Core`, `Kibinago`, `Kibinago.DependencyInjection`, `Kibinago.Testing` and `Kibinago.Templates` publish; everything else is `IsPackable=false` via `Directory.Build.props`. The analyzer ships **inside** `Kibinago.Core` (`analyzers/dotnet/cs/`), not standalone, and flows transitively to `Kibinago` consumers.
 - GitHub Packages requires consumer authentication (a PAT) even for public repos; the auth-free fallback is downloading the `.nupkg` from the Release. Both routes are documented for consumers in `README.md`.
 - Full maintainer guide (workflow internals, first-time setup, consuming, troubleshooting, cleanup): [wiki/HowTo-Release.md](wiki/HowTo-Release.md).
