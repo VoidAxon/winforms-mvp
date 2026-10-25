@@ -112,8 +112,8 @@ dotnet new mvp-window -n OrderEdit [--param-type int] [--validation] [--namespac
 
 生成されるファイル: `IOrderEditView.cs` / `OrderEditActions.cs` / `OrderEditPresenter.cs` / `OrderEditForm.cs` / `OrderEditForm.Designer.cs` (`--validation` 時は `OrderEditModel.cs` も)。
 
-- **Ok** は非同期アクション (`async Task OnOkAsync(CancellationToken)`) です。実行中は自動で無効化され、ダブルクリックは無視、ウィンドウを閉じるとキャンセルされます。保存処理を書いたら `RequestClose(InteractionStatus.Ok)` で閉じます。`--validation` 時は `Validation.Check(model)` で全エラーを表示して不正なら中断します。
-- **Cancel** は `RequestClose(InteractionStatus.Cancel)` で閉じます。
+- **Ok** は非同期アクション (`async Task OnOkAsync(CancellationToken)`) です。実行中は自動で無効化され、ダブルクリックは無視、ウィンドウを閉じるとキャンセルされます。保存処理を書いたら `RequestClose(InteractionStatus.Ok)` で閉じます (`RequestClose` も X と同じ `CanClose` を通るので、変更追跡をしているなら保存後 `RequestClose` の前に `AcceptChanges()` します)。`--validation` 時は `Validation.Check(model)` で全エラーを表示して不正なら中断します。
+- **Cancel** は `RequestClose(InteractionStatus.Cancel)` で閉じます。X と同じく `CanClose` を通るので、未保存の確認は `CanClose` のオーバーライドに書けば「閉じる」ボタンでも出ます。確認なしに破棄して閉じるボタンにするなら、`RequestClose` の前に `AcceptChanges()` します ([HowTo: ウィンドウクローズを扱う](HowTo-Handle-Window-Closing#閉じるボタン--x-と同じ確認を出す))。
 - `Program.Main` の `RegisterFromAssembly` が新しい Form を自動登録するので、すぐに開けます:
 
 ```csharp

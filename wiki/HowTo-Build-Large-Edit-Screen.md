@@ -196,6 +196,12 @@ protected override bool CanClose(CloseReason reason)
 
 保存に成功したら `_tracker.AcceptChanges()` (今の内容を「保存済み」として撮り直す)。
 
+「閉じる」ボタンは Form で `Close()` を呼ぶのではなく、`RequestClose` するだけのアクションにします。`RequestClose` も X と同じ `CanClose` を通るので、未保存なら同じ「保存しますか？」が出ます。「登録」は保存 → `AcceptChanges()` → `RequestClose(id, Ok)` の順にすれば、ゲートはクリーンな状態を見て確認なしに閉じます:
+
+```csharp
+Dispatcher.Register(StandardActions.Close, () => RequestClose(InteractionStatus.Cancel));   // same as X
+```
+
 - 時刻をコントロールが秒まで持つ場合は、モデルの setter で分に丸めておきます (秒だけの違いを変更と見なさないため)。
 - 画面のデータが本当に複数の場所に分かれる場合 (例: 2 つの独立したモデルを 1 つの画面で編集する) は、毎回組み立てた値を比べる使い方 (`IsChangedWith(x)` / `AcceptChanges(x)`) もあります。
 

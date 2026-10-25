@@ -56,7 +56,7 @@ TestServices.CreateFakes()      → FakeServices (WinformsMVP.Testing)
    └── Provider   DefaultServiceProvider  上のフェイクを登録済み — PresenterTestHost.Start(fakes.Provider, presenter, view) に渡す
 
 TestServices.Create()           無出力の ILoggerFactory だけを登録した DefaultServiceProvider (自作フェイクだけで組むとき)
-PresenterTestHost               モック View をアタッチして実際の初期化を走らせ、RequestClose を記録し、CanClose / CanCloseAsync ゲートを駆動する
+PresenterTestHost               モック View をアタッチして実際の初期化を走らせ、RequestClose をゲートに通して受理されたクローズを記録し、CanClose / CanCloseAsync ゲートを駆動する
 CapturingActionBinder           フレームワークが View に渡す dispatcher を捕捉。テストから Dispatch する入口
 Mock<IXxxView>                  View インターフェイス用のモック (テスト側で書く — CapturingActionBinder を公開する)
 業務依存 (IXxxRepository 等)     Presenter のコンストラクタに注入 (テスト側で書く。フレームワークサービスとは別経路)
@@ -374,8 +374,21 @@ public async Task Close_WithUnsavedChanges_SavesBeforeClosing()
 
     Assert.True(allow);
 }
+
+[Fact]
+public async Task CloseAction_WithUnsavedChanges_SavesAndCloses()
+{
+    _view.SimulateEdit("new value");
+    _fakes.Messages.EnqueueYesNoCancel(ConfirmResult.Yes);
+
+    _view.Binder.Dispatch(StandardActions.Close);   // RequestClose → CanCloseAsync
+    await _host.WaitForCloseDecisionAsync();        // DispatchAsync はゲートの判定を待たない
+
+    Assert.True(_host.CloseRequested);
+}
 ```
 
+- `RequestClose` は `CanClose` / `CanCloseAsync` を通るので、非同期ゲートの答えはハンドラの完了より後に出ることがあります。`await host.WaitForCloseDecisionAsync()` は、`RequestClose` が始めたクローズの判定を待ちます (判定待ちがなければすぐ完了)。`DispatchAsync` はハンドラの完了しか待ちません。
 - `DispatchAsync` はハンドラの例外で fault します (`await Assert.ThrowsAsync<...>(() => view.Binder.DispatchAsync(...))`)。`Initialized` は `OnInitializeAsync` が例外を投げても fault しません (本番と同じくログに出るだけ)。想定内の失敗は、ハンドラ内で表示したメッセージ (`fakes.Messages.Calls`) や View の状態で検証します。
 - 実行中のアクションは `CanDispatch == false` です。「実行中は無効」を検証するなら、完了しない `TaskCompletionSource` をモックリポジトリから返し、`_view.Binder.Dispatch(...)` の直後に `Assert.False(_view.Binder.CanDispatch(...))` とします。
 - 実例: `tests/WinformsMVP.Samples.Tests/Presenters/ComposeEmailPresenterTests.cs`、`MainEmailPresenterTests.cs`、`ViewActions/AsyncActionTests.cs`。
@@ -463,15 +476,16 @@ view.Binder.Dispatch(StandardActions.Save);
 | メンバー | 用途 |
 |---|---|
 | `PresenterTestHost.Start(presenter, view)` / `Start(presenter, view, parameters)` | View をアタッチし、`RegisterViewActions` → binder 自動バインド → `OnInitialize` を実行 (`OnInitializeAsync` は開始のみ)。初期化が例外を投げた場合は Presenter を破棄して再スロー |
-| `CloseRequested` / `CloseCount` / `CloseResult` / `CloseStatus` | Presenter が呼んだ `RequestClose` の記録 (Push 方向)。`OnInitialize` 中の呼び出しも記録される |
+| `CloseRequested` / `CloseCount` / `CloseResult` / `CloseStatus` | **受理された** クローズの記録。`Start` 後の `RequestClose` は本番と同じく `CanClose` / `CanCloseAsync` (`CloseReason.Normal`) を通り、ゲートが許可したときだけ記録される (拒否されれば記録なし・結果は破棄。ゲート内の `RequestClose` は結果を置き換える)。`Start` の同期部分 (`OnInitialize` など) の中の `RequestClose` は表示のキャンセルとしてゲートなしで記録され、何回呼んでも 1 回 (最後の結果) |
+| `WaitForCloseDecisionAsync()` | `RequestClose` が始めたクローズの判定 (非同期の `CanCloseAsync`) を待つ `Task`。判定待ちがなければすぐ完了。`DispatchAsync` はゲートを待たないので、こちらを `await` してから `CloseRequested` を検証する |
 | `Initialized` | `OnInitializeAsync` の完了で完了する `Task`。`await host.Initialized;` してから非同期ロードの結果を検証する (失敗はログに出るだけで fault しない) |
-| `CanClose(reason = CloseReason.Normal)` | X / Alt+F4 と同じ Pull ゲートを実行し `bool?` を返す。`CanCloseAsync` が未回答なら `null`。コントロール Presenter ではクローズゲートがないので `InvalidOperationException` |
+| `CanClose(reason = CloseReason.Normal)` | X / Alt+F4 と同じゲートを実行し `bool?` を返す (何度でも呼べる判定の確認で、クローズは記録しない)。`CanCloseAsync` が未回答なら `null`。コントロール Presenter ではクローズゲートがないので `InvalidOperationException` |
 | `CanCloseAsync(reason = CloseReason.Normal)` | 同じゲートを実行し、`CanCloseAsync` の判定を `await` できる `Task<bool>` を返す。コントロール Presenter では `InvalidOperationException` |
 | `Dispose()` | Presenter を破棄 (`Cleanup` と `Disposables` の解放) |
 
 ### ウィンドウクローズのテスト
 
-Push 方向 (`RequestClose`) も Pull 方向 (`CanClose`) も `PresenterTestHost` で検証します。`ICloseParticipant` (internal) にキャストしたり、自前の `ICloseSink` を束縛したりする必要はありません:
+`RequestClose` を呼ぶアクションも、ゲート (`CanClose`) そのものも `PresenterTestHost` で検証します。`RequestClose` は本番と同じくゲートを通るので、ゲートが確認ダイアログを出すならフェイクに答えを用意します。`ICloseParticipant` (internal) にキャストしたり、自前の `ICloseSink` を束縛したりする必要はありません:
 
 ```csharp
 public class UserEditorClosingTests
@@ -501,17 +515,42 @@ public class UserEditorClosingTests
 
             Assert.False(host.CanClose());                 // CloseReason.Normal — dirty なのでブロック
             Assert.True(host.CanClose(CloseReason.SystemShutdown));   // シャットダウンは決してブロックしない
-            Assert.False(host.CloseRequested);             // Pull ゲートは RequestClose を発生させない
+            Assert.False(host.CloseRequested);             // host.CanClose はゲートの確認だけで、クローズを記録しない
+        }
+    }
+
+    // 「閉じる」ボタン (StandardActions.Close → RequestClose(InteractionStatus.Cancel)) は X と同じゲートを通る
+    [Fact]
+    public void CloseAction_WhenDirty_AsksAndNoKeepsTheWindowOpen()
+    {
+        var fakes = TestServices.CreateFakes();
+        var view = new MockUserEditorView();
+        using (var host = PresenterTestHost.Start(fakes.Provider, new UserEditorPresenter(new MockUserRepository()), view))
+        {
+            view.UserName = "Edited";
+            view.RaiseInputChanged();
+            fakes.Messages.EnqueueYesNo(false);            // 「変更を破棄しますか？」→ いいえ
+
+            view.Binder.Dispatch(StandardActions.Close);
+
+            Assert.Contains(fakes.Messages.Calls, m => m.IsConfirmation);
+            Assert.False(host.CloseRequested);             // ゲートが拒否: 記録されない
+
+            fakes.Messages.EnqueueYesNo(true);             // もう一度 → はい
+            view.Binder.Dispatch(StandardActions.Close);
+
+            Assert.True(host.CloseRequested);
+            Assert.Equal(InteractionStatus.Cancel, host.CloseStatus);
         }
     }
 }
 ```
 
-`CanCloseAsync` のタスクが未完了の間、`host.CanClose()` は `null` を返します。判定を待つには `await host.CanCloseAsync()` を使います ([非同期処理をテストする](#非同期処理をテストする))。
+`CanCloseAsync` のタスクが未完了の間、`host.CanClose()` は `null` を返します。判定を待つには `await host.CanCloseAsync()` を使います。アクションの `RequestClose` が始めた非同期の判定は `await host.WaitForCloseDecisionAsync()` で待ちます ([非同期処理をテストする](#非同期処理をテストする))。
 
 `private` だったメソッドを `internal` に変えてテストすると、CanExecute スキップ等の不具合が production で発覚するまで隠れます。
 
-完全な実例: `tests/WinformsMVP.Samples.Tests/Presenters/PresenterTestHostTests.cs` および `WindowClosingDemoPresenterTests.cs`。(`CanCloseTests.cs` はフレームワーク内部の契約テストで、`ICloseParticipant` を直接使います。)
+完全な実例: `tests/WinformsMVP.Samples.Tests/Presenters/PresenterTestHostTests.cs`、`WindowClosingDemoPresenterTests.cs` および `Composition/RequestCloseGateHostTests.cs` (ゲートを通る `RequestClose`、表示のキャンセル、`WaitForCloseDecisionAsync`)。(`CanCloseTests.cs` はフレームワーク内部の契約テストで、`ICloseParticipant` を直接使います。)
 
 ---
 

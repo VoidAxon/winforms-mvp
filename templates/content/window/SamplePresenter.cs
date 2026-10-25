@@ -31,6 +31,8 @@ namespace MvpNamespace
         protected override void RegisterViewActions()
         {
             Dispatcher.Register(SampleActions.Ok, OnOkAsync);
+            // Same as X: RequestClose goes through CanClose / CanCloseAsync. Override CanClose to ask about
+            // unsaved edits; for an explicit "discard and close", AcceptChanges() before RequestClose.
             Dispatcher.Register(SampleActions.Cancel, () => RequestClose(InteractionStatus.Cancel));
         }
 
@@ -62,6 +64,8 @@ namespace MvpNamespace
 
 //#endif
             await Task.CompletedTask;               // save here, passing cancellationToken
+            // The close goes through CanClose: after saving, mark the state clean (tracker.AcceptChanges())
+            // so it does not ask "save changes?".
             RequestClose(InteractionStatus.Ok);
         }
     }

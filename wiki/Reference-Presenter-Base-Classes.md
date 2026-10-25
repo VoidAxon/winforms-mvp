@@ -19,9 +19,9 @@ PresenterBase<TView>                              [共通基底・直接継承�
 
 これらの基底クラスはすべて `WinformsMVP.Core` パッケージ (`netstandard2.0`、WinForms 非参照) にあります。`Connect` 拡張メソッドや `WindowNavigator` など WinForms に触れる部分は `WinformsMVP` パッケージ側です (名前空間は共通)。
 
-`WindowPresenterBaseCore<TView>` には Pull ゲート (`CanClose` / `CanCloseAsync` オーバーライド)、Push helper (`RequestClose`)、および `Connect` で使われるクローズシンクバインディングが集約されています。直接継承せず、`WindowPresenterBase<TView>` または `WindowPresenterBase<TView, TParam>` を使ってください。
+`WindowPresenterBaseCore<TView>` にはクローズゲート (`CanClose` / `CanCloseAsync` オーバーライド)、Push helper (`RequestClose`)、および `Connect` で使われるクローズシンクバインディングが集約されています。直接継承せず、`WindowPresenterBase<TView>` または `WindowPresenterBase<TView, TParam>` を使ってください。
 
-業務結果を返す Presenter は、`RequestClose(result, status)` 基底メソッドを呼ぶだけです — インターフェイスの実装も拡張メソッドも不要。`TResult` は引数から推論されます (詳細は [ウィンドウクローズモデル](Concept-Window-Closing-Model))。
+業務結果を返す Presenter は、`RequestClose(result, status)` 基底メソッドを呼ぶだけです — インターフェイスの実装も拡張メソッドも不要。`TResult` は引数から推論されます。開いているウィンドウへの `RequestClose` は X と同じく `CanClose` / `CanCloseAsync` を通り (`CloseReason.Normal`)、渡した結果はゲートが許可したときに呼び出し元へ届く候補です。ウィンドウ表示前 (`OnInitialize` など) の `RequestClose` はゲートを通らず、表示をキャンセルします (詳細は [ウィンドウクローズモデル](Concept-Window-Closing-Model))。
 
 ---
 
@@ -69,7 +69,7 @@ public class AboutDialogPresenter : WindowPresenterBase<IAboutDialogView>
         Dispatcher.Register(AboutActions.Close, OnClose);
     }
 
-    private void OnClose() => /* ... */;
+    private void OnClose() => RequestClose(InteractionStatus.Cancel);   // goes through CanClose, like X
 }
 
 // 呼び出し側
@@ -449,7 +449,7 @@ public class GoodPresenter : WindowPresenterBase<IMyView>
     private void OnSave()
     {
         var result = BuildResult();
-        RequestClose(result, InteractionStatus.Ok);   // Push close — TResult inferred from result
+        RequestClose(result, InteractionStatus.Ok);   // Push close through CanClose — TResult inferred from result
     }
 }
 ```
@@ -470,11 +470,11 @@ Presenter を **本物のエントリーポイントから** 駆動してくだ�
 // PresenterTestHost (WinformsMVP.Testing) がモック View をアタッチして実際の初期化を走らせる
 using (var host = PresenterTestHost.Start(presenter, view))
 {
-    // Push (RequestClose) のテスト — ホストが記録する
+    // Push (RequestClose) のテスト — ゲートを通って受理されたクローズをホストが記録する
     view.Binder.Dispatch(StandardActions.Save);
-    Assert.Equal(InteractionStatus.Ok, host.CloseStatus);
+    Assert.Equal(InteractionStatus.Ok, host.CloseStatus);   // CanCloseAsync なら先に await host.WaitForCloseDecisionAsync()
 
-    // Pull ゲート (CanClose) のテスト — X / Alt+F4 と同じゲート (CanCloseAsync が未回答なら null)
+    // ゲート (CanClose) のテスト — X / Alt+F4 と同じゲート (CanCloseAsync が未回答なら null)
     Assert.False(host.CanClose(CloseReason.Normal));
 
     // 非同期: ハンドラ / OnInitializeAsync / CanCloseAsync の完了を await する
@@ -486,7 +486,7 @@ using (var host = PresenterTestHost.Start(presenter, view))
 
 `OnSave` を `private` から `internal` / `public` に格上げしてテストすると、production が通らない経路がテストで通ってしまい、CanExecute 判定をスキップする等の不具合を見逃します。
 
-詳しいテストパターンは [HowTo: Presenter をテストする](HowTo-Test-A-Presenter) と [HowTo: ウィンドウクローズを扱う § テストパターン](HowTo-Handle-Window-Closing#test-patterns) を参照してください。
+詳しいテストパターンは [HowTo: Presenter をテストする](HowTo-Test-A-Presenter) と [HowTo: ウィンドウクローズを扱う § テストパターン](HowTo-Handle-Window-Closing#テストパターン) を参照してください。
 
 ---
 

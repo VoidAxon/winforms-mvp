@@ -588,7 +588,7 @@ namespace WinformsMVP.Samples.Tests.Presenters
             var controller = new WindowLifecycleController(form, gate, (r, s) => { }, disposeForm: true);
             controller.BindSink();
             gate.Sink.Close(null, InteractionStatus.Ok);
-            Assert.True(controller.CloseRequestedBeforeShow);
+            Assert.True(controller.OpeningCancelled);
 
             Assert.Throws<InvalidOperationException>(() => controller.ConvergeWithoutShow());
 

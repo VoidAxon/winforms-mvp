@@ -77,16 +77,28 @@ namespace WinformsMVP.MVP.Presenters
             // idempotent for attached-only and attached+initialized presenters alike. A failed
             // attach/initialize leaves a presenter that can never run, so it is released (the
             // caller owns the Form).
-            if (!attachable.IsViewAttached)
-                DisposeOnFailure(presenter, () => attachable.AttachView(view));
+            // The Form's events are wired first, so a close delivered from here on (held before Connect, or
+            // requested during initialization) is converged; until the Form's Load it cancels the opening:
+            // the window is made invisible and closed there, so the caller's Show / Application.Run shows
+            // nothing.
+            controller.WireFormEvents(adopted: true);
+            try
+            {
+                if (!attachable.IsViewAttached)
+                    DisposeOnFailure(presenter, () => attachable.AttachView(view));
 
-            // Throws for a second Connect of an already-connected presenter. Deliberately outside
-            // the dispose-on-failure guard: that presenter is still serving its window.
-            controller.BindSink();   // before Initialize; also delivers a close requested earlier
+                // Throws for a second Connect of an already-connected presenter. Deliberately outside
+                // the dispose-on-failure guard: that presenter is still serving its window.
+                controller.BindSink();   // before Initialize; also delivers a close requested earlier
 
-            if (!attachable.IsInitialized)
-                DisposeOnFailure(presenter, initialize);
-            controller.WireFormEvents();
+                if (!attachable.IsInitialized)
+                    DisposeOnFailure(presenter, initialize);
+            }
+            catch
+            {
+                controller.UnwireFormEvents();
+                throw;
+            }
         }
 
         private static void DisposeOnFailure(object presenter, Action step)

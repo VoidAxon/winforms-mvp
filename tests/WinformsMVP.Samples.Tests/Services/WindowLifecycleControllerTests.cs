@@ -82,10 +82,26 @@ namespace WinformsMVP.Samples.Tests.Services
         }
 
         [Fact]
-        public void PresenterPush_SkipsGate_ConvergesWithResult()
+        public void PresenterPush_GoesThroughTheGate_BlockedStaysOpen()
         {
             var (form, presenter, results, _) = Build();
-            presenter.SyncDecision = _ => false; // gate would block, push must bypass it
+            int gateRuns = 0;
+            presenter.SyncDecision = _ => { gateRuns++; return false; };   // e.g. "破棄しますか？" -> No
+
+            form.Show();
+            presenter.Push("payload", InteractionStatus.Ok);
+
+            Assert.Equal(1, gateRuns);
+            Assert.True(form.Visible);
+            Assert.Empty(results);
+            form.Dispose();
+        }
+
+        [Fact]
+        public void PresenterPush_GateAllows_ConvergesWithThePushedResult()
+        {
+            var (form, presenter, results, _) = Build();
+            presenter.SyncDecision = r => r == CloseReason.Normal;
 
             form.Show();
             presenter.Push("payload", InteractionStatus.Ok);
@@ -93,6 +109,52 @@ namespace WinformsMVP.Samples.Tests.Services
             Assert.Single(results);
             Assert.Equal("payload", results[0].Item1);
             Assert.Equal(InteractionStatus.Ok, results[0].Item2);
+        }
+
+        [Fact]
+        public void PresenterPush_GateSuppliesItsOwnResult_ThatOneWins()
+        {
+            var (form, presenter, results, _) = Build();
+            presenter.SyncDecision = _ => { presenter.Push("saved in the gate", InteractionStatus.Ok); return true; };
+
+            form.Show();
+            presenter.Push("pushed", InteractionStatus.Cancel);
+
+            Assert.Single(results);
+            Assert.Equal("saved in the gate", results[0].Item1);
+        }
+
+        [Fact]
+        public void PresenterPush_BlockedThenUserClose_ThePushedResultDoesNotLeak()
+        {
+            var (form, presenter, results, _) = Build();
+            presenter.SyncDecision = _ => false;
+            form.Show();
+            presenter.Push("payload", InteractionStatus.Ok);
+
+            presenter.SyncDecision = _ => true;
+            form.Close();
+
+            Assert.Single(results);
+            Assert.Null(results[0].Item1);
+            Assert.Equal(InteractionStatus.Cancel, results[0].Item2);
+        }
+
+        [Fact]
+        public void PresenterPush_AsyncGate_AllowLater_ConvergesWithThePushedResult()
+        {
+            var (form, presenter, results, _) = Build();
+            Action<bool> stored = null;
+            presenter.AsyncGate = (reason, proceed) => stored = proceed;
+
+            form.Show();
+            presenter.Push("payload", InteractionStatus.Ok);
+            Assert.True(form.Visible);
+
+            stored(true);
+
+            Assert.False(form.Visible);
+            Assert.Equal("payload", results[0].Item1);
         }
 
         [Fact]
@@ -148,17 +210,24 @@ namespace WinformsMVP.Samples.Tests.Services
         }
 
         [Fact]
-        public void CloseBeforeShow_DoesNotTouchForm_SetsFlag()
+        public void PushBeforeShowing_CancelsTheOpening_NoGate_ConvergesWithoutShow()
         {
-            var (form, presenter, results, controller) = Build();
+            var form = new FakeWindow();
+            var presenter = new FakeParticipant { SyncDecision = _ => throw new InvalidOperationException("must not be asked") };
+            var results = new List<(object, InteractionStatus)>();
+            var controller = new WindowLifecycleController(form, presenter, (r, s) => results.Add((r, s)), disposeForm: false);
+            controller.BindSink();
 
-            presenter.Push("early", InteractionStatus.Ok); // no Show() yet
+            presenter.Push("first", InteractionStatus.Cancel);   // e.g. RequestClose in OnInitialize
+            presenter.Push("early", InteractionStatus.Ok);
+            controller.WireFormEvents();
 
-            Assert.True(controller.CloseRequestedBeforeShow);
+            Assert.True(controller.OpeningCancelled);
             controller.ConvergeWithoutShow();
             Assert.Single(results);
             Assert.Equal("early", results[0].Item1);
             Assert.True(presenter.Disposed);
+            Assert.True(form.IsDisposed);   // never shown: disposed even when the caller would not
         }
 
         // A push made while the gate is deciding (e.g. "Save changes?" -> Yes -> saved) is the
@@ -320,6 +389,42 @@ namespace WinformsMVP.Samples.Tests.Services
             Assert.True(form.Visible);
             Assert.Empty(results);
             form.Dispose();
+        }
+
+        [Fact]
+        public void OwnerPushVetoedByChild_ALaterUserCloseReplayed_DoesNotReuseThePushedResult()
+        {
+            var (owner, ownerPresenter, ownerResults, _) = Build();
+            var (child, childPresenter, _, _) = Build();
+            Action<bool> pending = null;
+            childPresenter.SyncDecision = _ => false;                       // first: the child refuses
+
+            owner.Show();
+            child.Show(owner);
+            ownerPresenter.Push("saved", InteractionStatus.Ok);             // refused by the child
+            Assert.Empty(ownerResults);
+
+            childPresenter.AsyncGate = (r, proceed) => pending = proceed;   // now the child decides later
+            owner.Close();                                                  // a plain user close of the owner
+            pending(true);                                                  // the child allows: the owner's close is replayed
+
+            Assert.Single(ownerResults);
+            Assert.Null(ownerResults[0].Item1);                             // not the earlier "saved"
+            Assert.Equal(InteractionStatus.Cancel, ownerResults[0].Item2);
+        }
+
+        [Fact]
+        public void PresenterPush_OnAModalDialog_KeepsItsResult()
+        {
+            var (form, presenter, results, _) = Build();
+            presenter.SyncDecision = _ => true;
+            form.Shown += (s, e) => presenter.Push("payload", InteractionStatus.Ok);   // e.g. a Save button
+
+            form.ShowDialog();                       // FormClosing runs later, inside the modal loop
+
+            Assert.Single(results);
+            Assert.Equal("payload", results[0].Item1);
+            Assert.Equal(InteractionStatus.Ok, results[0].Item2);
         }
     }
 }

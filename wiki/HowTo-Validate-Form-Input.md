@@ -444,7 +444,7 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView>
 「入力が無効になったら自動で元に戻す」は実装しないでください。`ChangeTracker` は変更を **検出するだけ** で、データを元に戻す機能はありません (以前の `RejectChanges()` は削除されました)。仮に編集セッション全体を戻すと、3 項目編集して 1 項目だけ無効なときに **妥当だった残り 2 項目まで巻き戻ってしまいます**。検証はフィールド単位、巻き戻しはセッション全体——粒度が噛み合いません。
 
 - **検証失敗時**:エラーを表示して Save をブロックするだけ。`ChangeTracker` には一切触れない。
-- **ユーザーが明示的に「破棄」したとき**:画面に留まるなら、リポジトリから読み直して表示し、tracker を新しく作り (`TrackChanges(...)`)、`Validation.Reset()` も呼びます。破棄して閉じるなら、`RequestClose` の前に `_tracker.AcceptChanges(View.GetModel())` を呼んで `CanClose` が再確認しないようにします (保存したという意味ではありません)。
+- **ユーザーが明示的に「破棄」したとき**:画面に留まるなら、リポジトリから読み直して表示し、tracker を新しく作り (`TrackChanges(...)`)、`Validation.Reset()` も呼びます。破棄して閉じるなら、`RequestClose` の前に `_tracker.AcceptChanges(View.GetModel())` を呼んで、`RequestClose` が通る `CanClose` が確認しないようにします (保存したという意味ではありません)。
 
 検証と変更追跡はそれぞれ単体でテストでき、互いに依存しません。
 

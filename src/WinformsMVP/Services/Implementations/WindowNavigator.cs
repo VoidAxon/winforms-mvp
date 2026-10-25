@@ -124,12 +124,14 @@ namespace WinformsMVP.Services.Implementations
             var form = PrepareForm<TResult>(presenter, owner, initializerFactory,
                 r => result = r, disposeForm: true, instanceKey: null, out var controller, out var resolvedOwner);
 
-            if (controller.CloseRequestedBeforeShow)
+            // RequestClose during initialization cancelled the opening: never shown.
+            if (controller.OpeningCancelled)
             {
                 controller.ConvergeWithoutShow();
                 return result;
             }
 
+            controller.BeginShowing();
             if (resolvedOwner != null) form.ShowDialog(resolvedOwner); else form.ShowDialog();
 
             // Presenter and form are disposed by the controller on FormClosed.
@@ -156,6 +158,15 @@ namespace WinformsMVP.Services.Implementations
                 disposeForm: false, instanceKey,
                 out var controller, out var resolvedOwner);
 
+            // RequestClose during initialization cancelled the opening: never shown. The key is released
+            // and onClosed runs (it may reopen the same key) before presenter and Form are disposed.
+            if (controller.OpeningCancelled)
+            {
+                controller.ConvergeWithoutShow();
+                return null;
+            }
+
+            controller.BeginShowing();
             if (resolvedOwner != null) newForm.Show(resolvedOwner); else newForm.Show();
 
             return (IWindowView)newForm;

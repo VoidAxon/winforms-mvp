@@ -255,7 +255,7 @@ Supervising Controller MVP の実現のため、本フレームワークは以�
 | ViewAction システム | UI イベントを宣言的アクションに変換 | [ViewAction システム](Reference-ViewAction-System) |
 | `IMessageService` / `IDialogProvider` / `IFileService` | UI 操作のサービス抽象 | [Platform Services](Reference-Platform-Services) |
 | `WindowNavigator` | ウィンドウのライフサイクル管理 | [WindowNavigator](Reference-WindowNavigator) |
-| `RequestClose` / `CanClose` override | 二方向ウィンドウクローズモデル (Pull ゲート / Push result) | [ウィンドウクローズモデル](Concept-Window-Closing-Model) |
+| `RequestClose` / `CanClose` override | ウィンドウクローズモデル (X も `RequestClose` も `CanClose` ゲートを通る) | [ウィンドウクローズモデル](Concept-Window-Closing-Model) |
 
 ---
 

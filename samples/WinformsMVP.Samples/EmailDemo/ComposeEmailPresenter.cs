@@ -25,18 +25,18 @@ namespace WinformsMVP.Samples.EmailDemo
     /// Compose email Presenter.
     /// </summary>
     /// <remarks>
-    /// Demonstrates the canonical two-direction close pattern:
+    /// Demonstrates the close pattern — one gate, two initiators:
     /// <list type="bullet">
     ///   <item><description><b>Push</b> (Presenter initiates close): <c>OnSendAsync</c> and <c>OnDiscard</c>
     ///     call <c>RequestClose(...)</c> after finalizing dirty state.</description></item>
     ///   <item><description><b>Pull</b> (external close — user clicks X): <see cref="CanCloseAsync"/> prompts
     ///     the user to save / discard / cancel when there are unsaved changes, and awaits the save.</description></item>
     /// </list>
-    /// The single-source-of-truth principle: dirty data check lives only in <see cref="CanCloseAsync"/>.
-    /// Push-direction handlers (<c>OnSendAsync</c>, <c>OnDiscard</c>) accept the current content
-    /// before requesting close. The framework does not run <see cref="CanCloseAsync"/> for that
-    /// push close itself; accepting first keeps the presenter's state consistent, so any later
-    /// <see cref="CanCloseAsync"/> evaluation (another close attempt, tests) sees no unsaved changes.
+    /// Both go through <see cref="CanCloseAsync"/>: a <c>RequestClose</c> on the open window is gated like X
+    /// (<c>CloseReason.Normal</c>). The single-source-of-truth principle: the dirty data check lives only
+    /// in <see cref="CanCloseAsync"/>. Push-direction handlers (<c>OnSendAsync</c>, <c>OnDiscard</c>) accept
+    /// the current content before requesting close, so the gate their close goes through sees no unsaved
+    /// changes and does not prompt.
     /// <para>
     /// Send and SaveDraft are <c>async Task</c> handlers: while one runs the dispatcher disables
     /// it and ignores repeated clicks, so no busy flag is needed for that.
@@ -119,17 +119,17 @@ namespace WinformsMVP.Samples.EmailDemo
         private bool HasUnsavedChanges => _changeTracker != null && _changeTracker.IsChangedWith(ReadEditState());
 
         /// <summary>
-        /// Pull-direction close handler. Runs when the Form is about to close for a reason the
-        /// presenter did not request (user clicked X, system shutdown, parent closing). A close the
-        /// presenter requested with <c>RequestClose</c> does not run it.
+        /// The close gate. Runs for every close of the open window: user clicked X, parent closing,
+        /// and the presenter's own <c>RequestClose</c> (as <c>CloseReason.Normal</c>). System shutdown
+        /// and Task Manager closes are allowed by the framework without running it.
         /// </summary>
         /// <remarks>
         /// <list type="bullet">
-        ///   <item><description>Only normal user-driven closes are guarded; system shutdown /
-        ///     task manager / parent-closing let the process exit without prompting.</description></item>
+        ///   <item><description>System shutdown / Task Manager never reach it; a parent closing does,
+        ///     and gets the same prompt (an owned window's edits are not lost silently).</description></item>
         ///   <item><description>Push-direction closes (after <c>OnSendAsync</c> / <c>OnDiscard</c>)
-        ///     do not reach this handler; those handlers accept the current content first, so the
-        ///     state stays consistent if it is evaluated later.</description></item>
+        ///     reach it too; those handlers accept the current content first, so it sees no unsaved
+        ///     changes and allows the close without prompting.</description></item>
         ///   <item><description>User clicked X with unsaved changes: prompt Yes/No/Cancel. On Yes the
         ///     draft save is awaited (the window stays open meanwhile); if it fails the close is
         ///     blocked so the user does not lose the text.</description></item>
@@ -189,8 +189,9 @@ namespace WinformsMVP.Samples.EmailDemo
 
                 if (success)
                 {
-                    // What was sent is now the accepted content: the presenter's state agrees with
-                    // the close below (edits made while sending would still show as unsaved).
+                    // What was sent is now the accepted content, so the gate the close below goes
+                    // through does not prompt (edits made while sending still show as unsaved, and
+                    // then the gate asks about them like X would).
                     _changeTracker.AcceptChanges(sent);
                     RequestClose(true, InteractionStatus.Ok);  // Return true indicating sent
                 }
@@ -262,9 +263,9 @@ namespace WinformsMVP.Samples.EmailDemo
                 {
                     return;
                 }
-                // Finalize the dirty state BEFORE RequestClose so the presenter's state agrees with
-                // the close (any later CanClose evaluation sees no unsaved changes). This ends the
-                // tracking of the discarded edits; it does not mean they were saved.
+                // Finalize the dirty state BEFORE RequestClose: the close goes through CanCloseAsync,
+                // which then sees no unsaved changes and does not ask again. This ends the tracking
+                // of the discarded edits; it does not mean they were saved.
                 _changeTracker.AcceptChanges(ReadEditState());
             }
 

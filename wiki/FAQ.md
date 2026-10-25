@@ -136,11 +136,11 @@ A. 3 通りあります。
 
 ### Q. ダーティチェック (未保存の変更があるとき確認ダイアログ) を実装したい
 
-A. Presenter で `CanClose(CloseReason reason)` を override して `false` を返すことで閉じをブロックします。Forms にクローズコードを書く必要はありません。詳しくは [HowTo: ウィンドウクローズを扱う](HowTo-Handle-Window-Closing) を参照。
+A. Presenter で `CanClose(CloseReason reason)` を override して `false` を返すことで閉じをブロックします。X だけでなく Presenter の `RequestClose` (「閉じる」ボタン) も同じゲートを通ります。Forms にクローズコードを書く必要はありません。詳しくは [HowTo: ウィンドウクローズを扱う](HowTo-Handle-Window-Closing) を参照。
 
 ### Q. ダイアログから業務結果を返したい
 
-A. 基底 `RequestClose(result, InteractionStatus.Ok)` を呼びます — インターフェイスの実装は不要です。`TResult` は引数から推論されます。呼び出し側は `Navigator.For(presenter).ShowAsModal<TResult>()` で `InteractionResult<TResult>` を受け取ります。詳しくは [Window Closing Model](Concept-Window-Closing-Model) を参照。
+A. 基底 `RequestClose(result, InteractionStatus.Ok)` を呼びます — インターフェイスの実装は不要です (`CanClose` を通るので、変更追跡をしているなら保存後に `AcceptChanges()` してから呼びます)。`TResult` は引数から推論されます。呼び出し側は `Navigator.For(presenter).ShowAsModal<TResult>()` で `InteractionResult<TResult>` を受け取ります。詳しくは [Window Closing Model](Concept-Window-Closing-Model) を参照。
 
 ### Q. `ShowAsModal` の戻り値で 3 つの型引数を毎回書くのが面倒です
 

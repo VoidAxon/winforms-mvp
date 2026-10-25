@@ -117,7 +117,9 @@ public class AboutPresenter : WindowPresenterBase<IAboutView>
 
     protected override void RegisterViewActions()
     {
-        Dispatcher.Register(StandardActions.Close, () => /* ... */);
+        // The Form's btnClose_Click => Close() becomes an action: RequestClose goes through
+        // CanClose like X, so the Form writes no closing code.
+        Dispatcher.Register(StandardActions.Close, () => RequestClose(InteractionStatus.Cancel));
     }
 }
 

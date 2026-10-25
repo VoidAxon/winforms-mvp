@@ -41,7 +41,7 @@
 
 ### CanClose
 
-`WindowPresenterBase` の `protected virtual bool CanClose(CloseReason reason)` override。Pull 方向のクローズゲート。`false` を返すとクローズをブロックする。非同期バリアント: `protected virtual Task<bool> CanCloseAsync(CloseReason reason)` (既定は `CanClose(reason)` を返す。旧コールバック形式 `CanClose(reason, Action<bool> proceed)` は削除済み)。
+`WindowPresenterBase` の `protected virtual bool CanClose(CloseReason reason)` override。クローズゲート。開いたウィンドウのクローズ (X / Alt+F4 / オーナーのクローズ、および `RequestClose`) はすべてここを通る (システムシャットダウン / タスクマネージャを除く)。`false` を返すとクローズをブロックする。非同期バリアント: `protected virtual Task<bool> CanCloseAsync(CloseReason reason)` (既定は `CanClose(reason)` を返す。旧コールバック形式 `CanClose(reason, Action<bool> proceed)` は削除済み)。
 
 詳細: [Window Closing Model](Concept-Window-Closing-Model)
 
@@ -129,7 +129,7 @@ DI 管理の依存を持つ子 Presenter を生成するためのファクトリ
 
 ### RequestClose
 
-`WindowPresenterBaseCore<TView>` が提供する Push 方向のクローズメソッド。インターフェイスの実装不要。2 つのオーバーロードがある:
+`WindowPresenterBaseCore<TView>` が提供する Push 方向のクローズメソッド。インターフェイスの実装不要。開いたウィンドウでは X と同じく `CanClose` / `CanCloseAsync` (`CloseReason.Normal`) を通り、渡した結果はゲートが許可したときに呼び出し元へ届く候補になる。ウィンドウ表示前 (`OnInitialize` など) に呼ぶと、ゲートを通らずに表示をキャンセルする。2 つのオーバーロードがある:
 
 - `protected void RequestClose(InteractionStatus status = InteractionStatus.Ok)` — 業務結果なしで閉じる
 - `protected void RequestClose<TResult>(TResult result, InteractionStatus status = InteractionStatus.Ok)` — 型付き業務結果を返して閉じる (`TResult` は引数から推論される)
@@ -217,13 +217,13 @@ MVP の中央コンポーネント。ユースケースロジックを持ち、V
 
 ### Pull (方向)
 
-ウィンドウクローズモデルで、フレームワーク (`FormClosing`) が起点となる方向。Presenter の `CanClose(CloseReason reason)` override でゲートする。
+ウィンドウクローズモデルで、フレームワーク (`FormClosing`: X / Alt+F4 / オーナーのクローズ) が起点となる方向。Presenter の `CanClose(CloseReason reason)` override でゲートする。Push 方向のクローズも同じゲートを通る。
 
 詳細: [Window Closing Model](Concept-Window-Closing-Model)
 
 ### Push (方向)
 
-ウィンドウクローズモデルで、Presenter (`OnSave` / `OnCancel` 等) が起点となる方向。基底 `RequestClose(result, status)` / `RequestClose(status)` メソッドで通知する。
+ウィンドウクローズモデルで、Presenter (`OnSave` / `OnCancel` / 「閉じる」等) が起点となる方向。基底 `RequestClose(result, status)` / `RequestClose(status)` メソッドで通知する。Pull 方向と同じ `CanClose` ゲートを通る (`CloseReason.Normal`)。
 
 ### Service Locator
 
@@ -275,7 +275,7 @@ Presenter 側でアクションをハンドラに振り分けるコンポーネ�
 
 ### WindowLifecycleController
 
-Per-window internal component that owns the entire WinForms close bridge for one Form. Implements `ICloseSink` (Push), bridges `FormClosing` → `CanClose` (Pull), and converges results on `FormClosed`. The only framework component that references `Form` directly. One instance per window; created by `WindowNavigator` (Managed) or `presenter.Connect(...)` (Adopted).
+Per-window internal component that owns the entire WinForms close bridge for one Form. Implements `ICloseSink` (Push), runs the `CanClose` gate in `FormClosing` for every close of an open window (✕ and `RequestClose` alike), handles a `RequestClose` before the window is shown as cancelling the opening, and converges results on `FormClosed`. The only framework component that references `Form` directly. One instance per window; created by `WindowNavigator` (Managed) or `presenter.Connect(...)` (Adopted).
 
 詳細: [Window Closing Model](Concept-Window-Closing-Model)
 

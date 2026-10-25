@@ -192,5 +192,90 @@ namespace WinformsMVP.Samples.Tests.Services
                     openedForm.Close();
             }
         }
+
+        #region Cancelling the opening (RequestClose during initialization)
+
+        private sealed class RefusingPresenter : WindowPresenterBase<ITestNavView>
+        {
+            public bool Disposed { get; private set; }
+            public int GateCalls;
+            protected override void OnViewAttached() { }
+            protected override void OnInitialize() => RequestClose("not found", WinformsMVP.Common.InteractionStatus.Error);
+            protected override bool CanClose(WinformsMVP.Common.CloseReason reason) { GateCalls++; return false; }
+            protected override void Cleanup() => Disposed = true;
+        }
+
+        private static (WindowNavigator navigator, List<TestNavForm> forms) NavigatorWithTrackedForms()
+        {
+            var forms = new List<TestNavForm>();
+            var register = new ViewMappingRegister();
+            register.Register<ITestNavView>(() => { var f = new TestNavForm(); forms.Add(f); return f; });
+            return (new WindowNavigator(register), forms);
+        }
+
+        [Fact]
+        public void Modal_CancelledDuringInitialization_IsNeverShown_NoGate()
+        {
+            var (navigator, forms) = NavigatorWithTrackedForms();
+            var presenter = new RefusingPresenter();
+
+            var result = navigator.ShowWindowAsModal<RefusingPresenter, string>(presenter);
+
+            Assert.True(result.IsError);
+            Assert.Equal("not found", result.ErrorMessage);
+            Assert.Equal(0, presenter.GateCalls);
+            Assert.False(forms[0].IsHandleCreated);   // never shown
+            Assert.True(forms[0].IsDisposed);
+            Assert.True(presenter.Disposed);
+        }
+
+        [Fact]
+        public void Modeless_CancelledDuringInitialization_ReturnsNull_CallsOnClosed_ReleasesTheKey()
+        {
+            var (navigator, forms) = NavigatorWithTrackedForms();
+            WinformsMVP.Common.InteractionResult<string> closed = null;
+
+            var view = navigator.ShowWindow<RefusingPresenter, string>(new RefusingPresenter(),
+                keySelector: _ => 1, onClosed: r => closed = r);
+
+            Assert.Null(view);
+            Assert.True(closed.IsError);
+            Assert.False(forms[0].IsHandleCreated);
+            Assert.True(forms[0].IsDisposed);
+
+            // The key is free again: a second request is not "activate the open window".
+            var again = navigator.ShowWindow<RefusingPresenter, string>(new RefusingPresenter(), keySelector: _ => 1);
+            Assert.Null(again);
+            Assert.Equal(2, forms.Count);
+        }
+
+        private sealed class HandleTouchingRefusingPresenter : WindowPresenterBase<ITestNavView>
+        {
+            private readonly Action _viewOperation;
+            public int GateCalls;
+            public HandleTouchingRefusingPresenter(Action viewOperation) => _viewOperation = viewOperation;
+            protected override void OnViewAttached() { }
+            protected override void OnInitialize()
+            {
+                RequestClose(WinformsMVP.Common.InteractionStatus.Cancel);
+                _viewOperation();   // a view operation that creates the Form's handle
+            }
+            protected override bool CanClose(WinformsMVP.Common.CloseReason reason) { GateCalls++; return true; }
+        }
+
+        [Fact]
+        public void Modal_CancelledDuringInitialization_HandleCreatedMeanwhile_StillNotShown_NoGate()
+        {
+            var (navigator, forms) = NavigatorWithTrackedForms();
+            var presenter = new HandleTouchingRefusingPresenter(() => { var _ = forms[0].Handle; });
+
+            var result = navigator.ShowWindowAsModal<HandleTouchingRefusingPresenter, string>(presenter);
+
+            Assert.True(result.IsCancelled);
+            Assert.Equal(0, presenter.GateCalls);
+            Assert.True(forms[0].IsDisposed);
+        }
+
+        #endregion
     }
 }
