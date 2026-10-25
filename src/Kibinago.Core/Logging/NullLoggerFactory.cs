@@ -7,11 +7,14 @@ namespace Kibinago.Logging
     /// </summary>
     public sealed class NullLoggerFactory : ILoggerFactory
     {
+        /// <summary>The shared instance.</summary>
         public static readonly NullLoggerFactory Instance = new NullLoggerFactory();
 
         private NullLoggerFactory() { }
 
+        /// <inheritdoc />
         public ILogger CreateLogger(string categoryName) => NullLogger.Instance;
+        /// <inheritdoc />
         public ILogger CreateLogger(Type type) => NullLogger.Instance;
     }
 }

@@ -18,6 +18,13 @@ namespace Kibinago.Logging
     /// </summary>
     public static class MessageFormatter
     {
+        /// <summary>
+        /// Formats <paramref name="message"/> with <paramref name="args"/>. Returns an empty string for null,
+        /// the template unchanged when there are no arguments, and the template unformatted when it does not
+        /// match the arguments (never throws <see cref="FormatException"/>).
+        /// </summary>
+        /// <param name="message">The template, with named or indexed placeholders.</param>
+        /// <param name="args">The placeholder values, in placeholder order.</param>
         public static string Format(string message, object[] args)
         {
             if (string.IsNullOrEmpty(message)) return message ?? string.Empty;

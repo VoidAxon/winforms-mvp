@@ -8,12 +8,19 @@ using Kibinago.Services;
 
 namespace Kibinago.Services.Implementations
 {
+    /// <summary>
+    /// Default <see cref="IWindowNavigator"/>: creates the presenter's Form through the
+    /// <see cref="IViewMappingRegister"/>, attaches and initializes the presenter, wires the close gate
+    /// and shows the window modally or non-modally.
+    /// </summary>
     public class WindowNavigator : IWindowNavigator
     {
         private readonly IViewMappingRegister _viewMappingRegister;
         private readonly Dictionary<object, Form> _openForms = new Dictionary<object, Form>();
         private readonly object _lock = new object(); // For thread synchronization
 
+        /// <summary>Creates a navigator that resolves Forms from <paramref name="viewMappingRegister"/>.</summary>
+        /// <param name="viewMappingRegister">Maps each view interface to its Form.</param>
         public WindowNavigator(IViewMappingRegister viewMappingRegister)
         {
             _viewMappingRegister = viewMappingRegister;
@@ -35,6 +42,7 @@ namespace Kibinago.Services.Implementations
         public InteractionResult<TResult> ShowWindowAsModal<TPresenter, TResult>(TPresenter presenter, IWindowView owner = null) where TPresenter : IPresenter
             => ShowModalCore<TResult>(presenter, owner, () => ParameterlessInitializer(presenter));
 
+        /// <inheritdoc />
         public InteractionResult ShowWindowAsModal<TPresenter>(TPresenter presenter, IWindowView owner = null)
         where TPresenter : IPresenter
         {
@@ -47,6 +55,7 @@ namespace Kibinago.Services.Implementations
             where TPresenter : IPresenter, IInitializable<TParam>
             => ShowModalCore<TResult>(presenter, owner, () => () => presenter.Initialize(parameters));
 
+        /// <inheritdoc />
         public InteractionResult ShowWindowAsModal<TPresenter, TParam>(TPresenter presenter, TParam parameters, IWindowView owner = null)
             where TPresenter : IPresenter, IInitializable<TParam>
         {
@@ -73,6 +82,7 @@ namespace Kibinago.Services.Implementations
             where TPresenter : IPresenter
             => ShowModelessCore(presenter, owner, keySelector, onClosed, () => ParameterlessInitializer(presenter));
 
+        /// <inheritdoc />
         public IWindowView ShowWindow<TPresenter>(TPresenter presenter,
         IWindowView owner = null,
         Func<TPresenter, object> keySelector = null) where TPresenter : IPresenter
@@ -94,6 +104,7 @@ namespace Kibinago.Services.Implementations
             where TPresenter : IPresenter, IInitializable<TParam>
             => ShowModelessCore(presenter, owner, keySelector, onClosed, () => () => presenter.Initialize(parameters));
 
+        /// <inheritdoc />
         public IWindowView ShowWindow<TPresenter, TParam>(
             TPresenter presenter,
             TParam parameters,

@@ -15,6 +15,9 @@ namespace Kibinago.Common.Events
     /// </remarks>
     public class ValueChangedEventArgs<T> : EventArgs
     {
+        /// <summary>Creates event data for a change from <paramref name="oldValue"/> to <paramref name="newValue"/>.</summary>
+        /// <param name="oldValue">The value before the change.</param>
+        /// <param name="newValue">The value after the change.</param>
         public ValueChangedEventArgs(T oldValue, T newValue)
         {
             OldValue = oldValue;

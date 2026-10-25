@@ -8,12 +8,16 @@ namespace Kibinago.Logging
     /// </summary>
     public sealed class NullLogger : ILogger
     {
+        /// <summary>The shared instance.</summary>
         public static readonly NullLogger Instance = new NullLogger();
 
         private NullLogger() { }
 
+        /// <inheritdoc />
+        /// <remarks>Always false.</remarks>
         public bool IsEnabled(LogLevel level) => false;
 
+        /// <inheritdoc />
         public void Log(LogLevel level, Exception exception, string message, params object[] args)
         {
             // intentionally empty

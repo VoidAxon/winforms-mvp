@@ -14,6 +14,9 @@ namespace Kibinago.DependencyInjection
     {
         private readonly IServiceProvider _serviceProvider;
 
+        /// <summary>Creates a factory that resolves presenters from <paramref name="serviceProvider"/>.</summary>
+        /// <param name="serviceProvider">The container presenters (and their per-presenter scopes) come from.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="serviceProvider"/> is <c>null</c>.</exception>
         public ServiceProviderPresenterFactory(IServiceProvider serviceProvider)
         {
             _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));

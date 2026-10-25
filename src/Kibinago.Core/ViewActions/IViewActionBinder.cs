@@ -11,7 +11,7 @@ namespace Kibinago.ViewActions
     /// <para>
     /// This interface intentionally contains only what the presenter (and framework base classes) need.
     /// Configuration APIs such as <c>Add</c>, <c>RegisterStrategy</c>, and bulk-binding extensions
-    /// remain on the concrete <see cref="ViewActionBinder"/> class because they are view-implementation details.
+    /// remain on the concrete <c>ViewActionBinder</c> class because they are view-implementation details.
     /// </para>
     /// </remarks>
     public interface IViewActionBinder

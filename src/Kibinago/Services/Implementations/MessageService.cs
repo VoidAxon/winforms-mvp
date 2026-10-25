@@ -23,12 +23,15 @@ namespace Kibinago.Services.Implementations
             _options = options.Copy();
         }
 
+        /// <inheritdoc />
         public bool ConfirmOkCancel(string text, string caption = "")
             => Show(text, caption, MessageDialogButtons.OkCancel, MessageDialogIcon.Question) == MessageDialogResult.Ok;
 
+        /// <inheritdoc />
         public bool ConfirmYesNo(string text, string caption = "")
             => Show(text, caption, MessageDialogButtons.YesNo, MessageDialogIcon.Question) == MessageDialogResult.Yes;
 
+        /// <inheritdoc />
         public ConfirmResult ConfirmYesNoCancel(string text, string caption = "")
         {
             switch (Show(text, caption, MessageDialogButtons.YesNoCancel, MessageDialogIcon.Question))
@@ -39,12 +42,15 @@ namespace Kibinago.Services.Implementations
             }
         }
 
+        /// <inheritdoc />
         public void ShowError(string text, string caption = "")
             => Show(text, caption, MessageDialogButtons.Ok, MessageDialogIcon.Error);
 
+        /// <inheritdoc />
         public void ShowInfo(string text, string caption = "")
             => Show(text, caption, MessageDialogButtons.Ok, MessageDialogIcon.Information);
 
+        /// <inheritdoc />
         public void ShowWarning(string text, string caption = "")
             => Show(text, caption, MessageDialogButtons.Ok, MessageDialogIcon.Warning);
 

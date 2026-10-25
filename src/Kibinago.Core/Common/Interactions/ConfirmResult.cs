@@ -6,8 +6,11 @@ namespace Kibinago.Common
     /// </summary>
     public enum ConfirmResult
     {
+        /// <summary>The user answered Yes.</summary>
         Yes,
+        /// <summary>The user answered No.</summary>
         No,
+        /// <summary>The user cancelled (Cancel button, Esc or the dialog's X).</summary>
         Cancel
     }
 }

@@ -103,6 +103,18 @@ dotnet_naming_style.camel_case_style.capitalization = camel_case
 [*.{cs,vb}]
 dotnet_diagnostic.CS1591.severity = suggestion
 
+# The shipped libraries publish their XML docs (GenerateDocumentationFile in each packable csproj):
+# an undocumented public member, a parameter without <param>, a stray <param>, a dangling paramref or a broken cref
+# is an error there, so IntelliSense never falls behind the API.
+[src/**.cs]
+dotnet_diagnostic.CS1591.severity = error
+dotnet_diagnostic.CS1573.severity = error
+dotnet_diagnostic.CS1572.severity = error
+dotnet_diagnostic.CS1574.severity = error
+dotnet_diagnostic.CS1570.severity = error
+dotnet_diagnostic.CS1734.severity = error
+dotnet_diagnostic.CS1735.severity = error
+
 # ---------------------------------------------------------------------------
 # MVP analyzers — scoped relaxations
 #

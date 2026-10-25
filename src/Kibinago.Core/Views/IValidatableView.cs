@@ -9,6 +9,10 @@ namespace Kibinago.Views
     /// </summary>
     public interface IValidatableView : IViewBase
     {
+        /// <summary>
+        /// Shows the presenter's validation errors, e.g. an <c>ErrorProviderDisplay</c> mapping field
+        /// names to controls.
+        /// </summary>
         IValidationErrorDisplay ValidationErrors { get; }
     }
 }

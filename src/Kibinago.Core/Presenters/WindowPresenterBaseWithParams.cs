@@ -23,6 +23,10 @@ namespace Kibinago.Presenters
         /// </summary>
         protected TParam Parameters { get; private set; }
 
+        /// <summary>
+        /// Creates the presenter. Derived constructors take only the presenter's own dependencies; the
+        /// view and <see cref="Parameters"/> are supplied later, by WindowNavigator or <c>Connect</c>.
+        /// </summary>
         protected WindowPresenterBase()
         {
         }

@@ -19,6 +19,7 @@ namespace Kibinago.Presenters
     /// </summary>
     public abstract class PresenterBase<TView> : IPresenter, IViewAttachable, IPresenterResourceOwner, IPresenterServicesBinding, IComposablePresenter where TView : IViewBase
     {
+        /// <summary>The attached view; <c>null</c> until the view is attached.</summary>
         protected TView View { get; private set; }
         private readonly ViewActionDispatcher _dispatcher;
 
@@ -29,6 +30,7 @@ namespace Kibinago.Presenters
         // OnInitializeAsync when the presenter (its window / control) goes away.
         private readonly CancellationTokenSource _lifetime = new CancellationTokenSource();
 
+        /// <summary>Creates the presenter and its action dispatcher.</summary>
         protected PresenterBase()
         {
             _dispatcher = new ViewActionDispatcher { Lifetime = _lifetime.Token };
@@ -331,10 +333,16 @@ namespace Kibinago.Presenters
         private void LogInitializeFailure(Exception ex)
             => Logger.LogError(ex, "{Presenter}.OnInitializeAsync failed", GetType().Name);
 
+        /// <inheritdoc />
         public Type ViewInterfaceType => typeof(TView);
 
         private bool _dispatcherInitialized;
 
+        /// <summary>
+        /// The presenter's action dispatcher: register handlers on it in <c>RegisterViewActions</c>; the
+        /// framework then binds it to the view's <c>ActionBinder</c>. Once the presenter is disposed it
+        /// ignores dispatches.
+        /// </summary>
         protected ViewActionDispatcher Dispatcher
         {
             get
@@ -425,6 +433,13 @@ namespace Kibinago.Presenters
             }
         }
 
+        /// <summary>
+        /// Disposes the presenter: stops its dispatcher, cancels <see cref="Lifetime"/> and unbinds the
+        /// action binder, then runs <see cref="Cleanup"/>, disposes the child presenters (in reverse
+        /// order) and finally <see cref="Disposables"/>. A repeated call does nothing. Every step runs
+        /// even when an earlier one throws; one failure is rethrown, several as an
+        /// <see cref="AggregateException"/>.
+        /// </summary>
         public void Dispose()
         {
             if (_isDisposed) return;

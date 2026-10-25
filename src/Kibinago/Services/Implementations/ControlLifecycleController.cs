@@ -7,7 +7,7 @@ namespace Kibinago.Services.Implementations
 {
     /// <summary>
     /// Per-control controller that owns the WinForms lifecycle bridge for one control-hosted view:
-    /// it rides the control's <see cref="Control.Disposed"/> event to tear the presenter down. This is
+    /// it rides the control's <see cref="System.ComponentModel.Component.Disposed"/> event to tear the presenter down. This is
     /// the only place in the control path that knows <see cref="Control"/> — the runtime view-to-Control
     /// boundary lives in this constructor, mirroring how <c>WindowCloseController</c> is the only place
     /// that knows <see cref="Form"/>.

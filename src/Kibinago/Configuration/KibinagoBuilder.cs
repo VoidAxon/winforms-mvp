@@ -25,6 +25,7 @@ namespace Kibinago.Configuration
         private readonly List<FrameworkRegistration> _choices = new List<FrameworkRegistration>();
         private bool _built;
 
+        /// <summary>Creates an empty builder: every service keeps its built-in default until a group chooses otherwise.</summary>
         public KibinagoBuilder()
         {
             Messages = new MessagesBuilder(this);

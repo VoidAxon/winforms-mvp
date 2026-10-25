@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace Kibinago.Common
 {
     /// <summary>
-    /// Exposes a key that represents the identity of a selection. When <typeparamref name="T"/>
+    /// Exposes a key that represents the identity of a selection. When <c>T</c>
     /// of a <see cref="Selection{T}"/> implements this interface, the selection compares
     /// selections by this <see cref="Key"/> (via <see cref="SelectableKeyComparer{T}"/>) instead
     /// of by reference — so a reloaded list, which holds NEW instances, still matches "the same"
@@ -32,6 +32,9 @@ namespace Kibinago.Common
         /// <summary>Display text. Defaults to <c>Value.ToString()</c> when not supplied.</summary>
         public string Text { get; private set; }
 
+        /// <summary>Wraps <paramref name="value"/>.</summary>
+        /// <param name="value">The value; also the item's identity.</param>
+        /// <param name="text">Display text; null uses <c>value.ToString()</c>.</param>
         public SelectableItem(T value, string text = null)
         {
             Value = value;
@@ -44,12 +47,14 @@ namespace Kibinago.Common
         /// <summary>Shows the display text when bound to a list/combo.</summary>
         public override string ToString() { return Text; }
 
+        /// <summary>Equal when <paramref name="obj"/> is a <see cref="SelectableItem{T}"/> with an equal <see cref="Value"/> (the text is ignored).</summary>
         public override bool Equals(object obj)
         {
             var other = obj as SelectableItem<T>;
             return other != null && object.Equals(Value, other.Value);
         }
 
+        /// <inheritdoc />
         public override int GetHashCode()
         {
             return Value != null ? Value.GetHashCode() : 0;

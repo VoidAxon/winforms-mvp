@@ -11,14 +11,23 @@ namespace Kibinago.Testing
     /// <summary>The kind of operation a <see cref="FileOperationCall"/> describes.</summary>
     public enum FileOperation
     {
+        /// <summary>Reading a file (<c>ReadAllText</c>, <c>ReadAllBytes</c>, <c>ReadAllLines</c>).</summary>
         Read,
+        /// <summary>Writing a file (<c>WriteAllText</c>, <c>WriteAllBytes</c>, <c>WriteAllLines</c>).</summary>
         Write,
+        /// <summary>Appending to a file (<c>AppendAllText</c>, <c>AppendAllLines</c>).</summary>
         Append,
+        /// <summary>Copying a file; <see cref="FileOperationCall.Destination"/> is the target.</summary>
         Copy,
+        /// <summary>Moving a file; <see cref="FileOperationCall.Destination"/> is the target.</summary>
         Move,
+        /// <summary>Deleting a file.</summary>
         Delete,
+        /// <summary>Creating a directory.</summary>
         CreateDirectory,
+        /// <summary>Deleting a directory.</summary>
         DeleteDirectory,
+        /// <summary>Listing a directory (<c>GetFiles</c>, <c>GetDirectories</c>).</summary>
         Enumerate
     }
 

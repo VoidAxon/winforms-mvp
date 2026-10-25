@@ -19,7 +19,7 @@ namespace Kibinago.Services.Implementations
     /// <para>
     /// Unlike the corner toasts, an anchored toast is a standalone singleton: only one exists at a
     /// time, and showing a new one closes the previous. It does not stack with — or disturb — the
-    /// corner toasts. Appearance comes from <paramref name="options"/> (falling back to the
+    /// corner toasts. Appearance comes from the <c>options</c> argument (falling back to the
     /// toast service's <see cref="ToastHostOptions"/>); the <see cref="ToastOptions.Position"/>
     /// corner is ignored here because the anchor point determines placement.
     /// </para>

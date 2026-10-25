@@ -6,9 +6,13 @@ namespace Kibinago.Common
     /// </summary>
     public enum ToastPosition
     {
+        /// <summary>Top-left corner of the working area.</summary>
         TopLeft,
+        /// <summary>Top-right corner of the working area.</summary>
         TopRight,
+        /// <summary>Bottom-left corner of the working area.</summary>
         BottomLeft,
+        /// <summary>Bottom-right corner of the working area.</summary>
         BottomRight
     }
 }

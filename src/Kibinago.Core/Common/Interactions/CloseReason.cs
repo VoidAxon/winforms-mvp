@@ -2,7 +2,7 @@ namespace Kibinago.Common
 {
     /// <summary>
     /// Framework-level abstraction of the reason a window is closing.
-    /// Maps from WinForms <see cref="System.Windows.Forms.CloseReason"/> to avoid leaking
+    /// Maps from WinForms <c>System.Windows.Forms.CloseReason</c> to avoid leaking
     /// WinForms types into Presenter code.
     /// </summary>
     /// <remarks>

@@ -29,12 +29,19 @@ namespace Kibinago.ViewActions
         /// <summary>The action name.</summary>
         public string Name => Key.Name;
 
+        /// <summary>Keys are equal when their untyped <see cref="Key"/>s are equal.</summary>
+        /// <param name="other">The key to compare with.</param>
         public bool Equals(ViewAction<T> other) => Key.Equals(other.Key);
+        /// <inheritdoc />
         public override bool Equals(object obj) => obj is ViewAction<T> other && Equals(other);
+        /// <inheritdoc />
         public override int GetHashCode() => Key.GetHashCode();
+        /// <summary>Returns <see cref="Name"/>.</summary>
         public override string ToString() => Key.ToString();
 
+        /// <summary>Equal when the untyped keys are equal.</summary>
         public static bool operator ==(ViewAction<T> left, ViewAction<T> right) => left.Equals(right);
+        /// <summary>Not equal when the untyped keys differ.</summary>
         public static bool operator !=(ViewAction<T> left, ViewAction<T> right) => !left.Equals(right);
     }
 }

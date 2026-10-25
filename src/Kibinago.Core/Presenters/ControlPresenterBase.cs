@@ -11,7 +11,7 @@ namespace Kibinago.Presenters
     /// Construction is two-phase, identical in shape to <see cref="WindowPresenterBase{TView}"/>:
     /// the constructor takes only the presenter's own dependencies, then the view is supplied via
     /// <c>AttachView</c> and initialization runs via <c>Initialize</c>. The
-    /// <c>Connect</c> extension (see <see cref="ControlPresenterConnectExtensions"/>) drives that
+    /// <c>Connect</c> extension (see <c>ControlPresenterConnectExtensions</c> in the Kibinago package) drives that
     /// sequence and wires lifecycle teardown. This keeps the presenter free of any
     /// <c>System.Windows.Forms</c> dependency, and — because <c>Initialize</c> runs after the
     /// constructor chain has completed — it removes the constructor-ordering trap where
@@ -24,6 +24,10 @@ namespace Kibinago.Presenters
         IInitializable
         where TView : IViewBase
     {
+        /// <summary>
+        /// Creates the presenter. Derived constructors take only the presenter's own dependencies; the
+        /// view is attached and the presenter initialized later, by <c>Connect</c> or <c>AttachChild</c>.
+        /// </summary>
         protected ControlPresenterBase()
         {
         }

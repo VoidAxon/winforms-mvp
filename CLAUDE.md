@@ -365,6 +365,7 @@ Use for cross-presenter/cross-module events. Do **not** use for parent-child coo
 ## Development Notes
 
 - **Target frameworks:** `Kibinago.Core` / `Kibinago.Testing` → `netstandard2.0`; `Kibinago` / `Kibinago.DependencyInjection` → `net472;net10.0-windows`; samples and tests → `net48`. Minimum .NET Framework is 4.7.2; net40 is no longer supported. SDK-style gives automatic file inclusion and `PackageReference`; `EnableWindowsTargeting` (in `Directory.Build.props`) lets `dotnet build` run on non-Windows hosts.
+- **XML docs:** the four library packages ship their XML docs (`GenerateDocumentationFile`); in `src/` a public member without a doc comment, a parameter without `<param>` or a broken `cref` is a build error (`.editorconfig`). Implementations of documented interface / base members use `/// <inheritdoc />`.
 - **Where code goes:** anything a presenter needs goes in `Kibinago.Core` and must not reference WinForms / System.Drawing; WinForms implementations go in `Kibinago`.
 - **Tests:** xUnit 2.9.3. `Kibinago.Samples.Tests` targets net48, so `dotnet test` on it needs Windows (or mono); `Kibinago.Analyzers.Tests` (net10.0) runs anywhere.
 - **Adding a Form/Dialog:** define `IXxxView : IWindowView` → presenter extends `WindowPresenterBase<TView>[, TParam]` → implement the Form → register the mapping → show via `WindowNavigator`. In an app project, `dotnet new mvp-window -n Xxx [--param-type int] [--validation]` scaffolds the view interface, actions, presenter and Form (`dotnet new mvp-control` for a UserControl).
@@ -377,7 +378,7 @@ Use for cross-presenter/cross-module events. Do **not** use for parent-child coo
 
 Every push to `master` and every pull request runs `.github/workflows/ci.yml` (Windows: build + both test projects + `tests/templates/verify-templates.sh` with the generated tests run).
 
-Releases are **tag-driven**. Pushing a tag matching `v*` triggers `.github/workflows/release.yml`, which builds, runs the test suite (gate), packs the five shippable packages (`Kibinago.Core`, `Kibinago`, `Kibinago.DependencyInjection`, `Kibinago.Testing`, `Kibinago.Templates`), asserts the analyzer is bundled in `Kibinago.Core`, publishes to **GitHub Packages**, and creates a **GitHub Release** with the `.nupkg` files attached.
+Releases are **tag-driven**. Pushing a tag matching `v*` triggers `.github/workflows/release.yml`, which builds, runs the test suite (gate), packs the five shippable packages (`Kibinago.Core`, `Kibinago`, `Kibinago.DependencyInjection`, `Kibinago.Testing`, `Kibinago.Templates`), asserts the analyzer is bundled in `Kibinago.Core` and the XML docs are packed next to every library, publishes to **GitHub Packages**, and creates a **GitHub Release** with the `.nupkg` files attached.
 
 ```bash
 git tag v1.0.0-preview.1 && git push origin v1.0.0-preview.1   # preview

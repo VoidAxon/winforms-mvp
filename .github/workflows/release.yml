@@ -80,6 +80,27 @@ jobs:
           if (-not $entry) { throw "Analyzer DLL missing from $($pkg.Name) - expected analyzers/dotnet/cs/Kibinago.Analyzers.dll" }
           Write-Host "OK: analyzer bundled in $($pkg.Name)"
 
+      - name: Assert XML docs are packed next to every library
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          foreach ($id in 'Kibinago.Core', 'Kibinago', 'Kibinago.DependencyInjection', 'Kibinago.Testing') {
+            $pkg = Get-ChildItem "artifacts/$id.[0-9]*.nupkg" | Select-Object -First 1
+            if (-not $pkg) { throw "$id package not found in artifacts" }
+            $zip = [System.IO.Compression.ZipFile]::OpenRead($pkg.FullName)
+            try {
+              $dlls = $zip.Entries | Where-Object { $_.FullName -like "lib/*/$id.dll" }
+              if (-not $dlls) { throw "No lib/*/$id.dll in $($pkg.Name)" }
+              foreach ($dll in $dlls) {
+                $xml = $dll.FullName -replace '\.dll$', '.xml'
+                if (-not ($zip.Entries | Where-Object { $_.FullName -eq $xml })) { throw "XML docs missing from $($pkg.Name) - expected $xml" }
+              }
+            } finally {
+              $zip.Dispose()
+            }
+            Write-Host "OK: XML docs packed in $($pkg.Name)"
+          }
+
       - name: Push to GitHub Packages
         shell: pwsh
         # dotnet nuget push does not expand a quoted wildcard path on its own; enumerate the files explicitly.

@@ -15,8 +15,10 @@ namespace Kibinago.Common
     /// </remarks>
     public sealed class SelectableKeyComparer<T> : IEqualityComparer<T> where T : class
     {
+        /// <summary>The shared instance (the comparer is stateless).</summary>
         public static readonly SelectableKeyComparer<T> Instance = new SelectableKeyComparer<T>();
 
+        /// <inheritdoc />
         public bool Equals(T x, T y)
         {
             if (ReferenceEquals(x, y)) return true;
@@ -25,6 +27,7 @@ namespace Kibinago.Common
             return sx != null && sy != null && object.Equals(sx.Key, sy.Key);
         }
 
+        /// <inheritdoc />
         public int GetHashCode(T o)
         {
             var s = o as ISelectable;

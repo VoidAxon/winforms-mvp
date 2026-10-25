@@ -10,6 +10,8 @@
 
     <!-- Shippable: opt in to packing (Directory.Build.props defaults to false). -->
     <IsPackable>true</IsPackable>
+    <!-- Ship the XML docs (IntelliSense for consumers); missing / broken docs are errors (.editorconfig, src/). -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <PackageId>Kibinago</PackageId>
     <Description>A WinForms Model-View-Presenter (Supervising Controller) framework for .NET Framework 4.7.2+ and .NET 10 (Windows). WinForms implementation (navigator, action binder, dialogs, toasts) on top of Kibinago.Core, which brings the MVP design-rule analyzers.</Description>
     <PackageTags>mvp;winforms;model-view-presenter;desktop;dotnet-framework;analyzers</PackageTags>
