@@ -154,7 +154,7 @@ protected override void RegisterViewActions()
     // Framework auto-calls View.ActionBinder?.Bind(Dispatcher) after this method returns.
 }
 ```
-Call `Dispatcher.RaiseCanExecuteChanged()` when state changes outside an action (selection, input changes).
+Call `Dispatcher.RaiseCanExecuteChanged()` when state changes outside an action (selection, input changes). The framework re-evaluates `CanExecute` itself after `OnInitialize` and when `OnInitializeAsync` finishes, so data loaded there needs no manual refresh.
 
 **Async handlers:** `Register` has async overloads — `Func<Task>`, `Func<CancellationToken, Task>`, `Func<T, Task>`, `Func<T, CancellationToken, Task>` — so `async` lambdas / `async Task` methods bind to them (never write `async void` handlers):
 ```csharp

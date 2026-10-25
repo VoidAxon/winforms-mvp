@@ -274,6 +274,9 @@ namespace WinformsMVP.MVP.Presenters
             onInitialize();
             if (_isDisposed) return;
             _initializationTask = RunInitializeAsync();
+            // The binder computed control states at Bind, before the data OnInitialize (and the
+            // synchronous part of OnInitializeAsync) loaded: refresh them now.
+            if (!_isDisposed) _dispatcher.RaiseCanExecuteChanged();
         }
 
         private Task _initializationTask = Task.CompletedTask;
@@ -320,6 +323,8 @@ namespace WinformsMVP.MVP.Presenters
             {
                 LogInitializeFailure(ex);
             }
+            // Same as after OnInitialize: the loaded data may enable or disable actions.
+            if (!_isDisposed) _dispatcher.RaiseCanExecuteChanged();
         }
 
         private void LogInitializeFailure(Exception ex)

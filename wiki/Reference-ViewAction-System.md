@@ -308,6 +308,7 @@ Dispatcher.Register(
 
 | トリガー | 動作 |
 |---------|------|
+| **`OnInitialize` の後・`OnInitializeAsync` の完了時** | 自動 (バインドは `OnInitialize` の前なので、そこで読み込んだデータで改めて再評価) |
 | **任意のアクション実行直後** | 自動 (フレームワークが `ActionExecuted` 後に全 CanExecute を再評価) |
 | **非同期ハンドラの開始時・終了時** | 自動 (実行中のアクションは `CanDispatch == false`) |
 | **アクション実行を伴わない状態変化** | 手動 (`Dispatcher.RaiseCanExecuteChanged()` を呼ぶ) |
