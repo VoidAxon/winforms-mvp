@@ -234,28 +234,40 @@ namespace WinformsMVP.Services.Implementations
         private void CloseCancelledOpening()
         {
             if (_closed || _form.IsDisposed) return;
+
+            // Whether another FormClosing handler refuses is only known at the end of FormClosing — and
+            // for a modal dialog that happens later, inside its modal loop. A handler added last sees the
+            // final answer; on a refusal it shows the window again (never an invisible live window).
+            FormClosingEventHandler outcome = null;
+            outcome = (s, e) =>
+            {
+                _form.FormClosing -= outcome;
+                if (e.Cancel) RestoreAfterRefusedCancellation();
+            };
+            _form.FormClosing += outcome;
+
             _bypassGateOnce = true;   // cancelling the opening is not a user close: no gate
             _form.Close();
             if (!_closed && _form.IsDisposed)
             {
                 // Closed before it ever had a window message loop: WinForms disposed it without FormClosed.
+                _form.FormClosing -= outcome;
                 UnwireFormEvents();
                 _closed = true;
                 Converge();
-                return;
             }
-            if (_closed) return;
+            // Otherwise FormClosed converges (modeless: already; modal: when its loop processes the close).
+        }
 
-            // Another FormClosing handler refused: never leave an invisible live window — show it.
+        private void RestoreAfterRefusedCancellation()
+        {
             _bypassGateOnce = false;
             _pendingResult = null;
             _pendingStatus = InteractionStatus.Cancel;
-            if (_hidden)
-            {
-                _hidden = false;
-                try { _form.Opacity = _savedOpacity; } catch (Exception) { /* opacity unavailable */ }
-                _form.Location = _savedLocation;
-            }
+            if (!_hidden) return;
+            _hidden = false;
+            try { _form.Opacity = _savedOpacity; } catch (Exception) { /* opacity unavailable */ }
+            _form.Location = _savedLocation;
         }
 
         private void EndOpeningAsShown()

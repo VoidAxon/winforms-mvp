@@ -194,5 +194,41 @@ namespace WinformsMVP.Samples.Tests.Presenters
             Assert.Equal(0, presenter.GateCalls);
             Assert.True(closed.IsCancelled);
         }
+
+        private sealed class RefusingWithResultPresenter : WindowPresenterBase<IFakeView>
+        {
+            protected override void OnViewAttached() { }
+            protected override void OnInitialize() => RequestClose("gone", InteractionStatus.Error);
+        }
+
+        [Fact]
+        public void Connect_CancelledDuringInitialization_Modal_ClosesWithTheResult_NotShown()
+        {
+            var form = new FakeWindowForm();
+            InteractionResult<string> closed = null;
+            new RefusingWithResultPresenter().Connect<IFakeView, string>(form, r => closed = r);
+
+            form.ShowDialog();                         // returns once the cancelled opening closed it
+
+            Assert.NotNull(closed);
+            Assert.True(closed.IsError);
+            Assert.Equal("gone", closed.ErrorMessage);
+            Assert.True(form.IsDisposed);
+        }
+
+        [Fact]
+        public void Connect_CancelledDuringInitialization_AnotherHandlerRefuses_TheFormIsShown()
+        {
+            var form = new FakeWindowForm();
+            form.FormClosing += (s, e) => e.Cancel = true;   // e.g. a legacy handler that refuses to close
+            var presenter = new RefusingPresenter();
+            presenter.Connect(form);
+
+            form.Show();
+
+            Assert.False(form.IsDisposed);
+            Assert.Equal(1.0, form.Opacity);                  // made visible again
+            form.Dispose();
+        }
     }
 }
