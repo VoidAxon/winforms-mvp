@@ -264,6 +264,19 @@ void IRegistrationView.FocusError(string field) => _errors.TryFocusError(field);
 - Presenter のルール (`SetError`) も、項目名がモデルのプロパティ名ならその位置に入ります。モデルにない項目は名前順で後ろに、`FormLevel` は最後に付くので、`Check` が `false` なら `FirstError` は必ずあります (エラーがないのに読むと `InvalidOperationException`)。
 - ルールがすべて Presenter のルール (`SetError`) の画面も、送信時は `Validation.Check(_input)` を呼びます (DataAnnotations がなければモデルのエラーは 0 件で、型を覚えるためだけに働きます)。
 - モデルと画面の並びがまったく違う画面は、`ErrorsInOrder(nameof(A), nameof(B), ...)` で先頭に来る項目を指定できます (残りはモデルの順)。全部を一覧で出すなら `string.Join(Environment.NewLine, Validation.ErrorsInOrder().Select(e => e.Message))`。
+- **項目がモデルのプロパティでない画面** (実行時に作る項目。項目名が `"Answer[12]"` のようなキー付きの名前 — [共有 Model のキーごとの値](HowTo-Communicate-Between-Presenters#キーごとの値-明細動的な項目) 参照) では、モデルの宣言順が使えず名前順 (序数比較) になります。`"Answer[1000]"` が `"Answer[999]"` より前に来るなど、画面の順とは関係ありません。項目を作った Presenter が画面の順を持っているので、それを渡します:
+
+  ```csharp
+  if (!Validation.Check(_input))
+  {
+      var first = Validation.ErrorsInOrder(_questions.Select(q => SurveyInput.AnswerProperty(q.Id)).ToArray())[0];
+      Messages.ShowWarning(first.Message);
+      View.FocusQuestion(first.Field);
+      return;
+  }
+  ```
+
+  (`Check` が `false` ならエラーは必ずあるので `[0]` で取れます。)
 
 その他:
 

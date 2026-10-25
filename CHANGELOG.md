@@ -22,6 +22,7 @@
 
 ### Changed (変更)
 
+- Wiki: 共有 Model のキーごとの値 (`"Answer[12]"`、空の名前 = 全部)、キー付き項目の最初のエラー (`ErrorsInOrder(画面の順)`)、同じ View に別のパラメータで Presenter を付け直す手順、行のボタンの `Click` で自分の行を破棄しないよう `BeginInvoke` で要求する Form の例。
 - MVP002 (Presenter は `Presenter` で終える) は `abstract` クラスを対象外にする — 複数の Presenter の共通基底を `XxxPresenterBase` と名付けても警告しない。
 - **画面を開いた直後のボタンの有効/無効が正しくなる** — バインダーは `OnInitialize` より前にバインドされるため、`OnInitialize` / `OnInitializeAsync` で読み込んだデータ (一覧の初期選択など) に依存する `canExecute` が古いまま表示されていた。フレームワークが `OnInitialize` の後と `OnInitializeAsync` の完了時に `CanExecute` を再評価する。Presenter が自分で `RaiseCanExecuteChanged()` を呼ぶ必要はない。
 - **BREAKING: `ViewActionBinder.Add` は発火方法の分からないコントロールを拒否する** — 以前は何でも `Click` にフォールバックしていたため、`TextBox` やサードパーティの入力欄を登録しても入力で何も起きず、エラーにもならなかった。`Click` へのフォールバックは `Label` / `LinkLabel` / `PictureBox` / `Panel` / `FlowLayoutPanel` / `TableLayoutPanel` (型が完全一致) だけになり、それ以外 (`DataGridView`、`ListBox`、`UserControl`、サードパーティのコントロールなど) は `RegisterStrategy<T>(...)` でイベントを指定しないと `Add` で `InvalidOperationException`。`ToolStripSeparator` も拒否。1 回の `Add` で 1 つでも拒否されたら何も登録しない。

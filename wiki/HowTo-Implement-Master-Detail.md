@@ -14,6 +14,7 @@
   - [誰が子 Presenter を所有するか](#誰が子-presenter-を所有するか)
 - [シナリオ 3: 階層 N 段の構成](#シナリオ-3-階層-n-段の構成)
 - [動的なパネル (行の追加・削除、タブ)](#動的なパネル-行の追加削除タブ)
+  - [同じ View に別のパラメータで付け直す](#同じ-view-に別のパラメータで付け直す)
 - [State-driven CanExecute](#state-driven-canexecute)
 - [カスケード削除](#カスケード削除)
 - [パフォーマンス上の注意](#パフォーマンス上の注意)
@@ -461,6 +462,30 @@ public class OrderEditPresenter : WindowPresenterBase<IOrderEditView, OrderEditI
 - 解放された子の Dispatcher は停止するので、取り除く途中のコントロールが後からクリックされてもハンドラは走りません。
 - **安全網**: Form が自分で行のコントロールを破棄してしまった場合も、その子 Presenter は同じ経路で解放されます (確認も Model 変更も `RemoveLine` もなし)。正規の経路は上のイベント → Presenter です。
 
+### 同じ View に別のパラメータで付け直す
+
+パネルのコントロールは固定 (デザイナー上) のまま、条件によって Presenter を入れ替えたいことがあります (種類を切り替えると、同じ一覧パネルが「選択肢」と「テンプレート」で別の働きをする、など)。そのときは古いハンドルを解放してから、同じ View に新しい Presenter を `AttachChild` します:
+
+```csharp
+private IDisposable _panel;
+private PanelMode? _panelMode;
+
+private void ShowMode(PanelMode? mode)
+{
+    if (_panel != null && mode == _panelMode) return;   // 同じ働きなら今の Presenter のまま
+    _panel?.Dispose();                                   // 旧 Presenter: binder の解除、SubscribeViewEvent の解除
+    _panel = null;
+    _panelMode = mode;
+    View.PanelVisible = mode != null;
+    if (mode is PanelMode m)
+        _panel = AttachChild(new ListPanelPresenter(), View.ListPanel, new ListPanelParameters { Input = _input, Mode = m });
+}
+```
+
+- **先に解放、それから `AttachChild`。** 同じ View に 2 つの子を同時に付けることはできません。解放すれば同じ View をもう一度渡せます。
+- **新しい Presenter が View を全部表示し直す。** 旧 Presenter が表示した内容 (タイトル、一覧、選択、入力欄) は、新しい Presenter の `OnInitialize` までそのまま残っています。
+- **最初の呼び出しは必ず適用する。** 「値が変わったときだけ」の判定を初期状態 (`null`) と比べると、最初に `null` (パネルなし) の状態で開いたときに何もしません — 上の `_panel != null &&` がその対策です。View の初期状態はデザイナーの値で、Presenter の状態とは限りません。
+
 ### Form 側の実装例
 
 ```csharp
@@ -480,7 +505,12 @@ public partial class OrderEditForm : Form, IOrderEditView
     IOrderLineView IOrderEditView.AddLine()
     {
         var control = new OrderLineControl();   // IOrderLineView を実装する UserControl
-        control.RemoveClicked += (s, e) => RemoveLineRequested?.Invoke(this, control);   // 取り除かず、要求するだけ
+        // 取り除かず、要求するだけ。Presenter が同期で RemoveLine (= control.Dispose()) を呼ぶので、
+        // ボタン自身の Click の途中で破棄しないよう、Click の処理が終わってから要求する
+        control.RemoveClicked += (s, e) => BeginInvoke((Action)(() =>
+        {
+            if (!control.IsDisposed) RemoveLineRequested?.Invoke(this, control);
+        }));
         _linesPanel.Controls.Add(control);
         return control;
     }
@@ -493,6 +523,8 @@ public partial class OrderEditForm : Form, IOrderEditView
     }
 }
 ```
+
+クリックされたボタンを含むコントロールをそのボタンの `Click` の中で破棄すると、WinForms はその後もボタンの処理 (マウスアップ、再描画) を続けるため、`BeginInvoke` で Click の後に回します。画面全体を作り直す操作 (保存後にタブの全項目を作り直す、など) も同じです。Presenter 側は何も変わりません。
 
 テストは親だけを `PresenterTestHost` で起動し、フェイクの親 View が返すフェイクの行 View で子を操作します — [HowTo: Presenter をテストする § 子 Presenter を含む画面のテスト](HowTo-Test-A-Presenter#子-presenter-を含む画面のテスト)。
 
