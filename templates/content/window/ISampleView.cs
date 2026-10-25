@@ -16,6 +16,9 @@ namespace MvpNamespace
 
         /// <summary>Raised when the user edits any field.</summary>
         event EventHandler DataChanged;
+
+        /// <summary>Moves the focus to the control of a field (an error is being shown).</summary>
+        void FocusError(string field);
 //#endif
     }
 }

@@ -39,6 +39,8 @@ namespace MvpNamespace
         public IValidationErrorDisplay ValidationErrors => _errors;
 
         public event EventHandler DataChanged;
+
+        public void FocusError(string field) => _errors.TryFocusError(field);
 //#endif
 
         // View data, not a designer property: keep it out of the .Designer.cs file.

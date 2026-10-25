@@ -5,9 +5,10 @@ using Kibinago.Presenters;
 namespace MvpNamespace
 {
     /// <summary>
-    /// The control's use cases. The parent (Form or its presenter's view code) hosts it with
-    /// <c>new SamplePresenter().Connect(sampleControl)</c>; the presenter is disposed with the control.
-    /// Business services go into the constructor.
+    /// The control's use cases; business services go into the constructor. In an MVP window the parent
+    /// view interface exposes <see cref="ISampleView"/> and the parent presenter attaches this one in its
+    /// OnInitialize: <c>AttachChild(new SamplePresenter(), View.Sample)</c> (disposed with the parent).
+    /// A host that is not an MVP screen uses <c>new SamplePresenter().Connect(control)</c> instead.
     /// </summary>
     public sealed class SamplePresenter : ControlPresenterBase<ISampleView>
     {

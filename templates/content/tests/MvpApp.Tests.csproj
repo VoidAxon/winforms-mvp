@@ -2,7 +2,9 @@
 
   <PropertyGroup>
     <TargetFramework>TARGET_FRAMEWORK</TargetFramework>
-    <UseWindowsForms>true</UseWindowsForms>
+    <!-- Presenter tests load no WinForms type (presenters cannot use one), so they need no Windows
+         Desktop runtime: without it they also run on Linux / macOS (dotnet test). -->
+    <DisableTransitiveFrameworkReferences>true</DisableTransitiveFrameworkReferences>
     <LangVersion>latest</LangVersion>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
