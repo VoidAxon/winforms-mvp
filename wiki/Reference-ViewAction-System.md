@@ -308,6 +308,7 @@ Dispatcher.Register(
 
 | トリガー | 動作 |
 |---------|------|
+| **`OnInitialize` の後・`OnInitializeAsync` の完了時** | 自動 (バインドは `OnInitialize` の前なので、そこで読み込んだデータで改めて再評価) |
 | **任意のアクション実行直後** | 自動 (フレームワークが `ActionExecuted` 後に全 CanExecute を再評価) |
 | **非同期ハンドラの開始時・終了時** | 自動 (実行中のアクションは `CanDispatch == false`) |
 | **アクション実行を伴わない状態変化** | 手動 (`Dispatcher.RaiseCanExecuteChanged()` を呼ぶ) |
@@ -576,8 +577,14 @@ _binder.AddRange(mapping);
 | `NumericUpDown` | `ValueChanged` | 値変更で発火。programmatic な `Value` 代入でも発火 |
 | `DateTimePicker` | `ValueChanged` | 同上 |
 | `MonthCalendar` | `DateChanged` | 同上。`DateRangeEventHandler` を内部でアダプトして購読 |
+| `TextBoxBase` | `TextChanged` | `TextBox` / `RichTextBox` / `MaskedTextBox`。入力のたびに発火し、programmatic な `Text` 代入でも発火 |
 | `ToolStripItem` | `Click` | `ToolStripButton`、`ToolStripMenuItem` 等 |
-| `Control` (fallback) | `Click` | 上記に当てはまらない任意のコントロール |
+| `ToolStripTextBox` / `ToolStripComboBox` | `TextChanged` / `SelectionChangeCommitted` | ツールバーに埋め込んだ入力欄はクリックではない |
+| `Label` / `LinkLabel` / `PictureBox` / `Panel` / `FlowLayoutPanel` / `TableLayoutPanel` | `Click` | クリックが本来の操作であるコントロール (**型が完全一致のときだけ**。派生クラスは対象外) |
+
+**上の表にないコントロールは `Add` の時点で例外になります** (`InvalidOperationException`、例外メッセージに `RegisterStrategy` の書き方)。以前は何でも `Click` にフォールバックしていたため、`TextBox` やサードパーティの入力欄 (`Control` 派生) を登録すると、入力しても何も起きず、エラーにもなりませんでした。`DataGridView`・`ListBox`・`TreeView`・`UserControl`・サードパーティのコントロールなどは、どのイベントで発火させるかを [`RegisterStrategy<T>()`](#カスタムコントロールに対応する) で明示してください (`ToolStripSeparator` は発火するものが無いので常に例外)。1 回の `Add` に複数のコントロールを渡して 1 つでも拒否されたら、何も登録されません。
+
+**注意 (テキスト系)**: `TextChanged` は確定時ではなく 1 文字ごとに発火し、コードからの `Text` 代入でも発火します。Presenter が値を View に書き戻すときは、View 側で「違うときだけ代入」(`if (txt.Text != value) txt.Text = value;`) にしてください (同じ値の再代入でカーソルが先頭に戻る・二重にディスパッチされるのを防ぐ)。重い処理を 1 文字ごとに走らせたくない場合は Presenter 側で `RateLimit.Debounce` を使います。
 
 **重要**: `CheckBox` と `RadioButton` は `Click` ではなく `CheckedChanged` に紐付くため、キーボードや programmatic な変更でも発火します。
 
@@ -638,9 +645,42 @@ protected override void OnViewAttached()
 
 `ListBox` / `ListView` の `DoubleClick`、`Enter` キーでの決定も同じ書き方です。
 
+### 後から追加・削除するコントロール (`Bind` 後の `Add` / `Remove`)
+
+`Bind` した後に `Add` したコントロールも、その場で購読され、Dispatcher にバインド済みなら `canExecute` に従って `Enabled` も更新されます。子 View が `OnInitialize` の中で選択肢のボタンを作る、行を追加する、といった場合もそのまま `Add` できます:
+
+```csharp
+// 子 View: 選択肢を表示するたびに作り直す
+void IChoiceView.ShowChoices(IReadOnlyList<Choice> choices)
+{
+    foreach (var old in _radios) { _binder.Remove(old); old.Dispose(); }   // Remove は Dispose でも自動で行われる
+    _radios.Clear();
+    foreach (var choice in choices)
+    {
+        var radio = new RadioButton { Text = choice.Name, Tag = choice.Id };
+        pnlChoices.Controls.Add(radio);
+        _binder.Add(ChoiceActions.Check, radio, r => ((int)r.Tag, r.Checked));   // ViewAction<(int Id, bool Checked)>
+        _radios.Add(radio);
+    }
+}
+```
+
+> ⚠️ `RadioButton` / `CheckBox` は **チェックが外れたときも** `CheckedChanged` で発火します (ラジオボタンを選ぶと、外れた側も発火する。コードで `Checked = false` にしたときも)。ペイロードに `Checked` を含め、Presenter は外れた通知を無視するか (ラジオ) そのまま反映します (チェックリスト):
+>
+> ```csharp
+> Dispatcher.Register(ChoiceActions.Check, ((int Id, bool Checked) e) => { if (e.Checked) _input.SelectedChoiceId = e.Id; });
+> ```
+>
+> ID だけを渡すと、外れたボタンの ID で「選択」され、コードでの選択解除が取り消されてしまいます。View が選択状態を書き戻すときは、値が違うコントロールだけを変更します。
+
+- `Remove(controls...)`: そのコントロールはアクションを発火しなくなり、`Enabled` の管理も外れます (値はそのまま)。外したコントロールは別のアクションに `Add` し直せます。未登録・削除済みのコントロールは無視されます。
+- **破棄 (`Dispose`) されたコントロールは自動的に外れます** (`Bind` 前・バインド中・`Unbind` 後のいずれでも)。破棄済みのコントロールの `Add` は `ObjectDisposedException`。
+- `Unbind()` 中に `Add` したコントロールは記録だけされ、次の `Bind` で購読されます。
+- Binder の操作 (`Add` / `Remove` / `RegisterStrategy` / `Bind` / `Unbind`) は UI スレッドで行います。
+
 ### カスタムコントロールに対応する
 
-デフォルトに無いコントロールや、別のイベントで発火させたい場合は `RegisterStrategy<T>()` で登録します。オーバーロードは 2 つあり、コントロールのイベントのデリゲート型で使い分けます。
+デフォルトに無いコントロール (上の表にないもの) や、別のイベントで発火させたい場合は、**`Add` の前に** `RegisterStrategy<T>()` で登録します。コントロールの実行時の型から基底クラスへたどり、最初に登録が見つかった型の戦略が使われます (登録順には依存しません)。バインド中に登録した戦略は、その後に `Add` したコントロールから使われます。オーバーロードは 2 つあり、コントロールのイベントのデリゲート型で使い分けます。
 
 **1. イベントが `EventHandler` 型の場合** (Click / `*Changed` など) — attacher / detacher を渡します。
 

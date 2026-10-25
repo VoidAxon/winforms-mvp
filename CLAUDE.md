@@ -143,7 +143,7 @@ See [wiki/Reference-Presenter-Base-Classes.md](wiki/Reference-Presenter-Base-Cla
 A WPF-`ICommand`-like command/dispatch layer that decouples UI events from presenter logic. It is optional: a simple screen can expose semantic view events (`event EventHandler SaveRequested`) instead; ViewAction pays off on screens with many operations or when `CanExecute` / async / middleware support is wanted.
 
 - **`ViewAction`** — immutable action key. Define them in static classes (e.g. `CommonActions.Save`), never raw strings. A screen's actions class names its scope once — `private static readonly ViewActionFactory Factory = ViewAction.Factory.WithQualifier("OrderEdit");` then `Save = Factory.Create(nameof(Save))` (key `"OrderEdit.Save"`); `ViewAction.Create("Scope.Name")` is for a single shared key. Common verbs are shipped in `StandardActions` (`Save`, `Cancel`, `Delete`, `Refresh`, `Ok`, … — keys `"Standard.Save"` etc.); use them instead of redefining. **Typed keys** (optional): `ViewAction<T>` via `Factory.Create<T>(nameof(X))` / `ViewAction.Create<T>("Scope.Name")` carry the payload type, so `binder.Add(key, control, c => T)`, `Dispatcher.Register(key, (T v) => ...)` (sync/async) and `Dispatch(key, T)` are checked at compile time; no implicit conversion to `ViewAction` — use `.Key` for the untyped API.
-- **`ViewActionBinder`** — maps UI controls to action keys; the Form configures it in `InitializeActionBindings()` and exposes it via the `ActionBinder` **property** (a property, not a method — accessing it must never run business logic).
+- **`ViewActionBinder`** — maps UI controls to action keys; the Form configures it in `InitializeActionBindings()` and exposes it via the `ActionBinder` **property** (a property, not a method — accessing it must never run business logic). Built-in triggers: buttons / ToolStrip items `Click`, `CheckBox` / `RadioButton` `CheckedChanged`, `ComboBox` `SelectionChangeCommitted`, `TextBoxBase` `TextChanged` (also on programmatic `Text` — write back only when different), `NumericUpDown` / `DateTimePicker` / `MonthCalendar` value changes, and `Click` for exactly `Label` / `LinkLabel` / `PictureBox` / `Panel` / `FlowLayoutPanel` / `TableLayoutPanel`; any other control (grid, list, `UserControl`, third-party editor) is rejected at `Add` until `RegisterStrategy<T>(...)` names its event. `Add` after `Bind` subscribes at once (Enabled follows `canExecute`); `Remove(controls)` unbinds; a disposed control is removed automatically.
 - **`ViewActionDispatcher`** — routes actions to handlers registered in `RegisterViewActions()`, with optional `canExecute` predicates that drive control enable/disable.
 
 The Presenter registers handlers; it never references controls:
@@ -154,7 +154,7 @@ protected override void RegisterViewActions()
     // Framework auto-calls View.ActionBinder?.Bind(Dispatcher) after this method returns.
 }
 ```
-Call `Dispatcher.RaiseCanExecuteChanged()` when state changes outside an action (selection, input changes).
+Call `Dispatcher.RaiseCanExecuteChanged()` when state changes outside an action (selection, input changes). The framework re-evaluates `CanExecute` itself after `OnInitialize` and when `OnInitializeAsync` finishes, so data loaded there needs no manual refresh.
 
 **Async handlers:** `Register` has async overloads — `Func<Task>`, `Func<CancellationToken, Task>`, `Func<T, Task>`, `Func<T, CancellationToken, Task>` — so `async` lambdas / `async Task` methods bind to them (never write `async void` handlers):
 ```csharp

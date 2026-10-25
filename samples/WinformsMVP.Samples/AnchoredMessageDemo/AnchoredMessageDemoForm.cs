@@ -182,6 +182,10 @@ namespace WinformsMVP.Samples.AnchoredMessageDemo
             _viewActionBinder.Add(AnchoredMessageDemoActions.Save, _saveButton, _menuSave);
             _viewActionBinder.Add(AnchoredMessageDemoActions.Delete, _deleteButton, _menuDelete);
             _viewActionBinder.Add(AnchoredMessageDemoActions.MenuNotify, _menuNotify);
+            // A grid has no built-in binding strategy (which of its events is "the" action?): say it explicitly.
+            _viewActionBinder.RegisterStrategy<DataGridView>(
+                (g, h) => g.Click += (System.EventHandler)h,
+                (g, h) => g.Click -= (System.EventHandler)h);
             _viewActionBinder.Add(AnchoredMessageDemoActions.GridTouch, _grid);
             _viewActionBinder.Add(AnchoredMessageDemoActions.ToggleNotify, _notifyCheckBox);
         }
