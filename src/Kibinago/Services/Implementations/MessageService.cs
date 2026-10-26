@@ -1,4 +1,5 @@
 using System;
+using System.Windows.Forms;
 using Kibinago.Common;
 
 namespace Kibinago.Services.Implementations
@@ -9,6 +10,13 @@ namespace Kibinago.Services.Implementations
     /// and lets the <see cref="IMessageDialogBackend"/> show it. To change how message boxes look,
     /// replace the backend (<c>mvp.Messages.UseDialogs(...)</c>), not this service.
     /// </summary>
+    /// <remarks>
+    /// Called from a worker thread (code inside <c>Task.Run</c>), the dialog is shown on the UI thread
+    /// (through an open form, with <c>Invoke</c>), so it is modal to the application's windows as usual,
+    /// and the worker waits for the answer — the backend always runs on the UI thread. Do not block the
+    /// UI thread on such a worker (<c>task.Wait()</c> / <c>.Result</c>): it would wait for a dialog that
+    /// cannot open (await it instead). With no form open, the dialog is shown on the calling thread.
+    /// </remarks>
     public class MessageService : IMessageService
     {
         private readonly IMessageDialogBackend _backend;
@@ -54,13 +62,37 @@ namespace Kibinago.Services.Implementations
         public void ShowWarning(string text, string caption = "")
             => Show(text, caption, MessageDialogButtons.Ok, MessageDialogIcon.Warning);
 
+        /// <summary>
+        /// Finds an open form whose thread is the UI thread. Replaceable so tests are not affected by
+        /// forms other tests have open (<see cref="Application.OpenForms"/> is process-wide).
+        /// </summary>
+        internal Func<Form> OpenFormLocator { get; set; } = OpenForms.FindOne;
+
         private MessageDialogResult Show(string text, string caption, MessageDialogButtons buttons, MessageDialogIcon icon)
-            => _backend.Show(new MessageDialogRequest
+        {
+            var request = new MessageDialogRequest
             {
                 Text = text,
                 Caption = string.IsNullOrEmpty(caption) ? _options.DefaultCaption : caption,
                 Buttons = buttons,
                 Icon = icon,
-            });
+            };
+
+            // On the UI thread (or with no UI thread to go to): show here. From a worker thread: show on the
+            // UI thread, so the dialog is modal to the application's windows, and wait for the answer.
+            var host = OpenFormLocator();
+            if (host == null || !host.InvokeRequired) return _backend.Show(request);
+            try
+            {
+                return (MessageDialogResult)host.Invoke(new Func<MessageDialogResult>(() => _backend.Show(request)));
+            }
+            catch (Exception ex) when ((ex is ObjectDisposedException || ex is InvalidOperationException)
+                                       && (host.IsDisposed || !host.IsHandleCreated))
+            {
+                // The form closed between the lookup and the call: no UI thread to go to any more.
+                // (A failure of the backend itself, with the form still open, propagates.)
+                return _backend.Show(request);
+            }
+        }
     }
 }

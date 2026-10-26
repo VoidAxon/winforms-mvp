@@ -1,0 +1,110 @@
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using Kibinago.Services;
+using Kibinago.Services.Implementations;
+using Xunit;
+
+namespace Kibinago.Samples.Tests.Services
+{
+    /// <summary>
+    /// A message box asked for from a worker thread (code inside Task.Run) is shown on the UI thread,
+    /// so it is modal to the application's windows; the worker waits for the answer.
+    /// </summary>
+    public class MessageServiceThreadingTests
+    {
+        private sealed class RecordingBackend : IMessageDialogBackend
+        {
+            public int ShownOnThread;
+            public MessageDialogResult Answer = MessageDialogResult.Yes;
+
+            public MessageDialogResult Show(MessageDialogRequest request)
+            {
+                ShownOnThread = Thread.CurrentThread.ManagedThreadId;
+                return Answer;
+            }
+        }
+
+        // Runs body on an STA thread with a shown (invisible) form, as a UI thread looks while the app runs.
+        private static void OnUiThreadWithForm(Action<Form> body)
+        {
+            Exception failure = null;
+            var thread = new Thread(() =>
+            {
+                try
+                {
+                    using (var form = new Form { ShowInTaskbar = false, Opacity = 0 })
+                    {
+                        form.Show();
+                        body(form);
+                    }
+                }
+                catch (Exception ex) { failure = ex; }
+            });
+            thread.SetApartmentState(ApartmentState.STA);
+            thread.Start();
+            Assert.True(thread.Join(TimeSpan.FromSeconds(30)), "UI thread timed out");
+            if (failure != null) throw new Exception("UI thread failed", failure);
+        }
+
+        // Keeps the UI thread processing messages (the worker's Invoke) until the task ends.
+        private static T PumpUntilDone<T>(Task<T> task)
+        {
+            var deadline = DateTime.UtcNow.AddSeconds(10);
+            while (!task.IsCompleted && DateTime.UtcNow < deadline)
+            {
+                Application.DoEvents();
+                Thread.Sleep(10);
+            }
+            Assert.True(task.IsCompleted, "the worker did not get its answer");
+            return task.Result;
+        }
+
+        [Fact]
+        public void Confirm_FromWorkerThread_IsShownOnTheUiThreadAndAnswersTheWorker()
+        {
+            OnUiThreadWithForm(form =>
+            {
+                var backend = new RecordingBackend { Answer = MessageDialogResult.Yes };
+                var messages = new MessageService(backend, new MessageDialogOptions()) { OpenFormLocator = () => form };
+
+                bool answer = PumpUntilDone(Task.Run(() => messages.ConfirmYesNo("Delete?")));
+
+                Assert.True(answer);
+                Assert.Equal(Thread.CurrentThread.ManagedThreadId, backend.ShownOnThread);
+            });
+        }
+
+        [Fact]
+        public void Show_OnTheUiThread_IsShownDirectly()
+        {
+            OnUiThreadWithForm(form =>
+            {
+                var backend = new RecordingBackend();
+                var messages = new MessageService(backend, new MessageDialogOptions()) { OpenFormLocator = () => form };
+
+                messages.ShowInfo("Saved.");
+
+                Assert.Equal(Thread.CurrentThread.ManagedThreadId, backend.ShownOnThread);
+            });
+        }
+
+        [Fact]
+        public void Show_FromWorkerThread_WithoutAnyForm_IsShownOnTheCallingThread()
+        {
+            // Before the first window opens (or after the last one closed) there is no UI thread to go to.
+            var backend = new RecordingBackend();
+            var messages = new MessageService(backend, new MessageDialogOptions()) { OpenFormLocator = () => null };
+            int worker = 0;
+
+            Task.Run(() =>
+            {
+                worker = Thread.CurrentThread.ManagedThreadId;
+                messages.ShowWarning("No window yet.");
+            }).Wait();
+
+            Assert.Equal(worker, backend.ShownOnThread);
+        }
+    }
+}
