@@ -7,7 +7,7 @@
     {
         /// <summary>Text shown above the folder tree. <c>null</c> = the provider's configured description.</summary>
         public string Description { get; set; }
-        /// <summary>Whether the dialog offers a New Folder button. Not applied by the built-in provider.</summary>
+        /// <summary>Whether the dialog offers a New Folder button. Defaults to <c>true</c>.</summary>
         public bool ShowNewFolderButton { get; set; } = true;
         /// <summary>Folder selected when the dialog opens.</summary>
         public string SelectedPath { get; set; }
