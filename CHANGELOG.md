@@ -8,6 +8,8 @@
 
 ## [Unreleased]
 
+## [1.0.0-preview.10] - 2026-10-26
+
 ### Added (追加)
 
 - **`Kibinago.Testing`: `FakeValidationErrorDisplay`** — `IValidatableView` のモック View が `ValidationErrors` として返すフェイク。Presenter の `Validation` が送ったエラーを記録する (`Errors`、`RevealAll`、`ErrorsFor(field)`、`HasError(field)`、`ShowCount` / `ResetCount`)。以前はテストごとに記録用の実装を書いていた (新人試用)。
