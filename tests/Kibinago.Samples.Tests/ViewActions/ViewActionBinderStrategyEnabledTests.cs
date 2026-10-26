@@ -94,6 +94,27 @@ namespace Kibinago.Samples.Tests.ViewActions
         }
 
         [Fact]
+        public void StrategyRegisteredWhileBound_AppliesToComponentsAddedAfterwards_LikeTheTrigger()
+        {
+            var dispatcher = new ViewActionDispatcher();
+            dispatcher.Register(Run, () => { }, canExecute: () => false);
+            var binder = new ViewActionBinder();
+            RegisterToolCommand(binder, withEnabled: true);
+            var first = new ToolCommand();
+            binder.Add(Run, first);
+            binder.Bind(dispatcher);
+
+            RegisterToolCommand(binder, withEnabled: false);   // re-registered while bound
+            var second = new ToolCommand();
+            binder.Add(Run, second);
+            var before = first.EnabledWrites;
+            dispatcher.RaiseCanExecuteChanged();
+
+            Assert.True(first.EnabledWrites > before);   // still its own setter
+            Assert.Equal(0, second.EnabledWrites);       // the new registration: no setter
+        }
+
+        [Fact]
         public void SetEnabled_ReplacesTheDefaultForAControlType()
         {
             var dispatcher = new ViewActionDispatcher();

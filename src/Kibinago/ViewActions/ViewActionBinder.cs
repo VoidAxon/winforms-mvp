@@ -67,6 +67,7 @@ namespace Kibinago.ViewActions
             public Func<Component, object> ValueSelector;
             public EventHandler Handler;          // the trigger handed to the strategy
             public Action Unsubscribe;            // live trigger subscription, null while not bound
+            public Action<Component, bool> SetEnabled;   // the strategy's setter, taken with the subscription
             public EventHandler DisposedHandler;
             public bool Removed;
         }
@@ -394,6 +395,7 @@ namespace Kibinago.ViewActions
                     $"{DescribeComponent(entry.Component)} has no binding strategy any more.");
             ReleaseDialogResult(entry);
             entry.Unsubscribe = strategy(entry.Component, entry.Handler);
+            entry.SetEnabled = ResolveEnabledSetter(entry.Component);   // a strategy registered later applies on the next bind
         }
 
         // A bound button must not close a modal window by itself: WinForms copies its DialogResult to the
@@ -549,8 +551,7 @@ namespace Kibinago.ViewActions
             Action apply = () =>
             {
                 if (entry.Removed || IsDisposed(entry.Component) || !ReferenceEquals(_dispatcher, dispatcher)) return;
-                var setter = ResolveEnabledSetter(entry.Component);
-                if (setter != null) setter(entry.Component, enabled);
+                if (entry.SetEnabled != null) entry.SetEnabled(entry.Component, enabled);
                 else if (entry.Component is Control c) c.Enabled = enabled;
                 else if (entry.Component is ToolStripItem t) t.Enabled = enabled;
             };
