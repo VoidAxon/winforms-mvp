@@ -157,5 +157,48 @@ namespace Kibinago.Samples.Tests.Common
 
             Assert.Equal(0, reloadCount);
         }
+
+        [Fact]
+        public void Bind_ParentReloadedAsNewInstanceOfSameRecord_KeepsChild()
+        {
+            var parent = new Selection<Node>(new NodeById());
+            var child = new Selection<Node>();
+            parent.Select(new Node(1));
+            int reloads = 0;
+            using (Cascade.Bind(parent, child, p => reloads++, initialSync: false))
+            {
+                var kept = new Node(10);
+                child.Select(kept);
+
+                parent.Select(new Node(1));   // list reload: same record, new object
+
+                Assert.Equal(0, reloads);
+                Assert.Same(kept, child.Current);
+            }
+        }
+
+        [Fact]
+        public void Combine_ParentReloadedAsNewInstanceOfSameRecord_DoesNotReload()
+        {
+            var a = new Selection<Node>(new NodeById());
+            var b = new Selection<Node>(new NodeById());
+            var target = new Selection<Node>();
+            a.Select(new Node(1));
+            b.Select(new Node(2));
+            int reloads = 0;
+            using (Cascade.Combine(a, b, target, (x, y) => reloads++, initialSync: false))
+            {
+                a.Select(new Node(1));
+                b.Select(new Node(2));
+
+                Assert.Equal(0, reloads);
+            }
+        }
+
+        private sealed class NodeById : System.Collections.Generic.IEqualityComparer<Node>
+        {
+            public bool Equals(Node x, Node y) => ReferenceEquals(x, y) || (x != null && y != null && x.Id == y.Id);
+            public int GetHashCode(Node obj) => obj == null ? 0 : obj.Id;
+        }
     }
 }

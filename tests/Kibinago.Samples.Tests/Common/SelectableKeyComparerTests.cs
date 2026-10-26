@@ -50,11 +50,13 @@ namespace Kibinago.Samples.Tests.Common
             var selection = new Selection<Entity>();
             selection.Select(new Entity(7, "first"));
 
-            int raised = 0;
-            selection.CurrentChanged += (s, e) => raised++;
-            selection.Select(new Entity(7, "reloaded"));   // new instance, same Key
+            int identity = 0;
+            selection.IdentityChanged += (s, e) => identity++;
+            var reloaded = new Entity(7, "reloaded");
+            selection.Select(reloaded);   // new instance, same Key: same identity, new data
 
-            Assert.Equal(0, raised);
+            Assert.Equal(0, identity);
+            Assert.Same(reloaded, selection.Current);
         }
 
         [Fact]
@@ -63,11 +65,12 @@ namespace Kibinago.Samples.Tests.Common
             var selection = new Selection<SelectableItem<int>>();
             selection.Select(SelectableItem.Of(2025));
 
-            int raised = 0;
-            selection.CurrentChanged += (s, e) => raised++;
+            int identity = 0;
+            selection.IdentityChanged += (s, e) => identity++;
             selection.Select(SelectableItem.Of(2025, "different label"));   // same Value
 
-            Assert.Equal(0, raised);
+            Assert.Equal(0, identity);
+            Assert.Equal("different label", selection.Current.Text);
         }
 
         [Fact]
@@ -77,11 +80,11 @@ namespace Kibinago.Samples.Tests.Common
             var selection = new Selection<string>();
             selection.Select("x");
 
-            int raised = 0;
-            selection.CurrentChanged += (s, e) => raised++;
-            selection.Select(string.Concat("x"));   // equal by value -> short-circuited
+            int identity = 0;
+            selection.IdentityChanged += (s, e) => identity++;
+            selection.Select(new string('x', 1));   // equal by value -> same identity
 
-            Assert.Equal(0, raised);
+            Assert.Equal(0, identity);
         }
     }
 }

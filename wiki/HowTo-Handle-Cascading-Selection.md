@@ -87,7 +87,8 @@ public interface ISelection<T> where T : class
 {
     T Current { get; }
     void Select(T item);              // Select(null) = clear
-    event EventHandler CurrentChanged;
+    event EventHandler CurrentChanged;    // Current が別のオブジェクトになった (別の行・クリア・同じ行の新インスタンス)
+    event EventHandler IdentityChanged;   // 別の行を選んだ / クリアした ときだけ (CurrentChanged より先)
 }
 
 public sealed class Selection<T> : ISelection<T> where T : class
@@ -107,19 +108,28 @@ public sealed class Selection<T> : ISelection<T> where T : class
 
     public void Select(T item)
     {
-        // Short-circuit when unchanged (clearing an already-empty level fans out nothing).
-        bool same = (Current == null && item == null)
-                 || (Current != null && item != null && _comparer.Equals(Current, item));
-        if (same) return;
+        if (ReferenceEquals(Current, item)) return;   // 同じオブジェクト (null → null も): 何もしない
 
-        Current = item;
-        var handler = CurrentChanged;
-        if (handler != null) handler(this, EventArgs.Empty);
+        bool sameIdentity = Current != null && item != null && _comparer.Equals(Current, item);
+        Current = item;                                // 通知の前に更新
+        if (!sameIdentity) IdentityChanged?.Invoke(this, EventArgs.Empty);
+        CurrentChanged?.Invoke(this, EventArgs.Empty);
     }
 
     public event EventHandler CurrentChanged;
+    public event EventHandler IdentityChanged;
 }
 ```
+
+| `Select` に渡したもの | `Current` | 通知 |
+|---|---|---|
+| 今と同じオブジェクト (`null` → `null` も) | そのまま | なし |
+| 同じ行 (comparer で等しい) の **新しいインスタンス** (一覧の再読込) | 新しいインスタンスに | `CurrentChanged` だけ |
+| 別の行 / クリア | 新しい値に | `IdentityChanged` → `CurrentChanged` |
+
+- **詳細パネル** (選択中の行を表示する側) は `CurrentChanged` を購読します。一覧を再読込して `Select(再読込した同じ行)` を呼べば、新しいデータで表示し直されます (`Select(null)` を挟む必要はありません)。
+- **下位の連鎖** (どの行が選ばれているかで再クエリする側) は `IdentityChanged` を購読します。`Cascade` はこちらを使うので、同じ行の再読込では下位の選択・一覧はそのまま残ります。
+- 同じインスタンスの中身を書き換えただけでは通知されません (参照が変わらないため)。保存後は一覧を読み直し、新しいインスタンスを `Select` します。
 
 > ⚠️ **判定は Id で、参照に頼らない。** 親が変わると下位リストは再クエリされ、**全く新しいインスタンス** に入れ替わります。参照同値で選択を比較/復元すると、論理的に「同じ」レコードが参照違いで一致しません。**エンティティに `ISelectable` を実装** すれば、`Selection<T>` は comparer 未指定でも Key で判定するので、この罠は既定で塞がります (次節)。`ISelectable` を実装せず `Equals` も未実装の型では `EqualityComparer<T>.Default` が参照同値に退化するため、その場合は Id 比較の `IEqualityComparer<T>` を注入してください。
 
@@ -128,7 +138,8 @@ public sealed class Selection<T> : ISelection<T> where T : class
 ```csharp
 public static class Cascade
 {
-    // from が変わったら: target をクリア (→ 下位が連鎖クリア) し、新しい親値で再読込する。
+    // from が別の行を選んだら (IdentityChanged): target をクリア (→ 下位が連鎖クリア) し、新しい親値で再読込する。
+    // 同じ行の新しいインスタンス (一覧の再読込) では何もしない。
     // initialSync=true: 束縛時にも一度 reload する (束縛時に親が既に値を持っていても下位が空のままにならない)。
     public static IDisposable Bind<TParent, TChild>(
         ISelection<TParent> from,
@@ -139,10 +150,10 @@ public static class Cascade
     {
         EventHandler handler = delegate
         {
-            target.Select(null);     // clear self -> target.CurrentChanged -> downstream Bind clears next
+            target.Select(null);     // clear self -> target.IdentityChanged -> downstream Bind clears next
             reload(from.Current);     // from.Current may be null (parent cleared)
         };
-        from.CurrentChanged += handler;
+        from.IdentityChanged += handler;
         if (initialSync) reload(from.Current);   // each level self-syncs; order-independent
         return /* IDisposable that unsubscribes */;
     }
@@ -165,7 +176,7 @@ public static class Cascade
 
 ### エンティティ — `ISelectable` を実装する
 
-エンティティが Key (Id 等) を 1 か所宣言すれば、`Selection<T>` は comparer を渡さなくても `SelectableKeyComparer<T>` を **自動採用** し、Key で判定します。再読込で別インスタンスになった「同じ行」も一致します。
+エンティティが Key (Id 等) を 1 か所宣言すれば、`Selection<T>` は comparer を渡さなくても `SelectableKeyComparer<T>` を **自動採用** し、Key で判定します。再読込で別インスタンスになった「同じ行」も一致します (`IdentityChanged` は起きず、`Current` は新しいインスタンスになり `CurrentChanged` が起きる)。
 
 ```csharp
 public sealed class Category : ISelectable
@@ -358,10 +369,10 @@ productP.Connect(productListControl);
 ```
 ユーザーが Category C を選択
   → CategoryListPresenter: _categorySelection.Select(C)
-  → categorySelection.CurrentChanged
+  → categorySelection.IdentityChanged
       → SubCategory の Bind:
           ① _subCategorySelection.Select(null)            // サブカテゴリ選択をクリア
-              → subCategorySelection.CurrentChanged
+              → subCategorySelection.IdentityChanged
                   → Product の Bind:
                       ① _productSelection.Select(null)     // 商品選択をクリア (既に null なら短絡)
                       ② reload(sub = null) → 商品リスト = 空
@@ -379,7 +390,7 @@ productP.Connect(productListControl);
 「連鎖」と聞くと「親が子を駆動」しているように見えますが、実装は次のとおりです。
 
 - 各 Presenter が握るのは `ISelection<T>` (共有 Model) と Repository **だけ**。他 Presenter への参照は存在しない。
-- `CategoryListPresenter` と `SubCategoryListPresenter` は **互いの存在を知らない**。やり取りは Selection の `CurrentChanged` 経由の間接通信のみ。
+- `CategoryListPresenter` と `SubCategoryListPresenter` は **互いの存在を知らない**。やり取りは Selection の通知 (`IdentityChanged` / `CurrentChanged`) 経由の間接通信のみ。
 - 全レベルを束ねる **コーディネーター Presenter も不要**。連鎖は Selection の通知が運ぶ。
 
 これは [共有 Model](HowTo-Communicate-Between-Presenters#共有-model--イベント) で `OrderSummaryPresenter` が `_orderModel.ProductAdded` を購読するのと同じ構図です。Model 変更を購読して反応するのは Presenter の正常な責務で、[Presenter が他の Presenter を持つ](HowTo-Communicate-Between-Presenters#-presenter-が他の-presenter-の参照を直接持つ) アンチパターンには該当しません。
@@ -434,7 +445,7 @@ Cascade.Combine(_subCategorySelection, _warehouseSelection, _productSelection,
 // sub か warehouse のどちらが変わっても: productSelection をクリア → 両方の現在値で reload
 ```
 
-3 つ以上の親が必要なら、`Combine` のオーバーロードを足すか、複数の親の `CurrentChanged` を手で購読し、同一ハンドラで `target.Select(null)` 後にすべての現在値で再読込します (論理は等価、`Bind` ほど一行ではないだけ)。
+3 つ以上の親が必要なら、`Combine` のオーバーロードを足すか、複数の親の `IdentityChanged` を手で購読し、同一ハンドラで `target.Select(null)` 後にすべての現在値で再読込します (論理は等価、`Bind` ほど一行ではないだけ)。
 
 ---
 

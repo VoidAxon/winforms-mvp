@@ -10,6 +10,10 @@
 
 ### Changed (変更)
 
+- **`Selection<T>`: 一覧を再読込して同じ行を選び直すと、新しいインスタンスに置き換わる** (新人試用 2 回目で発覚)。以前は Key (`ISelectable` / comparer) が同じだと何もせず、`Current` は古いインスタンスのまま、`CurrentChanged` も起きなかったため、編集・保存後に詳細パネルが古いデータを表示していた (回避策の `Select(null)` → `Select(item)` は下位の連鎖まで無駄にクリアしていた)。
+  - 同じオブジェクト: 何もしない。同じ行の新しいインスタンス: `Current` を置き換えて `CurrentChanged` だけ。別の行 / クリア: 新しい `IdentityChanged`、続いて `CurrentChanged`。`Current` は通知の前に更新。
+  - `ISelection<T>` に `IdentityChanged` を追加 (BREAKING: 自前で `ISelection<T>` を実装している場合)。`Cascade.Bind` / `Combine` は `IdentityChanged` を購読するので、同じ行の再読込では下位の選択と一覧を保つ。
+  - DynamicData の `Update` と `Add`/`Remove`、Android `DiffUtil` の「同じ項目・内容変更」と挿入/削除の区別と同じ考え方。
 - **新人試用 (2 回目, preview.10) の指摘を反映**:
   - README 方法B: `dotnet new nugetconfig` から始め、ローカルのソースは相対パス (`packages`) で登録する (絶対パスだと別の PC / Windows ⇔ WSL で restore できない)。クイック例の起動もテンプレートと同じ形に。
   - テンプレート: Presenter に `using Kibinago.Services;` (`Navigator.For` は拡張メソッドで、なければ CS1061)。テストの例は Ok を `canExecute` で無効にせず、未入力なら警告して閉じない (検証のページの「送信ボタンは無効化しない」と同じ)。

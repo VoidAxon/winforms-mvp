@@ -5,7 +5,8 @@ namespace Kibinago.Common
 {
     /// <summary>
     /// Holds a single "current selection" of type <typeparamref name="T"/> and raises
-    /// <see cref="CurrentChanged"/> when it changes. One generic selection replaces the N
+    /// <see cref="CurrentChanged"/> when it changes (another record, or the same record as a new
+    /// object after a reload) and <see cref="IdentityChanged"/> only when another record is selected. One generic selection replaces the N
     /// same-shaped, hand-written selection services a cascading-selection screen would
     /// otherwise need (one per level). See <see cref="Cascade"/>.
     /// </summary>
@@ -17,8 +18,18 @@ namespace Kibinago.Common
         /// <summary>Sets the current selection. <c>Select(null)</c> clears it.</summary>
         void Select(T item);
 
-        /// <summary>Raised when <see cref="Current"/> changes.</summary>
+        /// <summary>
+        /// Raised whenever <see cref="Current"/> is set to a different object: another record, a clear,
+        /// or the same record as a new instance (a reloaded list). Subscribe here to show the current item.
+        /// </summary>
         event EventHandler CurrentChanged;
+
+        /// <summary>
+        /// Raised (before <see cref="CurrentChanged"/>) only when another record is selected or the
+        /// selection is cleared — not when the same record is replaced by a new instance. Subscribe here
+        /// to reload what depends on which record is selected (<see cref="Cascade"/> does).
+        /// </summary>
+        event EventHandler IdentityChanged;
     }
 
     /// <summary>
@@ -52,21 +63,35 @@ namespace Kibinago.Common
         public T Current { get; private set; }
 
         /// <inheritdoc />
-        /// <remarks>Selecting an item equal to <see cref="Current"/> does nothing (no event).</remarks>
+        /// <remarks>
+        /// The same object (or null again) does nothing. The same record as a new object (equal by the
+        /// comparer) replaces <see cref="Current"/> and raises <see cref="CurrentChanged"/> only. Another
+        /// record or a clear raises <see cref="IdentityChanged"/>, then <see cref="CurrentChanged"/>.
+        /// <see cref="Current"/> is updated before either event.
+        /// </remarks>
         public void Select(T item)
         {
-            // Short-circuit when unchanged so clearing an already-empty downstream level does not
-            // fan out a pointless cascade. Null-safe: never calls the comparer with a null operand.
-            bool same = (Current == null && item == null)
-                     || (Current != null && item != null && _comparer.Equals(Current, item));
-            if (same) return;
+            // The same object: nothing to tell (also stops clearing an already-empty level from
+            // fanning out a pointless cascade).
+            if (ReferenceEquals(Current, item)) return;
+
+            // Null-safe: never calls the comparer with a null operand.
+            bool sameIdentity = Current != null && item != null && _comparer.Equals(Current, item);
 
             Current = item;
+            if (!sameIdentity)
+            {
+                var identity = IdentityChanged;
+                if (identity != null) identity(this, EventArgs.Empty);
+            }
             var handler = CurrentChanged;
             if (handler != null) handler(this, EventArgs.Empty);
         }
 
         /// <inheritdoc />
         public event EventHandler CurrentChanged;
+
+        /// <inheritdoc />
+        public event EventHandler IdentityChanged;
     }
 }
