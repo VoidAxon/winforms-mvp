@@ -23,8 +23,9 @@ namespace Kibinago.Samples.Tests.Services
             }
         }
 
+        // No open-form lookup: forms other tests have open (process-wide) must not receive these calls.
         private static MessageService Create(FakeBackend backend, string caption = "MyApp")
-            => new MessageService(backend, new MessageDialogOptions { DefaultCaption = caption });
+            => new MessageService(backend, new MessageDialogOptions { DefaultCaption = caption }) { OpenFormLocator = () => null };
 
         [Fact]
         public void ShowInfo_EmptyCaption_UsesDefaultCaption()
@@ -111,7 +112,7 @@ namespace Kibinago.Samples.Tests.Services
         {
             var backend = new FakeBackend();
             var options = new MessageDialogOptions { DefaultCaption = "Before" };
-            var svc = new MessageService(backend, options);
+            var svc = new MessageService(backend, options) { OpenFormLocator = () => null };
 
             options.DefaultCaption = "After";
             svc.ShowInfo("x");

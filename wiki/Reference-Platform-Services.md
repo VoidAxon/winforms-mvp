@@ -61,6 +61,8 @@ public interface IMessageService
 }
 ```
 
+> **スレッド:** ワーカースレッド (`Task.Run` の中など) から呼んでも、ダイアログは UI スレッドで (開いている Form 経由の `Invoke` で) 表示され、アプリのウィンドウに対してモーダルになります。ワーカーは答えが返るまで待ちます。そのワーカーを UI スレッドで `Wait()` / `.Result` で待たないでください (開けないダイアログを待ち続けます。`await` する)。UI スレッド (メッセージループを回しているスレッド) からの呼び出しはそのスレッドで表示します。Form が 1 つも開いていないときは呼び出したスレッドで表示します。
+
 > **トーストは `IMessageService` ではなく `IToastService`** です。Presenter からは `Toasts` プロパティで
 > `Toasts.Show(text, type[, duration])` を呼びます (`duration` が null なら設定された既定値)。
 > ワーカースレッドから呼んでも UI スレッドで表示されます。1 回ごとの外観指定 (`ToastOptions`) や

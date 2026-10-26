@@ -67,7 +67,7 @@ namespace Kibinago.Services.Implementations
         /// tests are not affected by forms other tests have open (<see cref="Application.OpenForms"/>
         /// is process-wide).
         /// </summary>
-        internal Func<Form> OpenFormLocator { get; set; } = FindOpenForm;
+        internal Func<Form> OpenFormLocator { get; set; } = OpenForms.FindOne;
 
         /// <summary>The UI thread this service is bound to, or <c>null</c> before it knows one.</summary>
         internal int? BoundUiThreadId
@@ -229,22 +229,6 @@ namespace Kibinago.Services.Implementations
         {
             _logger.LogWarning("Toast service: toast dropped because {Reason}", reason);
             owned?.Font?.Dispose();
-        }
-
-        private static Form FindOpenForm()
-        {
-            try
-            {
-                foreach (Form form in Application.OpenForms)
-                {
-                    if (form.IsHandleCreated && !form.IsDisposed) return form;
-                }
-            }
-            catch (InvalidOperationException)
-            {
-                // OpenForms was modified while enumerating from a worker thread.
-            }
-            return null;
         }
     }
 }
