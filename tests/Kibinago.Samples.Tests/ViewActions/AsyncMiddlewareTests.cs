@@ -116,6 +116,33 @@ namespace Kibinago.Samples.Tests.ViewActions
         }
 
         [Fact]
+        public async Task MiddlewareThatDoesNotAwaitNext_AnAlreadyFaultedHandlerTask_StillPropagates()
+        {
+            var dispatcher = new ViewActionDispatcher();
+            dispatcher.Register(Save, () => Task.FromException(new InvalidOperationException("at once")));
+            dispatcher.Use((ctx, next) => { next(ctx); return Task.CompletedTask; });   // forgot to await
+
+            Assert.Equal("at once", Assert.Throws<InvalidOperationException>(() => dispatcher.Dispatch(Save)).Message);
+            var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => dispatcher.DispatchAsync(Save));
+            Assert.Equal("at once", ex.Message);
+        }
+
+        [Fact]
+        public async Task AsyncMiddleware_HandlerFaultedWithOperationCanceled_StillFaults_LikeWithoutMiddleware()
+        {
+            var dispatcher = new ViewActionDispatcher();
+            var handler = new TaskCompletionSource<bool>();
+            dispatcher.Register(Save, () => (Task)handler.Task);
+            dispatcher.Use(async (ctx, next) => await next(ctx));
+
+            var task = dispatcher.DispatchAsync(Save);
+            handler.SetException(new OperationCanceledException("timeout, not a disposal"));
+
+            await Assert.ThrowsAsync<OperationCanceledException>(() => task);
+            Assert.True(task.IsFaulted);
+        }
+
+        [Fact]
         public void PassThroughMiddleware_SyncHandlerFailure_IsRethrownFromDispatch()
         {
             var dispatcher = new ViewActionDispatcher();

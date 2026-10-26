@@ -669,7 +669,7 @@ namespace Kibinago.ViewActions
             }
 
             if (outcome.IsCompleted && (context.HandlerTask == null || context.HandlerTask.IsCompleted))
-                return outcome;
+                return Settle(outcome, context);
 
             var result = new TaskCompletionSource<bool>();
             outcome.ContinueWith(o =>
@@ -677,13 +677,25 @@ namespace Kibinago.ViewActions
                 var handler = context.HandlerTask;
                 if (handler == null || handler.IsCompleted)
                 {
-                    Transfer(o, result);
+                    Transfer(Settle(o, context), result);
                     return;
                 }
-                handler.ContinueWith(h => Transfer(o.Status == TaskStatus.RanToCompletion ? h : o, result),
+                handler.ContinueWith(h => Transfer(Settle(o.Status == TaskStatus.RanToCompletion ? h : o, context), result),
                     CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
             }, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
             return result.Task;
+        }
+
+        /// <summary>
+        /// An async middleware that lets an OperationCanceledException failure pass turns it into a
+        /// cancelled task (C# async semantics). Unless it was the disposal cancellation, the handler
+        /// failed (it is on the context): report that, as without middleware.
+        /// </summary>
+        private static Task Settle(Task outcome, DispatchContext context)
+        {
+            return outcome.IsCanceled && context.Exception is OperationCanceledException failure
+                ? Faulted(failure)
+                : outcome;
         }
 
         private DispatchDelegate CompilePipeline()
@@ -708,6 +720,16 @@ namespace Kibinago.ViewActions
                 }
                 ctx.HandlerExecuted = true;
                 if (pending == null || pending.Status == TaskStatus.RanToCompletion) return Task.CompletedTask;
+                if (pending.IsFaulted)
+                {
+                    // Already failed: thrown here like a synchronous failure, so it propagates even through a
+                    // middleware that does not await next (an awaiting one catches it the same way).
+                    var error = pending.Exception.InnerExceptions.Count == 1 ? pending.Exception.InnerException : pending.Exception;
+                    ctx.HandlerFailed = true;
+                    if (!(error is OperationCanceledException && ctx.CancellationToken.IsCancellationRequested))
+                        ctx.Exception = error;
+                    ExceptionDispatchInfo.Capture(error).Throw();
+                }
                 return ctx.HandlerTask = ObserveHandler(ctx, pending);
             };
 

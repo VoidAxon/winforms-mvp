@@ -232,14 +232,14 @@ namespace Kibinago.Samples.Tests.ViewActions
         // ---- edge cases ----
 
         [Fact]
-        public async Task MiddlewareThrowsAfterAnAlreadyFaultedHandler_ItsExceptionPropagates_OnBothApis()
+        public async Task AlreadyFaultedHandler_IsThrownFromNext_LikeASynchronousFailure_OnBothApis()
         {
             var (dispatcher, _) = NewDispatcher();
-            dispatcher.Use((ctx, next) => { next(ctx); throw new ApplicationException("middleware"); });
+            dispatcher.Use((ctx, next) => { next(ctx); throw new ApplicationException("never reached"); });
             dispatcher.Register(Save, () => Task.FromException(new InvalidOperationException("handler")));
 
-            Assert.Throws<ApplicationException>(() => dispatcher.Dispatch(Save));
-            await Assert.ThrowsAsync<ApplicationException>(() => dispatcher.DispatchAsync(Save));
+            Assert.Throws<InvalidOperationException>(() => dispatcher.Dispatch(Save));
+            await Assert.ThrowsAsync<InvalidOperationException>(() => dispatcher.DispatchAsync(Save));
             Assert.True(dispatcher.CanDispatch(Save));
         }
 
