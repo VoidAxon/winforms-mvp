@@ -918,7 +918,7 @@ Dispatcher.Use((ctx, next) =>
 
 ### 例外フロー
 
-ハンドラの例外 (`await` 後のものも) はミドルウェアチェーンを上方向に伝播します。捕捉したい場合は `await next(context)` を `try`/`catch` で囲みます (例: `ErrorDialogMiddleware`)。Presenter の破棄によるキャンセルは `OperationCanceledException` として届くので、エラーとして表示しないでください (`catch (OperationCanceledException) when (context.CancellationToken.IsCancellationRequested) { throw; }`)。**ミドルウェアが `catch` した例外は処理済み** とみなされ、それ以上は伝わりません (`context.Exception` は記録として残ります)。誰も捕捉しない場合はフレームワークがログを出力し、`Dispatch` の呼び出し元へ再スローします (`Application.ThreadException` へ)。ミドルウェアが別の例外を投げた場合は、その例外が伝わります。`ActionExecuted` イベントはパイプライン全体が終わり、ハンドラが失敗せずに完走したときだけ発火します (短絡した場合・ミドルウェアが失敗を捕捉した場合は発火しません)。
+ハンドラの例外 (`await` 後のものも) はミドルウェアチェーンを上方向に伝播します。捕捉したい場合は `await next(context)` を `try`/`catch` で囲みます (例: `ErrorDialogMiddleware`)。Presenter の破棄によるキャンセルは `OperationCanceledException` として届くので、エラーとして表示しないでください (`catch (OperationCanceledException) when (context.CancellationToken.IsCancellationRequested) { throw; }`)。非同期ハンドラと同じく、`async` のミドルウェアが `OperationCanceledException` で終わった場合はキャンセル (無音) として扱われます。Presenter が破棄された後は、`await` から戻ったミドルウェアが `next` を呼んでもハンドラは実行されません。**ミドルウェアが `catch` した例外は処理済み** とみなされ、それ以上は伝わりません (`context.Exception` は記録として残ります)。誰も捕捉しない場合はフレームワークがログを出力し、`Dispatch` の呼び出し元へ再スローします (`Application.ThreadException` へ)。ミドルウェアが別の例外を投げた場合は、その例外が伝わります。`ActionExecuted` イベントはパイプライン全体が終わり、ハンドラが失敗せずに完走したときだけ発火します (短絡した場合・ミドルウェアが失敗を捕捉した場合は発火しません)。
 
 ハンドラが投げた例外は、**ハンドラを抜けた時点で** `context.Exception` に設定されます。そのため外側のミドルウェアは、例外を捕捉しなくても `finally` ブロックで `context.Exception` を参照できます (監査・計測向け)。また、例外を投げたハンドラの後には `CanExecuteChanged` が発火し、コントロールの有効/無効状態が更新されます。
 

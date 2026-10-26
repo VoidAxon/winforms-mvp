@@ -707,6 +707,10 @@ namespace Kibinago.ViewActions
             // already sees ctx.Exception in its finally block while unwinding.
             DispatchDelegate next = ctx =>
             {
+                // A middleware may have awaited before calling next; the owner may be gone by now
+                // (a synchronous handler would touch a disposed view).
+                if (_inactive) return Task.CompletedTask;
+
                 Task pending;
                 try
                 {

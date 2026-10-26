@@ -143,6 +143,25 @@ namespace Kibinago.Samples.Tests.ViewActions
         }
 
         [Fact]
+        public async Task OwnerDisposedWhileAMiddlewareAwaitsBeforeNext_TheHandlerDoesNotRun()
+        {
+            var dispatcher = new ViewActionDispatcher();
+            var permission = new TaskCompletionSource<bool>();
+            int runs = 0, executed = 0;
+            dispatcher.Register(Save, () => runs++);   // synchronous: would touch a disposed view
+            dispatcher.Use(async (ctx, next) => { await permission.Task; await next(ctx); });
+            dispatcher.ActionExecuted += (s, e) => executed++;
+
+            var dispatch = dispatcher.DispatchAsync(Save);
+            dispatcher.Deactivate();                   // the window closed meanwhile
+            permission.SetResult(true);
+            await dispatch;
+
+            Assert.Equal(0, runs);
+            Assert.Equal(0, executed);
+        }
+
+        [Fact]
         public void PassThroughMiddleware_SyncHandlerFailure_IsRethrownFromDispatch()
         {
             var dispatcher = new ViewActionDispatcher();

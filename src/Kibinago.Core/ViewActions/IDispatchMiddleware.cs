@@ -24,7 +24,9 @@ namespace Kibinago.ViewActions
     /// not propagate; <see cref="DispatchContext.Exception"/> stays a record); rethrowing, or throwing
     /// another exception, propagates that like an unhandled handler failure. A cancellation because
     /// the presenter was disposed arrives as an <see cref="System.OperationCanceledException"/>; do not
-    /// show it as an error.
+    /// show it as an error. As for an asynchronous handler, an <c>async</c> middleware that ends with an
+    /// <see cref="System.OperationCanceledException"/> is a cancellation (silent), not a failure; a
+    /// handler is not started once the presenter is disposed.
     /// </para>
     /// <para>
     /// Middleware runs on the dispatching (UI) thread, and continues there after an <c>await</c>. The
