@@ -64,9 +64,6 @@ namespace Kibinago.Testing
         /// <inheritdoc />
         public virtual ILogger CreateLogger(string categoryName) => new RecordingLogger(this, categoryName);
 
-        /// <inheritdoc />
-        public virtual ILogger CreateLogger(Type type) => CreateLogger(type?.FullName);
-
         private void Add(LogEntry entry)
         {
             lock (_gate) _entries.Add(entry);

@@ -102,7 +102,7 @@ System shutdown / Task Manager never reach `CanClose`. Save-on-close: call `Requ
 |---|---|
 | One startup call (no DI container) | `MvpApplication.Configure(framework: mvp => ..., services: reg => ...)`, then `MvpApplication.Run(mainForm)` |
 | Replace / tune framework parts | `KibinagoBuilder`: `mvp.Messages`, `.Toasts`, `.Dialogs`, `.ChangeTracking`, `.Events`, `.Logging`, `.Actions` |
-| Register business services / a module | `IServiceRegistry.RegisterInstance<T>`, `RegisterFactory<T>`; a module = a static `Register(IServiceRegistry)` |
+| Register business services / a module | `IServiceRegistry.RegisterInstance<T>`, `RegisterSingleton<T>`; a module = a static `Register(IServiceRegistry)` |
 | Ambient provider / built-in container | `ServiceLocator.Current`, `ServiceLocator.Configure(...)`; `DefaultServiceProvider`; `sp.Resolve<T>()`, `ResolveRequired<T>()` |
 | M.E.DI | (DI) `services.AddKibinago(viewRegistry[, mvp => ...])`, `provider.UseKibinago()`, `RegisterModules(...)` with `IModuleRegistrar` |
 | Child presenters built by DI, one scope each | `IPresenterFactory.Create<T>()` (implemented by the DI package) |

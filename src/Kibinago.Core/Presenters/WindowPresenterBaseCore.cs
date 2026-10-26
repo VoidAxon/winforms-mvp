@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Threading.Tasks;
 using Kibinago.Logging;
 using Kibinago.Common;
@@ -21,6 +21,10 @@ namespace Kibinago.Presenters
         where TView : IWindowView
     {
         private ICloseSink _closeSink;
+
+        /// <summary>Only <see cref="WindowPresenterBase{TView}"/> and
+        /// <see cref="WindowPresenterBase{TView, TParam}"/> derive from this class.</summary>
+        private protected WindowPresenterBaseCore() { }
 
         /// <summary>
         /// Pull gate (synchronous). Override to veto a close. Return <c>true</c> to allow.

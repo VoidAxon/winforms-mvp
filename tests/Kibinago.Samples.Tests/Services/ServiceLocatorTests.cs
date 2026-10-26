@@ -52,7 +52,7 @@ namespace Kibinago.Samples.Tests.Services
         {
             var lazyDefault = (DefaultServiceProvider)ServiceLocator.Current;   // framework-created
             var probe = new DefaultServiceProviderTests.DisposableProbe();
-            lazyDefault.RegisterFactory<DefaultServiceProviderTests.IDisposableProbe>(_ => probe);
+            lazyDefault.RegisterSingleton<DefaultServiceProviderTests.IDisposableProbe>(_ => probe);
             lazyDefault.Resolve<DefaultServiceProviderTests.IDisposableProbe>();
 
             ServiceLocator.Configure(_ => { });
@@ -67,7 +67,7 @@ namespace Kibinago.Samples.Tests.Services
             ServiceLocator.Configure(_ => { });
             var first = (DefaultServiceProvider)ServiceLocator.Current;
             var probe = new DefaultServiceProviderTests.DisposableProbe();
-            first.RegisterFactory<DefaultServiceProviderTests.IDisposableProbe>(_ => probe);
+            first.RegisterSingleton<DefaultServiceProviderTests.IDisposableProbe>(_ => probe);
             first.Resolve<DefaultServiceProviderTests.IDisposableProbe>();
 
             ServiceLocator.Configure(_ => { });
@@ -80,7 +80,7 @@ namespace Kibinago.Samples.Tests.Services
         {
             var a = new DefaultServiceProvider();
             var probe = new DefaultServiceProviderTests.DisposableProbe();
-            a.RegisterFactory<DefaultServiceProviderTests.IDisposableProbe>(_ => probe);
+            a.RegisterSingleton<DefaultServiceProviderTests.IDisposableProbe>(_ => probe);
             a.Resolve<DefaultServiceProviderTests.IDisposableProbe>();
 
             ServiceLocator.Current = a;
@@ -94,7 +94,7 @@ namespace Kibinago.Samples.Tests.Services
         {
             var lazyDefault = (DefaultServiceProvider)ServiceLocator.Current;
             var probe = new DefaultServiceProviderTests.DisposableProbe();
-            lazyDefault.RegisterFactory<DefaultServiceProviderTests.IDisposableProbe>(_ => probe);
+            lazyDefault.RegisterSingleton<DefaultServiceProviderTests.IDisposableProbe>(_ => probe);
             lazyDefault.Resolve<DefaultServiceProviderTests.IDisposableProbe>();
 
             ServiceLocator.Reset();

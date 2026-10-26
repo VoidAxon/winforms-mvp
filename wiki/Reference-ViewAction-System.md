@@ -678,14 +678,14 @@ void IChoiceView.ShowChoices(IReadOnlyList<Choice> choices)
 
 ### カスタムコントロールに対応する
 
-デフォルトに無いコントロール (上の表にないもの) や、別のイベントで発火させたい場合は、**`Add` の前に** `RegisterStrategy<T>()` で登録します。コントロールの実行時の型から基底クラスへたどり、最初に登録が見つかった型の戦略が使われます (登録順には依存しません)。バインド中に登録した戦略は、その後に `Add` したコントロールから使われます。オーバーロードは 2 つあり、コントロールのイベントのデリゲート型で使い分けます。
+デフォルトに無いコントロール (上の表にないもの) や、別のイベントで発火させたい場合は、**`Add` の前に** `RegisterStrategy<T>()` で登録します。コントロールの実行時の型から基底クラスへたどり、最初に登録が見つかった型の戦略が使われます (登録順には依存しません)。バインド中に登録した戦略は、その後に `Add` したコントロールから使われます。コールバックに渡される `h` は `EventHandler` です (キャスト不要)。オーバーロードは 2 つあり、コントロールのイベントのデリゲート型で使い分けます。
 
 **1. イベントが `EventHandler` 型の場合** (Click / `*Changed` など) — attacher / detacher を渡します。
 
 ```csharp
 _binder.RegisterStrategy<TrackBar>(
-    (c, h) => c.ValueChanged += (EventHandler)h,
-    (c, h) => c.ValueChanged -= (EventHandler)h);
+    (c, h) => c.ValueChanged += h,
+    (c, h) => c.ValueChanged -= h);
 ```
 
 **2. イベントが `EventHandler` 以外のデリゲート型の場合** (`MonthCalendar.DateChanged` の `DateRangeEventHandler`、`TreeView.AfterSelect` の `TreeViewEventHandler` 等) — 購読してから「解除コールバック」を返す `subscribe` オーバーロードを使います。
@@ -693,7 +693,7 @@ _binder.RegisterStrategy<TrackBar>(
 ```csharp
 _binder.RegisterStrategy<TreeView>((c, h) =>
 {
-    TreeViewEventHandler d = (s, e) => ((EventHandler)h)(s, e);
+    TreeViewEventHandler d = (s, e) => h(s, e);
     c.AfterSelect += d;
     return () => c.AfterSelect -= d;   // captures the same instance -> clean detach on Unbind
 });

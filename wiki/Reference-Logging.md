@@ -49,8 +49,8 @@ namespace Kibinago.Logging
     public interface ILoggerFactory
     {
         ILogger CreateLogger(string categoryName);
-        ILogger CreateLogger(Type type);
     }
+    // CreateLogger(Type) は拡張メソッド (LoggerFactoryExtensions): CreateLogger(type.FullName) と同じ
 
     public enum LogLevel
     {

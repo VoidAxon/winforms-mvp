@@ -118,7 +118,7 @@ namespace Kibinago.Services
             provider.RegisterInstance<ILoggerFactory>(NullLoggerFactory.Instance);
             provider.RegisterInstance<Kibinago.Common.IObjectCloner>(Kibinago.Common.BuiltInObjectCloner.Instance);
             provider.RegisterInstance<Kibinago.Common.IObjectContentComparer>(Kibinago.Common.BuiltInObjectContentComparer.Instance);
-            provider.RegisterFactory<Kibinago.Common.EventAggregator.IEventAggregator>(sp =>
+            provider.RegisterSingleton<Kibinago.Common.EventAggregator.IEventAggregator>(sp =>
                 new Kibinago.Common.EventAggregator.EventAggregator(sp.ResolveRequired<ILoggerFactory>()));
             PlatformRegistration.Value?.Invoke(provider);
         }

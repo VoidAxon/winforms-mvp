@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 
 namespace Kibinago.Common.Validation.Core
@@ -23,7 +24,7 @@ namespace Kibinago.Common.Validation.Core
     /// allowing validators to stop at the first error in sequence.
     /// </para>
     /// </remarks>
-    public class ModelValidationResult
+    public sealed class ModelValidationResult
     {
         /// <summary>
         /// Represents a successful validation result.
@@ -40,13 +41,13 @@ namespace Kibinago.Common.Validation.Core
         public string ErrorMessage { get; }
 
         /// <summary>
-        /// Gets the collection of member names that failed validation.
+        /// Gets the member names that failed validation (a copy taken when the result was created).
         /// </summary>
         /// <value>
-        /// A collection of property or field names that failed validation.
-        /// Empty collection if no specific members were identified.
+        /// The property or field names that failed validation.
+        /// Empty if no specific members were identified.
         /// </value>
-        public IEnumerable<string> MemberNames { get; }
+        public IReadOnlyList<string> MemberNames { get; }
 
         /// <summary>
         /// Gets the order of the validation attribute that produced this result.
@@ -81,7 +82,7 @@ namespace Kibinago.Common.Validation.Core
         public ModelValidationResult(string errorMessage, IEnumerable<string> memberNames, int order)
         {
             ErrorMessage = errorMessage;
-            MemberNames = memberNames ?? Enumerable.Empty<string>();
+            MemberNames = new ReadOnlyCollection<string>((memberNames ?? Enumerable.Empty<string>()).ToArray());
             Order = order;
         }
 
@@ -129,34 +130,6 @@ namespace Kibinago.Common.Validation.Core
         public override string ToString()
         {
             return IsValid ? "Success" : GetFormattedMessage();
-        }
-
-        /// <summary>
-        /// Determines whether the specified object is equal to the current validation result.
-        /// </summary>
-        /// <param name="obj">The object to compare with the current result.</param>
-        /// <returns>
-        /// true if the specified object is a ModelValidationResult with the same ErrorMessage;
-        /// otherwise, false.
-        /// </returns>
-        public override bool Equals(object obj)
-        {
-            if (obj is ModelValidationResult other)
-            {
-                return ErrorMessage == other.ErrorMessage;
-            }
-            return false;
-        }
-
-        /// <summary>
-        /// Returns a hash code for this validation result.
-        /// </summary>
-        /// <returns>
-        /// A hash code based on the error message.
-        /// </returns>
-        public override int GetHashCode()
-        {
-            return ErrorMessage?.GetHashCode() ?? 0;
         }
     }
 }

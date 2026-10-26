@@ -32,7 +32,7 @@ namespace Kibinago.Services.Implementations
     /// fallback even when <see cref="IsRegistered"/> returns <c>false</c>.
     /// </para>
     /// </remarks>
-    public class ServiceProviderViewMappingRegister : IViewMappingRegister
+    internal sealed class ServiceProviderViewMappingRegister : IViewMappingRegister
     {
         private readonly IViewMappingRegister _inner;
         private readonly IServiceProvider _serviceProvider;

@@ -52,7 +52,7 @@ namespace Kibinago.Samples.Tests.Services
         {
             var sp = new DefaultServiceProvider();
             int calls = 0;
-            sp.RegisterFactory<IFoo>(_ => { calls++; return new Foo(); });
+            sp.RegisterSingleton<IFoo>(_ => { calls++; return new Foo(); });
 
             Assert.Equal(0, calls);                 // not built until resolved
             var a = sp.Resolve<IFoo>();
@@ -66,7 +66,7 @@ namespace Kibinago.Samples.Tests.Services
         {
             var sp = new DefaultServiceProvider();
             sp.RegisterInstance<IFoo>(new Foo());
-            sp.RegisterFactory<string>(provider => provider.Resolve<IFoo>() != null ? "ok" : "missing");
+            sp.RegisterSingleton<string>(provider => provider.Resolve<IFoo>() != null ? "ok" : "missing");
 
             Assert.Equal("ok", sp.Resolve<string>());
         }
@@ -75,14 +75,14 @@ namespace Kibinago.Samples.Tests.Services
         public void RegisterFactory_NullFactory_Throws()
         {
             var sp = new DefaultServiceProvider();
-            Assert.Throws<ArgumentNullException>(() => sp.RegisterFactory<IFoo>(null));
+            Assert.Throws<ArgumentNullException>(() => sp.RegisterSingleton<IFoo>(null));
         }
 
         [Fact]
         public void ReRegisterInstance_AfterResolve_ReplacesCachedSingleton()
         {
             var sp = new DefaultServiceProvider();
-            sp.RegisterFactory<IFoo>(_ => new Foo());
+            sp.RegisterSingleton<IFoo>(_ => new Foo());
             var cached = sp.Resolve<IFoo>();   // builds and caches the factory result
 
             var replacement = new Foo();
@@ -98,7 +98,7 @@ namespace Kibinago.Samples.Tests.Services
         {
             var sp = new DefaultServiceProvider();
             int calls = 0;
-            sp.RegisterFactory<IFoo>(_ =>
+            sp.RegisterSingleton<IFoo>(_ =>
             {
                 calls++;
                 if (calls == 1) throw new InvalidOperationException("boom");
@@ -119,7 +119,7 @@ namespace Kibinago.Samples.Tests.Services
         {
             var sp = new DefaultServiceProvider();
             int calls = 0;
-            sp.RegisterFactory<IFoo>(_ =>
+            sp.RegisterSingleton<IFoo>(_ =>
             {
                 System.Threading.Interlocked.Increment(ref calls);
                 System.Threading.Thread.SpinWait(1000); // tiny bit of work to widen the race window
@@ -149,7 +149,7 @@ namespace Kibinago.Samples.Tests.Services
         {
             var sp = new DefaultServiceProvider();
             var probe = new DisposableProbe();
-            sp.RegisterFactory<IDisposableProbe>(_ => probe);
+            sp.RegisterSingleton<IDisposableProbe>(_ => probe);
             sp.Resolve<IDisposableProbe>();
 
             sp.Dispose();
@@ -175,7 +175,7 @@ namespace Kibinago.Samples.Tests.Services
         {
             var sp = new DefaultServiceProvider();
             int calls = 0;
-            sp.RegisterFactory<IDisposableProbe>(_ => { calls++; return new DisposableProbe(); });
+            sp.RegisterSingleton<IDisposableProbe>(_ => { calls++; return new DisposableProbe(); });
 
             sp.Dispose();
 
@@ -187,7 +187,7 @@ namespace Kibinago.Samples.Tests.Services
         {
             var sp = new DefaultServiceProvider();
             var probe = new DisposableProbe();
-            sp.RegisterFactory<IDisposableProbe>(_ => probe);
+            sp.RegisterSingleton<IDisposableProbe>(_ => probe);
             sp.Resolve<IDisposableProbe>();
 
             sp.Dispose();
@@ -202,7 +202,7 @@ namespace Kibinago.Samples.Tests.Services
             var sp = new DefaultServiceProvider();
             var callerOwned = new DisposableProbe();
             sp.RegisterInstance<IDisposableProbe>(callerOwned);
-            sp.RegisterFactory<object>(p => p.GetService(typeof(IDisposableProbe)));   // alias
+            sp.RegisterSingleton<object>(p => p.GetService(typeof(IDisposableProbe)));   // alias
             sp.Resolve<object>();
             sp.RegisterInstance<IDisposableProbe>(new DisposableProbe());              // replaced
 
@@ -221,8 +221,8 @@ namespace Kibinago.Samples.Tests.Services
         {
             var sp = new DefaultServiceProvider();
             var probe = new DisposableProbe();
-            sp.RegisterFactory<IDisposableProbe>(_ => probe);
-            sp.RegisterFactory<IDisposable>(_ => new ThrowingDisposable());
+            sp.RegisterSingleton<IDisposableProbe>(_ => probe);
+            sp.RegisterSingleton<IDisposable>(_ => new ThrowingDisposable());
             sp.Resolve<IDisposableProbe>();
             sp.Resolve<IDisposable>();   // created last, so disposed first
 
@@ -256,7 +256,7 @@ namespace Kibinago.Samples.Tests.Services
         {
             var sp = new DefaultServiceProvider();
             int calls = 0;
-            sp.RegisterFactory(typeof(IFoo), _ => { calls++; return new Foo(); });
+            sp.RegisterSingleton(typeof(IFoo), _ => { calls++; return new Foo(); });
 
             Assert.Equal(0, calls);
             Assert.Same(sp.GetService(typeof(IFoo)), sp.GetService(typeof(IFoo)));

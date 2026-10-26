@@ -119,7 +119,7 @@ The framework enforces these rules at compile time via Roslyn analyzers in [src/
 ### Presenter hierarchy
 
 ```
-PresenterBase<TView>                       [base — do not inherit directly]
+PresenterBase<TView>                       [base — cannot be inherited outside the framework]
 ├─ WindowPresenterBase<TView>              [Forms, no params]
 ├─ WindowPresenterBase<TView, TParam>      [Forms, with params]
 ├─ ControlPresenterBase<TView>             [UserControls, no params]
@@ -284,7 +284,7 @@ Groups: `Messages` (DefaultCaption, UseDialogs), `Toasts` (ToastHostOptions prop
 2. **Constructor Injection** — inject business services (`IUserRepository`, ...) explicitly. Best for testable production code. Keep DI-resolved deps and runtime args separate (use `IInitializable<TParam>` for the latter).
 3. **Hybrid** — business services in the ctor, framework services via the convenience properties. Best for most apps.
 
-**DI-free modular registration:** no framework interface needed — a module is just a static `Register(IServiceRegistry)` method the app calls inside the `services:` block (`MvpApplication.Configure(services: reg => { BillingModule.Register(reg); ... })`). `IServiceRegistry` offers `RegisterInstance<T>` and `RegisterFactory<T>`. (A polymorphic module interface exists only on the M.E.DI path: `IModuleRegistrar`, consumed by `RegisterModules`.)
+**DI-free modular registration:** no framework interface needed — a module is just a static `Register(IServiceRegistry)` method the app calls inside the `services:` block (`MvpApplication.Configure(services: reg => { BillingModule.Register(reg); ... })`). `IServiceRegistry` offers `RegisterInstance<T>` and `RegisterSingleton<T>`. (A polymorphic module interface exists only on the M.E.DI path: `IModuleRegistrar`, consumed by `RegisterModules`.)
 
 **Global dispatcher middleware:** `mvp.Actions.Configure(d => d.Use(...))` / `mvp.Actions.StrictValidation()` (or register an `IDispatcherConfigurer` directly); the framework picks it up on each presenter's first dispatch.
 

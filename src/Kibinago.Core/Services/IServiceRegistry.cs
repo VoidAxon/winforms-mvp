@@ -13,11 +13,11 @@ namespace Kibinago.Services
         void RegisterInstance<TService>(TService instance);
 
         /// <summary>
-        /// Registers a factory for <typeparamref name="TService"/>, invoked lazily on first
-        /// resolution; the result is cached (singleton). The factory receives the provider so it
-        /// can resolve its own dependencies.
+        /// Registers a singleton for <typeparamref name="TService"/> created by <paramref name="factory"/>
+        /// on first resolution; every later resolution returns that same instance (the factory runs
+        /// once). The factory receives the provider so it can resolve its own dependencies.
         /// </summary>
-        void RegisterFactory<TService>(Func<IServiceProvider, TService> factory);
+        void RegisterSingleton<TService>(Func<IServiceProvider, TService> factory);
 
         /// <summary>Whether <paramref name="serviceType"/> has a registration.</summary>
         bool IsRegistered(Type serviceType);

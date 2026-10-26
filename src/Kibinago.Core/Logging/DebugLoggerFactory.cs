@@ -9,7 +9,5 @@ namespace Kibinago.Logging
     {
         /// <inheritdoc />
         public ILogger CreateLogger(string categoryName) => new DebugLogger(categoryName);
-        /// <inheritdoc />
-        public ILogger CreateLogger(Type type) => new DebugLogger(type?.FullName);
     }
 }

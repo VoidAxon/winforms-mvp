@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 namespace Kibinago.ViewActions
 {
@@ -29,16 +29,6 @@ namespace Kibinago.ViewActions
         /// scope once: <c>ViewAction.Factory.WithQualifier("OrderEdit")</c>.
         /// </summary>
         public static ViewActionFactory Factory { get; } = new ViewActionFactory();
-
-        /// <summary>Returns a key with this key's name prefixed by <paramref name="factory"/>'s qualifier.</summary>
-        /// <param name="factory">The factory whose qualifier to apply.</param>
-        public ViewAction WithQualifier(ViewActionFactory factory) => factory.Create(Name);
-
-        /// <summary>Returns a key named <c>Name + sep + suffix</c> (e.g. <c>"Save_Row"</c>).</summary>
-        /// <param name="suffix">The text to append.</param>
-        /// <param name="sep">The separator placed before <paramref name="suffix"/>.</param>
-        public ViewAction WithSuffix(string suffix, string sep = "_")
-            => new ViewAction($"{Name}{sep}{suffix}");
 
         /// <summary>Keys are equal when their names are equal (ordinal).</summary>
         /// <param name="other">The key to compare with.</param>

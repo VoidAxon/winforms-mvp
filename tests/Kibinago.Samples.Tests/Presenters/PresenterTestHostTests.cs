@@ -234,7 +234,6 @@ namespace Kibinago.Samples.Tests.Presenters
         private sealed class OtherLoggerFactory : ILoggerFactory
         {
             public ILogger CreateLogger(string categoryName) => NullLogger.Instance;
-            public ILogger CreateLogger(Type type) => NullLogger.Instance;
         }
 
         private static DefaultServiceProvider ServicesWith(FakeMessageService messages)

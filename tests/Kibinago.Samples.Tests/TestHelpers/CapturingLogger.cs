@@ -34,7 +34,6 @@ namespace Kibinago.Samples.Tests.TestHelpers
         public CapturingLogger Logger { get; } = new CapturingLogger();
 
         public ILogger CreateLogger(string categoryName) => Logger;
-        public ILogger CreateLogger(Type type) => Logger;
     }
 
     public class LogEntry
