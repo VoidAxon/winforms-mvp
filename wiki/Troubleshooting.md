@@ -25,13 +25,13 @@
 
 **原因**: `ServiceLocator.Current` にサービスが登録されていない (View レジストリが空など)。
 
-**対処**: `Program.Main` で `ServiceLocator.Configure(...)` を呼んで View レジストリ等を登録する。
+**対処**: `Program.Main` で `MvpApplication.Configure(...)` を呼び、View を登録する (テンプレートの `Program.cs` と同じ)。
 
 ```csharp
 var register = new ViewMappingRegister();
 register.RegisterFromAssembly(Assembly.GetExecutingAssembly());
 
-ServiceLocator.Configure(reg =>
+MvpApplication.Configure(services: reg =>
 {
     reg.RegisterInstance<IViewMappingRegister>(register);
     reg.RegisterInstance<Kibinago.Logging.ILoggerFactory>(new DebugLoggerFactory());
@@ -417,7 +417,7 @@ public class EditUserParameters
 **対処**: `Program.Main` で `DebugLoggerFactory` か M.E.L. アダプタを設定する。
 
 ```csharp
-ServiceLocator.Configure(reg =>
+MvpApplication.Configure(services: reg =>
 {
     reg.RegisterInstance<IViewMappingRegister>(register);
     reg.RegisterInstance<Kibinago.Logging.ILoggerFactory>(new DebugLoggerFactory());   // VS Debug ウィンドウに出力
@@ -428,7 +428,7 @@ ServiceLocator.Configure(reg =>
 
 ### Application Insights / Seq に流したい
 
-`Microsoft.Extensions.Logging` 経由で接続できますが、メインパッケージは M.E.L. に依存していません。アプリ側に ~30 行のアダプタを書く必要があります。完成サンプルが `samples/MultiProjectDemo.Shell/Logging/` にあります。詳しくは [Logging § M.E.L. プロバイダのつなぎ方](Reference-Logging#mel-プロバイダのつなぎ方) 参照。
+`Microsoft.Extensions.Logging` 経由で接続できますが、メインパッケージは M.E.L. に依存していません。アプリ側に ~30 行のアダプタを書く必要があります。完成サンプルが [`samples/MultiProjectDemo.Shell/Logging/`](https://github.com/VoidAxon/winforms-mvp/tree/master/samples/MultiProjectDemo.Shell/Logging) にあります。詳しくは [Logging § M.E.L. プロバイダのつなぎ方](Reference-Logging#mel-プロバイダのつなぎ方) 参照。
 
 ---
 

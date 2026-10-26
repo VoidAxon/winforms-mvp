@@ -423,6 +423,6 @@ public void ProductSelector_PublishesMessage_OrderSummaryReceives()
 - [Presenter 基底クラス](Reference-Presenter-Base-Classes) — Presenter のライフサイクルと `Cleanup` フック
 - [HowTo: Presenter 間の通信方法](HowTo-Communicate-Between-Presenters) — 4 つの選択肢の使い分け
 - サンプル:
-  - `samples/Kibinago.Samples/ComplexInteractionDemo_EventBased/` — EventAggregator の完全例
-  - `samples/Kibinago.Samples/ComplexInteractionDemo_ServiceBased/` — Service ベース比較
-  - `tests/Kibinago.Samples.Tests/Common/EventAggregatorTests.cs` — ストレステスト含む網羅テスト
+  - [`samples/Kibinago.Samples/ComplexInteractionDemo_EventBased/`](https://github.com/VoidAxon/winforms-mvp/tree/master/samples/Kibinago.Samples/ComplexInteractionDemo_EventBased) — EventAggregator の完全例
+  - [`samples/Kibinago.Samples/ComplexInteractionDemo_ServiceBased/`](https://github.com/VoidAxon/winforms-mvp/tree/master/samples/Kibinago.Samples/ComplexInteractionDemo_ServiceBased) — Service ベース比較
+  - [`tests/Kibinago.Samples.Tests/Common/EventAggregatorTests.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/tests/Kibinago.Samples.Tests/Common/EventAggregatorTests.cs) — ストレステスト含む網羅テスト

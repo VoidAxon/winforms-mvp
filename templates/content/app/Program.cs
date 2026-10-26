@@ -35,18 +35,22 @@ namespace MyMvpApp
                 },
                 services: services =>
                 {
-                    // Presenters get these through their constructors.
-                    // services.RegisterInstance<IOrderRepository>(new SqlOrderRepository(connectionString));
+                    // Only what is resolved from the container (ServiceLocator.Current), e.g. a replacement
+                    // for a framework service. Business services need no registration: see below.
                 });
 
             // Maps every view interface in this assembly to its Form, so Navigator can create windows.
             ServiceLocator.Current.Resolve<IViewMappingRegister>()
                 .RegisterFromAssembly(typeof(Program).Assembly);
 
+            // Business services (repositories, ...): create them once here and pass them to the main
+            // presenter's constructor; it passes them on to the presenters of the windows it opens.
+            // var orders = new SqlOrderRepository(connectionString);
+
             // The main window is created here, so its presenter is connected to it (adopted hosting);
             // every other window is opened from a presenter through Navigator.
             var mainForm = new MainForm();
-            new MainPresenter().Connect(mainForm);
+            new MainPresenter(/* orders */).Connect(mainForm);
             MvpApplication.Run(mainForm);   // disposes the framework services when the main form closes
         }
     }

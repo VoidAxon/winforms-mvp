@@ -12,6 +12,7 @@
 | ターゲット | .NET Framework 4.7.2 以降、または .NET 10 (Windows) |
 | 言語 | 不問（コンパイル済み DLL を参照するため。利用側プロジェクトの C# バージョンに制約なし） |
 | IDE | Visual Studio / JetBrains Rider / VS Code (`net10.0-windows` には .NET 10 SDK が必要) |
+| OS | 実行は Windows。ビルドと Presenter のテストは Linux / macOS でも可 (テンプレートが `EnableWindowsTargeting` を設定済み) |
 | 知識 | C# と WinForms の基本 |
 
 ---
@@ -33,9 +34,9 @@ dotnet new mvp-window -n OrderEdit         # ウィンドウを追加
 
 ---
 
-## 1. プロジェクトを準備する
+## 1. (任意) サンプルアプリを動かす
 
-リポジトリをクローンして、サンプルアプリをまず動かしてみることをおすすめします。
+フレームワークのリポジトリには、機能ごとのデモを集めたサンプルアプリがあります。パッケージを使うだけなら不要です。
 
 ```bash
 git clone https://github.com/VoidAxon/winforms-mvp.git
@@ -141,6 +142,7 @@ namespace MyFirstMvpApp
 **ポイント**
 
 - `_welcomeLabel` は `private`。Presenter からは見えない。
+- View インターフェイスのプロパティ名は、Form / Control が既に持つメンバー (`Name`、`Text`、`Enabled`、`Visible`、`Font`、`Tag` など) と重ならない名前にする (`CustomerName`、`TitleText` など)。重なると Form の同名メンバーを隠してしまう (警告 CS0108)。Model のプロパティ名 (`Name`) と違ってよい — 検証のフィールド名は Model 側の名前 (`nameof(Customer.Name)`) を使う。
 - `WelcomeMessage` プロパティ越しに `Label.Text` を読み書きする。
 - Form は UI の詳細 (フォント、レイアウト、コントロールの種類) をすべて自分の中に閉じ込める。
 - **.NET 9 以降では**、View インターフェイスを実装する Form / UserControl の public プロパティに `[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]` (`System.ComponentModel`) を付ける。付けないと WinForms アナライザー **WFO1000** が既定でビルドエラーにする。Visual Studio で 1 件に `Ctrl+.` →「DesignerSerializationVisibility を追加」→「プロジェクト内のすべて修正」で一括付与できる。テンプレートが生成する Form は付与済み ([詳細](HowTo-Use-Templates#designer-と-wfo1000))。
@@ -150,6 +152,7 @@ namespace MyFirstMvpApp
 ```csharp
 using System;
 using System.Windows.Forms;
+using Kibinago;              // MvpApplication
 using Kibinago.Presenters;   // Connect 拡張メソッド
 
 namespace MyFirstMvpApp
@@ -162,19 +165,20 @@ namespace MyFirstMvpApp
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
 
-            var view = new MainForm();
-            var presenter = new MainPresenter();
+            var mainForm = new MainForm();
 
             // アタッチ + 初期化 + Form と一緒に Presenter を破棄 (Adopted ホスティング)
-            presenter.Connect(view);
+            new MainPresenter().Connect(mainForm);
 
-            Application.Run(view);
+            MvpApplication.Run(mainForm);   // Application.Run + 終了時にフレームワークのサービスを破棄
         }
     }
 }
 ```
 
 実行すると、中央に "Hello MVP!" と表示されたウィンドウが立ち上がります。これが MVP の最小構成です。
+
+> テンプレートの `Program.cs` はこれに、例外ハンドラ (`Application.ThreadException`)、`MvpApplication.Configure(...)` (フレームワークの設定と業務サービスの登録)、View の登録 (`RegisterFromAssembly`、`Navigator` でほかのウィンドウを開くため) を足したものです。起動の書き方はこの形 (メイン Form + `Connect` + `MvpApplication.Run`) に揃えています。
 
 ---
 
@@ -429,6 +433,39 @@ private void OnGreetRequested(object sender, EventArgs e)
 これらは `ServiceLocator.Current` から遅延解決されます。コンストラクタ引数は不要です。
 
 詳しくは [Platform Services](Reference-Platform-Services) を参照してください。
+
+---
+
+## 6. 業務サービスを Presenter に渡す (DI なし)
+
+リポジトリなどの業務サービスは、**`Program` で 1 回作り、Presenter のコンストラクタに渡します**。メイン Presenter は、自分が開くウィンドウの Presenter にそれを渡します。DI コンテナもサービスロケーターも要りません。
+
+```csharp
+// Program.Main
+var orders = new SqlOrderRepository(connectionString);
+var mainForm = new MainForm();
+new MainPresenter(orders).Connect(mainForm);
+MvpApplication.Run(mainForm);
+
+// MainPresenter
+public class MainPresenter : WindowPresenterBase<IMainView>
+{
+    private readonly IOrderRepository _orders;
+
+    public MainPresenter(IOrderRepository orders) => _orders = orders;   // コンストラクタは依存だけ
+
+    private void OnEdit(int orderId)
+    {
+        var r = Navigator.For(new OrderEditPresenter(_orders)).WithParam(orderId).ShowAsModal<Order>();
+        if (r.IsOk) Reload();
+    }
+}
+```
+
+- 実行時の値 (編集する ID など) はコンストラクタではなく `WithParam` で渡します (`IInitializable<TParam>`)。
+- 画面の部品 (UserControl) の Presenter も同じで、親 Presenter が `AttachChild(new CustomerPanelPresenter(_orders), View.CustomerPanel)` で渡します。
+- Presenter のテストではフェイクのリポジトリをコンストラクタに渡すだけです。
+- M.E.DI を使う場合は [DI リファレンス](Reference-DependencyInjection) を参照してください (コンテナが Presenter を作ります)。
 
 ---
 

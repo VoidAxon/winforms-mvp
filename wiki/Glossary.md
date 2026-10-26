@@ -63,7 +63,7 @@ UserControl 系の View を扱う Presenter 基底クラス。`ControlPresenterB
 
 ### DefaultServiceProvider
 
-`IServiceRegistry` + `IServiceProvider` の組み込み実装。`ServiceLocator.Configure(...)` で自動的に使われる。外部 DI コンテナを使わないアプリのサービス登録先。
+`IServiceRegistry` + `IServiceProvider` の組み込み実装。`MvpApplication.Configure(...)` (低レベルの `ServiceLocator.Configure(...)` も) で自動的に使われる。外部 DI コンテナを使わないアプリのサービス登録先。
 
 ### DialogProvider
 
@@ -207,7 +207,7 @@ Model-View-Presenter。本フレームワークが採用する設計パターン
 
 ### ServiceLocator
 
-`ServiceLocator.Current` (静的プロパティ)。アプリ全体で使われる `IServiceProvider` 実体を保持する。`Program.Main` で 1 回だけ `ServiceLocator.Configure(...)` か `ServiceLocator.Current =` で設定する。M.E.DI の場合は `provider.UseKibinago()` で設定される。
+`ServiceLocator.Current` (静的プロパティ)。アプリ全体で使われる `IServiceProvider` 実体を保持する。`Program.Main` で 1 回だけ `MvpApplication.Configure(...)` で設定する (低レベルの `ServiceLocator.Configure(...)` / `ServiceLocator.Current =` も可)。M.E.DI の場合は `provider.UseKibinago()` で設定される。
 
 ### Presenter
 

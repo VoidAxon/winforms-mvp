@@ -276,4 +276,4 @@ namespace Kibinago.Common
 - [Presenter の購読ライフサイクルを管理する](HowTo-Manage-Presenter-Subscriptions) — `DisposeWith(Disposables)` の使い方
 - [非同期処理を扱う](HowTo-Handle-Async-Operations)
 
-サンプル: `samples/Kibinago.Samples/DebounceThrottleDemo/` (ランチャーの「Architecture」セクション)
+サンプル: [`samples/Kibinago.Samples/DebounceThrottleDemo/`](https://github.com/VoidAxon/winforms-mvp/tree/master/samples/Kibinago.Samples/DebounceThrottleDemo) (ランチャーの「Architecture」セクション)

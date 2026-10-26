@@ -57,7 +57,7 @@ internal static class Program
         var register = new ViewMappingRegister();
         register.RegisterFromAssembly(Assembly.GetExecutingAssembly());
 
-        ServiceLocator.Configure(reg =>
+        MvpApplication.Configure(services: reg =>
         {
             reg.RegisterInstance<IViewMappingRegister>(register);
             reg.RegisterInstance<Kibinago.Logging.ILoggerFactory>(new DebugLoggerFactory());
@@ -418,7 +418,7 @@ private void OnEditCustomer()
 - メソッド名は「従来 Form で」ではなく、やること (`EditCustomer`) にします。あとで従来 Form を MVP に置き換えても、Presenter とテストは変わりません。
 - テストではモック View が `InteractionResult<CustomerData>.Ok(...)` / `Cancel()` / `Error(...)` を返すだけです。
 - モードレスで開く場合は `Task<InteractionResult<CustomerData>> EditCustomerAsync(CustomerData current, CancellationToken ct)` とし、Form が閉じたときに結果を返します (Presenter は非同期アクションで `await`)。
-- サンプル: `samples/Kibinago.Samples/LegacyPopupDemo/`。
+- サンプル: [`samples/Kibinago.Samples/LegacyPopupDemo/`](https://github.com/VoidAxon/winforms-mvp/tree/master/samples/Kibinago.Samples/LegacyPopupDemo)。
 
 ### 方法 B: 中継サービス (ILegacyFormService)
 

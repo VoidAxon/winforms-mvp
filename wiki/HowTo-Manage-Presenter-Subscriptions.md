@@ -93,7 +93,7 @@ protected override void OnViewAttached()
 
 ### Before / After(実例:CascadeDemo)
 
-リファクタ前の `CascadePresenters.cs` は、Presenter 3 つがそれぞれ `_bind` フィールド + null ガード + `Cleanup` オーバーライド + 手動 `-=` を抱えていました。リファクタ後は上記の 2 パターンだけになり、**`Cleanup` オーバーライドは 3 つとも削除**されています。現物は `samples/Kibinago.Samples/CascadeDemo/CascadePresenters.cs` を見てください。
+リファクタ前の `CascadePresenters.cs` は、Presenter 3 つがそれぞれ `_bind` フィールド + null ガード + `Cleanup` オーバーライド + 手動 `-=` を抱えていました。リファクタ後は上記の 2 パターンだけになり、**`Cleanup` オーバーライドは 3 つとも削除**されています。現物は [`samples/Kibinago.Samples/CascadeDemo/CascadePresenters.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/samples/Kibinago.Samples/CascadeDemo/CascadePresenters.cs) を見てください。
 
 ---
 

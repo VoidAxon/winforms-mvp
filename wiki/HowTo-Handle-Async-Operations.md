@@ -195,7 +195,7 @@ public async Task ImportAsync(string filePath, IProgress<ImportProgress> progres
 
 ## シナリオ 3: キャンセルをサポートする
 
-ハンドラが受け取るトークンはウィンドウを閉じたときにキャンセルされます。ユーザーの「キャンセル」ボタンも付けたい場合は、そのトークンにリンクした `CancellationTokenSource` を作ります (`samples/Kibinago.Samples/AsyncDemo/AsyncDemoPresenter.cs` と同じ形)。
+ハンドラが受け取るトークンはウィンドウを閉じたときにキャンセルされます。ユーザーの「キャンセル」ボタンも付けたい場合は、そのトークンにリンクした `CancellationTokenSource` を作ります ([`samples/Kibinago.Samples/AsyncDemo/AsyncDemoPresenter.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/samples/Kibinago.Samples/AsyncDemo/AsyncDemoPresenter.cs) と同じ形)。
 
 ```csharp
 public class ImportPresenter : WindowPresenterBase<IImportView>
@@ -513,5 +513,5 @@ public async Task Opening_LoadsCustomers()
 - [HowTo: Presenter をテストする](HowTo-Test-A-Presenter) — async テスト
 - [EventAggregator](Reference-EventAggregator) — バックグラウンドからの UI 通知 (自動マーシャリング)
 - サンプル:
-  - `samples/Kibinago.Samples/AsyncDemo/` — 非同期ハンドラ / Progress / キャンセルの完全な実装
-  - `samples/Kibinago.Samples/EmailDemo/ComposeEmailPresenter.cs` — 非同期送信・下書き保存と `CanCloseAsync`
+  - [`samples/Kibinago.Samples/AsyncDemo/`](https://github.com/VoidAxon/winforms-mvp/tree/master/samples/Kibinago.Samples/AsyncDemo) — 非同期ハンドラ / Progress / キャンセルの完全な実装
+  - [`samples/Kibinago.Samples/EmailDemo/ComposeEmailPresenter.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/samples/Kibinago.Samples/EmailDemo/ComposeEmailPresenter.cs) — 非同期送信・下書き保存と `CanCloseAsync`

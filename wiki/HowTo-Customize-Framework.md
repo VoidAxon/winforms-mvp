@@ -135,7 +135,7 @@ public sealed class CompanyStyleDialogBackend : IMessageDialogBackend
 }
 ```
 
-完全なサンプルは `samples/Kibinago.Samples/CustomizationDemo/` (サンプルランチャーの "Framework Customization") を参照してください。
+完全なサンプルは [`samples/Kibinago.Samples/CustomizationDemo/`](https://github.com/VoidAxon/winforms-mvp/tree/master/samples/Kibinago.Samples/CustomizationDemo) (サンプルランチャーの "Framework Customization") を参照してください。
 
 ---
 

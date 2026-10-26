@@ -85,7 +85,7 @@ dotnet new kibinago -n MyApp [--framework net10.0-windows|net472] [--kibinago-ve
 | ファイル | 内容 |
 |---------|------|
 | `MyApp.csproj` | WinForms (`UseWindowsForms`) + `Kibinago` の `PackageReference` |
-| `Program.cs` | `ServiceLocator.Configure(...)` (業務サービスの登録場所)、`RegisterFromAssembly` で View を自動登録、`new MainPresenter().Connect(mainForm)` → `Application.Run` |
+| `Program.cs` | 例外ハンドラ、`MvpApplication.Configure(framework:, services:)` (フレームワークの設定)、`RegisterFromAssembly` で View を自動登録、`new MainPresenter().Connect(mainForm)` → `MvpApplication.Run(mainForm)`。業務サービスは `Program` で作って `MainPresenter` のコンストラクタに渡す ([はじめに § 6](Getting-Started#6-業務サービスを-presenter-に渡す-di-なし)) |
 | `IMainView.cs` / `MainActions.cs` | メインウィンドウの View インターフェイスと ViewAction (`SayHello` / `Exit`) |
 | `MainPresenter.cs` | `WindowPresenterBase<IMainView>`。`Messages.ShowInfo` と `RequestClose` の例 |
 | `MainForm.cs` / `MainForm.Designer.cs` | Designer で編集できる Form。`ViewActionBinder` でボタンをアクションに結び付ける |
@@ -195,13 +195,17 @@ public string Title
 
 `nuget.config` に GitHub Packages フィード (要 PAT) または `.nupkg` を置いたローカルフォルダが登録されていません。[README のインストール節](https://github.com/VoidAxon/winforms-mvp#インストール) を参照してください。`--kibinago-version` は通常指定しません (既定でテンプレートと同じ版を参照します)。
 
+**Linux / macOS で `NETSDK1100` (set the EnableWindowsTargeting property to true)**
+
+テンプレートが生成するプロジェクトは `<EnableWindowsTargeting>true</EnableWindowsTargeting>` を持っているので、そのまま restore / build できます (Windows では何も変わりません)。自分で作ったプロジェクトや古いテンプレートで生成したプロジェクトでは、`.csproj` (または `Directory.Build.props`) にこのプロパティを足してください。アプリの実行は Windows が必要です。
+
 **`mvp-window` / `mvp-control` の名前空間が `MyApp` になる / プロジェクトと違う**
 
 プロジェクトが restore されていないため `RootNamespace` を読めず、既定値 `MyApp` になっています。`dotnet restore` してから生成し直すか、`--namespace` を指定してください。
 
 **テンプレートを変更した (メンテナ向け)**
 
-`tests/templates/verify-templates.sh` がテンプレートをローカルフィードにパックし、両フレームワーク向けに全テンプレートを生成して名前空間・バリアントを検証し、`-warnaserror` でビルドします (生成された net10 のテストはどの OS でも実行。`RUN_TESTS=1` で net472 のテストも実行、Windows のみ)。CI でも実行されます。
+[`tests/templates/verify-templates.sh`](https://github.com/VoidAxon/winforms-mvp/blob/master/tests/templates/verify-templates.sh) がテンプレートをローカルフィードにパックし、両フレームワーク向けに全テンプレートを生成して名前空間・バリアントを検証し、`-warnaserror` でビルドします (生成された net10 のテストはどの OS でも実行。`RUN_TESTS=1` で net472 のテストも実行、Windows のみ)。CI でも実行されます。
 
 ---
 

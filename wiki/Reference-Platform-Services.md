@@ -157,7 +157,7 @@ if (View.ConfirmDelete()) { ... }
 > **既定の選択は `Messages`**(コーナートースト/中央ダイアログ)です。トリガーがマウスでも
 > キーボードでもコードでも常に正しく、ほとんどのフィードバックはこれで足ります。アンカー付きは
 > 「この位置に出ることに意味がある」場合だけの選択肢です。実例は
-> `samples/Kibinago.Samples/AnchoredMessageDemo/` を参照してください。
+> [`samples/Kibinago.Samples/AnchoredMessageDemo/`](https://github.com/VoidAxon/winforms-mvp/tree/master/samples/Kibinago.Samples/AnchoredMessageDemo) を参照してください。
 
 `AnchoredToast` はマルチモニター対応です(`Screen.FromPoint` でアンカーのあるスクリーンにクランプ)。
 
@@ -437,7 +437,7 @@ MvpApplication.Configure(
 var register = new ViewMappingRegister();
 register.RegisterFromAssembly(Assembly.GetExecutingAssembly());
 
-ServiceLocator.Configure(reg =>
+MvpApplication.Configure(services: reg =>
 {
     reg.RegisterInstance<IViewMappingRegister>(register);
     reg.RegisterInstance<Kibinago.Logging.ILoggerFactory>(new DebugLoggerFactory());

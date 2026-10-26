@@ -274,18 +274,17 @@ internal static class Program
         var settings = LoadSettings();
         register.Register<ISettingsView>(() => new SettingsForm(settings));
 
-        // 2. ServiceLocator に View レジストリを登録
-        ServiceLocator.Configure(reg =>
+        // 2. View レジストリを登録 (登録しなければ既定の空のレジストリ。テンプレートはそれに RegisterFromAssembly する)
+        MvpApplication.Configure(services: reg =>
         {
             reg.RegisterInstance<IViewMappingRegister>(register);
             reg.RegisterInstance<Kibinago.Logging.ILoggerFactory>(new DebugLoggerFactory());
         });
 
-        // 3. メインウィンドウを表示
-        var mainPresenter = new MainPresenter();
-        ServiceLocator.Current.Resolve<IWindowNavigator>().ShowWindow(mainPresenter);
-
-        Application.Run();
+        // 3. メインウィンドウ (テンプレートと同じ形)。他のウィンドウは Presenter から Navigator で開く
+        var mainForm = new MainForm();
+        new MainPresenter().Connect(mainForm);
+        MvpApplication.Run(mainForm);
     }
 }
 ```
@@ -359,5 +358,5 @@ register.RegisterFromAssembly(Assembly.GetExecutingAssembly());
 - [Dependency Injection](Reference-DependencyInjection) — `IModuleRegistrar` と DI コンテナ連携の詳細
 - [はじめに (Getting Started)](Getting-Started) — 初回セットアップでの登録例
 - サンプル:
-  - `samples/Kibinago.Samples/NavigatorDemo/` — 各種登録パターン
-  - `samples/MultiProjectDemo.Shell/Program.cs` — モジュール化された登録の実例
+  - [`samples/Kibinago.Samples/NavigatorDemo/`](https://github.com/VoidAxon/winforms-mvp/tree/master/samples/Kibinago.Samples/NavigatorDemo) — 各種登録パターン
+  - [`samples/MultiProjectDemo.Shell/Program.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/samples/MultiProjectDemo.Shell/Program.cs) — モジュール化された登録の実例

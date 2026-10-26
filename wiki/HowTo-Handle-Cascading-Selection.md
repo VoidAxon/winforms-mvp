@@ -376,7 +376,7 @@ productP.Connect(productListControl);
 
 「サブカテゴリ再読込・選択クリア・商品リスト空・商品選択クリア」が一回で漏れなく揃います。各 Presenter はクリアを 1 行も書いていません。束縛時 (`initialSync = true`) は各層が現在値で自己同期するので、既定選択があっても・attach 順が前後しても、下位が空のまま取り残されません。
 
-完全に動くサンプル: `samples/Kibinago.Samples/CascadeDemo/`。
+完全に動くサンプル: [`samples/Kibinago.Samples/CascadeDemo/`](https://github.com/VoidAxon/winforms-mvp/tree/master/samples/Kibinago.Samples/CascadeDemo)。
 
 ---
 

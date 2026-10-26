@@ -10,7 +10,7 @@
 - **表示** — View が `IValidatableView` を実装して `IValidationErrorDisplay ValidationErrors` を公開。Form では `ErrorProviderDisplay` でフィールド名をコントロールに対応付ける。接続はフレームワークが自動で行う
 - **タイミング** — フィールドのエラーは、ユーザーがそのコントロールを離れた (フォーカスが外れた) 後、または送信 (`Validation.Check(model)`) の後に表示される
 
-完全な実装例は `samples/Kibinago.Samples/ValidationDemo/` (`RegistrationModel` / `ValidationDemoPresenter` / `ValidationDemoForm`) です。
+完全な実装例は [`samples/Kibinago.Samples/ValidationDemo/`](https://github.com/VoidAxon/winforms-mvp/tree/master/samples/Kibinago.Samples/ValidationDemo) (`RegistrationModel` / `ValidationDemoPresenter` / `ValidationDemoForm`) です。
 
 ---
 
@@ -41,6 +41,8 @@
 ### 1. Model にルールを書く
 
 ルールは Model の DataAnnotations として宣言します。標準属性 (`Required`, `StringLength`, `MinLength`, `MaxLength`, `EmailAddress`, `RegularExpression`, `Range`, `CustomValidation`, ...) とクラスレベル属性・`IValidatableObject` がすべて使えます。
+
+> **任意入力の書式チェック**: `[EmailAddress]` / `[Phone]` / `[Url]` は `null` を「入力なし」として通しますが、空文字列 `""` はエラーにします (.NET の動作)。TextBox の値はそのままだと `""` なので、任意項目は `ReadModel()` で空なら `null` にします (`Email = string.IsNullOrWhiteSpace(View.Email) ? null : View.Email.Trim()`)。
 
 ```csharp
 using System.ComponentModel.DataAnnotations;
@@ -450,7 +452,7 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView>
 
 > **CanExecute の再評価にはトリガが要ります。** `canExecute` 述語は登録時、`RaiseCanExecuteChanged()` 呼び出し時、そして `Validation` のエラーが変わったときにしか再計算されません ([アクション外で状態が変わったら呼ぶ](Reference-ViewAction-System))。
 >
-> `ChangeTracker` は変更を通知しません。入力変更ハンドラ (上の `OnInputChanged`) で `RaiseCanExecuteChanged()` を呼び、ダーティ表示が必要なら同じ場所で `View.IsDirty = _tracker.IsChangedWith(View.GetModel())` を設定します。`AcceptChanges` の後も同様に再評価します (実例 `samples/.../EmailDemo/ComposeEmailPresenter.cs`)。Presenter が 1 つのモデルを編集し続ける書き方なら `IsChanged` / `AcceptChanges()` を使います ([ChangeTracker § 2 つの使い方](Reference-ChangeTracker#2-つの使い方))。
+> `ChangeTracker` は変更を通知しません。入力変更ハンドラ (上の `OnInputChanged`) で `RaiseCanExecuteChanged()` を呼び、ダーティ表示が必要なら同じ場所で `View.IsDirty = _tracker.IsChangedWith(View.GetModel())` を設定します。`AcceptChanges` の後も同様に再評価します (実例 [`samples/Kibinago.Samples/EmailDemo/ComposeEmailPresenter.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/samples/Kibinago.Samples/EmailDemo/ComposeEmailPresenter.cs))。Presenter が 1 つのモデルを編集し続ける書き方なら `IsChanged` / `AcceptChanges()` を使います ([ChangeTracker § 2 つの使い方](Reference-ChangeTracker#2-つの使い方))。
 
 ### 検証は「巻き戻し」と無関係
 
@@ -646,4 +648,4 @@ public void ValidationState_GroupsErrorsByField()
 - [HowTo: エラーを扱う](HowTo-Handle-Errors) — 検証以外のエラー処理
 - [入力項目の多い編集画面を作る](HowTo-Build-Large-Edit-Screen) — バインドした入力モデルの検証と、登録失敗時のメッセージ・フォーカス
 - サンプル:
-  - `samples/Kibinago.Samples/ValidationDemo/` — `RegistrationModel` (DataAnnotations + `[CustomValidation]`)、`ValidationDemoPresenter` (`Validate` / `Check` / `Reset` / `SetError`)、`ValidationDemoForm` (`ErrorProviderDisplay`) の完全実装
+  - [`samples/Kibinago.Samples/ValidationDemo/`](https://github.com/VoidAxon/winforms-mvp/tree/master/samples/Kibinago.Samples/ValidationDemo) — `RegistrationModel` (DataAnnotations + `[CustomValidation]`)、`ValidationDemoPresenter` (`Validate` / `Check` / `Reset` / `SetError`)、`ValidationDemoForm` (`ErrorProviderDisplay`) の完全実装

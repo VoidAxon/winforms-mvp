@@ -294,6 +294,7 @@ internal static class Program
         services.AddScoped<IOrderService, OrderService>();
 
         // Presenter
+        services.AddTransient<MainPresenter>();
         services.AddTransient<UserEditorPresenter>();
         services.AddTransient<OrderProcessorPresenter>();
 
@@ -302,8 +303,11 @@ internal static class Program
         // 3. ServiceLocator にプロバイダを登録 — presenter 便利プロパティはここから解決される
         provider.UseKibinago();
 
-        // 4. メインウィンドウ
-        Application.Run(new MainForm(provider));
+        // 4. メインウィンドウ: テンプレートと同じ形 (Form を作り、コンテナから取った Presenter を Connect)
+        var mainForm = new MainForm();
+        provider.GetRequiredService<MainPresenter>().Connect(mainForm);
+        Application.Run(mainForm);
+        provider.Dispose();   // M.E.DI のコンテナは作った側で破棄する
     }
 }
 ```
@@ -557,16 +561,16 @@ internal static class Program
         var provider = services.BuildServiceProvider();
         provider.UseKibinago();   // ServiceLocator.Current = provider
 
-        // 5. ルート Presenter をコンテナから取得して起動
-        var mainPresenter = provider.GetRequiredService<MainShellPresenter>();
-        provider.GetRequiredService<IWindowNavigator>().ShowWindow(mainPresenter);
-
-        Application.Run();
+        // 6. メインウィンドウ: ルート Presenter をコンテナから取得して Connect (テンプレートと同じ形)
+        var shell = new MainShellForm();
+        provider.GetRequiredService<MainShellPresenter>().Connect(shell);
+        Application.Run(shell);
+        provider.Dispose();
     }
 }
 ```
 
-> ⚠️ **`AsFrameworkLoggerFactory()` はフレームワーク同梱のメソッドではありません。** コアパッケージは `Microsoft.Extensions.Logging` に依存しない設計なので、`Kibinago.DependencyInjection` もログ用アダプタを含みません (依存は `Microsoft.Extensions.DependencyInjection.Abstractions` のみ)。M.E.L. の `ILoggerFactory` を框架の `Kibinago.Logging.ILoggerFactory` に橋渡しするには、~30 行のアダプタを自分で書きます (全ターゲットで利用可)。実装例は `samples/MultiProjectDemo.Shell/Logging/MicrosoftLoggingExtensions.cs` と [Logging リファレンス](Reference-Logging) を参照。ログが不要なら `NullLoggerFactory` が自動で使われます。直接登録の代わりに `services.AddKibinago(viewRegistry, mvp => mvp.Logging.Use(loggerFactory.AsFrameworkLoggerFactory()))` と書くこともできます。
+> ⚠️ **`AsFrameworkLoggerFactory()` はフレームワーク同梱のメソッドではありません。** コアパッケージは `Microsoft.Extensions.Logging` に依存しない設計なので、`Kibinago.DependencyInjection` もログ用アダプタを含みません (依存は `Microsoft.Extensions.DependencyInjection.Abstractions` のみ)。M.E.L. の `ILoggerFactory` をフレームワークの `Kibinago.Logging.ILoggerFactory` に橋渡しするには、~30 行のアダプタを自分で書きます (全ターゲットで利用可)。実装例は [`samples/MultiProjectDemo.Shell/Logging/MicrosoftLoggingExtensions.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/samples/MultiProjectDemo.Shell/Logging/MicrosoftLoggingExtensions.cs) と [Logging リファレンス](Reference-Logging) を参照。ログが不要なら `NullLoggerFactory` が自動で使われます。直接登録の代わりに `services.AddKibinago(viewRegistry, mvp => mvp.Logging.Use(loggerFactory.AsFrameworkLoggerFactory()))` と書くこともできます。
 
 ### グローバル Dispatcher ミドルウェアの設定 (`IDispatcherConfigurer`)
 
@@ -587,8 +591,8 @@ services.AddKibinago(viewRegistry, mvp => mvp.Actions.Configure(d => d.Use(...))
 `IDispatcherConfigurer` を直接登録することもできます:
 
 ```csharp
-// ServiceLocator.Configure を使う場合 (M.E.DI なし)
-ServiceLocator.Configure(reg => reg.RegisterInstance<IDispatcherConfigurer>(
+// M.E.DI なしの場合
+MvpApplication.Configure(services: reg => reg.RegisterInstance<IDispatcherConfigurer>(
     new ActionDispatcherConfigurer(d => d
         .Use(new AuditMiddleware(auditSink, () => CurrentUser.Name))
         .Use(new AuthorizationMiddleware(currentUser))
@@ -603,9 +607,9 @@ services.AddSingleton<IDispatcherConfigurer>(
 
 詳細・実装方法は [ViewAction システム > ミドルウェアパイプライン](Reference-ViewAction-System#ミドルウェアパイプライン) を参照してください。
 
-### レガシープロジェクトの起動 (DI なし)
+### DI コンテナなしの起動
 
-`ServiceLocator.Configure` を使い、フルコンテナなしでサービスを差し替えます。
+テンプレート (`dotnet new kibinago`) が生成する形がそのまま推奨です。業務サービスは `Program` で 1 回作り、Presenter のコンストラクタに渡します。メイン Presenter は、自分が開くウィンドウの Presenter にそれを渡します ([はじめに § 業務サービスを Presenter に渡す](Getting-Started#6-業務サービスを-presenter-に渡す-di-なし))。
 
 ```csharp
 internal static class Program
@@ -616,20 +620,15 @@ internal static class Program
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
 
-        var viewRegistry = new ViewMappingRegister();
-        viewRegistry.RegisterFromAssembly(Assembly.GetExecutingAssembly());
+        MvpApplication.Configure();   // フレームワークの既定サービス (framework: / services: で差し替え)
+        ServiceLocator.Current.Resolve<IViewMappingRegister>()
+            .RegisterFromAssembly(typeof(Program).Assembly);
 
-        // Built-in DefaultServiceProvider に View レジストリを上書きして登録する。
-        ServiceLocator.Configure(reg =>
-        {
-            reg.RegisterInstance<IViewMappingRegister>(viewRegistry);
-            // 必要なら他のサービスも reg.RegisterInstance<T>(...) で上書き可能。
-        });
+        var orders = new SqlOrderRepository(connectionString);   // 業務サービス
 
-        var mainPresenter = new MainShellPresenter();
-        ServiceLocator.Current.Resolve<IWindowNavigator>().ShowWindow(mainPresenter);
-
-        Application.Run();
+        var mainForm = new MainForm();
+        new MainPresenter(orders).Connect(mainForm);
+        MvpApplication.Run(mainForm);   // メインフォームが閉じたらサービスを破棄
     }
 }
 ```
@@ -675,5 +674,5 @@ MvpApplication.Configure(
 - [ViewMappingRegister](Reference-ViewMappingRegister) — View 解決層の詳細
 - [HowTo: 従来の WinForms から移行する](HowTo-Migrate-From-Legacy-WinForms) — 段階的なリファクタリング
 - サンプル:
-  - `samples/MultiProjectDemo.Shell/Program.cs` — 完全な多プロジェクト構成
-  - `samples/MultiProjectDemo.UserModule/UserModuleRegistrar.cs` — モジュール登録の実例
+  - [`samples/MultiProjectDemo.Shell/Program.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/samples/MultiProjectDemo.Shell/Program.cs) — 完全な多プロジェクト構成
+  - [`samples/MultiProjectDemo.UserModule/UserModuleRegistrar.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/samples/MultiProjectDemo.UserModule/UserModuleRegistrar.cs) — モジュール登録の実例

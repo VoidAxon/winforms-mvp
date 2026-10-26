@@ -443,5 +443,5 @@ public async Task OnCompose_OpensComposeWindow()
 - [Dependency Injection](Reference-DependencyInjection) — `IPresenterFactory` で子 Presenter を DI 経由で解決する方法
 - [HowTo: ウィンドウクローズを扱う](HowTo-Handle-Window-Closing) — ダーティチェック・保存確認の実装
 - サンプル:
-  - `samples/Kibinago.Samples/NavigatorDemo/` — Modal / Non-Modal / シングルトン
-  - `samples/Kibinago.Samples/WindowClosingDemo/` — `RequestClose` / `CanClose` の完全例
+  - [`samples/Kibinago.Samples/NavigatorDemo/`](https://github.com/VoidAxon/winforms-mvp/tree/master/samples/Kibinago.Samples/NavigatorDemo) — Modal / Non-Modal / シングルトン
+  - [`samples/Kibinago.Samples/WindowClosingDemo/`](https://github.com/VoidAxon/winforms-mvp/tree/master/samples/Kibinago.Samples/WindowClosingDemo) — `RequestClose` / `CanClose` の完全例
