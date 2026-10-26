@@ -75,7 +75,8 @@ A list's double-click: raise a view event, the presenter calls `Dispatcher.Dispa
 | Need | Use |
 |---|---|
 | Open a modal window and get a result | `Navigator.For(presenter)[.WithParam(p)].ShowAsModal<TResult>()` → `InteractionResult<TResult>` |
-| Open a non-modal window (owner, one per key, callback) | `.ShowWindow<TResult>(owner: View, keySelector: _ => id, onClosed: r => ...)` |
+| Open a non-modal window (owner, one per key, callback) | `.ShowWindow<TResult>(owner: View, key: id, onClosed: r => ...)` |
+| Wrong navigation fails to compile (missing / wrong `WithParam`, a control presenter) | constraints on `For` / `WithParam` / the direct methods (`IWindowPresenter`, `IInitializable[<TParam>]`) |
 | Close with a result / a 「閉じる」 button (goes through `CanClose` like ✕) | `RequestClose(result, InteractionStatus.Ok)` / `RequestClose(InteractionStatus.Cancel)` as a ViewAction handler |
 | Ask before closing: ✕ / Alt+F4 / owner closing / RequestClose | `protected override bool CanClose(CloseReason)` / `Task<bool> CanCloseAsync(CloseReason)` |
 | The screen must not open (data gone, no permission) | in `OnInitialize`: `Messages.ShowWarning(why); RequestClose(InteractionStatus.Cancel); return;` (or `RequestClose(why, Error)` for the caller to show): never shown (Navigator does not show it; `Connect` hides and closes it in `Load`); modeless `ShowWindow` returns `null` |

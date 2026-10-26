@@ -167,7 +167,7 @@ namespace Kibinago.Samples.Tests.Services
 
             var failing = new ThrowingInitPresenter();
             Assert.Throws<InvalidOperationException>(
-                () => navigator.ShowWindow<ThrowingInitPresenter>(failing, keySelector: _ => key));
+                () => navigator.ShowWindow<ThrowingInitPresenter>(failing, key: key));
 
             // The stale (disposed) form must have been pruned, so the next show (same presenter type,
             // same key: the same window scope) creates a new one.
@@ -175,7 +175,7 @@ namespace Kibinago.Samples.Tests.Services
             IWindowView view = null;
             try
             {
-                view = navigator.ShowWindow<ThrowingInitPresenter>(second, keySelector: _ => key);
+                view = navigator.ShowWindow<ThrowingInitPresenter>(second, key: key);
 
                 Assert.NotNull(view);
                 Assert.False(second.Disposed,
@@ -233,7 +233,7 @@ namespace Kibinago.Samples.Tests.Services
             Kibinago.Common.InteractionResult<string> closed = null;
 
             var view = navigator.ShowWindow<RefusingPresenter, string>(new RefusingPresenter(),
-                keySelector: _ => 1, onClosed: r => closed = r);
+                key: 1, onClosed: r => closed = r);
 
             Assert.Null(view);
             Assert.True(closed.IsError);
@@ -241,7 +241,7 @@ namespace Kibinago.Samples.Tests.Services
             Assert.True(forms[0].IsDisposed);
 
             // The key is free again: a second request is not "activate the open window".
-            var again = navigator.ShowWindow<RefusingPresenter, string>(new RefusingPresenter(), keySelector: _ => 1);
+            var again = navigator.ShowWindow<RefusingPresenter, string>(new RefusingPresenter(), key: 1);
             Assert.Null(again);
             Assert.Equal(2, forms.Count);
         }

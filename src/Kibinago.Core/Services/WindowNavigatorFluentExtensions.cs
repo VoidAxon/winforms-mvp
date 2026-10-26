@@ -3,60 +3,62 @@ using Kibinago.Presenters;
 namespace Kibinago.Services
 {
     /// <summary>
-    /// Fluent API entry points for <see cref="IWindowNavigator"/> that let callers omit the
-    /// <c>TPresenter</c> generic argument at the call site while preserving full compile-time
-    /// type safety.
+    /// Fluent entry point for a presenter that initializes without parameters:
+    /// <c>Navigator.For(presenter).ShowAsModal&lt;TResult&gt;()</c>. The presenter type is inferred,
+    /// so only the result type is written. A presenter that takes parameters goes through
+    /// <see cref="WindowNavigatorParamFluentExtensions"/> instead.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// The existing instance methods on <see cref="IWindowNavigator"/> require three explicit
-    /// type arguments because C# does not support partial generic type inference:
-    /// </para>
-    /// <code>
-    /// // 3-arg API — every type argument must be spelled out
-    /// var result = Navigator.ShowWindowAsModal&lt;ComposeEmailPresenter, ComposeEmailParameters, bool&gt;(
-    ///     presenter, parameters);
-    /// </code>
-    /// <para>
-    /// The Fluent API splits the call into chained steps where each step infers its own type
-    /// parameter from its argument, leaving only the business result type for the caller to
-    /// specify explicitly:
-    /// </para>
-    /// <code>
-    /// // Fluent API — TPresenter and TParam inferred; only TResult is explicit
-    /// var result = Navigator.For(presenter)
-    ///                       .WithParam(parameters)
-    ///                       .ShowAsModal&lt;bool&gt;();
-    /// </code>
-    /// <para>
-    /// Both styles delegate to the same underlying instance methods, so existing call sites,
-    /// mock navigators, and tests continue to work without modification. Use whichever
-    /// style reads better for your call.
-    /// </para>
+    /// <c>For</c> exists twice, once per class, with different constraints; C# drops the overload whose
+    /// constraints the presenter does not meet, so the right one is picked and a control presenter
+    /// matches neither (compile error).
     /// </remarks>
     public static class WindowNavigatorFluentExtensions
     {
-        /// <summary>
-        /// Starts a Fluent navigation chain by capturing the presenter's static type. The
-        /// returned context lets you call <c>.WithParam(...)</c>, <c>.ShowAsModal&lt;...&gt;()</c>,
-        /// or <c>.ShowWindow(...)</c> without re-stating the presenter type.
-        /// </summary>
+        /// <summary>Starts a fluent navigation for a presenter that needs no parameters.</summary>
+        /// <typeparam name="TPresenter">The presenter type, inferred.</typeparam>
+        /// <param name="nav">The navigator.</param>
+        /// <param name="presenter">A new presenter, not yet attached; it is disposed when the window closes.</param>
+        /// <returns>A context that shows the window: <c>.ShowAsModal(...)</c> / <c>.ShowWindow(...)</c>.</returns>
         public static NavigationContext<TPresenter> For<TPresenter>(
             this IWindowNavigator nav,
             TPresenter presenter)
-            where TPresenter : IPresenter
+            where TPresenter : IWindowPresenter, IInitializable
             => new NavigationContext<TPresenter>(nav, presenter);
+    }
+
+    /// <summary>
+    /// Fluent entry point for a presenter that takes parameters:
+    /// <c>Navigator.For(presenter).WithParam(parameters).ShowAsModal&lt;TResult&gt;()</c>. The presenter
+    /// and parameter types are inferred, and <c>WithParam</c> is required before anything is shown.
+    /// </summary>
+    public static class WindowNavigatorParamFluentExtensions
+    {
+        /// <summary>Starts a fluent navigation for a presenter that takes parameters; continue with <c>.WithParam(...)</c>.</summary>
+        /// <typeparam name="TPresenter">The presenter type, inferred.</typeparam>
+        /// <param name="nav">The navigator.</param>
+        /// <param name="presenter">A new presenter, not yet attached; it is disposed when the window closes.</param>
+        /// <returns>A context whose only step is <c>.WithParam(...)</c>.</returns>
+        public static ParamRequiredNavigation<TPresenter> For<TPresenter>(
+            this IWindowNavigator nav,
+            TPresenter presenter)
+            where TPresenter : IWindowPresenter, IInitializableWithParam
+            => new ParamRequiredNavigation<TPresenter>(nav, presenter);
 
         /// <summary>
-        /// Attaches initialization parameters to the navigation chain. The stricter constraint
-        /// <c>where TPresenter : IInitializable&lt;TParam&gt;</c> applied here is what gives
-        /// the Fluent API its compile-time safety — passing parameters of a type the presenter
-        /// cannot consume fails to compile.
+        /// Supplies the presenter's initialization parameters. The constraint
+        /// <c>TPresenter : IInitializable&lt;TParam&gt;</c> makes parameters of a type the presenter does not
+        /// take fail to compile.
         /// </summary>
+        /// <typeparam name="TPresenter">The presenter type, inferred.</typeparam>
+        /// <typeparam name="TParam">The parameter type, inferred.</typeparam>
+        /// <param name="ctx">The context from <c>For</c>.</param>
+        /// <param name="parameters">Passed to the presenter's <c>Initialize(TParam)</c>.</param>
+        /// <returns>A context that shows the window.</returns>
         public static NavigationContext<TPresenter, TParam> WithParam<TPresenter, TParam>(
-            this NavigationContext<TPresenter> ctx,
+            this ParamRequiredNavigation<TPresenter> ctx,
             TParam parameters)
-            where TPresenter : IPresenter, IInitializable<TParam>
-            => new NavigationContext<TPresenter, TParam>(ctx, parameters);
+            where TPresenter : IWindowPresenter, IInitializable<TParam>
+            => new NavigationContext<TPresenter, TParam>(ctx.Nav, ctx.Presenter, parameters);
     }
 }

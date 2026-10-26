@@ -186,13 +186,13 @@ Prefer the fluent form — it infers the presenter and parameter types, so only 
 ```csharp
 // Modal: returns InteractionResult<TResult> when the window closes
 var r = Navigator.For(new CustomerSearchPresenter(repo)).WithParam(keyword).ShowAsModal<Customer>();
-// Non-modal: returns at once; owner = owned window, keySelector = one window per key, onClosed = result
+// Non-modal: returns at once; owner = owned window, key = one window per key, onClosed = result
 Navigator.For(editPresenter).WithParam(parameters)
-         .ShowWindow<int>(owner: View, keySelector: _ => id, onClosed: r => { if (r.IsOk) Reload(); });
+         .ShowWindow<int>(owner: View, key: id, onClosed: r => { if (r.IsOk) Reload(); });
 ```
-Keys are scoped by the presenter's runtime type (internally `(presenter.GetType(), key)`), so two screens can both key by a record id; the same presenter type with the same key activates the open window; the new presenter is disposed and its `onClosed` is not registered. The direct methods (`ShowWindowAsModal<TPresenter, TParam, TResult>(presenter, parameters)`, `ShowWindow<TPresenter>(presenter, keySelector: ...)`) do the same with every type argument written out.
+Keys are scoped by the presenter's runtime type (internally `(presenter.GetType(), key)`), so two screens can both key by a record id; the same presenter type with the same key activates the open window; the new presenter is disposed and its `onClosed` is not registered. The direct methods (`ShowWindowAsModal<TPresenter, TParam, TResult>(presenter, parameters)`, `ShowWindow(presenter, key: id)`) do the same with every type argument written out.
 
-`WithParam` tightens the constraint so passing a param the presenter can't consume fails to compile. A presenter that implements only `IInitializable<TParam>` (no parameterless initialization) shown through a parameterless overload throws `InvalidOperationException` instead of opening uninitialized. See [wiki/Reference-WindowNavigator.md](wiki/Reference-WindowNavigator.md).
+Mistakes fail to compile: `For` returns a context that can show the window only for a presenter that initializes without parameters; a presenter that takes parameters gets one whose only step is `WithParam` (of the type it takes); a control presenter matches neither (`IWindowPresenter`). The direct methods carry the same constraints (`IWindowPresenter, IInitializable` / `IInitializable<TParam>`). See [wiki/Reference-WindowNavigator.md](wiki/Reference-WindowNavigator.md).
 
 ### Window closing — one gate, two initiators
 

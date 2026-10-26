@@ -13,8 +13,10 @@ namespace Kibinago.Services
     /// </summary>
     /// <remarks>
     /// A presenter that cancels the opening (<c>RequestClose</c> during initialization) is never
-    /// shown. A presenter that only implements <see cref="IInitializable{TParam}"/> passed to a
-    /// parameterless overload throws <see cref="InvalidOperationException"/>.
+    /// shown. The constraints reject mistakes at compile time: only window presenters
+    /// (<see cref="IWindowPresenter"/>) are accepted, the parameterless overloads take only presenters
+    /// that initialize without parameters (<see cref="IInitializable"/>), and the others only
+    /// parameters of the type the presenter takes (<see cref="IInitializable{TParam}"/>).
     /// </remarks>
     public interface IWindowNavigator
     {
@@ -27,32 +29,32 @@ namespace Kibinago.Services
         /// <typeparam name="TResult">The type of the result the presenter passes to <c>RequestClose</c>.</typeparam>
         /// <param name="presenter">A new presenter, not yet attached; it is disposed when the window closes.</param>
         /// <param name="owner">The owner window, or <c>null</c> for none.</param>
-        /// <param name="keySelector">Optional key: when a window of the same presenter type with the same key
+        /// <param name="key">Optional key: when a window of the same presenter type with the same key
         /// is already open, that window is activated and <paramref name="presenter"/> is disposed.</param>
         /// <param name="onClosed">Called with the result after the window closes; not called when an existing
         /// window was activated instead.</param>
-        /// <returns>The window's view; the already open window when <paramref name="keySelector"/> matched one;
+        /// <returns>The window's view; the already open window when <paramref name="key"/> matched one;
         /// <c>null</c> when the presenter cancelled the opening.</returns>
         IWindowView ShowWindow<TPresenter, TResult>(
             TPresenter presenter,
             IWindowView owner = null,
-            Func<TPresenter, object> keySelector = null,
+            object key = null,
             Action<InteractionResult<TResult>> onClosed = null)
-            where TPresenter : IPresenter;
+            where TPresenter : IWindowPresenter, IInitializable;
 
         /// <summary>Shows the presenter's window non-modally and returns at once.</summary>
         /// <typeparam name="TPresenter">The presenter type.</typeparam>
         /// <param name="presenter">A new presenter, not yet attached; it is disposed when the window closes.</param>
         /// <param name="owner">The owner window, or <c>null</c> for none.</param>
-        /// <param name="keySelector">Optional key: when a window of the same presenter type with the same key
+        /// <param name="key">Optional key: when a window of the same presenter type with the same key
         /// is already open, that window is activated and <paramref name="presenter"/> is disposed.</param>
-        /// <returns>The window's view; the already open window when <paramref name="keySelector"/> matched one;
+        /// <returns>The window's view; the already open window when <paramref name="key"/> matched one;
         /// <c>null</c> when the presenter cancelled the opening.</returns>
         IWindowView ShowWindow<TPresenter>(
             TPresenter presenter,
             IWindowView owner = null,
-            Func<TPresenter, object> keySelector = null)
-            where TPresenter : IPresenter;
+            object key = null)
+            where TPresenter : IWindowPresenter, IInitializable;
 
         // ==================================================
         // Modal window methods (without parameters)
@@ -66,7 +68,7 @@ namespace Kibinago.Services
         InteractionResult ShowWindowAsModal<TPresenter>(
             TPresenter presenter,
             IWindowView owner = null)
-            where TPresenter : IPresenter;
+            where TPresenter : IWindowPresenter, IInitializable;
 
         /// <summary>Shows the presenter's window modally and returns its result when it closes.</summary>
         /// <typeparam name="TPresenter">The presenter type.</typeparam>
@@ -78,7 +80,7 @@ namespace Kibinago.Services
         InteractionResult<TResult> ShowWindowAsModal<TPresenter, TResult>(
             TPresenter presenter,
             IWindowView owner = null)
-            where TPresenter : IPresenter;
+            where TPresenter : IWindowPresenter, IInitializable;
 
         // ==================================================
         // Non-modal window methods (with parameters)
@@ -91,19 +93,19 @@ namespace Kibinago.Services
         /// <param name="presenter">A new presenter, not yet attached; it is disposed when the window closes.</param>
         /// <param name="parameters">Passed to the presenter's <c>Initialize(TParam)</c>.</param>
         /// <param name="owner">The owner window, or <c>null</c> for none.</param>
-        /// <param name="keySelector">Optional key: when a window of the same presenter type with the same key
+        /// <param name="key">Optional key: when a window of the same presenter type with the same key
         /// is already open, that window is activated and <paramref name="presenter"/> is disposed.</param>
         /// <param name="onClosed">Called with the result after the window closes; not called when an existing
         /// window was activated instead.</param>
-        /// <returns>The window's view; the already open window when <paramref name="keySelector"/> matched one;
+        /// <returns>The window's view; the already open window when <paramref name="key"/> matched one;
         /// <c>null</c> when the presenter cancelled the opening.</returns>
         IWindowView ShowWindow<TPresenter, TParam, TResult>(
             TPresenter presenter,
             TParam parameters,
             IWindowView owner = null,
-            Func<TPresenter, object> keySelector = null,
+            object key = null,
             Action<InteractionResult<TResult>> onClosed = null)
-            where TPresenter : IPresenter, IInitializable<TParam>;
+            where TPresenter : IWindowPresenter, IInitializable<TParam>;
 
         /// <summary>Shows the presenter's window non-modally and returns at once.</summary>
         /// <typeparam name="TPresenter">The presenter type.</typeparam>
@@ -111,16 +113,16 @@ namespace Kibinago.Services
         /// <param name="presenter">A new presenter, not yet attached; it is disposed when the window closes.</param>
         /// <param name="parameters">Passed to the presenter's <c>Initialize(TParam)</c>.</param>
         /// <param name="owner">The owner window, or <c>null</c> for none.</param>
-        /// <param name="keySelector">Optional key: when a window of the same presenter type with the same key
+        /// <param name="key">Optional key: when a window of the same presenter type with the same key
         /// is already open, that window is activated and <paramref name="presenter"/> is disposed.</param>
-        /// <returns>The window's view; the already open window when <paramref name="keySelector"/> matched one;
+        /// <returns>The window's view; the already open window when <paramref name="key"/> matched one;
         /// <c>null</c> when the presenter cancelled the opening.</returns>
         IWindowView ShowWindow<TPresenter, TParam>(
             TPresenter presenter,
             TParam parameters,
             IWindowView owner = null,
-            Func<TPresenter, object> keySelector = null)
-            where TPresenter : IPresenter, IInitializable<TParam>;
+            object key = null)
+            where TPresenter : IWindowPresenter, IInitializable<TParam>;
 
         // ==================================================
         // Modal window methods (with parameters)
@@ -137,7 +139,7 @@ namespace Kibinago.Services
             TPresenter presenter,
             TParam parameters,
             IWindowView owner = null)
-            where TPresenter : IPresenter, IInitializable<TParam>;
+            where TPresenter : IWindowPresenter, IInitializable<TParam>;
 
         /// <summary>Shows the presenter's window modally and returns its result when it closes.</summary>
         /// <typeparam name="TPresenter">The presenter type.</typeparam>
@@ -152,6 +154,6 @@ namespace Kibinago.Services
             TPresenter presenter,
             TParam parameters,
             IWindowView owner = null)
-            where TPresenter : IPresenter, IInitializable<TParam>;
+            where TPresenter : IWindowPresenter, IInitializable<TParam>;
     }
 }

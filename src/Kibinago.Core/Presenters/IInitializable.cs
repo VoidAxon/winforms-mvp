@@ -1,4 +1,4 @@
-﻿namespace Kibinago.Presenters
+namespace Kibinago.Presenters
 {
     /// <summary>
     /// A presenter that initializes without parameters. The framework calls <see cref="Initialize"/>
@@ -21,7 +21,7 @@
     /// class when there are several values).
     /// </summary>
     /// <typeparam name="TParam">The type of the initialization parameters.</typeparam>
-    public interface IInitializable<in TParam>
+    public interface IInitializable<in TParam> : IInitializableWithParam
     {
         /// <summary>
         /// Initializes the presenter with <paramref name="param"/> against its attached view. Throws
@@ -29,5 +29,14 @@
         /// </summary>
         /// <param name="param">The runtime data the presenter works on.</param>
         void Initialize(TParam param);
+    }
+
+    /// <summary>
+    /// Marks a presenter that is initialized with a parameter. <see cref="IInitializable{TParam}"/>
+    /// derives from it, so <c>Navigator.For(presenter)</c> can require <c>.WithParam(...)</c> at compile
+    /// time. Has no members; never implement it directly.
+    /// </summary>
+    public interface IInitializableWithParam
+    {
     }
 }

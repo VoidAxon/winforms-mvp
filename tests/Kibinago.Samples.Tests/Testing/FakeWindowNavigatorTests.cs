@@ -48,17 +48,6 @@ namespace Kibinago.Samples.Tests.Testing
         }
 
         [Fact]
-        public void Modal_TypedParameters_WrongType_ThrowsWithAHint()
-        {
-            var navigator = new FakeWindowNavigator();
-            navigator.RespondTo<ParamFixturePresenter, int, int>(n => InteractionResult<int>.Ok(n));
-
-            var ex = Assert.Throws<InvalidOperationException>(
-                () => navigator.ShowWindowAsModal<ParamFixturePresenter, int>(new ParamFixturePresenter()));
-            Assert.Contains("Int32", ex.Message);
-        }
-
-        [Fact]
         public void Modal_RequestCarriesPresenterAndOwner()
         {
             var navigator = new FakeWindowNavigator();
@@ -119,31 +108,14 @@ namespace Kibinago.Samples.Tests.Testing
         }
 
         [Fact]
-        public void ParameterizedOnlyPresenter_ThroughAParameterlessOverload_Throws_AndIsDisposed()
-        {
-            var navigator = new FakeWindowNavigator();
-            navigator.CancelUnscripted();
-            var modal = new ParamFixturePresenter();
-            var modeless = new ParamFixturePresenter();
-
-            var ex = Assert.Throws<InvalidOperationException>(() => navigator.ShowWindowAsModal(modal));
-            Assert.Contains("Int32", ex.Message);
-            Assert.Throws<InvalidOperationException>(() => navigator.ShowWindow(modeless));
-
-            Assert.True(modal.Disposed);
-            Assert.True(modeless.Disposed);
-            Assert.Empty(navigator.Windows);
-        }
-
-        [Fact]
         public void Modeless_SameKey_ActivatesTheOpenWindow_AndDisposesTheNewPresenter()
         {
             var navigator = new FakeWindowNavigator();
             var first = new FixturePresenter();
             var second = new FixturePresenter();
 
-            var view1 = navigator.ShowWindow(first, keySelector: _ => 7);
-            var view2 = navigator.ShowWindow(second, keySelector: _ => 7);
+            var view1 = navigator.ShowWindow(first, key: 7);
+            var view2 = navigator.ShowWindow(second, key: 7);
 
             Assert.Same(view1, view2);
             var window = Assert.Single(navigator.Windows);
@@ -158,8 +130,8 @@ namespace Kibinago.Samples.Tests.Testing
         public void Modeless_KeysAreScopedByPresenterType()
         {
             var navigator = new FakeWindowNavigator();
-            navigator.ShowWindow(new FixturePresenter(), keySelector: _ => 7);
-            navigator.ShowWindow(new OtherFixturePresenter(), keySelector: _ => 7);
+            navigator.ShowWindow(new FixturePresenter(), key: 7);
+            navigator.ShowWindow(new OtherFixturePresenter(), key: 7);
             Assert.Equal(2, navigator.Windows.Count);
         }
 
@@ -167,8 +139,8 @@ namespace Kibinago.Samples.Tests.Testing
         public void Modeless_NullKeyOrNoSelector_NoDeduplication()
         {
             var navigator = new FakeWindowNavigator();
-            navigator.ShowWindow(new FixturePresenter(), keySelector: _ => null);
-            navigator.ShowWindow(new FixturePresenter(), keySelector: _ => null);
+            navigator.ShowWindow(new FixturePresenter(), key: null);
+            navigator.ShowWindow(new FixturePresenter(), key: null);
             navigator.ShowWindow(new FixturePresenter());
             Assert.Equal(3, navigator.Windows.Count);
         }
@@ -215,8 +187,8 @@ namespace Kibinago.Samples.Tests.Testing
         {
             var navigator = new FakeWindowNavigator();
             IWindowView reopened = null;
-            var view = navigator.ShowWindow<FixturePresenter, bool>(new FixturePresenter(), keySelector: _ => "k",
-                onClosed: _ => reopened = navigator.ShowWindow(new FixturePresenter(), keySelector: _ => "k"));
+            var view = navigator.ShowWindow<FixturePresenter, bool>(new FixturePresenter(), key: "k",
+                onClosed: _ => reopened = navigator.ShowWindow(new FixturePresenter(), key: "k"));
 
             navigator.Windows[0].Close();
 
@@ -261,7 +233,7 @@ namespace Kibinago.Samples.Tests.Testing
             var owner = new FixtureView();
             navigator.CancelUnscripted();
 
-            navigator.ShowWindow(new ParamFixturePresenter(), 3, owner, _ => 1);
+            navigator.ShowWindow(new ParamFixturePresenter(), 3, owner, 1);
             navigator.ShowWindowAsModal<FixturePresenter, string>(new FixturePresenter());
 
             var modeless = navigator.Calls[0];

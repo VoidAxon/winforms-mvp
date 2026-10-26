@@ -94,31 +94,7 @@ namespace Kibinago.Samples.Tests.Presenters
 
         #endregion
 
-        #region Navigator: parameterized presenter through a parameterless overload
-
-        [Fact]
-        public void ShowWindowAsModal_ParamOnlyPresenterWithoutParams_ThrowsAndDisposes()
-        {
-            var presenter = new ParamPresenter();
-
-            var ex = Assert.Throws<InvalidOperationException>(
-                () => NewNavigator().ShowWindowAsModal<ParamPresenter, object>(presenter));
-
-            Assert.Contains("WithParam", ex.Message);
-            Assert.True(presenter.Disposed);
-            Assert.False(presenter.Initialized);
-        }
-
-        [Fact]
-        public void ShowWindow_ParamOnlyPresenterWithoutParams_ThrowsAndDisposes()
-        {
-            var presenter = new ParamPresenter();
-
-            Assert.Throws<InvalidOperationException>(
-                () => NewNavigator().ShowWindow(presenter));
-
-            Assert.True(presenter.Disposed);
-        }
+        #region Navigator: invalid owner
 
         [Fact]
         public void ShowWindow_OwnerNotFormBacked_ThrowsBeforeCreatingWindowAndDisposes()
@@ -209,8 +185,8 @@ namespace Kibinago.Samples.Tests.Presenters
             var first = new ScriptedPresenter();
             var second = new ScriptedPresenter();
 
-            var view1 = navigator.ShowWindow(first, keySelector: _ => "doc-1");
-            var view2 = navigator.ShowWindow(second, keySelector: _ => "doc-1");
+            var view1 = navigator.ShowWindow(first, key: "doc-1");
+            var view2 = navigator.ShowWindow(second, key: "doc-1");
 
             try
             {
@@ -225,10 +201,10 @@ namespace Kibinago.Samples.Tests.Presenters
         public void ShowWindow_AfterKeyedWindowCloses_OpensNewWindow()
         {
             var navigator = NewNavigator();
-            var view1 = navigator.ShowWindow(new ScriptedPresenter(), keySelector: _ => "doc-1");
+            var view1 = navigator.ShowWindow(new ScriptedPresenter(), key: "doc-1");
             ((Form)view1).Close();
 
-            var view2 = navigator.ShowWindow(new ScriptedPresenter(), keySelector: _ => "doc-1");
+            var view2 = navigator.ShowWindow(new ScriptedPresenter(), key: "doc-1");
             try { Assert.NotSame(view1, view2); }
             finally { ((Form)view2).Close(); }
         }
@@ -242,10 +218,10 @@ namespace Kibinago.Samples.Tests.Presenters
             var outer = new ScriptedPresenter
             {
                 // e.g. OnInitialize pumped a modal prompt and the user re-triggered the same command
-                OnInit = _ => reentrantView = navigator.ShowWindow(inner, keySelector: __ => "doc-1")
+                OnInit = _ => reentrantView = navigator.ShowWindow(inner, key: "doc-1")
             };
 
-            var view = navigator.ShowWindow(outer, keySelector: _ => "doc-1");
+            var view = navigator.ShowWindow(outer, key: "doc-1");
             try
             {
                 Assert.Same(view, reentrantView);
@@ -261,8 +237,8 @@ namespace Kibinago.Samples.Tests.Presenters
             var other = new OtherPresenter();
             int editClosed = 0, otherClosed = 0;
 
-            var edit = navigator.ShowWindow<ScriptedPresenter, object>(new ScriptedPresenter(), keySelector: _ => 42, onClosed: _ => editClosed++);
-            var second = navigator.ShowWindow<OtherPresenter, object>(other, keySelector: _ => 42, onClosed: _ => otherClosed++);
+            var edit = navigator.ShowWindow<ScriptedPresenter, object>(new ScriptedPresenter(), key: 42, onClosed: _ => editClosed++);
+            var second = navigator.ShowWindow<OtherPresenter, object>(other, key: 42, onClosed: _ => otherClosed++);
             try
             {
                 Assert.NotSame(edit, second);
@@ -282,21 +258,18 @@ namespace Kibinago.Samples.Tests.Presenters
         public void ShowWindow_SameRuntimeType_ActivatesExisting_WhateverTheStaticType()
         {
             var navigator = NewNavigator();
-            var view = navigator.ShowWindow(new ScriptedPresenter(), keySelector: _ => 42);
+            var view = navigator.ShowWindow(new ScriptedPresenter(), key: 42);
             var viaBase = new ScriptedPresenter();
-            var viaInterface = new ScriptedPresenter();
             var viaFluent = new ScriptedPresenter();
             var withParam = new ParamPresenter();
             try
             {
-                Assert.Same(view, navigator.ShowWindow<WindowPresenterBase<IHardView>>(viaBase, keySelector: _ => 42));
-                Assert.Same(view, navigator.ShowWindow<IPresenter>(viaInterface, keySelector: _ => 42));
-                Assert.Same(view, navigator.For(viaFluent).ShowWindow(keySelector: _ => 42));
+                Assert.Same(view, navigator.ShowWindow<WindowPresenterBase<IHardView>>(viaBase, key: 42));
+                Assert.Same(view, navigator.For(viaFluent).ShowWindow(key: 42));
                 Assert.True(viaBase.Disposed);
-                Assert.True(viaInterface.Disposed);
                 Assert.True(viaFluent.Disposed);
 
-                var paramView = navigator.ShowWindow(withParam, 7, keySelector: _ => 42);   // another type: its own window
+                var paramView = navigator.ShowWindow(withParam, 7, key: 42);   // another type: its own window
                 try { Assert.NotSame(view, paramView); }
                 finally { ((Form)paramView).Close(); }
             }
@@ -307,14 +280,14 @@ namespace Kibinago.Samples.Tests.Presenters
         public void ShowWindow_ClosingOneScreensWindow_KeepsTheOtherScreensKey()
         {
             var navigator = NewNavigator();
-            var edit = navigator.ShowWindow(new ScriptedPresenter(), keySelector: _ => 42);
-            var other = navigator.ShowWindow(new OtherPresenter(), keySelector: _ => 42);
+            var edit = navigator.ShowWindow(new ScriptedPresenter(), key: 42);
+            var other = navigator.ShowWindow(new OtherPresenter(), key: 42);
             ((Form)other).Close();
 
             var again = new ScriptedPresenter();
             try
             {
-                Assert.Same(edit, navigator.ShowWindow(again, keySelector: _ => 42));
+                Assert.Same(edit, navigator.ShowWindow(again, key: 42));
                 Assert.True(again.Disposed);
             }
             finally { ((Form)edit).Close(); }
@@ -327,11 +300,11 @@ namespace Kibinago.Samples.Tests.Presenters
             var failing = new ScriptedPresenter { OnInit = _ => throw new InvalidOperationException("boom") };
 
             Assert.Throws<InvalidOperationException>(
-                () => navigator.ShowWindow(failing, keySelector: _ => "doc-1"));
+                () => navigator.ShowWindow(failing, key: "doc-1"));
             Assert.True(failing.Disposed);
 
             var next = new ScriptedPresenter();
-            var view = navigator.ShowWindow(next, keySelector: _ => "doc-1");
+            var view = navigator.ShowWindow(next, key: "doc-1");
             try { Assert.Equal(1, next.InitCount); }
             finally { ((Form)view).Close(); }
         }

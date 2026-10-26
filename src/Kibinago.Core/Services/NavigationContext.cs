@@ -6,136 +6,143 @@ using Kibinago.Presenters;
 namespace Kibinago.Services
 {
     /// <summary>
-    /// Intermediate context built by <see cref="WindowNavigatorFluentExtensions.For{TPresenter}"/>
-    /// that captures the presenter type so subsequent steps in the Fluent API only need to
-    /// specify the result type explicitly.
+    /// Built by <c>Navigator.For(presenter)</c> for a presenter that initializes without parameters;
+    /// captures the presenter type so only the result type is written at the call site.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// C# does not support partial generic type inference: with the 3-arg form
-    /// <c>Navigator.ShowWindowAsModal&lt;TPresenter, TParam, TResult&gt;(...)</c> the caller must
-    /// spell out every type argument. The Fluent API splits that into chained steps so each
-    /// step can infer its own type parameter, leaving only <c>TResult</c> for the caller to
-    /// specify explicitly:
-    /// </para>
+    /// C# does not infer part of a method's type arguments: the direct form
+    /// <c>Navigator.ShowWindowAsModal&lt;TPresenter, TResult&gt;(...)</c> needs every one. The fluent
+    /// steps each infer their own, so only <c>TResult</c> is explicit:
     /// <code>
-    /// var result = Navigator.For(presenter)        // TPresenter inferred
-    ///                       .WithParam(parameters) // TParam inferred
-    ///                       .ShowAsModal&lt;bool&gt;(); // only TResult explicit
+    /// var result = Navigator.For(presenter).ShowAsModal&lt;bool&gt;();
     /// </code>
-    /// <para>
-    /// This is purely syntactic sugar over <see cref="IWindowNavigator"/>; every method here
-    /// delegates to the corresponding instance method on the navigator. The existing 3-arg
-    /// API remains fully supported.
-    /// </para>
+    /// Every method delegates to the matching <see cref="IWindowNavigator"/> method. A presenter that
+    /// takes parameters gets a <see cref="ParamRequiredNavigation{TPresenter}"/> from <c>For</c> instead,
+    /// so showing it without <c>WithParam</c> fails to compile.
     /// </remarks>
-    public sealed class NavigationContext<TPresenter> where TPresenter : IPresenter
+    /// <typeparam name="TPresenter">The presenter type.</typeparam>
+    public sealed class NavigationContext<TPresenter> where TPresenter : IWindowPresenter, IInitializable
+    {
+        private readonly IWindowNavigator _nav;
+        private readonly TPresenter _presenter;
+
+        internal NavigationContext(IWindowNavigator nav, TPresenter presenter)
+        {
+            _nav = nav;
+            _presenter = presenter;
+        }
+
+        /// <summary>Shows the window modally and returns when it closes.</summary>
+        /// <param name="owner">The owner window, or <c>null</c> for none.</param>
+        /// <returns>How the window was closed.</returns>
+        public InteractionResult ShowAsModal(IWindowView owner = null)
+            => _nav.ShowWindowAsModal<TPresenter>(_presenter, owner);
+
+        /// <summary>Shows the window modally and returns its result when it closes.</summary>
+        /// <typeparam name="TResult">The type of the result the presenter passes to <c>RequestClose</c>.</typeparam>
+        /// <param name="owner">The owner window, or <c>null</c> for none.</param>
+        /// <returns>The result the presenter passed to <c>RequestClose</c>, or a cancel result.</returns>
+        public InteractionResult<TResult> ShowAsModal<TResult>(IWindowView owner = null)
+            => _nav.ShowWindowAsModal<TPresenter, TResult>(_presenter, owner);
+
+        /// <summary>Shows the window non-modally and returns at once.</summary>
+        /// <param name="owner">The owner window, or <c>null</c> for none.</param>
+        /// <param name="key">Optional key: when a window of the same presenter type with the same key is
+        /// already open, that window is activated and the presenter is disposed.</param>
+        /// <returns>The window's view; the already open window for a matching key; <c>null</c> when the
+        /// presenter cancelled the opening.</returns>
+        public IWindowView ShowWindow(IWindowView owner = null, object key = null)
+            => _nav.ShowWindow<TPresenter>(_presenter, owner, key);
+
+        /// <summary>Shows the window non-modally and returns at once; <paramref name="onClosed"/> receives the result.</summary>
+        /// <typeparam name="TResult">The type of the result the presenter passes to <c>RequestClose</c>.</typeparam>
+        /// <param name="owner">The owner window, or <c>null</c> for none.</param>
+        /// <param name="key">Optional key: when a window of the same presenter type with the same key is
+        /// already open, that window is activated and the presenter is disposed.</param>
+        /// <param name="onClosed">Called with the result after the window closes; not called when an
+        /// existing window was activated instead.</param>
+        /// <returns>The window's view; the already open window for a matching key; <c>null</c> when the
+        /// presenter cancelled the opening.</returns>
+        public IWindowView ShowWindow<TResult>(
+            IWindowView owner = null,
+            object key = null,
+            Action<InteractionResult<TResult>> onClosed = null)
+            => _nav.ShowWindow<TPresenter, TResult>(_presenter, owner, key, onClosed);
+    }
+
+    /// <summary>
+    /// Built by <c>Navigator.For(presenter)</c> for a presenter that takes parameters
+    /// (<see cref="IInitializable{TParam}"/>). It can only be continued with <c>.WithParam(...)</c>,
+    /// so opening such a presenter without its parameters fails to compile.
+    /// </summary>
+    /// <typeparam name="TPresenter">The presenter type.</typeparam>
+    public sealed class ParamRequiredNavigation<TPresenter> where TPresenter : IWindowPresenter, IInitializableWithParam
     {
         internal readonly IWindowNavigator Nav;
         internal readonly TPresenter Presenter;
 
-        internal NavigationContext(IWindowNavigator nav, TPresenter presenter)
+        internal ParamRequiredNavigation(IWindowNavigator nav, TPresenter presenter)
         {
             Nav = nav;
             Presenter = presenter;
         }
-
-        /// <summary>
-        /// Shows the presenter as a modal window with no business result.
-        /// </summary>
-        public InteractionResult ShowAsModal(IWindowView owner = null)
-            => Nav.ShowWindowAsModal<TPresenter>(Presenter, owner);
-
-        /// <summary>
-        /// Shows the presenter as a modal window and waits for a typed business result
-        /// the presenter pushes via <c>RequestClose(result, status)</c>.
-        /// </summary>
-        public InteractionResult<TResult> ShowAsModal<TResult>(IWindowView owner = null)
-            => Nav.ShowWindowAsModal<TPresenter, TResult>(Presenter, owner);
-
-        /// <summary>
-        /// Shows the presenter as a non-modal window.
-        /// </summary>
-        /// <param name="owner">The owner window, or <c>null</c> for none.</param>
-        /// <param name="keySelector">Optional singleton key. When non-null and a window of the
-        /// same presenter type (runtime type) with the same key is already open, that window is
-        /// activated instead of creating a new one; other presenter types keep their own keys. The
-        /// lambda receives the strongly-typed presenter, so presenter properties can be accessed
-        /// without casts.</param>
-        public IWindowView ShowWindow(
-            IWindowView owner = null,
-            Func<TPresenter, object> keySelector = null)
-            => Nav.ShowWindow<TPresenter>(Presenter, owner, keySelector);
-
-        /// <summary>
-        /// Shows the presenter as a non-modal window and invokes <paramref name="onClosed"/>
-        /// with the final result after the window closes.
-        /// </summary>
-        public IWindowView ShowWindow<TResult>(
-            IWindowView owner = null,
-            Func<TPresenter, object> keySelector = null,
-            Action<InteractionResult<TResult>> onClosed = null)
-            => Nav.ShowWindow<TPresenter, TResult>(Presenter, owner, keySelector, onClosed);
     }
 
     /// <summary>
-    /// Intermediate context built by
-    /// <see cref="WindowNavigatorFluentExtensions.WithParam{TPresenter, TParam}"/> that
-    /// carries both the presenter and its initialization parameters.
+    /// Built by <c>Navigator.For(presenter).WithParam(parameters)</c>; only the result type is written
+    /// at the call site. Every method delegates to the matching <see cref="IWindowNavigator"/> method.
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// The class-level constraint <c>where TPresenter : IInitializable&lt;TParam&gt;</c>
-    /// is enforced at the call site of <c>WithParam</c>: passing a presenter that does not
-    /// implement <see cref="IInitializable{TParam}"/> for the inferred <c>TParam</c> fails
-    /// to compile, giving the Fluent API the same compile-time safety as the 3-arg
-    /// instance methods on <see cref="IWindowNavigator"/>.
-    /// </para>
-    /// </remarks>
+    /// <typeparam name="TPresenter">The presenter type.</typeparam>
+    /// <typeparam name="TParam">The presenter's initialization parameter type.</typeparam>
     public sealed class NavigationContext<TPresenter, TParam>
-        where TPresenter : IPresenter, IInitializable<TParam>
+        where TPresenter : IWindowPresenter, IInitializable<TParam>
     {
-        internal readonly IWindowNavigator Nav;
-        internal readonly TPresenter Presenter;
-        internal readonly TParam Parameters;
+        private readonly IWindowNavigator _nav;
+        private readonly TPresenter _presenter;
+        private readonly TParam _parameters;
 
-        internal NavigationContext(NavigationContext<TPresenter> baseCtx, TParam parameters)
+        internal NavigationContext(IWindowNavigator nav, TPresenter presenter, TParam parameters)
         {
-            Nav = baseCtx.Nav;
-            Presenter = baseCtx.Presenter;
-            Parameters = parameters;
+            _nav = nav;
+            _presenter = presenter;
+            _parameters = parameters;
         }
 
-        /// <summary>
-        /// Shows the presenter as a modal window with the captured parameters and no
-        /// business result.
-        /// </summary>
+        /// <summary>Shows the window modally and returns when it closes.</summary>
+        /// <param name="owner">The owner window, or <c>null</c> for none.</param>
+        /// <returns>How the window was closed.</returns>
         public InteractionResult ShowAsModal(IWindowView owner = null)
-            => Nav.ShowWindowAsModal<TPresenter, TParam>(Presenter, Parameters, owner);
+            => _nav.ShowWindowAsModal<TPresenter, TParam>(_presenter, _parameters, owner);
 
-        /// <summary>
-        /// Shows the presenter as a modal window with the captured parameters and waits
-        /// for a typed business result.
-        /// </summary>
+        /// <summary>Shows the window modally and returns its result when it closes.</summary>
+        /// <typeparam name="TResult">The type of the result the presenter passes to <c>RequestClose</c>.</typeparam>
+        /// <param name="owner">The owner window, or <c>null</c> for none.</param>
+        /// <returns>The result the presenter passed to <c>RequestClose</c>, or a cancel result.</returns>
         public InteractionResult<TResult> ShowAsModal<TResult>(IWindowView owner = null)
-            => Nav.ShowWindowAsModal<TPresenter, TParam, TResult>(Presenter, Parameters, owner);
+            => _nav.ShowWindowAsModal<TPresenter, TParam, TResult>(_presenter, _parameters, owner);
 
-        /// <summary>
-        /// Shows the presenter as a non-modal window with the captured parameters.
-        /// </summary>
-        public IWindowView ShowWindow(
-            IWindowView owner = null,
-            Func<TPresenter, object> keySelector = null)
-            => Nav.ShowWindow<TPresenter, TParam>(Presenter, Parameters, owner, keySelector);
+        /// <summary>Shows the window non-modally and returns at once.</summary>
+        /// <param name="owner">The owner window, or <c>null</c> for none.</param>
+        /// <param name="key">Optional key: when a window of the same presenter type with the same key is
+        /// already open, that window is activated and the presenter is disposed.</param>
+        /// <returns>The window's view; the already open window for a matching key; <c>null</c> when the
+        /// presenter cancelled the opening.</returns>
+        public IWindowView ShowWindow(IWindowView owner = null, object key = null)
+            => _nav.ShowWindow<TPresenter, TParam>(_presenter, _parameters, owner, key);
 
-        /// <summary>
-        /// Shows the presenter as a non-modal window with the captured parameters and
-        /// invokes <paramref name="onClosed"/> with the final result after the window closes.
-        /// </summary>
+        /// <summary>Shows the window non-modally and returns at once; <paramref name="onClosed"/> receives the result.</summary>
+        /// <typeparam name="TResult">The type of the result the presenter passes to <c>RequestClose</c>.</typeparam>
+        /// <param name="owner">The owner window, or <c>null</c> for none.</param>
+        /// <param name="key">Optional key: when a window of the same presenter type with the same key is
+        /// already open, that window is activated and the presenter is disposed.</param>
+        /// <param name="onClosed">Called with the result after the window closes; not called when an
+        /// existing window was activated instead.</param>
+        /// <returns>The window's view; the already open window for a matching key; <c>null</c> when the
+        /// presenter cancelled the opening.</returns>
         public IWindowView ShowWindow<TResult>(
             IWindowView owner = null,
-            Func<TPresenter, object> keySelector = null,
+            object key = null,
             Action<InteractionResult<TResult>> onClosed = null)
-            => Nav.ShowWindow<TPresenter, TParam, TResult>(Presenter, Parameters, owner, keySelector, onClosed);
+            => _nav.ShowWindow<TPresenter, TParam, TResult>(_presenter, _parameters, owner, key, onClosed);
     }
 }

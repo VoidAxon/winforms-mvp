@@ -110,7 +110,7 @@ namespace Kibinago.Samples.NavigatorDemo
 
             _singletonWindowButton = new Button
             {
-                Text = "Singleton Window (keySelector)",
+                Text = "Singleton Window (key)",
                 Location = new Point(15, 130),
                 Size = new Size(320, 40),
                 Font = new Font("Segoe UI", 9f, FontStyle.Regular)

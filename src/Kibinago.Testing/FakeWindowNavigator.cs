@@ -92,8 +92,8 @@ namespace Kibinago.Testing
     /// <para><b>Non-modal:</b> each call opens a <see cref="FakeWindow"/> (see <see cref="Windows"/>) that
     /// the test closes with a result. Keys are scoped by presenter type; the same key while open
     /// activates that window and disposes the new presenter.</para>
-    /// <para>A presenter that implements only <c>IInitializable&lt;TParam&gt;</c> shown through a
-    /// parameterless overload throws <see cref="InvalidOperationException"/>, as in production.</para>
+    /// <para>The same compile-time constraints as production: only window presenters, and a presenter
+    /// that takes parameters only through the overloads that pass them.</para>
     /// <code>
     /// fakes.Navigator.RespondTo&lt;CustomerSearchPresenter, Customer&gt;(r => InteractionResult&lt;Customer&gt;.Ok(alice));
     /// fakes.Navigator.Windows.Single().CloseWithResult(42);
@@ -189,48 +189,48 @@ namespace Kibinago.Testing
 
         /// <inheritdoc />
         public virtual IWindowView ShowWindow<TPresenter, TResult>(TPresenter presenter, IWindowView owner = null,
-            Func<TPresenter, object> keySelector = null, Action<InteractionResult<TResult>> onClosed = null)
-            where TPresenter : IPresenter
-            => ShowModelessCore(presenter, null, false, true, owner, keySelector, onClosed);
+            object key = null, Action<InteractionResult<TResult>> onClosed = null)
+            where TPresenter : IWindowPresenter, IInitializable
+            => ShowModelessCore(presenter, null, false, true, owner, key, onClosed);
 
         /// <inheritdoc />
         public virtual IWindowView ShowWindow<TPresenter>(TPresenter presenter, IWindowView owner = null,
-            Func<TPresenter, object> keySelector = null)
-            where TPresenter : IPresenter
-            => ShowModelessCore<TPresenter, object>(presenter, null, false, false, owner, keySelector, null);
+            object key = null)
+            where TPresenter : IWindowPresenter, IInitializable
+            => ShowModelessCore<TPresenter, object>(presenter, null, false, false, owner, key, null);
 
         /// <inheritdoc />
         public virtual InteractionResult ShowWindowAsModal<TPresenter>(TPresenter presenter, IWindowView owner = null)
-            where TPresenter : IPresenter
+            where TPresenter : IWindowPresenter, IInitializable
             => ShowModalCore<object>(presenter, null, false, false, owner);
 
         /// <inheritdoc />
         public virtual InteractionResult<TResult> ShowWindowAsModal<TPresenter, TResult>(TPresenter presenter, IWindowView owner = null)
-            where TPresenter : IPresenter
+            where TPresenter : IWindowPresenter, IInitializable
             => ShowModalCore<TResult>(presenter, null, false, true, owner);
 
         /// <inheritdoc />
         public virtual IWindowView ShowWindow<TPresenter, TParam, TResult>(TPresenter presenter, TParam parameters,
-            IWindowView owner = null, Func<TPresenter, object> keySelector = null, Action<InteractionResult<TResult>> onClosed = null)
-            where TPresenter : IPresenter, IInitializable<TParam>
-            => ShowModelessCore(presenter, parameters, true, true, owner, keySelector, onClosed);
+            IWindowView owner = null, object key = null, Action<InteractionResult<TResult>> onClosed = null)
+            where TPresenter : IWindowPresenter, IInitializable<TParam>
+            => ShowModelessCore(presenter, parameters, true, true, owner, key, onClosed);
 
         /// <inheritdoc />
         public virtual IWindowView ShowWindow<TPresenter, TParam>(TPresenter presenter, TParam parameters,
-            IWindowView owner = null, Func<TPresenter, object> keySelector = null)
-            where TPresenter : IPresenter, IInitializable<TParam>
-            => ShowModelessCore<TPresenter, object>(presenter, parameters, true, false, owner, keySelector, null);
+            IWindowView owner = null, object key = null)
+            where TPresenter : IWindowPresenter, IInitializable<TParam>
+            => ShowModelessCore<TPresenter, object>(presenter, parameters, true, false, owner, key, null);
 
         /// <inheritdoc />
         public virtual InteractionResult ShowWindowAsModal<TPresenter, TParam>(TPresenter presenter, TParam parameters,
             IWindowView owner = null)
-            where TPresenter : IPresenter, IInitializable<TParam>
+            where TPresenter : IWindowPresenter, IInitializable<TParam>
             => ShowModalCore<object>(presenter, parameters, true, false, owner);
 
         /// <inheritdoc />
         public virtual InteractionResult<TResult> ShowWindowAsModal<TPresenter, TParam, TResult>(TPresenter presenter,
             TParam parameters, IWindowView owner = null)
-            where TPresenter : IPresenter, IInitializable<TParam>
+            where TPresenter : IWindowPresenter, IInitializable<TParam>
             => ShowModalCore<TResult>(presenter, parameters, true, true, owner);
 
         #endregion
@@ -245,7 +245,7 @@ namespace Kibinago.Testing
             if (presenter == null) throw new ArgumentNullException(nameof(presenter));
             try
             {
-                Validate(presenter, hasParameters);
+                Validate(presenter);
                 Func<IPresenter, object, bool, IWindowView, Answer> responder;
                 bool cancelUnscripted;
                 lock (_gate)
@@ -280,14 +280,13 @@ namespace Kibinago.Testing
         /// overloads without a result type.
         /// </summary>
         protected virtual IWindowView ShowModelessCore<TPresenter, TResult>(TPresenter presenter, object parameters,
-            bool hasParameters, bool hasResult, IWindowView owner, Func<TPresenter, object> keySelector,
+            bool hasParameters, bool hasResult, IWindowView owner, object key,
             Action<InteractionResult<TResult>> onClosed)
             where TPresenter : IPresenter
         {
             if (presenter == null) throw new ArgumentNullException(nameof(presenter));
 
-            var key = keySelector?.Invoke(presenter);
-            var instanceKey = key == null ? null : (object)(presenter.GetType(), key);
+                        var instanceKey = key == null ? null : (object)(presenter.GetType(), key);
             var resultType = hasResult ? typeof(TResult) : null;
 
             lock (_gate)
@@ -303,7 +302,7 @@ namespace Kibinago.Testing
 
             try
             {
-                Validate(presenter, hasParameters);
+                Validate(presenter);
             }
             catch
             {
@@ -334,21 +333,12 @@ namespace Kibinago.Testing
         }
 
         // Same checks as WindowNavigator.PrepareForm, before anything is shown.
-        private static void Validate(IPresenter presenter, bool hasParameters)
+        private static void Validate(IPresenter presenter)
         {
             if (!(presenter is ICloseParticipant))
                 throw new InvalidOperationException(
                     presenter.GetType().Name + " cannot be shown by WindowNavigator because it does not " +
                     "derive from WindowPresenterBase / WindowPresenterBaseCore (no close participant).");
-            if (hasParameters || presenter is IInitializable) return;
-            foreach (var iface in presenter.GetType().GetInterfaces())
-            {
-                if (iface.IsGenericType && iface.GetGenericTypeDefinition() == typeof(IInitializable<>))
-                    throw new InvalidOperationException(
-                        $"{presenter.GetType().Name} requires initialization parameters of type " +
-                        $"{iface.GetGenericArguments()[0].Name}. Show it with an overload that takes " +
-                        "parameters, e.g. Navigator.For(presenter).WithParam(parameters).");
-            }
         }
 
         private void AddResponder(Type presenterType, Func<IPresenter, object, bool, IWindowView, Answer> respond)

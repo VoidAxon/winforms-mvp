@@ -24,14 +24,14 @@ var picked = Navigator.For(new StaffPickerPresenter(_masters)).ShowAsModal<Staff
 Navigator.For(new CustomerEditPresenter(_repository))
          .WithParam(new CustomerEditParameters { CustomerId = id })
          .ShowWindow<int>(owner: View,
-             keySelector: _ => id,
+             key: id,
              onClosed: r => { if (r.IsOk) Reload(); });
 ```
 
 - `For` は拡張メソッドです。ファイルの先頭に `using Kibinago.Services;` が必要です (テンプレートが生成する Presenter には入っています)。ないと `CS1061: 'IWindowNavigator' に 'For' の定義が含まれておらず` になります。
 - モーダルは閉じるまで戻らず、`InteractionResult<T>` (`IsOk` / `IsCancelled` / `IsError`、`Value`) を返します。非モーダルはすぐ戻り、結果は `onClosed` で受け取ります。
 - Presenter が初期化中 (`OnInitialize` や `OnInitializeAsync` の最初の `await` まで) に `RequestClose` を呼ぶと、表示がキャンセルされます: `Show` / `ShowDialog` は呼ばれず、モーダルはその結果を返し、非モーダルは `null` を返します ([表示前のキャンセル](#表示前のキャンセル))。
-- `keySelector` が返すキーのウィンドウがすでに開いていれば、そのウィンドウをアクティブにします。このとき新しい Presenter は破棄され、その `onClosed` は登録されません。キーは Presenter の型ごとに分かれています (内部では `(Presenter の実行時の型, キー)`)。別の画面が同じレコード ID をキーにしても、互いのウィンドウを開いてしまうことはありません。同じ Presenter 型 + 同じキーのときだけ既存のウィンドウを使います (Presenter の派生クラスは別の型として扱われます)。
+- `key` に渡したキーのウィンドウがすでに開いていれば、そのウィンドウをアクティブにします。このとき新しい Presenter は破棄され、その `onClosed` は登録されません。キーは Presenter の型ごとに分かれています (内部では `(Presenter の実行時の型, キー)`)。別の画面が同じレコード ID をキーにしても、互いのウィンドウを開いてしまうことはありません。同じ Presenter 型 + 同じキーのときだけ既存のウィンドウを使います (Presenter の派生クラスは別の型として扱われます)。
 - `owner` を渡すと、そのウィンドウに所属します (常に手前に表示され、オーナーと一緒に最小化・クローズされます。オーナーを閉じると、所属するウィンドウの `CanClose` が `ParentClosing` で呼ばれます)。
 
 `ShowWindowAsModal<TPresenter, TParam, TResult>(...)` などの直接呼び出し形式も同じ機能で、以下のリファレンスはこちらで説明しています。
@@ -167,17 +167,17 @@ Presenter が初期化中 (`OnInitialize`、`OnInitializeAsync` の同期部分)
 
 ## シングルトンウィンドウ
 
-同じキーに対して **常に同じウィンドウインスタンス** を返したい場合は、`keySelector` を指定します。ドキュメントエディタ等で、同じドキュメントに対して 2 つのウィンドウが開かないようにしたいときに便利です。
+同じキーに対して **常に同じウィンドウインスタンス** を返したい場合は、`key` を指定します (レコード ID など、呼び出し側が持っている値をそのまま渡します)。ドキュメントエディタ等で、同じドキュメントに対して 2 つのウィンドウが開かないようにしたいときに便利です。
 
 ```csharp
-navigator.ShowWindow<DocumentPresenter>(
-    presenter,
-    keySelector: p => p.DocumentId);
+Navigator.For(new DocumentPresenter(_repository))
+         .WithParam(documentId)
+         .ShowWindow(key: documentId);
 ```
 
 挙動:
 
-1. 内部辞書に `DocumentId` のエントリがあれば、既存ウィンドウを `Activate()` して前面に出す
+1. 内部辞書に `(DocumentPresenter, documentId)` のエントリがあれば、既存ウィンドウを `Activate()` して前面に出す
 2. なければ新規ウィンドウを生成して、辞書に登録
 3. ウィンドウが閉じたら自動的に辞書から削除 (表示前にキャンセルされた場合も、`onClosed` の前に削除)
 
@@ -205,21 +205,21 @@ var result = Navigator.For(presenter)            // TPresenter は引数から�
 
 | ステップ | 型推論 | コンパイル時制約 |
 |---------|------|---------------|
-| `.For(presenter)` | `TPresenter` | `TPresenter : IPresenter` |
+| `.For(presenter)` | `TPresenter` | `TPresenter : IWindowPresenter` (ウィンドウ用 Presenter だけ) |
 | `.WithParam(parameters)` | `TParam` | `TPresenter : IInitializable<TParam>` |
-| `.ShowAsModal<TResult>()` | (明示) | (なし) |
-| `.ShowAsModal()` | — | (なし) |
-| `.ShowWindow(...)` / `.ShowWindow<TResult>(...)` | — | (なし) |
+| `.ShowAsModal<TResult>()` | (明示) | パラメータなしの Presenter は `For` の直後、パラメータありは `WithParam` の後だけ |
+| `.ShowAsModal()` | — | 同上 |
+| `.ShowWindow(...)` / `.ShowWindow<TResult>(...)` | — | 同上 |
 
-`WithParam` 拡張メソッドは **より厳しい制約** を追加します。`NavigationContext<TPresenter>` 自体は `IPresenter` だけを要求しますが、`WithParam(parameters)` を呼ぶには Presenter が `IInitializable<TParam>` を実装している必要があります。型不一致は **コンパイル時に検出されます**:
+`For` は Presenter の種類で戻り値が変わります。パラメータなしで初期化する Presenter (`WindowPresenterBase<TView>`) には表示メソッドを持つ `NavigationContext<TPresenter>` を、パラメータが必要な Presenter (`WindowPresenterBase<TView, TParam>`) には `WithParam` しか呼べない `ParamRequiredNavigation<TPresenter>` を返します (C# は制約を満たさないオーバーロードを候補から外すので、どちらかが選ばれます)。次の間違いはすべて **コンパイル時に検出されます**:
 
 ```csharp
-// FooPresenter は IInitializable<int> を実装していない
-Navigator.For(fooPresenter).WithParam(42);
-// ❌ コンパイルエラー: 'FooPresenter' does not satisfy IInitializable<int>
+Navigator.For(fooPresenter).WithParam(42);        // ❌ FooPresenter は int を受け取らない
+Navigator.For(editPresenter).ShowAsModal<int>();   // ❌ EditPresenter はパラメータが必要 (WithParam を忘れている)
+Navigator.For(panelPresenter);                     // ❌ ControlPresenterBase の Presenter はウィンドウを持たない
 ```
 
-逆方向 (パラメータが必要な Presenter をパラメータなしで表示) は実行時に検出されます。`IInitializable<TParam>` だけを実装する Presenter (`WindowPresenterBase<TView, TParam>` 派生) を `ShowAsModal()` / `ShowWindow()` などパラメータなしのオーバーロードで表示すると、ウィンドウを作る前に `InvalidOperationException` が送出されます (以前は未初期化のままウィンドウが開いていました)。
+直接呼び出し形式 (`ShowWindowAsModal<TPresenter, TResult>(...)` など) も同じ制約を持ちます: パラメータなしのオーバーロードは `IWindowPresenter, IInitializable`、パラメータありは `IWindowPresenter, IInitializable<TParam>`。
 
 ### 全 4 バリエーション
 
@@ -238,7 +238,7 @@ var ok = Navigator.For(presenter).WithParam(parameters).ShowAsModal<bool>();
 
 // Non-Modal (シングルトン・コールバック対応)
 Navigator.For(presenter).ShowWindow<bool>(
-    keySelector: p => p.DocumentId,
+    key: documentId,
     onClosed: result => { /* ... */ });
 
 // Non-Modal、パラメータあり
@@ -252,8 +252,7 @@ Navigator.For(presenter).WithParam(parameters).ShowWindow();
 | 観点 | 3 引数形式 | Fluent 形式 |
 |------|----------|------------|
 | 明示すべき型引数 | すべて (`<TP, TParam, TResult>`) | `<TResult>` のみ (または無し) |
-| `IInitializable<TParam>` チェック | コンパイル時 | コンパイル時 |
-| `keySelector` の型 | `TPresenter` で型強い | `TPresenter` で型強い |
+| パラメータ・Presenter の種類のチェック | コンパイル時 | コンパイル時 |
 | 既存テスト/モックへの影響 | — | なし (同じインスタンスメソッドに委譲) |
 | リフレクション/実行時キャスト | なし | なし |
 
@@ -360,7 +359,6 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView, EditUserPara
 |------|--------------|
 | ビューインターフェイスに実装が未登録 | `KeyNotFoundException` |
 | 登録された実装が `Form` でない / `IWindowView` 未実装 / Presenter が `IViewAttacher<TView>` 未実装 / ウィンドウ Presenter でない | `InvalidOperationException` |
-| パラメータが必要な Presenter をパラメータなしのオーバーロードで表示 | `InvalidOperationException` |
 
 > いずれの場合も、ウィンドウは表示され得ないため Presenter (と生成済みなら Form) は送出前に Dispose されます。これらは起動時の配線ミスであり、`ShowDialog`/`Show` に到達する前に投げられます。`IsError` を待つコードではなく、`ViewMappingRegister` への登録を正しく行うことで防いでください。
 
