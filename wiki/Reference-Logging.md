@@ -330,7 +330,7 @@ public void OnSave_ShouldLogSuccess()
 
 `LogEntry` は `Category`、`Level`、`Exception`、`Message` (プレースホルダー展開済み)、`Template`、`Args` を持ちます。フェイクを使わずに組む場合は `TestServices.Create()` のプロバイダに `new RecordingLoggerFactory()` を `ILoggerFactory` として登録します (無出力のものを置き換えます)。
 
-完全なテストパターン集は `tests/Kibinago.Samples.Tests/LoggingIntegrationTests.cs` にあります。
+完全なテストパターン集は [`tests/Kibinago.Samples.Tests/LoggingIntegrationTests.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/tests/Kibinago.Samples.Tests/LoggingIntegrationTests.cs) にあります。
 
 ---
 

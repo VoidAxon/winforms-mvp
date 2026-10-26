@@ -259,7 +259,7 @@ protected override bool CanClose(CloseReason reason)
 
 クローズ判断に `await` が必要な場合 (閉じる前に保存する、サーバーに確認する) は `CanCloseAsync` をオーバーライドします。`true` で許可、`false` でブロックです。以前のコールバック形式 `CanClose(reason, Action<bool> proceed)` は削除されました (BREAKING) — `proceed(x)` は `return x;` に置き換えます。
 
-典型例は「未保存の変更があれば下書き保存してから閉じる」です (`samples/Kibinago.Samples/EmailDemo/ComposeEmailPresenter.cs` より):
+典型例は「未保存の変更があれば下書き保存してから閉じる」です ([`samples/Kibinago.Samples/EmailDemo/ComposeEmailPresenter.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/samples/Kibinago.Samples/EmailDemo/ComposeEmailPresenter.cs) より):
 
 ```csharp
 protected override async Task<bool> CanCloseAsync(CloseReason reason)
@@ -354,7 +354,7 @@ public static class Program
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
 
-        ServiceLocator.Configure(reg => { /* register view registry and other overrides here */ });
+        MvpApplication.Configure(services: reg => { /* register view registry and other overrides here */ });
 
         var form      = new MainShellForm();
         var presenter = new MainShellPresenter();
@@ -526,7 +526,7 @@ public void CanClose_SystemShutdown_DoesNotPrompt()
 }
 ```
 
-非同期の判定 (`CanCloseAsync`) は `await` してから検証します (`tests/.../Presenters/ComposeEmailPresenterTests.cs` より):
+非同期の判定 (`CanCloseAsync`) は `await` してから検証します ([`tests/Kibinago.Samples.Tests/Presenters/ComposeEmailPresenterTests.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/tests/Kibinago.Samples.Tests/Presenters/ComposeEmailPresenterTests.cs) より):
 
 ```csharp
 [Fact]
@@ -621,7 +621,7 @@ await _host.WaitForCloseDecisionAsync();   // the async gate a RequestClose star
 Assert.True(_host.CloseRequested);
 ```
 
-完全なテスト例: `tests/Kibinago.Samples.Tests/Presenters/WindowClosingDemoPresenterTests.cs` および `PresenterTestHostTests.cs`。
+完全なテスト例: [`tests/Kibinago.Samples.Tests/Presenters/WindowClosingDemoPresenterTests.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/tests/Kibinago.Samples.Tests/Presenters/WindowClosingDemoPresenterTests.cs) および `PresenterTestHostTests.cs`。
 テスト駆動の完全なガイド: [HowTo: Presenter をテストする](HowTo-Test-A-Presenter)。
 
 ---

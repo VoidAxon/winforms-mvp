@@ -4,6 +4,8 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>TARGET_FRAMEWORK</TargetFramework>
     <UseWindowsForms>true</UseWindowsForms>
+    <!-- Lets dotnet build / restore run on Linux and macOS too (no effect on Windows). -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <LangVersion>latest</LangVersion>
     <RootNamespace>MyMvpApp</RootNamespace>
   </PropertyGroup>

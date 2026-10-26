@@ -178,7 +178,7 @@ Assert.False(_view.WasDeleted);
 
 ### Q. テストで View を実体化する必要がありますか?
 
-A. 不要です。`MockXxxView` を実装してインターフェイス越しにテストします。モック View は `CapturingActionBinder` (`Kibinago.Testing`) を公開して、テストからアクションを Dispatch します。サンプルは `tests/Kibinago.Samples.Tests/Mocks/` を参照。
+A. 不要です。`MockXxxView` を実装してインターフェイス越しにテストします。モック View は `CapturingActionBinder` (`Kibinago.Testing`) を公開して、テストからアクションを Dispatch します。サンプルは [`tests/Kibinago.Samples.Tests/Mocks/`](https://github.com/VoidAxon/winforms-mvp/tree/master/tests/Kibinago.Samples.Tests/Mocks) を参照。
 
 ---
 

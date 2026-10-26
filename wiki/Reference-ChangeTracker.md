@@ -294,7 +294,7 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView, int>
 
 > ⚠️ **書き方 2 で引数なしの `AcceptChanges()` を呼ばないでください。** 引数なし版は tracker を作ったときのオブジェクト (書き方 2 では古いまま) を撮り直すため、次の `IsChangedWith` が変更ありと報告します。
 
-実例: `samples/Kibinago.Samples/EmailDemo/ComposeEmailPresenter.cs` (書き方 2。編集する 3 項目だけを `EmailEditState` に読み出して比較し、非同期の下書き保存後に `AcceptChanges(submitted)`)。
+実例: [`samples/Kibinago.Samples/EmailDemo/ComposeEmailPresenter.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/samples/Kibinago.Samples/EmailDemo/ComposeEmailPresenter.cs) (書き方 2。編集する 3 項目だけを `EmailEditState` に読み出して比較し、非同期の下書き保存後に `AcceptChanges(submitted)`)。
 
 ### tracker の役割ではないこと
 
@@ -532,7 +532,7 @@ private void OnClose() => RequestClose(InteractionStatus.Cancel);
 - [ViewAction システム](Reference-ViewAction-System) — `canExecute: () => _tracker.IsChanged` パターン
 - [HowTo: ウィンドウクローズを扱う](HowTo-Handle-Window-Closing) — 完全な実装例
 - サンプル:
-  - `samples/Kibinago.Samples/EmailDemo/` — ChangeTracker (使い方 2) + クローズモデルの組み合わせ
-  - `tests/Kibinago.Samples.Tests/Common/ChangeTrackerTests.cs` — テストパターン
-  - `tests/Kibinago.Samples.Tests/Common/ChangeTrackerUsageStyleTests.cs` — 2 つの書き方の動作
-  - `samples/Kibinago.Samples/EmailDemo/ComposeEmailPresenter.cs` — 書き方 2 + 非同期保存 + 破棄して閉じる
+  - [`samples/Kibinago.Samples/EmailDemo/`](https://github.com/VoidAxon/winforms-mvp/tree/master/samples/Kibinago.Samples/EmailDemo) — ChangeTracker (使い方 2) + クローズモデルの組み合わせ
+  - [`tests/Kibinago.Samples.Tests/Common/ChangeTrackerTests.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/tests/Kibinago.Samples.Tests/Common/ChangeTrackerTests.cs) — テストパターン
+  - [`tests/Kibinago.Samples.Tests/Common/ChangeTrackerUsageStyleTests.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/tests/Kibinago.Samples.Tests/Common/ChangeTrackerUsageStyleTests.cs) — 2 つの書き方の動作
+  - [`samples/Kibinago.Samples/EmailDemo/ComposeEmailPresenter.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/samples/Kibinago.Samples/EmailDemo/ComposeEmailPresenter.cs) — 書き方 2 + 非同期保存 + 破棄して閉じる

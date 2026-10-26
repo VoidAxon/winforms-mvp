@@ -19,6 +19,13 @@
 
 ### Changed (変更)
 
+- **入門ドキュメントを 1 つの書き方に統一** (新人試用で、同じことに「推奨」が複数ある、教程が他のページと違う、`samples/` を参照されても見えない、と指摘された):
+  - 起動はテンプレートの形 (メイン Form + `Connect` + `MvpApplication.Run`、設定は `MvpApplication.Configure`) に統一。はじめに・DI・ViewMapping・ViewAction・Platform Services・トラブルシューティング・移行ガイドの例を書き直し、M.E.DI の例も同じ形に (Form にプロバイダを渡す例、メイン Form なしの `Application.Run()` をやめた)。
+  - DI なしで業務サービス (リポジトリ) を Presenter に渡す方法を明記 (Program で作ってメイン Presenter のコンストラクタへ、そこから開くウィンドウの Presenter へ)。テンプレートの `Program.cs` のコメントも同じ説明に (以前は「コンストラクタで受け取る」と書いた次の行が `new MainPresenter()` だった)。
+  - チュートリアル: モデルから不要な `ICloneable` / `Equals` を削除、アクションは `ViewAction.Factory.WithQualifier`、View イベントは `SubscribeViewEvent`、テストは `PresenterTestHost` を `Dispose`。
+  - Wiki / README の `samples/` / `tests/` への参照を GitHub のリンクに (パッケージだけの利用者も開ける)。
+  - 注意点を追記: View のプロパティ名を Form / Control のメンバー (`Name`、`Text` …) と重ねない、`[EmailAddress]` などは空文字列をエラーにするので任意項目は `null` にする。
+- **テンプレート**: 生成するアプリとテストの `.csproj` に `EnableWindowsTargeting` を設定。Linux / macOS でもそのまま restore / build できる (以前は `NETSDK1100`)。`verify-templates.sh` はこのプロパティを外から与えず、生成されたままのプロジェクトで検証する。
 - `OnViewAttached()` は `abstract` から `virtual` (既定は空) に。View のイベントを購読しない Presenter は書かなくてよい (既存の override はそのまま動く)。テンプレート・サンプル・Wiki の空の override を削除。
 - **テンプレート**: 生成するコードを今の推奨に合わせた (新人試用で、生成コードが文書の推奨と違うと指摘された)。
   - `mvp-window --validation`: View イベントは `SubscribeViewEvent`、送信失敗時は `Validation.FirstError` を `Messages.ShowWarning` で出して `View.FocusError(field)` (View インターフェイスに `FocusError`、Form は `TryFocusError`)。

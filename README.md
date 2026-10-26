@@ -138,7 +138,7 @@ navigator.ShowWindow(new UserEditorPresenter());
 
 ### ソースをプロジェクト参照で使う場合
 
-このリポジトリを clone して `ProjectReference` で参照すると、**MVP アナライザーは入りません** (アナライザーは `Kibinago.Core` の NuGet パッケージに同梱されるため)。何も警告されないまま、Presenter で WinForms 型を使ってもビルドが通ってしまいます。Presenter を含むプロジェクトに、アナライザーのプロジェクト参照を 1 行足してください (`samples/` も同じ書き方です):
+このリポジトリを clone して `ProjectReference` で参照すると、**MVP アナライザーは入りません** (アナライザーは `Kibinago.Core` の NuGet パッケージに同梱されるため)。何も警告されないまま、Presenter で WinForms 型を使ってもビルドが通ってしまいます。Presenter を含むプロジェクトに、アナライザーのプロジェクト参照を 1 行足してください ([`samples/`](https://github.com/VoidAxon/winforms-mvp/tree/master/samples) も同じ書き方です):
 
 ```xml
 <ItemGroup>

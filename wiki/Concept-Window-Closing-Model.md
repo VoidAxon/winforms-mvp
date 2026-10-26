@@ -135,7 +135,7 @@ protected override async Task<bool> CanCloseAsync(CloseReason reason)
 - 判定待ちの間に来た再クローズ (X の連打など) は、もう一度尋ねずに保留 (キャンセル) されます。ただし `SystemShutdown` / `TaskManager` によるクローズは保留せずに通します。また、owner ウィンドウ・MDI 親・`Application.Exit` から来たクローズが非同期に許可された場合、フレームワークはそのクローズ (owner / MDI 親のクローズ、`Application.Exit`) を再発行するので、親側の終了も続行されます。
 - タスクが fault またはキャンセルされた場合はクローズをブロックしてエラーをログ出力します (`SystemShutdown` / `TaskManager` によるクローズは許可)。ユーザーに伝えるべき失敗は、オーバーライドの中で捕まえて `Messages` で表示し `false` を返してください。
 
-待機中にユーザーが編集を続けても、その変更をクリーン扱いにしないようにします。保存する内容を先に固定し (`var saved = ...`)、完了後に `AcceptChanges(saved)` で **保存した内容** をスナップショットにしてください。保存中の編集は (元の値に戻した場合も含め) 変更として残り、その場合は `false` を返してウィンドウを開いたままにします (実例: `samples/.../EmailDemo/ComposeEmailPresenter.cs`、[HowTo シナリオ 6](HowTo-Handle-Window-Closing#シナリオ-6-非同期クローズ判断))。
+待機中にユーザーが編集を続けても、その変更をクリーン扱いにしないようにします。保存する内容を先に固定し (`var saved = ...`)、完了後に `AcceptChanges(saved)` で **保存した内容** をスナップショットにしてください。保存中の編集は (元の値に戻した場合も含め) 変更として残り、その場合は `false` を返してウィンドウを開いたままにします (実例: [`samples/Kibinago.Samples/EmailDemo/ComposeEmailPresenter.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/samples/Kibinago.Samples/EmailDemo/ComposeEmailPresenter.cs)、[HowTo シナリオ 6](HowTo-Handle-Window-Closing#シナリオ-6-非同期クローズ判断))。
 
 ---
 

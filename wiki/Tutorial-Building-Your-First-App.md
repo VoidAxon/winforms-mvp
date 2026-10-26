@@ -12,7 +12,7 @@
 
 > **ヒント**: プロジェクトは `dotnet new kibinago -n MyTodoApp` で作ると、`Program.Main` の登録処理まで揃った状態から始められます ([HowTo: テンプレートを使う](HowTo-Use-Templates))。
 
-完成形のサンプルコードは `samples/Kibinago.Samples/ToDoDemo/` にあります。詰まったらそちらと見比べてください。
+完成形のサンプルコードは [`samples/Kibinago.Samples/ToDoDemo/`](https://github.com/VoidAxon/winforms-mvp/tree/master/samples/Kibinago.Samples/ToDoDemo) にあります。詰まったらそちらと見比べてください。
 
 ---
 
@@ -61,38 +61,25 @@ MyTodoApp/
 
 ## Step 1: モデル (TodoItem) を作る
 
-業務データを保持するシンプルなクラスです。(`ICloneable` / `Equals` は ChangeTracker では使われません。ChangeTracker は既定でリフレクションの深いコピーと内容比較を使います。)
+業務データを保持するシンプルなクラスです。`Clone` や `Equals` は書きません。
 
 ```csharp
 using System;
 
 namespace MyTodoApp
 {
-    public class ToDoItem : ICloneable
+    public class ToDoItem
     {
         public Guid Id { get; set; } = Guid.NewGuid();
         public string Title { get; set; }
         public bool IsCompleted { get; set; }
-
-        public object Clone()
-            => new ToDoItem { Id = Id, Title = Title, IsCompleted = IsCompleted };
-
-        public override bool Equals(object obj)
-            => obj is ToDoItem other
-               && Id == other.Id
-               && Title == other.Title
-               && IsCompleted == other.IsCompleted;
-
-        public override int GetHashCode()
-            => (Id, Title, IsCompleted).GetHashCode();
     }
 }
 ```
 
 ポイント:
 
-- `ChangeTracker` は `T` の `Equals` を使わず内容で比較する (詳細: [ChangeTracker § 比較の解決順序](Reference-ChangeTracker#比較の解決順序))
-- `Clone()` 内で値型・`string` はそのままコピー (浅いコピーで OK)
+- Step 7 の `ChangeTracker` は、スナップショットをリフレクションの深いコピーで撮り、内容 (フィールド) で比較するので、モデルに `Clone` / `Equals` は要らない。`ICloneable` / `Equals` があっても使わない (詳細: [ChangeTracker § 比較の解決順序](Reference-ChangeTracker#比較の解決順序))
 
 ---
 
@@ -142,10 +129,13 @@ namespace MyTodoApp
 {
     public static class ToDoActions
     {
-        public static readonly ViewAction Add            = ViewAction.Create("ToDo.Add");
-        public static readonly ViewAction Delete         = ViewAction.Create("ToDo.Delete");
-        public static readonly ViewAction ToggleComplete = ViewAction.Create("ToDo.ToggleComplete");
-        public static readonly ViewAction Save           = ViewAction.Create("ToDo.Save");
+        // 画面のスコープ名を 1 か所で付ける (キーは "ToDo.Add" など)
+        private static readonly ViewActionFactory Factory = ViewAction.Factory.WithQualifier("ToDo");
+
+        public static readonly ViewAction Add            = Factory.Create(nameof(Add));
+        public static readonly ViewAction Delete         = Factory.Create(nameof(Delete));
+        public static readonly ViewAction ToggleComplete = Factory.Create(nameof(ToggleComplete));
+        public static readonly ViewAction Save           = Factory.Create(nameof(Save));
     }
 }
 ```
@@ -186,8 +176,9 @@ namespace MyTodoApp
 
         protected override void OnViewAttached()
         {
-            View.SelectionChanged += (s, e) => Dispatcher.RaiseCanExecuteChanged();
-            View.InputChanged     += (s, e) => Dispatcher.RaiseCanExecuteChanged();
+            // 1 行で購読し、Presenter の破棄時に自動で解除される
+            SubscribeViewEvent(h => View.SelectionChanged += h, h => View.SelectionChanged -= h, Dispatcher.RaiseCanExecuteChanged);
+            SubscribeViewEvent(h => View.InputChanged += h, h => View.InputChanged -= h, Dispatcher.RaiseCanExecuteChanged);
         }
 
         private void OnAdd()            { /* TBD */ }
@@ -377,8 +368,8 @@ public class ToDoPresenter : WindowPresenterBase<IToDoView>
 
     protected override void OnViewAttached()
     {
-        View.SelectionChanged += (s, e) => Dispatcher.RaiseCanExecuteChanged();
-        View.InputChanged     += (s, e) => Dispatcher.RaiseCanExecuteChanged();
+        SubscribeViewEvent(h => View.SelectionChanged += h, h => View.SelectionChanged -= h, Dispatcher.RaiseCanExecuteChanged);
+        SubscribeViewEvent(h => View.InputChanged += h, h => View.InputChanged -= h, Dispatcher.RaiseCanExecuteChanged);
     }
 
     protected override void RegisterViewActions()
@@ -471,22 +462,21 @@ protected override bool CanClose(CloseReason reason)
 Presenter は WinForms に依存しないので、UI なしでテストできます。
 
 ```csharp
-public class ToDoPresenterTests
+public class ToDoPresenterTests : IDisposable
 {
     private readonly FakeServices _fakes = TestServices.CreateFakes();   // Kibinago.Testing パッケージ
-    private readonly MockToDoView _view;
-    private readonly ToDoPresenter _presenter;
+    private readonly MockToDoView _view = new MockToDoView();
+    private readonly PresenterTestHost _host;
 
     public ToDoPresenterTests()
     {
-        _view = new MockToDoView();
-        _presenter = new ToDoPresenter();
-
         // フェイクのフレームワークサービスを渡し、View のアタッチ + 実際の初期化を行う
-        PresenterTestHost.Start(_fakes.Provider, _presenter, _view);
+        _host = PresenterTestHost.Start(_fakes.Provider, new ToDoPresenter(), _view);
 
         _fakes.Messages.ClearCalls();
     }
+
+    public void Dispose() => _host.Dispose();   // Presenter を破棄 (Cleanup + 購読解除)。xUnit はテストごとに呼ぶ
 
     [Fact]
     public void Add_WithValidTitle_AddsItemAndClearsInput()
@@ -569,6 +559,6 @@ Mock View はインターフェイスを実装するだけのシンプルなク�
 | 設計ルールを徹底的に理解したい | [MVP 設計ルール (全 17 条)](Design-Rules) |
 | 既存の WinForms アプリを段階的に MVP 化したい | [HowTo: 従来の WinForms から移行する](HowTo-Migrate-From-Legacy-WinForms) |
 
-完成形のコードは `samples/Kibinago.Samples/ToDoDemo/` を参照してください。
+完成形のコードは [`samples/Kibinago.Samples/ToDoDemo/`](https://github.com/VoidAxon/winforms-mvp/tree/master/samples/Kibinago.Samples/ToDoDemo) を参照してください。
 
 Happy coding!

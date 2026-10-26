@@ -175,7 +175,7 @@ GitHub Packages は public リポジトリでも **NuGet の復元に認証が�
 - **テストで落ちてリリースが止まる**
   テストはゲートです。先にテストを直してから再度タグを打ちます。
 - **テンプレートを変更した**
-  リリース前に `tests/templates/verify-templates.sh` (CI でも実行) で全テンプレートを両フレームワーク向けに
+  リリース前に [`tests/templates/verify-templates.sh`](https://github.com/VoidAxon/winforms-mvp/blob/master/tests/templates/verify-templates.sh) (CI でも実行) で全テンプレートを両フレームワーク向けに
   生成・`-warnaserror` ビルドできることを確認します (`RUN_TESTS=1` で生成されたテストも実行、Windows のみ)。
 - **同じタグで Release 作成が失敗する**
   Release ステップは既存 Release があれば `--clobber` で資産を上書きするため再実行に強い設計ですが、

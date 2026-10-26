@@ -401,7 +401,7 @@ public async Task CloseAction_WithUnsavedChanges_SavesAndCloses()
 - `RequestClose` は `CanClose` / `CanCloseAsync` を通るので、非同期ゲートの答えはハンドラの完了より後に出ることがあります。`await host.WaitForCloseDecisionAsync()` は、`RequestClose` が始めたクローズの判定を待ちます (判定待ちがなければすぐ完了)。`DispatchAsync` はハンドラの完了しか待ちません。
 - `DispatchAsync` はハンドラの例外で fault します (`await Assert.ThrowsAsync<...>(() => view.Binder.DispatchAsync(...))`)。`Initialized` は `OnInitializeAsync` が例外を投げても fault しません (本番と同じくログに出るだけ)。想定内の失敗は、ハンドラ内で表示したメッセージ (`fakes.Messages.Calls`) や View の状態で検証します。
 - 実行中のアクションは `CanDispatch == false` です。「実行中は無効」を検証するなら、完了しない `TaskCompletionSource` をモックリポジトリから返し、`_view.Binder.Dispatch(...)` の直後に `Assert.False(_view.Binder.CanDispatch(...))` とします。
-- 実例: `tests/Kibinago.Samples.Tests/Presenters/ComposeEmailPresenterTests.cs`、`MainEmailPresenterTests.cs`、`ViewActions/AsyncActionTests.cs`。
+- 実例: [`tests/Kibinago.Samples.Tests/Presenters/ComposeEmailPresenterTests.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/tests/Kibinago.Samples.Tests/Presenters/ComposeEmailPresenterTests.cs)、`MainEmailPresenterTests.cs`、`ViewActions/AsyncActionTests.cs`。
 
 ### 子 Presenter を含む画面のテスト
 
@@ -461,7 +461,7 @@ public void RemovedLine_IsGoneFromModelAndInert()
 }
 ```
 
-`CapturingActionBinder` の `Unbind()` は Presenter の破棄時にフレームワークが呼び、以後の `Dispatch` / `DispatchAsync` は何もせず (`CanDispatch` は `false`)、`IsBound` は `false` になります。Bind 前の `Dispatch` は従来どおり例外 (Presenter の起動忘れ) です。親の `PresenterTestHost.Initialized` が待つのは親の `OnInitializeAsync` だけです。実例: `tests/Kibinago.Samples.Tests/Composition/AttachChildDynamicTests.cs`、`AttachChildTests.cs`。
+`CapturingActionBinder` の `Unbind()` は Presenter の破棄時にフレームワークが呼び、以後の `Dispatch` / `DispatchAsync` は何もせず (`CanDispatch` は `false`)、`IsBound` は `false` になります。Bind 前の `Dispatch` は従来どおり例外 (Presenter の起動忘れ) です。親の `PresenterTestHost.Initialized` が待つのは親の `OnInitializeAsync` だけです。実例: [`tests/Kibinago.Samples.Tests/Composition/AttachChildDynamicTests.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/tests/Kibinago.Samples.Tests/Composition/AttachChildDynamicTests.cs)、`AttachChildTests.cs`。
 
 ---
 
@@ -560,7 +560,7 @@ public class UserEditorClosingTests
 
 `private` だったメソッドを `internal` に変えてテストすると、CanExecute スキップ等の不具合が production で発覚するまで隠れます。
 
-完全な実例: `tests/Kibinago.Samples.Tests/Presenters/PresenterTestHostTests.cs`、`WindowClosingDemoPresenterTests.cs` および `Composition/RequestCloseGateHostTests.cs` (ゲートを通る `RequestClose`、表示のキャンセル、`WaitForCloseDecisionAsync`)。(`CanCloseTests.cs` はフレームワーク内部の契約テストで、`ICloseParticipant` を直接使います。)
+完全な実例: [`tests/Kibinago.Samples.Tests/Presenters/PresenterTestHostTests.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/tests/Kibinago.Samples.Tests/Presenters/PresenterTestHostTests.cs)、`WindowClosingDemoPresenterTests.cs` および `Composition/RequestCloseGateHostTests.cs` (ゲートを通る `RequestClose`、表示のキャンセル、`WaitForCloseDecisionAsync`)。(`CanCloseTests.cs` はフレームワーク内部の契約テストで、`ICloseParticipant` を直接使います。)
 
 ---
 
@@ -676,6 +676,6 @@ public class MockUserEditorView : IUserEditorView
 - [HowTo: ウィンドウクローズを扱う](HowTo-Handle-Window-Closing) — クローズ動作のテスト
 - [Reference-Logging#テストでの利用](Reference-Logging#テストでの利用) — ログの検証
 - サンプル:
-  - `tests/Kibinago.Samples.Tests/Presenters/` — Presenter 単体テストの実例
-  - `tests/Kibinago.Samples.Tests/Mocks/` — View / Repository のモック実装 (サービスのフェイクは `Kibinago.Testing`)
+  - [`tests/Kibinago.Samples.Tests/Presenters/`](https://github.com/VoidAxon/winforms-mvp/tree/master/tests/Kibinago.Samples.Tests/Presenters) — Presenter 単体テストの実例
+  - [`tests/Kibinago.Samples.Tests/Mocks/`](https://github.com/VoidAxon/winforms-mvp/tree/master/tests/Kibinago.Samples.Tests/Mocks) — View / Repository のモック実装 (サービスのフェイクは `Kibinago.Testing`)
   - `src/Kibinago.Testing/` — `PresenterTestHost` とフェイクの実装

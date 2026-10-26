@@ -410,13 +410,12 @@ Strict が対象とするのは **設定ミスだけ** です。ハンドラの�
 **推奨される使い方**: Debug ビルドでのみ Strict を有効化します。`IDispatcherConfigurer` をサービスプロバイダに登録することで配線できます (全 Dispatch より前に適用されます):
 
 ```csharp
-ServiceLocator.Configure(reg => reg.RegisterInstance<IDispatcherConfigurer>(
-    new ActionDispatcherConfigurer(d =>
-    {
+MvpApplication.Configure(framework: mvp =>
+{
 #if DEBUG
-        d.ValidationMode = DispatchValidationMode.Strict;
+    mvp.Actions.StrictValidation();   // = IDispatcherConfigurer で ValidationMode = Strict
 #endif
-    })));
+});
 ```
 
 これにより「`Register` し忘れ / キーのタイプミス / ペイロード型違い」が、初回ディスパッチ時に **その場で例外として表面化** します。本番ビルドは既定の Lenient のままなので、ユーザー影響はありません。
@@ -501,7 +500,7 @@ private async Task OnRefreshAsync(CancellationToken ct)
 
 フレームワークが行うこと:
 
-- **実行中はアクションを無効化** — ハンドラの実行中は `CanDispatch` が `false` になり、バインド済みコントロールはグレーアウトします。連打などの重複トリガーは無視されます。開始時と終了時に全 `CanExecute` が再評価されるので、ビジーフラグや手動の `RaiseCanExecuteChanged()` は不要です (他のアクションも同時に止めたいときだけ、`canExecute` が参照するフラグを持ちます — `samples/.../AsyncDemo/AsyncDemoPresenter.cs` 参照)。
+- **実行中はアクションを無効化** — ハンドラの実行中は `CanDispatch` が `false` になり、バインド済みコントロールはグレーアウトします。連打などの重複トリガーは無視されます。開始時と終了時に全 `CanExecute` が再評価されるので、ビジーフラグや手動の `RaiseCanExecuteChanged()` は不要です (他のアクションも同時に止めたいときだけ、`canExecute` が参照するフラグを持ちます — [`samples/Kibinago.Samples/AsyncDemo/AsyncDemoPresenter.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/samples/Kibinago.Samples/AsyncDemo/AsyncDemoPresenter.cs) 参照)。
 - **完了時に `ActionExecuted`** — 同期ハンドラと同じく、ハンドラが正常に終わった時点で発火します。
 - **失敗はログ出力・再有効化のあと再スロー** — 未処理の例外はログに出してアクションを再び有効にし、そのあと通常の WinForms のイベントハンドラと同じように外へ伝わります (`Application.ThreadException` で受けられます)。同期部分の例外は `Dispatch` からそのまま、`await` の後で起きた例外は `Dispatch` を呼んだときの `SynchronizationContext` に投げ直されます (`async void` と同じ)。想定内のエラーはハンドラ内で `try`/`catch` して `Messages` で伝え、想定外のものは `Program.cs` の `Application.ThreadException` で受けます。
 - **破棄時のキャンセルは静か** — トークンは Presenter の `Lifetime` で、Presenter の破棄 (ウィンドウを閉じる) と同時にキャンセルされます。これによる `OperationCanceledException` はエラー扱いされません。ユーザーの「キャンセル」ボタンを実装する場合は `CancellationTokenSource.CreateLinkedTokenSource(ct)` でリンクします。
@@ -841,11 +840,10 @@ Dispatch(Save)
 #### Global (アプリ全体) — 最外殻
 
 ```csharp
-// ServiceLocator (DI なし) の場合
-ServiceLocator.Configure(reg => reg.RegisterInstance<IDispatcherConfigurer>(
-    new ActionDispatcherConfigurer(d => d
-        .Use(new AuditMiddleware(auditSink, () => CurrentUser.Name))
-        .Use(new ErrorDialogMiddleware(messages, dispatchLogger)))));
+// DI コンテナなしの場合 (起動時の設定ブロック)
+MvpApplication.Configure(framework: mvp => mvp.Actions.Configure(d => d
+    .Use(new AuditMiddleware(auditSink, () => CurrentUser.Name))
+    .Use(new ErrorDialogMiddleware(messages, dispatchLogger))));
 
 // M.E.DI の場合
 services.AddSingleton<IDispatcherConfigurer>(
@@ -952,10 +950,10 @@ Dispatcher.Use((ctx, next) =>
 - [Platform Services](Reference-Platform-Services) — Dispatcher を含むサービスの構成
 - [MVP 設計ルール](Design-Rules) — ルール 4 (UI 型を View インターフェイスに露出しない) 、ルール 7 (Tell-Don't-Ask)
 - サンプルコード:
-  - `samples/Kibinago.Samples/ViewActionExample.cs` — Implicit パターンの最小例
-  - `samples/Kibinago.Samples/ViewActionExplicitEventExample.cs` — Explicit パターン
-  - `samples/Kibinago.Samples/ViewActionWithParametersExample.cs` — パラメータ付きアクション
-  - `samples/Kibinago.Samples/ViewActionStateChangedExample.cs` — 状態駆動更新
-  - `samples/Kibinago.Samples/CheckBoxDemo/` — CheckBox/RadioButton バインド
-  - `samples/Kibinago.Samples/BulkBindingDemo/` — 一括バインド
-  - `samples/Kibinago.Samples/ViewActionMiddlewareExample.cs` — ミドルウェア (Audit / Performance / ErrorDialog)
+  - [`samples/Kibinago.Samples/ViewActionExample.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/samples/Kibinago.Samples/ViewActionExample.cs) — Implicit パターンの最小例
+  - [`samples/Kibinago.Samples/ViewActionExplicitEventExample.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/samples/Kibinago.Samples/ViewActionExplicitEventExample.cs) — Explicit パターン
+  - [`samples/Kibinago.Samples/ViewActionWithParametersExample.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/samples/Kibinago.Samples/ViewActionWithParametersExample.cs) — パラメータ付きアクション
+  - [`samples/Kibinago.Samples/ViewActionStateChangedExample.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/samples/Kibinago.Samples/ViewActionStateChangedExample.cs) — 状態駆動更新
+  - [`samples/Kibinago.Samples/CheckBoxDemo/`](https://github.com/VoidAxon/winforms-mvp/tree/master/samples/Kibinago.Samples/CheckBoxDemo) — CheckBox/RadioButton バインド
+  - [`samples/Kibinago.Samples/BulkBindingDemo/`](https://github.com/VoidAxon/winforms-mvp/tree/master/samples/Kibinago.Samples/BulkBindingDemo) — 一括バインド
+  - [`samples/Kibinago.Samples/ViewActionMiddlewareExample.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/samples/Kibinago.Samples/ViewActionMiddlewareExample.cs) — ミドルウェア (Audit / Performance / ErrorDialog)

@@ -6,9 +6,8 @@
 #   RUN_TESTS=1 tests/templates/verify-templates.sh # also the net472 tests (Windows)
 set -euo pipefail
 
-# Lets MSBuild evaluate *-windows projects on non-Windows hosts (also needed for the item
-# templates' RootNamespace lookup).
-export EnableWindowsTargeting=true
+# No EnableWindowsTargeting here on purpose: the generated projects set it themselves, so this
+# script on Linux / macOS proves a user there can restore and build them as generated.
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 WORK="$(mktemp -d)"

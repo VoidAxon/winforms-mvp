@@ -657,4 +657,4 @@ button.BindProperty(model, m => m.CanSubmit, nameof(button.Enabled));
 - [Reference-ChangeTracker](Reference-ChangeTracker) — バインドされたモデルの変更追跡
 - [入力項目の多い編集画面を作る](HowTo-Build-Large-Edit-Screen) — 入力モデルへのバインドで編集画面を組む手順と、コントロールごとの注意点
 - サンプル:
-  - `samples/Kibinago.Samples/ToDoDemo/` — Data Binding の実例
+  - [`samples/Kibinago.Samples/ToDoDemo/`](https://github.com/VoidAxon/winforms-mvp/tree/master/samples/Kibinago.Samples/ToDoDemo) — Data Binding の実例
