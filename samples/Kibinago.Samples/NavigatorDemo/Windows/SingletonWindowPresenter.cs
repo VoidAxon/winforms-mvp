@@ -7,7 +7,7 @@ using Kibinago.Services;
 namespace Kibinago.Samples.NavigatorDemo
 {
     /// <summary>
-    /// Singleton window - only one instance allowed (via keySelector).
+    /// Singleton window - only one instance allowed (via key).
     /// </summary>
     public class SingletonWindowPresenter : WindowPresenterBase<ISingletonWindowView>
     {

@@ -3,7 +3,8 @@
   <!--
     Unit tests for the MVP Roslyn analyzers. Targets net10.0 (not net48) so it runs on any OS:
     test snippets declare their own System.Windows.Forms / Kibinago stubs, so no real
-    WinForms reference is needed.
+    WinForms reference is needed. NavigationCompileTests also compile snippets against the real
+    Kibinago.Core to pin what the navigation API rejects at compile time.
   -->
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -26,6 +27,8 @@
   <ItemGroup>
     <!-- Referenced as a normal assembly: the tests run the analyzers in-process. -->
     <ProjectReference Include="..\..\src\Kibinago.Analyzers\Kibinago.Analyzers.csproj" />
+    <!-- NavigationCompileTests compile snippets against the real Core (netstandard2.0, no WinForms). -->
+    <ProjectReference Include="..\..\src\Kibinago.Core\Kibinago.Core.csproj" />
   </ItemGroup>
 
 </Project>

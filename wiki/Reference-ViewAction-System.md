@@ -515,16 +515,18 @@ await view.Binder.DispatchAsync(CustomerActions.Refresh);
 
 ### ミドルウェアとの関係
 
-ミドルウェアが包むのはハンドラの**同期部分 (最初の `await` まで)** だけです。非同期処理全体を計測・監査するには `ctx.Completion` (ハンドラのタスク。同期ハンドラでは完了済みタスク) を観察します。`ctx.CancellationToken` はハンドラに渡されたトークンです。`await` 後の失敗はミドルウェアがすでに戻った後なので、`ctx.Exception` ではなく Dispatcher のログで報告されます。非同期ハンドラを開始した後でミドルウェアが例外を投げた場合も、ハンドラは最後まで追跡され (完了までアクションは無効のまま)、`ActionExecuted` は発火しません。
+ミドルウェアは `Task` を返し、`await next(ctx)` は **非同期ハンドラが最後まで終わったとき** に戻ります。そのため計測・監査・エラーダイアログは、非同期処理の全体 (最後の `await` の後まで) を包みます。`await` 後の失敗も `await next(ctx)` から投げられるので、`try`/`catch` で捕捉でき (捕捉すれば処理済み)、`finally` では `ctx.Exception` が見えます。`ctx.CancellationToken` はハンドラに渡されたトークンです。パイプライン全体が終わるまでアクションは無効のままです (ミドルウェアが `next` の前に `await` している間も)。
 
 ```csharp
-Dispatcher.Use((ctx, next) =>
+Dispatcher.Use(async (ctx, next) =>
 {
     var sw = Stopwatch.StartNew();
-    next(ctx);
-    ctx.Completion.ContinueWith(_ => Logger.LogInformation("{Action}: {Ms}ms", ctx.Action, sw.ElapsedMilliseconds));
+    await next(ctx);   // 非同期ハンドラの完了まで待つ
+    Logger.LogInformation("{Action}: {Ms}ms", ctx.Action, sw.ElapsedMilliseconds);
 });
 ```
+
+`next` は必ず `await` してください。`await` しないミドルウェアでも、ハンドラは最後まで追跡されます (完了までアクションは無効)。すでに失敗していたタスクや、ミドルウェアより後に終わったハンドラの失敗は通常どおり伝わりますが、ミドルウェア自身がまだ `await` している間にハンドラが失敗すると、「捕捉して処理した」場合と区別できないため伝わりません。
 
 ---
 
@@ -818,7 +820,7 @@ protected void DispatchAction(ActionRequestEventArgs e)
 
 ### メンタルモデル: オニオン
 
-ASP.NET Core と同じ「オニオンモデル」です。各ミドルウェアは `(context, next)` を受け取り、`next(context)` の前後で前処理・後処理を実行します。`next` を呼ばないとパイプラインが短絡し、ハンドラは実行されません。
+ASP.NET Core と同じ「オニオンモデル」です。各ミドルウェアは `(context, next)` を受け取って `Task` を返し、`await next(context)` の前後で前処理・後処理を実行します。`await next(context)` は非同期ハンドラの完了まで待ちます。`next` を呼ばないとパイプラインが短絡し、ハンドラは実行されません。
 
 ```
 Dispatch(Save)
@@ -877,10 +879,10 @@ public sealed class PerformanceMiddleware : IDispatchMiddleware
         _thresholdMs = thresholdMs;
     }
 
-    public void Invoke(DispatchContext context, DispatchDelegate next)
+    public async Task InvokeAsync(DispatchContext context, DispatchDelegate next)
     {
         var sw = Stopwatch.StartNew();
-        try { next(context); }
+        try { await next(context); }   // 非同期ハンドラは最後の await まで計測される
         finally
         {
             sw.Stop();
@@ -896,11 +898,9 @@ public sealed class PerformanceMiddleware : IDispatchMiddleware
 
 ```csharp
 Dispatcher.Use((ctx, next) =>
-{
-    if (_isReadOnly && IsDestructive(ctx.Action))
-        return;                  // 短絡: ハンドラを呼ばずに終わる
-    next(ctx);
-});
+    _isReadOnly && IsDestructive(ctx.Action)
+        ? Task.CompletedTask     // 短絡: ハンドラを呼ばずに終わる
+        : next(ctx));            // 前後の処理がないなら async にせずそのまま返す
 ```
 
 ### `DispatchContext` の主な API
@@ -911,15 +911,14 @@ Dispatcher.Use((ctx, next) =>
 | `Payload` | `object` | 読み取り専用 (型変換禁止) |
 | `ExpectedPayloadType` | `Type` | パラメータなしハンドラの場合は `null` |
 | `HandlerExecuted` | `bool` | 末端ハンドラが呼ばれたとき `true` (非同期ハンドラは開始した時点) |
-| `Exception` | `Exception` | ハンドラが投げた例外 (ハンドラを抜けた時点で設定される記録) |
-| `Completion` | `Task` | 非同期ハンドラのタスク (同期ハンドラでは完了済み)。非同期処理全体の計測・監査用 |
+| `Exception` | `Exception` | ハンドラの例外 (同期でも `await` 後でも、ハンドラを抜けた時点で設定される記録) |
 | `CancellationToken` | `CancellationToken` | 非同期ハンドラに渡されたトークン (Presenter 破棄時にキャンセル) |
 
 `Items` 辞書のような汎用拡張はありません。状態を保持したいミドルウェアは、自分のフィールドに持たせてください。
 
 ### 例外フロー
 
-ハンドラの例外はミドルウェアチェーンを上方向に伝播します。捕捉したい場合は `next(context)` を `try`/`catch` で囲みます (例: `ErrorDialogMiddleware`)。**ミドルウェアが `catch` した例外は処理済み** とみなされ、それ以上は伝わりません (`context.Exception` は記録として残ります)。誰も捕捉しない場合はフレームワークがログを出力し、`Dispatch` の呼び出し元へ再スローします (`Application.ThreadException` へ)。ミドルウェアが別の例外を投げた場合は、その例外が伝わります。`ActionExecuted` イベントは「ハンドラが完走 **かつ** `context.Exception` が `null`」のときだけ発火します。
+ハンドラの例外 (`await` 後のものも) はミドルウェアチェーンを上方向に伝播します。捕捉したい場合は `await next(context)` を `try`/`catch` で囲みます (例: `ErrorDialogMiddleware`)。Presenter の破棄によるキャンセルは `OperationCanceledException` として届くので、エラーとして表示しないでください (`catch (OperationCanceledException) when (context.CancellationToken.IsCancellationRequested) { throw; }`)。非同期ハンドラと同じく、`async` のミドルウェアが `OperationCanceledException` で終わった場合はキャンセル (無音) として扱われます。Presenter が破棄された後は、`await` から戻ったミドルウェアが `next` を呼んでもハンドラは実行されません。**ミドルウェアが `catch` した例外は処理済み** とみなされ、それ以上は伝わりません (`context.Exception` は記録として残ります)。誰も捕捉しない場合はフレームワークがログを出力し、`Dispatch` の呼び出し元へ再スローします (`Application.ThreadException` へ)。ミドルウェアが別の例外を投げた場合は、その例外が伝わります。`ActionExecuted` イベントはパイプライン全体が終わり、ハンドラが失敗せずに完走したときだけ発火します (短絡した場合・ミドルウェアが失敗を捕捉した場合は発火しません)。
 
 ハンドラが投げた例外は、**ハンドラを抜けた時点で** `context.Exception` に設定されます。そのため外側のミドルウェアは、例外を捕捉しなくても `finally` ブロックで `context.Exception` を参照できます (監査・計測向け)。また、例外を投げたハンドラの後には `CanExecuteChanged` が発火し、コントロールの有効/無効状態が更新されます。
 
@@ -936,7 +935,7 @@ Dispatcher.Use((ctx, next) =>
 ### パフォーマンス特性
 
 - **ファストパス** (ミドルウェア未登録): アロケーションなし、追加のインダイレクションなし
-- **スローパス** (ミドルウェア登録あり): ディスパッチごとに `DispatchContext` 1 個ヒープ確保 + N 個のクロージャ呼び出し (N = ミドルウェア数)。コンパイル済みパイプラインは Dispatcher にキャッシュされ、ミドルウェア追加時のみ再構築される
+- **スローパス** (ミドルウェア登録あり): ディスパッチごとに `DispatchContext` 1 個ヒープ確保 + N 個のクロージャ呼び出し (N = ミドルウェア数)。同期ハンドラと同期的に完了するミドルウェアでは追加のタスク確保はありません (`async` ラムダの状態機械を除く)。コンパイル済みパイプラインは Dispatcher にキャッシュされ、ミドルウェア追加時のみ再構築される
 - リフレクション・Expression Trees は使用していないので、どのターゲットでも追加コストはありません
 
 ---

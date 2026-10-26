@@ -176,7 +176,7 @@ Always-on guards: `default(ViewAction)` is rejected by `Register` / `Binder.Add`
 
 Routing is decided by the `Bind` overload, never by listeners: `Bind(dispatcher)` always dispatches and then raises `ActionTriggered` as a notification (safe to use for status bars/logging); `Bind()` only raises `ActionTriggered`.
 
-**Middleware (advanced):** `Dispatcher.Use(...)` adds an opt-in onion pipeline (audit, perf, error dialogs). Global tier (registered `IDispatcherConfigurer` in the service provider) runs outermost; per-presenter tier in `RegisterViewActions` runs inside. Zero overhead until `Use(...)` is called. Middleware wraps only the synchronous part of an async handler: observe `ctx.Completion` (the handler task) to time/audit the whole operation, and `ctx.CancellationToken` is the handler's token. If a middleware throws after starting an async handler, the handler is still tracked to its end (action stays disabled until it finishes). See the ViewAction wiki page and [samples/Kibinago.Samples/ViewActionMiddlewareExample.cs](samples/Kibinago.Samples/ViewActionMiddlewareExample.cs).
+**Middleware (advanced):** `Dispatcher.Use(...)` adds an opt-in onion pipeline (audit, perf, error dialogs). Global tier (registered `IDispatcherConfigurer` in the service provider) runs outermost; per-presenter tier in `RegisterViewActions` runs inside. Zero overhead until `Use(...)` is called. Middleware returns a `Task` (`Use(async (ctx, next) => { ...; await next(ctx); ... })`, or `IDispatchMiddleware.InvokeAsync`): `await next(ctx)` completes when an async handler has finished, so a middleware times / audits / catches the whole operation (a failure after the handler's `await` arrives there; catching it handles it). `ctx.CancellationToken` is the handler's token — a disposal cancellation arrives as `OperationCanceledException`, not an error. The action stays disabled until the whole pipeline ends; a middleware that does not await `next` still has the handler tracked to its end. An `async` middleware ending with `OperationCanceledException` is a cancellation (silent), like an async handler; once the presenter is disposed, a middleware resuming after an `await` no longer starts the handler. See the ViewAction wiki page and [samples/Kibinago.Samples/ViewActionMiddlewareExample.cs](samples/Kibinago.Samples/ViewActionMiddlewareExample.cs).
 
 Samples: `ViewActionExample.cs` (implicit), `ViewActionExplicitEventExample.cs` (explicit), `ViewActionWithParametersExample.cs`, `ViewActionStateChangedExample.cs`, `CheckBoxDemo/`, `BulkBindingDemo/`.
 
@@ -186,13 +186,13 @@ Prefer the fluent form — it infers the presenter and parameter types, so only 
 ```csharp
 // Modal: returns InteractionResult<TResult> when the window closes
 var r = Navigator.For(new CustomerSearchPresenter(repo)).WithParam(keyword).ShowAsModal<Customer>();
-// Non-modal: returns at once; owner = owned window, keySelector = one window per key, onClosed = result
+// Non-modal: returns at once; owner = owned window, key = one window per key, onClosed = result
 Navigator.For(editPresenter).WithParam(parameters)
-         .ShowWindow<int>(owner: View, keySelector: _ => id, onClosed: r => { if (r.IsOk) Reload(); });
+         .ShowWindow<int>(owner: View, key: id, onClosed: r => { if (r.IsOk) Reload(); });
 ```
-Keys are scoped by the presenter's runtime type (internally `(presenter.GetType(), key)`), so two screens can both key by a record id; the same presenter type with the same key activates the open window; the new presenter is disposed and its `onClosed` is not registered. The direct methods (`ShowWindowAsModal<TPresenter, TParam, TResult>(presenter, parameters)`, `ShowWindow<TPresenter>(presenter, keySelector: ...)`) do the same with every type argument written out.
+Keys are scoped by the presenter's runtime type (internally `(presenter.GetType(), key)`), so two screens can both key by a record id; the same presenter type with the same key activates the open window; the new presenter is disposed and its `onClosed` is not registered. The direct methods (`ShowWindowAsModal<TPresenter, TParam, TResult>(presenter, parameters)`, `ShowWindow(presenter, key: id)`) do the same with every type argument written out.
 
-`WithParam` tightens the constraint so passing a param the presenter can't consume fails to compile. A presenter that implements only `IInitializable<TParam>` (no parameterless initialization) shown through a parameterless overload throws `InvalidOperationException` instead of opening uninitialized. See [wiki/Reference-WindowNavigator.md](wiki/Reference-WindowNavigator.md).
+Mistakes fail to compile: `For` returns a context that can show the window only for a presenter that initializes without parameters; a presenter that takes parameters gets one whose only step is `WithParam` (of the type it takes); a control presenter matches neither (`IWindowPresenter`). The direct methods carry the same constraints (`IWindowPresenter, IInitializable` / `IInitializable<TParam>`). See [wiki/Reference-WindowNavigator.md](wiki/Reference-WindowNavigator.md).
 
 ### Window closing — one gate, two initiators
 

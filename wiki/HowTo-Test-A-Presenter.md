@@ -324,7 +324,7 @@ _fakes.Navigator.RespondTo<PickerPresenter, PickerParameters, int>(
 **非モーダル** — 開いたウィンドウが `fakes.Navigator.Windows` に残るので、画面が閉じたときの結果をテストから渡します:
 
 ```csharp
-_view.Binder.Dispatch(MainActions.OpenOrder);                 // ShowWindow(..., keySelector: _ => id, onClosed: ...)
+_view.Binder.Dispatch(MainActions.OpenOrder);                 // ShowWindow(..., key: id, onClosed: ...)
 
 var window = Assert.Single(_fakes.Navigator.Windows);
 window.CloseWithResult(42);                                   // onClosed に Ok(42) が届き、その後 Presenter が破棄される

@@ -64,7 +64,7 @@ Optional: a simple screen can use plain view events instead.
 | Controls created or removed at run time (choices, rows) | `binder.Add(...)` after `Bind` works at once; `binder.Remove(controls)`; disposed controls drop out |
 | A control the binder does not know (grid, list, third-party editor) | `binder.RegisterStrategy<T>((c, h) => c.SomeEvent += (EventHandler)h, ...)` before `Add` (unknown controls are rejected at `Add`) |
 | Share one binder through the app's own base form | [wiki § 基底 Form](wiki/Reference-ViewAction-System.md) (`protected ViewActionBinder Binder` + explicit `IActionableView.ActionBinder`) |
-| Cross-cutting behavior (audit, timing, error dialogs) | `Dispatcher.Use(middleware)` / `IDispatchMiddleware`, `DispatchContext` |
+| Cross-cutting behavior (audit, timing, error dialogs) — wraps async handlers to their end | `Dispatcher.Use(async (ctx, next) => { ...; await next(ctx); ... })` / `IDispatchMiddleware.InvokeAsync`, `DispatchContext` |
 | Fail fast on wiring mistakes (Debug) | `mvp.Actions.StrictValidation()` / `IDispatcherConfigurer` (`DispatchValidationMode.Strict`) |
 | Legacy form migration (event-only) | Explicit pattern: `ActionBinder => null`, `binder.Bind()`, `ActionRequest` + `ActionRequestEventArgs` |
 
@@ -75,7 +75,8 @@ A list's double-click: raise a view event, the presenter calls `Dispatcher.Dispa
 | Need | Use |
 |---|---|
 | Open a modal window and get a result | `Navigator.For(presenter)[.WithParam(p)].ShowAsModal<TResult>()` → `InteractionResult<TResult>` |
-| Open a non-modal window (owner, one per key, callback) | `.ShowWindow<TResult>(owner: View, keySelector: _ => id, onClosed: r => ...)` |
+| Open a non-modal window (owner, one per key, callback) | `.ShowWindow<TResult>(owner: View, key: id, onClosed: r => ...)` |
+| Wrong navigation fails to compile (missing / wrong `WithParam`, a control presenter) | constraints on `For` / `WithParam` / the direct methods (`IWindowPresenter`, `IInitializable[<TParam>]`) |
 | Close with a result / a 「閉じる」 button (goes through `CanClose` like ✕) | `RequestClose(result, InteractionStatus.Ok)` / `RequestClose(InteractionStatus.Cancel)` as a ViewAction handler |
 | Ask before closing: ✕ / Alt+F4 / owner closing / RequestClose | `protected override bool CanClose(CloseReason)` / `Task<bool> CanCloseAsync(CloseReason)` |
 | The screen must not open (data gone, no permission) | in `OnInitialize`: `Messages.ShowWarning(why); RequestClose(InteractionStatus.Cancel); return;` (or `RequestClose(why, Error)` for the caller to show): never shown (Navigator does not show it; `Connect` hides and closes it in `Load`); modeless `ShowWindow` returns `null` |

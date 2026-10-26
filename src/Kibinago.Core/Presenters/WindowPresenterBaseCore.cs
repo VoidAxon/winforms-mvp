@@ -17,7 +17,7 @@ namespace Kibinago.Presenters
     /// <see cref="ICloseParticipant.CanCloseGate"/> (Pull) and injects the sink via
     /// <see cref="ICloseParticipant.BindCloseSink"/> (Push) — there are no events to subscribe to.
     /// </remarks>
-    public abstract class WindowPresenterBaseCore<TView> : PresenterBase<TView>, ICloseParticipant
+    public abstract class WindowPresenterBaseCore<TView> : PresenterBase<TView>, ICloseParticipant, IWindowPresenter
         where TView : IWindowView
     {
         private ICloseSink _closeSink;

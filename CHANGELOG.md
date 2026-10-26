@@ -30,6 +30,9 @@
   | `Kibinago.Common.Extensions` (`ControlBindingExtensions`) | `Kibinago.Views` |
 
   アプリテンプレートの `Program.cs` は `using Kibinago.Services.Implementations;` が不要に、`mvp-window --validation` の Form は検証の `using` が 1 行に。
+- **ナビゲーションの間違いはコンパイルエラーに** (以前は実行時の `InvalidOperationException`): パラメータが必要な Presenter を `WithParam` なしで表示する、制御用 Presenter (`ControlPresenterBase`) を `Navigator` に渡す。`For(presenter)` は、パラメータなしで初期化する Presenter には表示メソッドを持つ `NavigationContext<TPresenter>` を、パラメータが必要な Presenter には `WithParam` しか呼べない新しい `ParamRequiredNavigation<TPresenter>` を返す。直接呼び出し形式も同じ制約 (`IWindowPresenter, IInitializable` / `IWindowPresenter, IInitializable<TParam>`)。そのためにメンバーのないマーカー `IWindowPresenter` (`WindowPresenterBase` が実装) と `IInitializableWithParam` (`IInitializable<TParam>` の基底) を追加。宣言型が `IPresenter` の変数はそのままでは渡せない。
+- **ミドルウェアは `Task` を返す** (`IDispatchMiddleware.Invoke` → `InvokeAsync`、`DispatchDelegate` と `Use((ctx, next) => ...)` は `Task` を返す)。`await next(ctx)` は非同期ハンドラが最後まで終わったときに戻るので、ミドルウェアは非同期処理の全体を包む。以前は最初の `await` までしか包めず、計測は最初の `await` までの時間、監査は失敗を成功として記録し、エラーダイアログのミドルウェアは `await` 後の失敗を捕捉できなかった (サンプルの `AuditMiddleware` / `PerformanceMiddleware` / `ErrorDialogMiddleware` がそうなっていた)。また `Use(async (ctx, next) => ...)` が `async void` の `Action` に束縛されていた。パイプライン全体が終わるまでアクションは無効 (ミドルウェアが `next` の前に `await` している間も)。`await` しないミドルウェアでもハンドラは最後まで追跡され、失敗は伝わる。`DispatchContext.Completion` は削除 (`await next(ctx)` で足りる)。書き換え: `(ctx, next) => { ...; next(ctx); ... }` → `async (ctx, next) => { ...; await next(ctx); ... }`、短絡は `return Task.CompletedTask;`。
+- **`ShowWindow` の `keySelector: _ => id` → `key: id`** (`Func<TPresenter, object>` → `object`)。セレクターは初期化前の Presenter を受け取るので、使い道は呼び出し側がすでに持っている値を返すことだけだった (`p => p.DocumentId` は Presenter に公開プロパティを要求し、しかも `WithParam` の値はまだ入っていない)。
 
 ### Removed (削除)
 

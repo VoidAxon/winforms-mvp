@@ -151,7 +151,7 @@ namespace Kibinago.Samples.NavigatorDemo
             var presenter = new SingletonWindowPresenter(instanceId);
             Navigator.ShowWindow<SingletonWindowPresenter, object>(
                 presenter,
-                keySelector: p => "SingletonKey", // Same key = same instance
+                key: "SingletonKey", // Same key = same instance
                 onClosed: result =>
                 {
                     View.AppendLog($"Singleton window #{instanceId} closed.");

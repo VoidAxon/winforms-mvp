@@ -36,15 +36,14 @@ namespace Kibinago.Services
         /// <exception cref="System.Collections.Generic.KeyNotFoundException">No View implementation
         /// is registered for the presenter's view interface.</exception>
         /// <exception cref="InvalidOperationException">The registered View is not a <see cref="Form"/>,
-        /// does not implement <see cref="IWindowView"/>, the presenter is not a window presenter,
-        /// or the presenter requires parameters (use the overload that takes them). The presenter
-        /// is disposed before the throw.</exception>
-        public InteractionResult<TResult> ShowWindowAsModal<TPresenter, TResult>(TPresenter presenter, IWindowView owner = null) where TPresenter : IPresenter
-            => ShowModalCore<TResult>(presenter, owner, () => ParameterlessInitializer(presenter));
+        /// does not implement <see cref="IWindowView"/>, or the presenter is not a window presenter.
+        /// The presenter is disposed before the throw.</exception>
+        public InteractionResult<TResult> ShowWindowAsModal<TPresenter, TResult>(TPresenter presenter, IWindowView owner = null) where TPresenter : IWindowPresenter, IInitializable
+            => ShowModalCore<TResult>(presenter, owner, () => presenter.Initialize);
 
         /// <inheritdoc />
         public InteractionResult ShowWindowAsModal<TPresenter>(TPresenter presenter, IWindowView owner = null)
-        where TPresenter : IPresenter
+        where TPresenter : IWindowPresenter, IInitializable
         {
             // Internally call generic version, using object as placeholder result type
             return ShowWindowAsModal<TPresenter, object>(presenter, owner);
@@ -52,12 +51,12 @@ namespace Kibinago.Services
 
         /// <inheritdoc cref="ShowWindowAsModal{TPresenter, TResult}(TPresenter, IWindowView)"/>
         public InteractionResult<TResult> ShowWindowAsModal<TPresenter, TParam, TResult>(TPresenter presenter, TParam parameters, IWindowView owner = null)
-            where TPresenter : IPresenter, IInitializable<TParam>
+            where TPresenter : IWindowPresenter, IInitializable<TParam>
             => ShowModalCore<TResult>(presenter, owner, () => () => presenter.Initialize(parameters));
 
         /// <inheritdoc />
         public InteractionResult ShowWindowAsModal<TPresenter, TParam>(TPresenter presenter, TParam parameters, IWindowView owner = null)
-            where TPresenter : IPresenter, IInitializable<TParam>
+            where TPresenter : IWindowPresenter, IInitializable<TParam>
         {
             // Internally call generic version, using object as placeholder result type
             return ShowWindowAsModal<TPresenter, TParam, object>(presenter, parameters, owner);
@@ -68,7 +67,7 @@ namespace Kibinago.Services
         #region Non-Modal
 
         /// <summary>
-        /// Shows the presenter's window non-modally. With a <paramref name="keySelector"/>, a key
+        /// Shows the presenter's window non-modally. With a <paramref name="key"/>, a key
         /// that already maps to an open window of the same presenter type (runtime type) activates
         /// that window instead: the new presenter is disposed and its <paramref name="onClosed"/> is
         /// never called. Keys of different presenter types never collide.
@@ -76,47 +75,47 @@ namespace Kibinago.Services
         public IWindowView ShowWindow<TPresenter, TResult>(
             TPresenter presenter,
             IWindowView owner = null,
-            Func<TPresenter, object> keySelector = null,
+            object key = null,
             Action<InteractionResult<TResult>> onClosed = null
             )
-            where TPresenter : IPresenter
-            => ShowModelessCore(presenter, owner, keySelector, onClosed, () => ParameterlessInitializer(presenter));
+            where TPresenter : IWindowPresenter, IInitializable
+            => ShowModelessCore(presenter, owner, key, onClosed, () => presenter.Initialize);
 
         /// <inheritdoc />
         public IWindowView ShowWindow<TPresenter>(TPresenter presenter,
         IWindowView owner = null,
-        Func<TPresenter, object> keySelector = null) where TPresenter : IPresenter
+        object key = null) where TPresenter : IWindowPresenter, IInitializable
         {
             return ShowWindow<TPresenter, object>(
                 presenter,
                 owner,
-                keySelector,
+                key,
                 onClosed: null);
         }
 
-        /// <inheritdoc cref="ShowWindow{TPresenter, TResult}(TPresenter, IWindowView, Func{TPresenter, object}, Action{InteractionResult{TResult}})"/>
+        /// <inheritdoc cref="ShowWindow{TPresenter, TResult}(TPresenter, IWindowView, object, Action{InteractionResult{TResult}})"/>
         public IWindowView ShowWindow<TPresenter, TParam, TResult>(
             TPresenter presenter,
             TParam parameters,
             IWindowView owner = null,
-            Func<TPresenter, object> keySelector = null,
+            object key = null,
             Action<InteractionResult<TResult>> onClosed = null)
-            where TPresenter : IPresenter, IInitializable<TParam>
-            => ShowModelessCore(presenter, owner, keySelector, onClosed, () => () => presenter.Initialize(parameters));
+            where TPresenter : IWindowPresenter, IInitializable<TParam>
+            => ShowModelessCore(presenter, owner, key, onClosed, () => () => presenter.Initialize(parameters));
 
         /// <inheritdoc />
         public IWindowView ShowWindow<TPresenter, TParam>(
             TPresenter presenter,
             TParam parameters,
             IWindowView owner = null,
-            Func<TPresenter, object> keySelector = null)
-            where TPresenter : IPresenter, IInitializable<TParam>
+            object key = null)
+            where TPresenter : IWindowPresenter, IInitializable<TParam>
         {
             return ShowWindow<TPresenter, TParam, object>(
                 presenter,
                 parameters,
                 owner,
-                keySelector,
+                key,
                 onClosed: null);
         }
         #endregion
@@ -150,12 +149,12 @@ namespace Kibinago.Services
         }
 
         private IWindowView ShowModelessCore<TPresenter, TResult>(
-            TPresenter presenter, IWindowView owner, Func<TPresenter, object> keySelector,
+            TPresenter presenter, IWindowView owner, object key,
             Action<InteractionResult<TResult>> onClosed, Func<Action> initializerFactory)
             where TPresenter : IPresenter
         {
             object instanceKey;
-            var existing = TryActivateExisting(presenter, keySelector, out instanceKey);
+            var existing = TryActivateExisting(presenter, key, out instanceKey);
             if (existing != null) return existing;
 
             Form newForm = null;
@@ -234,26 +233,6 @@ namespace Kibinago.Services
         }
 
         /// <summary>
-        /// The Initialize step for the parameterless Show overloads. A presenter that only accepts
-        /// parameters (<see cref="IInitializable{TParam}"/>) would otherwise be shown uninitialized —
-        /// no action handlers, no <c>OnInitialize</c> — so it is rejected up front.
-        /// </summary>
-        private static Action ParameterlessInitializer(IPresenter presenter)
-        {
-            if (presenter is IInitializable initializable) return initializable.Initialize;
-
-            foreach (var iface in presenter.GetType().GetInterfaces())
-            {
-                if (iface.IsGenericType && iface.GetGenericTypeDefinition() == typeof(IInitializable<>))
-                    throw new InvalidOperationException(
-                        $"{presenter.GetType().Name} requires initialization parameters of type " +
-                        $"{iface.GetGenericArguments()[0].Name}. Show it with an overload that takes " +
-                        "parameters, e.g. Navigator.For(presenter).WithParam(parameters).");
-            }
-            return () => { };
-        }
-
-        /// <summary>
         /// Singleton-per-key activation. Keys are scoped by the presenter's runtime type: the
         /// registry key is (presenter type, selected key), so two screens that both use, say, a
         /// record id never activate each other's window. If that key maps to a live form, the form
@@ -261,14 +240,13 @@ namespace Kibinago.Services
         /// returned (non-null). Otherwise returns null and outputs the scoped key.
         /// </summary>
         private IWindowView TryActivateExisting<TPresenter>(
-            TPresenter presenter, Func<TPresenter, object> keySelector, out object instanceKey)
+            TPresenter presenter, object key, out object instanceKey)
             where TPresenter : IPresenter
         {
             instanceKey = null;
-            if (keySelector == null) return null;
+            if (key == null) return null;
 
-            var key = keySelector(presenter);
-            if (key == null || presenter == null) return null;   // a null presenter is rejected by PrepareForm
+                        if (key == null || presenter == null) return null;   // a null presenter is rejected by PrepareForm
             instanceKey = (presenter.GetType(), key);
 
             lock (_lock)

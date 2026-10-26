@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Kibinago.Views;
 using Kibinago.Presenters;
 using Kibinago.ViewActions;
@@ -108,10 +109,10 @@ namespace Kibinago.Samples.Tests.ViewActions
             private readonly string _name;
             private readonly List<string> _trace;
             public TraceMW(string name, List<string> trace) { _name = name; _trace = trace; }
-            public void Invoke(DispatchContext context, DispatchDelegate next)
+            public async Task InvokeAsync(DispatchContext context, DispatchDelegate next)
             {
                 _trace.Add(_name + ":pre");
-                next(context);
+                await next(context);
                 _trace.Add(_name + ":post");
             }
         }
