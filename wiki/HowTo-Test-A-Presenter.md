@@ -333,6 +333,40 @@ window.CloseWithResult(42);                                   // onClosed に Ok
 
 同じキーで再度開くと既存のウィンドウがアクティブになり (`window.Activations`)、新しい Presenter は破棄されます。すべての要求は `fakes.Navigator.Calls` に記録されます。
 
+### 検証エラーを検証する
+
+View が `IValidatableView` を実装している画面では、モック View が `Kibinago.Testing` の `FakeValidationErrorDisplay` を `ValidationErrors` として返します。Presenter の `Validation` が送ったエラーが記録されます。
+
+```csharp
+private sealed class MockCustomerEditView : ICustomerEditView
+{
+    public CapturingActionBinder Binder { get; } = new CapturingActionBinder();
+    public IViewActionBinder ActionBinder => Binder;
+    public FakeValidationErrorDisplay Errors { get; } = new FakeValidationErrorDisplay();
+    public IValidationErrorDisplay ValidationErrors => Errors;   // IValidatableView
+    public string FocusedField { get; private set; }
+    public void FocusError(string field) => FocusedField = field;
+    // ... 入力値のプロパティ
+}
+
+[Fact]
+public void Save_WithoutName_ShowsTheFirstErrorAndFocusesIt()
+{
+    _view.CustomerName = "";
+    _fakes.Messages.ClearCalls();
+
+    _view.Binder.Dispatch(CustomerEditActions.Save);
+
+    Assert.True(_view.Errors.RevealAll);                                   // 送信後: すべてのエラーを表示
+    Assert.True(_view.Errors.HasError(nameof(Customer.Name)));
+    Assert.Equal(MessageKind.Warning, Assert.Single(_fakes.Messages.Calls).Kind);
+    Assert.Equal(nameof(Customer.Name), _view.FocusedField);
+    Assert.False(_host.CloseRequested);
+}
+```
+
+`ErrorsFor(field)` でメッセージ、`ShowCount` / `ResetCount` で通知の回数も確認できます。
+
 ### ロギングを検証する
 
 `fakes.Logs` (`RecordingLoggerFactory`) はすべてのレベルを記録します。

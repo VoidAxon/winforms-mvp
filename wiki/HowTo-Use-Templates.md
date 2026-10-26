@@ -106,7 +106,7 @@ dotnet new mvp-window -n OrderEdit [--param-type int] [--validation] [--namespac
 
 | オプション | 既定値 | 説明 |
 |-----------|-------|------|
-| `--param-type` | (なし) | ウィンドウを開くときのパラメータ型。指定すると `WindowPresenterBase<IOrderEditView, int>` と `OnInitialize(int parameters)` になる |
+| `--param-type` | (なし) | ウィンドウを開くときのパラメータ型。指定すると `WindowPresenterBase<IOrderEditView, int>` と `OnInitialize(int parameters)` になる。自分の型 (`Customer` など) を指定するときは、その型を **先に** 作っておく (なければ生成直後のビルドが失敗する。名前空間が違えば `using` を足す) |
 | `--validation` | `false` | `OrderEditModel` (DataAnnotations) を追加し、View を `IValidatableView` にして `ErrorProviderDisplay` でエラーをフィールドの横に表示 |
 | `-ns`, `--namespace` | プロジェクトの `RootNamespace` | 生成ファイルの名前空間。サブフォルダに生成するときに指定する |
 
@@ -135,13 +135,18 @@ dotnet new mvp-control -n CustomerPanel [--namespace MyApp.Customers]
 
 生成されるファイル: `ICustomerPanelView.cs` / `CustomerPanelActions.cs` / `CustomerPanelPresenter.cs` (`ControlPresenterBase<ICustomerPanelView>`) / `CustomerPanelControl.cs` / `CustomerPanelControl.Designer.cs`。
 
-Presenter は `OnInitializeAsync` と `Refresh` アクションで同じ非同期読み込み処理を実行する例になっています。親の Form (View コード) で Control を配置し、Presenter を接続します:
+Presenter は `OnInitializeAsync` と `Refresh` アクションで同じ非同期読み込み処理を実行する例になっています。親の Form に Control を配置し、**親の Presenter** が子の Presenter をつなぎます:
 
 ```csharp
-new CustomerPanelPresenter().Connect(customerPanelControl);
+// 親の View インターフェイス: 子の View インターフェイスを公開する (コントロールではなく)
+public interface IMainView : IWindowView { ICustomerPanelView CustomerPanel { get; } }
+// 親の Form: public ICustomerPanelView CustomerPanel => customerPanelControl;
+
+// 親の Presenter (OnInitialize): 業務サービスは親のコンストラクタから渡す
+AttachChild(new CustomerPanelPresenter(), View.CustomerPanel);
 ```
 
-Presenter は Control と一緒に破棄されます。業務サービスが必要なら Presenter のコンストラクタに追加してください ([Presenter 基底クラス](Reference-Presenter-Base-Classes) 参照)。
+子の Presenter は親と一緒に (または Control と一緒に) 破棄されます。親から子へ値を渡す方法は [HowTo: マスター詳細](HowTo-Implement-Master-Detail) を参照してください。MVP ではない Form (既存の画面) に置く場合だけ、その Form のコードで `new CustomerPanelPresenter().Connect(customerPanelControl);` とします ([Presenter 基底クラス](Reference-Presenter-Base-Classes) 参照)。
 
 ---
 

@@ -67,11 +67,11 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView, EditUserPara
     {
         // The tracker raises no change notification: read the dirty state where the
         // view reports an edit, and re-evaluate CanExecute in the same place.
-        View.EditChanged += (s, e) =>
+        SubscribeViewEvent(h => View.EditChanged += h, h => View.EditChanged -= h, () =>
         {
             View.IsDirty = HasUnsavedChanges;
             Dispatcher.RaiseCanExecuteChanged();
-        };
+        });
     }
 
     protected override void OnInitialize(EditUserParameters parameters)

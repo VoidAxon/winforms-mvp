@@ -8,6 +8,13 @@
 
 ## [Unreleased]
 
+### Changed (変更)
+
+- **新人試用 (2 回目, preview.10) の指摘を反映**:
+  - README 方法B: `dotnet new nugetconfig` から始め、ローカルのソースは相対パス (`packages`) で登録する (絶対パスだと別の PC / Windows ⇔ WSL で restore できない)。クイック例の起動もテンプレートと同じ形に。
+  - テンプレート: Presenter に `using Kibinago.Services;` (`Navigator.For` は拡張メソッドで、なければ CS1061)。テストの例は Ok を `canExecute` で無効にせず、未入力なら警告して閉じない (検証のページの「送信ボタンは無効化しない」と同じ)。
+  - Wiki: View のイベント購読を `SubscribeViewEvent` に統一 (はじめに・検証・設計ルール・ChangeTracker・クローズ・マスター詳細・ViewAction・カスケード・トラブルシューティング)。サービスのイベントは解除まで書く。テンプレートのページで UserControl は親 Presenter の `AttachChild` を基本に。マスター詳細のテスト例を `TestServices.CreateFakes()` / `PresenterTestHost` に (古い API を使っていた)。`FakeValidationErrorDisplay` の使用例。`Navigator.For` に `using Kibinago.Services;` が要ること。`--param-type` に自分の型を指定するときは先に作ること。日本語ページに混じっていた中国語を修正。
+
 ## [1.0.0-preview.10] - 2026-10-26
 
 ### Added (追加)

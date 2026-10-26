@@ -73,7 +73,7 @@ public class CustomerOrderPresenter : WindowPresenterBase<ICustomerOrderView>
 
     protected override void OnViewAttached()
     {
-        View.SelectedCustomerChanged += OnSelectedCustomerChanged;
+        SubscribeViewEvent(h => View.SelectedCustomerChanged += h, h => View.SelectedCustomerChanged -= h, OnSelectedCustomerChanged);
     }
 
     protected override void OnInitialize()
@@ -90,7 +90,7 @@ public class CustomerOrderPresenter : WindowPresenterBase<ICustomerOrderView>
     }
 
     // ── マスター選択変更 → 詳細を更新 ──────────────────────────
-    private void OnSelectedCustomerChanged(object sender, EventArgs e)
+    private void OnSelectedCustomerChanged()
     {
         var customer = View.SelectedCustomer;
         if (customer == null)
@@ -183,8 +183,8 @@ public class CustomerListPresenter : ControlPresenterBase<ICustomerListView>
 
     protected override void OnViewAttached()
     {
-        View.SelectionChanged += (s, e) =>
-            _selection.SetSelectedCustomer(View.SelectedCustomer);
+        SubscribeViewEvent(h => View.SelectionChanged += h, h => View.SelectionChanged -= h,
+            () => _selection.SetSelectedCustomer(View.SelectedCustomer));
     }
 
     protected override void OnInitialize()
@@ -212,7 +212,9 @@ public class OrderListPresenter : ControlPresenterBase<IOrderListView>
 
     protected override void OnViewAttached()
     {
+        // サービスのイベント: 購読と解除を同じ場所に書く (Presenter の破棄時に解除される)
         _selection.SelectedCustomerChanged += OnSelectedCustomerChanged;
+        Disposable.Create(() => _selection.SelectedCustomerChanged -= OnSelectedCustomerChanged).DisposeWith(Disposables);
     }
 
     private void OnSelectedCustomerChanged(object sender, EventArgs e)
@@ -541,7 +543,7 @@ Dispatcher.Register(OrderActions.DeleteOrder, OnDeleteOrder,
 選択が変わったら `Dispatcher.RaiseCanExecuteChanged()` を必ず呼ぶ:
 
 ```csharp
-private void OnSelectedCustomerChanged(object sender, EventArgs e)
+private void OnSelectedCustomerChanged()
 {
     // ... 詳細更新 ...
     Dispatcher.RaiseCanExecuteChanged();
@@ -628,7 +630,7 @@ private void OnDeleteCustomer()
 View イベントのハンドラは `async void` にせず、`async Task` メソッドを開始するだけにします。例外はすべてそのメソッド内で処理し、トークンには Presenter の `Lifetime` (ウィンドウを閉じるとキャンセル) を渡します。
 
 ```csharp
-private void OnSelectedCustomerChanged(object sender, EventArgs e)
+private void OnSelectedCustomerChanged()
     => _ = LoadOrdersAsync(View.SelectedCustomer);   // 例外は LoadOrdersAsync 内で処理済み
 
 private async Task LoadOrdersAsync(Customer customer)
@@ -668,41 +670,57 @@ private async Task LoadOrdersAsync(Customer customer)
 
 ## テストパターン
 
+Presenter を `PresenterTestHost` でホストし、フレームワークのサービスは `TestServices.CreateFakes()`、業務サービスはテスト用のインメモリ実装をコンストラクタに渡します ([HowTo: Presenter をテストする](HowTo-Test-A-Presenter))。
+
 ```csharp
-[Fact]
-public void SelectingCustomer_LoadsOrders()
+public class CustomerOrderPresenterTests : IDisposable
 {
-    var customer = new Customer { Id = 1, Name = "Alice" };
-    _platform.OrderRepository.SetupGetByCustomer(1,
-        new[] { new Order { Amount = 100 }, new Order { Amount = 200 } });
+    private readonly FakeServices _fakes = TestServices.CreateFakes();
+    private readonly InMemoryCustomerRepository _customers = new InMemoryCustomerRepository();   // テスト側で書く
+    private readonly InMemoryOrderRepository _orders = new InMemoryOrderRepository();
+    private readonly MockCustomerOrderView _view = new MockCustomerOrderView();
+    private readonly PresenterTestHost _host;
 
-    _view.SelectedCustomer = customer;
-    _view.RaiseSelectedCustomerChanged();
+    public CustomerOrderPresenterTests()
+    {
+        _customers.Add(new Customer { Id = 1, Name = "Alice" });
+        _orders.Add(new Order { CustomerId = 1, Amount = 100 }, new Order { CustomerId = 1, Amount = 200 });
+        _host = PresenterTestHost.Start(_fakes.Provider, new CustomerOrderPresenter(_customers, _orders), _view);
+    }
 
-    Assert.Equal(2, _view.Orders.Count);
-    Assert.Equal(300m, _view.TotalAmount);
-}
+    public void Dispose() => _host.Dispose();
 
-[Fact]
-public void CanDelete_WhenNoCustomerSelected_IsFalse()
-{
-    _view.SelectedCustomer = null;
-    _view.RaiseSelectedCustomerChanged();
+    [Fact]
+    public void SelectingCustomer_LoadsOrders()
+    {
+        _view.SelectedCustomer = _customers.Get(1);
+        _view.RaiseSelectedCustomerChanged();
 
-    Assert.False(_view.Binder.CanDispatch(OrderActions.DeleteOrder));
-}
+        Assert.Equal(2, _view.Orders.Count);
+        Assert.Equal(300m, _view.TotalAmount);
+    }
 
-[Fact]
-public void DeletingCustomer_WithOrders_ConfirmsBeforeDelete()
-{
-    _view.SelectedCustomer = new Customer { Id = 1 };
-    _platform.OrderRepository.SetupCountByCustomer(1, 5);
-    _platform.MessageService.ConfirmYesNoResult = false;   // Cancel
+    [Fact]
+    public void CanDelete_WhenNoCustomerSelected_IsFalse()
+    {
+        _view.SelectedCustomer = null;
+        _view.RaiseSelectedCustomerChanged();
 
-    _view.Binder.Dispatch(CustomerActions.Delete);
+        Assert.False(_view.Binder.CanDispatch(OrderActions.DeleteOrder));
+    }
 
-    Assert.True(_platform.MessageService.ConfirmDialogShown);
-    Assert.False(_platform.CustomerRepository.DeleteCalled);
+    [Fact]
+    public void DeletingCustomer_WithOrders_AnsweredNo_KeepsIt()
+    {
+        _view.SelectedCustomer = _customers.Get(1);
+        _view.RaiseSelectedCustomerChanged();
+        _fakes.Messages.EnqueueYesNo(false);   // 次の ConfirmYesNo に「いいえ」
+
+        _view.Binder.Dispatch(CustomerActions.Delete);
+
+        Assert.Contains(_fakes.Messages.Calls, c => c.Kind == MessageKind.YesNo);
+        Assert.NotNull(_customers.Get(1));
+    }
 }
 ```
 

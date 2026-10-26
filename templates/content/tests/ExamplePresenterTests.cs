@@ -36,15 +36,19 @@ namespace MvpApp.Tests
         }
 
         [Fact]
-        public void Ok_IsDisabledUntilANameIsEntered()
+        public async Task Ok_WithoutAName_WarnsAndStaysOpen()
         {
             var fakes = TestServices.CreateFakes();
             var view = new FakeGreetingView();
-            using (PresenterTestHost.Start(fakes.Provider, new GreetingPresenter(), view))
+            using (var host = PresenterTestHost.Start(fakes.Provider, new GreetingPresenter(), view))
             {
-                Assert.False(view.Binder.CanDispatch(GreetingActions.Ok));
-                view.Name = "Ada";
+                // Ok stays enabled: pressing it is how the user learns what is missing.
                 Assert.True(view.Binder.CanDispatch(GreetingActions.Ok));
+
+                await view.Binder.DispatchAsync(GreetingActions.Ok);
+
+                Assert.Equal(MessageKind.Warning, Assert.Single(fakes.Messages.Calls).Kind);
+                Assert.False(host.CloseRequested);
             }
         }
 
@@ -65,10 +69,16 @@ namespace MvpApp.Tests
         public sealed class GreetingPresenter : WindowPresenterBase<IGreetingView>
         {
             protected override void RegisterViewActions()
-                => Dispatcher.Register(GreetingActions.Ok, OnOkAsync, canExecute: () => !string.IsNullOrEmpty(View.Name));
+                => Dispatcher.Register(GreetingActions.Ok, OnOkAsync);
 
             private async Task OnOkAsync()
             {
+                if (string.IsNullOrEmpty(View.Name))
+                {
+                    Messages.ShowWarning("Enter a name.");
+                    return;
+                }
+
                 await Task.Yield();
                 Messages.ShowInfo($"Hello, {View.Name}!");
                 RequestClose(View.Name, InteractionStatus.Ok);

@@ -147,7 +147,8 @@ register.RegisterFromAssembly(typeof(SomeFormInOtherDll).Assembly);
 **対処**:
 
 ```csharp
-View.InputChanged += (s, e) => Dispatcher.RaiseCanExecuteChanged();
+// OnViewAttached
+SubscribeViewEvent(h => View.InputChanged += h, h => View.InputChanged -= h, Dispatcher.RaiseCanExecuteChanged);
 ```
 
 詳しくは [ViewAction システム § 状態変化への対応](Reference-ViewAction-System#状態変化への対応) 参照。

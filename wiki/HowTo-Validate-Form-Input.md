@@ -155,9 +155,8 @@ public class RegistrationPresenter : WindowPresenterBase<IRegistrationView>
 {
     protected override void OnViewAttached()
     {
-        EventHandler onDataChanged = (s, e) => Validation.Validate(ReadModel());
-        View.DataChanged += onDataChanged;
-        Disposable.Create(() => View.DataChanged -= onDataChanged).DisposeWith(Disposables);
+        SubscribeViewEvent(h => View.DataChanged += h, h => View.DataChanged -= h,
+            () => Validation.Validate(ReadModel()));
     }
 
     protected override void RegisterViewActions()
