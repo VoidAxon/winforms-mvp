@@ -8,6 +8,8 @@
 
 ## [Unreleased]
 
+## [1.0.0-preview.11] - 2026-10-26
+
 ### Added (追加)
 
 - **テンプレート `mvp-window --edit`: 編集ダイアログ** — モデルを受け取って開き、保存したモデルを結果として返し、未保存の変更があれば ✕ / Esc / Cancel で「保存しますか？」(はい: 検証して結果を返す / いいえ: 破棄 / キャンセル: 続ける)。Ok と「はい」は検証に失敗すると最初のエラーを出してフォーカスし、閉じない。`ChangeTracker` (`IsChangedWith(ReadModel())` / `AcceptChanges(model)`) と `CanClose` 内の `RequestClose(model, Ok)` を使う、いちばんよくある画面の完成形 (新人試用 2 回目: 3 ページを読んで組み立てる必要があった)。`verify-templates.sh` が生成された Presenter を 8 つのテストで動かす。
