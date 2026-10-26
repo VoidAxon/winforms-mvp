@@ -63,7 +63,7 @@ Optional: a simple screen can use plain view events instead.
 | Dispatch from code / await in tests | `Dispatcher.Dispatch(key[, payload])`, `DispatchAsync(...)` |
 | Map controls to keys (WinForms) | `ViewActionBinder.Add(key, controls...)`, `Add(key, control, c => value)`, bulk `AddRange(...)` |
 | Controls created or removed at run time (choices, rows) | `binder.Add(...)` after `Bind` works at once; `binder.Remove(controls)`; disposed controls drop out |
-| A control the binder does not know (grid, list, third-party editor) | `binder.RegisterStrategy<T>((c, h) => c.SomeEvent += (EventHandler)h, ...)` before `Add` (unknown controls are rejected at `Add`) |
+| A control the binder does not know (grid, list, third-party editor) | `binder.RegisterStrategy<T>((c, h) => c.SomeEvent += (EventHandler)h, ...)` before `Add` (unknown controls are rejected at `Add`); `setEnabled: (c, on) => c.Enabled = on` makes a non-Control component (third-party toolbar command) follow `canExecute` |
 | Share one binder through the app's own base form | [wiki § 基底 Form](wiki/Reference-ViewAction-System.md) (`protected ViewActionBinder Binder` + explicit `IActionableView.ActionBinder`) |
 | Cross-cutting behavior (audit, timing, error dialogs) — wraps async handlers to their end | `Dispatcher.Use(async (ctx, next) => { ...; await next(ctx); ... })` / `IDispatchMiddleware.InvokeAsync`, `DispatchContext` |
 | Fail fast on wiring mistakes (Debug) | `mvp.Actions.StrictValidation()` / `IDispatcherConfigurer` (`DispatchValidationMode.Strict`) |
