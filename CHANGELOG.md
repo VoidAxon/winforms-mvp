@@ -14,6 +14,7 @@
 
 ### Fixed (修正)
 
+- **`CancelButton` にしたボタンが、ハンドラの判断に関係なくモーダルを閉じていた**: `Form.CancelButton` は WinForms がそのボタンの `DialogResult` を黙って `Cancel` にし、ボタンは `DialogResult` を `Click` (= アクション) より先にフォームへ写す。そのため「破棄しますか」に「いいえ」と答えても、`CanClose` を書いていない Presenter ではウィンドウが閉じ、変更追跡があれば同じことを 2 度聞いていた (`DialogResult.OK` のボタンでも、検証エラーなのに閉じる)。`ViewActionBinder` はアクションにバインドしたボタンの `DialogResult` を購読時に `None` に戻す (`Bind()` / `Bind(dispatcher)` / `Bind` 後の `Add`。`Unbind` で元に戻さない)。Esc は引き続き `CancelButton` をクリックしてアクションを動かす。閉じるのは Presenter の `RequestClose` だけ。`Bind` の後で `CancelButton` を設定し直すのは非対応 (新人試用で、`CancelButton` が `CanClose` を迂回するのではと指摘されて調査。ゲートは迂回されていなかった)。
 - **対話ボックスのオプションが一部効いていなかった**: 組み込みの `DialogProvider` が `ColorDialogOptions.AllowFullOpen` / `AnyColor`、`FolderBrowserDialogOptions.ShowNewFolderButton`、`FontDialogOptions.ShowColor`、`PrintDialogOptions.AllowSelection`、`PageSetupDialogOptions.PrinterSettings` を読んでいなかった (XML ドキュメントを書いていて発覚)。すべてダイアログに反映する。`PrintDialogOptions.AllowSelection` の既定値は `true` から `false` (WinForms と同じ、今までの実際の動き) に。
 
 ### Changed (変更)
