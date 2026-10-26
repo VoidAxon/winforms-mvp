@@ -150,7 +150,7 @@ Expression-based two-way binding of controls to an `INotifyPropertyChanged` mode
 | Need | Use |
 |---|---|
 | Split a screen into UserControls that edit the same data | each panel's presenter takes the parent's model as `TParam`; panels react to its `PropertyChanged` (shared model; no direct calls) · [communication wiki](wiki/HowTo-Communicate-Between-Presenters.md) |
-| Share "the current selection" (master-detail) | `Selection<T>` / `ISelection<T>` (`Current`, `Select`, `CurrentChanged`); stable identity: `ISelectable.Key`, value types: `SelectableItem.Of/From/FromEnum` · [wiki](wiki/HowTo-Implement-Master-Detail.md) |
+| Share "the current selection" (master-detail) | `Selection<T>` / `ISelection<T>` (`Current`, `Select`; `CurrentChanged` = a different object incl. the same record reloaded → refresh a detail view; `IdentityChanged` = another record or cleared → reload dependants, used by `Cascade`); stable identity: `ISelectable.Key`, value types: `SelectableItem.Of/From/FromEnum` · [wiki](wiki/HowTo-Implement-Master-Detail.md) |
 | Parent → child reloads (category → subcategory) | `Cascade.Bind(from, target, reload)`, `Cascade.Combine(a, b, target, reload)` · [wiki](wiki/HowTo-Handle-Cascading-Selection.md) |
 
 ## 11. Cross-presenter events — Core · [wiki](wiki/Reference-EventAggregator.md)

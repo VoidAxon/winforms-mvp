@@ -9,13 +9,14 @@ namespace Kibinago.Common
     public static class Cascade
     {
         /// <summary>
-        /// When <paramref name="from"/> changes: clears <paramref name="target"/> (whose own
-        /// <c>CurrentChanged</c> cascades the clear further down) then reloads <paramref name="target"/>'s
+        /// When <paramref name="from"/> selects another record (<c>IdentityChanged</c>): clears
+        /// <paramref name="target"/> (whose own <c>IdentityChanged</c> cascades the clear further down) then reloads <paramref name="target"/>'s
         /// list from the new parent value. <paramref name="initialSync"/> (default true) also reloads
         /// once at bind time, so a child bound after its parent already has a value is not left empty.
         /// </summary>
         /// <remarks>
-        /// Synchronous, single-pass: the clear propagates depth-first before reload runs.
+        /// Synchronous, single-pass: the clear propagates depth-first before reload runs. The parent
+        /// replaced by a new instance of the same record (a reloaded list) keeps the child as it is.
         /// <paramref name="reload"/> receives <c>from.Current</c> (may be <c>null</c> when the parent
         /// was cleared). <paramref name="reload"/> should not throw; if it does, the child is already
         /// cleared but not reloaded. Dispose the returned token to unsubscribe.
@@ -34,19 +35,19 @@ namespace Kibinago.Common
 
             EventHandler handler = delegate
             {
-                target.Select(null);    // clear self -> fires target.CurrentChanged -> downstream Bind clears next
+                target.Select(null);    // clear self -> fires target.IdentityChanged -> downstream Bind clears next
                 reload(from.Current);    // from.Current may be null (parent cleared) -> reload empties
             };
-            from.CurrentChanged += handler;
+            from.IdentityChanged += handler;
             // initialSync: reload once now so a child bound after its parent already has a value is
             // not left empty. Each level self-syncs; order-independent. Clears nothing (no selection yet).
             if (initialSync) reload(from.Current);
-            return new Unsubscriber(delegate { from.CurrentChanged -= handler; });
+            return new Unsubscriber(delegate { from.IdentityChanged -= handler; });
         }
 
         /// <summary>
         /// Multi-parent cascade: <paramref name="target"/> depends on BOTH <paramref name="a"/> and
-        /// <paramref name="b"/>. Either parent changing clears <paramref name="target"/> and reloads
+        /// <paramref name="b"/>. Either parent selecting another record clears <paramref name="target"/> and reloads
         /// with both current values. (<see cref="Bind{TParent,TChild}"/> is the single-parent case.)
         /// </summary>
         public static IDisposable Combine<TA, TB, TChild>(
@@ -69,13 +70,13 @@ namespace Kibinago.Common
                 target.Select(null);
                 reload(a.Current, b.Current);
             };
-            a.CurrentChanged += handler;
-            b.CurrentChanged += handler;
+            a.IdentityChanged += handler;
+            b.IdentityChanged += handler;
             if (initialSync) reload(a.Current, b.Current);
             return new Unsubscriber(delegate
             {
-                a.CurrentChanged -= handler;
-                b.CurrentChanged -= handler;
+                a.IdentityChanged -= handler;
+                b.IdentityChanged -= handler;
             });
         }
 
