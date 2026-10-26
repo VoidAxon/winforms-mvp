@@ -109,6 +109,7 @@ namespace Kibinago.Services
             _form.Load += OnFormLoad;
             _form.FormClosing += OnFormClosing;
             _form.FormClosed += OnFormClosed;
+            _form.Disposed += OnFormDisposed;
             _form.HandleCreated += OnHandleCreated;
             _form.HandleDestroyed += OnHandleDestroyed;
             if (_form.IsHandleCreated) _sessionHook.AssignHandle(_form.Handle);
@@ -136,6 +137,7 @@ namespace Kibinago.Services
             _form.VisibleChanged -= OnFormVisibleChanged;
             _form.FormClosing -= OnFormClosing;
             _form.FormClosed -= OnFormClosed;
+            _form.Disposed -= OnFormDisposed;
             _form.HandleCreated -= OnHandleCreated;
             _form.HandleDestroyed -= OnHandleDestroyed;
             _sessionHook.ReleaseHandle();
@@ -252,13 +254,17 @@ namespace Kibinago.Services
 
             _bypassGateOnce = true;   // cancelling the opening is not a user close: no gate
             _form.Close();
-            if (!_closed && _form.IsDisposed)
+            if (_form.IsDisposed)
             {
-                // Closed before it ever had a window message loop: WinForms disposed it without FormClosed.
+                // Closed before it ever had a window message loop: WinForms disposed it without FormClosed,
+                // and OnFormDisposed has ended it (the fallback covers a Form disposed while unwired).
                 _form.FormClosing -= outcome;
-                UnwireFormEvents();
-                _closed = true;
-                Converge();
+                if (!_closed)
+                {
+                    UnwireFormEvents();
+                    _closed = true;
+                    Converge();
+                }
             }
             // Otherwise FormClosed converges (modeless: already; modal: when its loop processes the close).
         }
@@ -496,13 +502,27 @@ namespace Kibinago.Services
             Converge();
         }
 
-        private void Converge()
+        // Disposed without FormClosed: the caller dropped a Form it never showed, or a container (a docking
+        // host, an MDI parent) disposed the panes it held. Ends like a close — onClosed with the pending
+        // result (Cancel unless a RequestClose set one), the presenter disposed — but cannot ask: no gate.
+        // After a FormClosed the handler is already unwired, so nothing ends twice.
+        private void OnFormDisposed(object sender, EventArgs e)
+        {
+            if (_closed) return;
+            UnwireFormEvents();
+            _closed = true;
+            ClearSeed();
+            Converge(formDisposed: true);
+        }
+
+        /// <param name="formDisposed">The Form is being disposed already (no second Dispose from its Disposed event).</param>
+        private void Converge(bool formDisposed = false)
         {
             try { _onClosed?.Invoke(_pendingResult, _pendingStatus); }
             finally
             {
                 try { (_presenter as IDisposable)?.Dispose(); }
-                finally { if (_disposeForm) _form.Dispose(); }
+                finally { if (_disposeForm && !formDisposed) _form.Dispose(); }
             }
         }
     }

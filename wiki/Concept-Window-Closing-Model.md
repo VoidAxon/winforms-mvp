@@ -284,6 +284,7 @@ presenter.Connect(form, parameters);
 - `FormClosing` をブリッジし、X でも `RequestClose` でも `ICloseParticipant.CanCloseGate` を呼んで `e.Cancel` の決定を適用します。クローズ試行ごとに候補の結果を持ち、拒否されたら捨てます。
 - 表示前の状態を管理し、表示のキャンセルを処理します (Managed: `OpeningCancelled` + `ConvergeWithoutShow`、Adopted: `Load` で不可視化して閉じる)。
 - `FormClosed` に収束し、`onClosed` コールバックを呼び出して、Presenter を (Managed モーダル / Adopted の場合は Form も) Dispose します。Presenter の `Dispose` が例外を投げても Form は破棄されます。
+- 閉じずに破棄された Form (表示しないまま呼び出し側が `Dispose` した、ドッキングライブラリや MDI 親がまとめて破棄した) は `Disposed` で同じように収束します: `onClosed` を 1 回 (保留中の結果、なければ Cancel)、Presenter の破棄、Navigator のキーの解放。破棄は拒否できないので `CanClose` は呼ばれません。先に `FormClosed` で収束していれば何もしません。
 
 フレームワーク内で `Form` を直接参照する唯一のコンポーネントです。
 
