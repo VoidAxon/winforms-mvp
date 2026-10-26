@@ -655,6 +655,12 @@ namespace Kibinago.ViewActions
         /// awaiting an asynchronous handler, the outcome also waits for the handler, whose result then
         /// counts (nobody observed it) unless the pipeline itself failed.
         /// </summary>
+        /// <remarks>
+        /// A handler that failed while a middleware that did not await it was still running is
+        /// indistinguishable from a failure a middleware awaited and caught (both end in a successful
+        /// pipeline), and catching is what handles a failure — so that one is not reported. Hence
+        /// "always await next" in the middleware documentation.
+        /// </remarks>
         private static Task RunPipeline(DispatchDelegate pipeline, DispatchContext context)
         {
             Task outcome;
