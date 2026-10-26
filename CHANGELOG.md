@@ -10,6 +10,8 @@
 
 ### Added (追加)
 
+- **`Kibinago.Testing`: `FakeValidationErrorDisplay`** — `IValidatableView` のモック View が `ValidationErrors` として返すフェイク。Presenter の `Validation` が送ったエラーを記録する (`Errors`、`RevealAll`、`ErrorsFor(field)`、`HasError(field)`、`ShowCount` / `ResetCount`)。以前はテストごとに記録用の実装を書いていた (新人試用)。
+
 - **XML ドキュメントをパッケージに同梱** — `Kibinago.Core` / `Kibinago` / `Kibinago.DependencyInjection` / `Kibinago.Testing` の `.nupkg` に `.xml` が入り、IDE のツールチップ・IntelliSense に説明が出る (新人試用で、説明が何も出ないと指摘された)。足りなかった公開メンバーのコメントを補い、`src/` では公開メンバーのコメント漏れ・`<param>` 漏れ・壊れた `cref` をビルドエラーに (`.editorconfig`)。リリースワークフローは各パッケージに `.xml` が入っていることを検査する。
 
 ### Fixed (修正)
@@ -19,6 +21,7 @@
 
 ### Changed (変更)
 
+- **MVP008 は Form / UserControl (WinForms のコントロール) だけが対象**: ビューインターフェイスを実装する普通のクラス (テストの偽 View) の public ヘルパー (`RaiseInputChanged()`、`Select(id)` …) に警告しない。以前は利用者がテストプロジェクトで `NoWarn` する必要があった (新人試用)。リポジトリの `tests/` 向けの MVP008 の抑制も削除。
 - **入門ドキュメントを 1 つの書き方に統一** (新人試用で、同じことに「推奨」が複数ある、教程が他のページと違う、`samples/` を参照されても見えない、と指摘された):
   - 起動はテンプレートの形 (メイン Form + `Connect` + `MvpApplication.Run`、設定は `MvpApplication.Configure`) に統一。はじめに・DI・ViewMapping・ViewAction・Platform Services・トラブルシューティング・移行ガイドの例を書き直し、M.E.DI の例も同じ形に (Form にプロバイダを渡す例、メイン Form なしの `Application.Run()` をやめた)。
   - DI なしで業務サービス (リポジトリ) を Presenter に渡す方法を明記 (Program で作ってメイン Presenter のコンストラクタへ、そこから開くウィンドウの Presenter へ)。テンプレートの `Program.cs` のコメントも同じ説明に (以前は「コンストラクタで受け取る」と書いた次の行が `new MainPresenter()` だった)。

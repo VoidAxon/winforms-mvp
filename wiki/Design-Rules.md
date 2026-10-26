@@ -296,6 +296,8 @@ public class MyForm : Form, IMyView
 
 **Why**: 内部コントロールが `public` だと、Form の外から `myForm.SaveButton.PerformClick()` のような操作が可能になり、MVP の責務境界が崩れる。
 
+アナライザー **MVP008** は、Form / UserControl (WinForms のコントロール) の public メソッドがビューインターフェイスにないと警告します。テスト用の偽 View (コントロールではない普通のクラス) は対象外なので、`RaiseInputChanged()` や `Select(id)` のような操作用ヘルパーを public で持てます。
+
 ---
 
 ## Rule 10: View にアクセスするのは Presenter だけ

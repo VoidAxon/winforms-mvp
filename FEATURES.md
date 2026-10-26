@@ -188,6 +188,7 @@ Callbacks run on the creating thread's context; without `onError` a failure reac
 | Child windows | `FakeWindowNavigator`: modal `RespondTo<TPresenter, TResult>(r => InteractionResult<TResult>.Ok(…))` or typed by the parameters `RespondTo<TPresenter, TParam, TResult>(p => …)`, `LastModalParameters<T>()`; non-modal `Windows[i].CloseWithResult(value)` / `Close()` / `CloseWithError(...)`; same key / disposal / result-type rules as `WindowNavigator` |
 | Files | `InMemoryFileService`: Windows path rules on any host (base `C:\test`), `SeedFile`, `FilePaths`, `Failure = c => new IOException(...)` |
 | Logs and toasts | `RecordingLoggerFactory.Entries` (`Level`, `Message`, `Exception`), `FakeToastService.Calls` |
+| Validation errors | the mock view returns a `FakeValidationErrorDisplay` as `ValidationErrors` (`IValidatableView`) → `Errors`, `RevealAll`, `ErrorsFor(field)`, `HasError(field)`, `ShowCount` / `ResetCount` |
 
 Never widen presenter visibility for tests.
 
@@ -196,7 +197,7 @@ Never widen presenter visibility for tests.
 **Roslyn analyzers** (bundled in Core, flow to WinForms users; all warnings):
 MVP001 view interface ends with `View` · MVP002 presenter ends with `Presenter` · MVP003 presenter creates UI controls ·
 MVP004 UI types in view interfaces / presenters · MVP006 public presenter methods return void · MVP007 presenter uses a concrete Form ·
-MVP008 public Form method not in its view interface · MVP013 UI control names in interface method names ·
+MVP008 public Form / UserControl method not in its view interface (test doubles that are not controls are exempt) · MVP013 UI control names in interface method names ·
 MVP014 presenter references WinForms types · MVP016 presenter declares public events · MVP017 `Subscribe` result discarded.
 With a `ProjectReference`, reference `Kibinago.Analyzers` as an analyzer explicitly (see `samples/`).
 

@@ -126,9 +126,6 @@ dotnet_diagnostic.CS1735.severity = error
 #   MVP002 (Presenter naming)      — a test-fixture presenter class.
 #   MVP006 (Tell, Don't Ask)       — composition-root data hand-off between presenters
 #                                     (a legitimate parent/child coordination call).
-#   MVP008 (View method not in interface) — test doubles need extra public helpers
-#                                     (RaiseClosing/SimulateXxx/GetXxx) that must never
-#                                     appear on the production View contract.
 # ---------------------------------------------------------------------------
 [samples/**.cs]
 dotnet_diagnostic.MVP001.severity = none
@@ -136,4 +133,3 @@ dotnet_diagnostic.MVP006.severity = none
 
 [tests/**.cs]
 dotnet_diagnostic.MVP002.severity = none
-dotnet_diagnostic.MVP008.severity = none

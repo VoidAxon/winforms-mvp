@@ -42,8 +42,9 @@ namespace Kibinago.Analyzers
             if (classSymbol == null)
                 return;
 
-            // Check if class implements a view interface (semantic: Kibinago.Views.IViewBase)
-            if (!MvpSymbols.IsConcreteView(classSymbol))
+            // Only a Form / UserControl implementing a view interface. A plain class implementing one is a
+            // test double, whose public helpers (RaiseInputChanged, Select(id), ...) are its purpose.
+            if (!MvpSymbols.IsConcreteView(classSymbol) || !MvpSymbols.IsWinFormsType(classSymbol))
                 return;
 
             // Get method symbol

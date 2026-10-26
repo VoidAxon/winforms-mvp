@@ -565,26 +565,11 @@ public sealed class OrderInput : NotifyingObject
 
 ### Presenter のテスト
 
-モック View で `IValidatableView` を実装し、受け取ったエラーを記録する `IValidationErrorDisplay` を返します。アクションは本番と同じ経路 (`view.Binder.Dispatch`) で実行します。
+モック View で `IValidatableView` を実装し、`Kibinago.Testing` の `FakeValidationErrorDisplay` を返します。Presenter の `Validation` が送ったエラーを記録します (`Errors`、`RevealAll`、`ErrorsFor(field)`、`HasError(field)`、`ShowCount` / `ResetCount`)。アクションは本番と同じ経路 (`view.Binder.Dispatch`) で実行します。
 
 ```csharp
-private sealed class RecordingDisplay : IValidationErrorDisplay
-{
-    public IReadOnlyDictionary<string, IReadOnlyList<string>> Errors { get; private set; }
-    public bool RevealAll { get; private set; }
-    public int ResetCount { get; private set; }
-
-    public void ShowErrors(IReadOnlyDictionary<string, IReadOnlyList<string>> errors, bool revealAll)
-    {
-        Errors = errors;
-        RevealAll = revealAll;
-    }
-
-    public void Reset() => ResetCount++;
-}
-
 // MockRegistrationView : IRegistrationView
-//     public RecordingDisplay Display { get; } = new RecordingDisplay();
+//     public FakeValidationErrorDisplay Display { get; } = new FakeValidationErrorDisplay();
 //     public IValidationErrorDisplay ValidationErrors => Display;
 
 [Fact]
@@ -596,7 +581,7 @@ public void Submit_WithEmptyEmail_RevealsErrorAndDoesNotSave()
     _view.Binder.Dispatch(RegistrationActions.Submit);
 
     Assert.True(_view.Display.RevealAll);
-    Assert.Contains(nameof(RegistrationModel.Email), _view.Display.Errors.Keys);
+    Assert.True(_view.Display.HasError(nameof(RegistrationModel.Email)));
     Assert.False(_repository.Saved);
 }
 
