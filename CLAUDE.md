@@ -228,6 +228,8 @@ protected override async Task<bool> CanCloseAsync(CloseReason reason)
 - **Managed** — `WindowNavigator` creates and shows the window (`ShowWindowAsModal<...>` returns `InteractionResult<TResult>`; `ShowWindow<...>` non-modal). This is the default for all MVP-native windows.
 - **Adopted** — for a Form you create and `Show`/`Application.Run` yourself (shell window, legacy migration): call `presenter.Connect(form)` (no result) or `presenter.Connect<TView, TResult>(form, onClosed)` (typed callback) or `presenter.Connect<TView, TParam>(form, param)`. This does attach + initialize + close wiring (it also initializes a presenter that was attached but not yet initialized). Connecting a different view than the attached one, or connecting twice, throws (the live presenter is not disposed); a failed attach/initialize disposes the presenter.
 
+A Form disposed without closing (never shown, or disposed with its container — a docking host, an MDI parent) still ends once: `onClosed` (the pending result, else Cancel), the presenter disposed, a navigator key released; disposal cannot be vetoed, so no gate runs.
+
 Forms need no closing code — `IWindowView` has no closing members. See [wiki/Concept-Window-Closing-Model.md](wiki/Concept-Window-Closing-Model.md), [wiki/HowTo-Handle-Window-Closing.md](wiki/HowTo-Handle-Window-Closing.md), `samples/.../WindowClosingDemo/`, and `tests/.../Presenters/CanCloseTests.cs`.
 
 ### View mapping (`IViewMappingRegister`)

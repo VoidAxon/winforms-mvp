@@ -12,6 +12,10 @@
 
 - `ViewActionBinder.RegisterStrategy<T>(..., setEnabled: (c, enabled) => ...)` — `Control` でも `ToolStripItem` でもないコンポーネント (サードパーティのツールバーコマンドなど) も `canExecute` に合わせて有効 / 無効になる。以前はクリックはバインドできても、灰色にならなかった (実アプリの調査で、こうしたツールバーが多数の画面で使われていた)。`Control` / `ToolStripItem` の型に渡すと既定の `Enabled` の切り替えを置き換える。
 
+### Fixed (修正)
+
+- **閉じずに破棄された Form も、閉じたときと同じように終わる** — 表示しないまま呼び出し側が `Dispose` した Form や、ドッキングライブラリ / MDI 親がまとめて破棄した子 Form は `FormClosed` を通らず、`onClosed` が呼ばれず、Presenter も破棄されず (残り続け)、`ShowWindow` のキーも解放されなかった。`Disposed` でも 1 回だけ `onClosed` (保留中の結果、なければ Cancel)・Presenter の破棄・キーの解放を行う。破棄は無条件なので `CanClose` は呼ばれない (尋ねられない)。
+
 ### Documentation (ドキュメント)
 
 - wiki: `Files` (`IFileService`、preview.12 で削除) からの移行例 — 用途ごとのインターフェイスを注入する書き換え、Presenter と実装のテストの分担 ([Platform Services](wiki/Reference-Platform-Services.md))。実際のアプリを preview.12 に移行して、`Files` が使われていたことから追加。
