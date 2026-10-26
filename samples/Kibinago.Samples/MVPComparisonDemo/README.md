@@ -201,7 +201,7 @@ private void SetupDataBindings()
 
 ### NotifyingObject的使用
 
-`NotifyingObject` 是框架提供的基类，位于 `Kibinago.Models` 命名空间：
+`NotifyingObject` 是框架提供的基类，位于 `Kibinago.Common` 命名空间：
 
 ```csharp
 public class UserModel : NotifyingObject
@@ -218,7 +218,7 @@ public class UserModel : NotifyingObject
 
 ### 数据绑定扩展方法
 
-框架提供了方便的绑定扩展方法，位于 `Kibinago.Common.Extensions` 命名空间：
+框架提供了方便的绑定扩展方法，位于 `Kibinago.Views` 命名空间：
 
 ```csharp
 // 文本框绑定

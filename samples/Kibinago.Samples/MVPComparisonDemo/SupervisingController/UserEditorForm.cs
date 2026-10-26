@@ -1,9 +1,8 @@
 using System;
 using System.Drawing;
 using System.Windows.Forms;
-using Kibinago.Common.Extensions;
-using Kibinago.Common.Events;
 using Kibinago.Views;
+using Kibinago.Events;
 using Kibinago.ViewActions;
 
 namespace Kibinago.Samples.MVPComparisonDemo.SupervisingController

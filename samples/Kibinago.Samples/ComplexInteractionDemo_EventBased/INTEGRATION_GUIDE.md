@@ -108,7 +108,7 @@ The Event Aggregator demo **reuses all existing View implementations**:
 
 The Event Aggregator demo requires:
 
-1. **Kibinago.Common.EventAggregator** (part of framework)
+1. **Kibinago.Events** (part of framework)
 2. All existing View implementations from `ComplexInteractionDemo`
 3. All existing Model classes from `ComplexInteractionDemo.Models`
 

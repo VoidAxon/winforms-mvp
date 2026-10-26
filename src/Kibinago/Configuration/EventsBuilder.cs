@@ -1,5 +1,5 @@
 using System;
-using Kibinago.Common.EventAggregator;
+using Kibinago.Events;
 
 namespace Kibinago.Configuration
 {

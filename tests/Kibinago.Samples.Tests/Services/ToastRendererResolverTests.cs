@@ -1,5 +1,5 @@
 using Kibinago.Common;
-using Kibinago.Services.Implementations;
+using Kibinago.Services;
 using Xunit;
 
 namespace Kibinago.Samples.Tests.Services

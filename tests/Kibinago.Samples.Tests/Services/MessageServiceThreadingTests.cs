@@ -3,7 +3,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Kibinago.Services;
-using Kibinago.Services.Implementations;
 using Xunit;
 
 namespace Kibinago.Samples.Tests.Services

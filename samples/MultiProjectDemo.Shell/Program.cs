@@ -7,7 +7,6 @@ using MultiProjectDemo.UserModule;
 using MultiProjectDemo.Shell.Logging;
 using Kibinago.DependencyInjection;
 using Kibinago.Services;
-using Kibinago.Services.Implementations;
 
 namespace MultiProjectDemo.Shell
 {

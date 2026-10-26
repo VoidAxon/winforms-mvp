@@ -1,6 +1,6 @@
-using Kibinago.Common;
 using Kibinago.Testing;
 using Xunit;
+using Kibinago.Services;
 
 namespace Kibinago.Samples.Tests.Testing
 {

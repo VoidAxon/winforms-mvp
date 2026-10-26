@@ -497,7 +497,7 @@ Presenter のコンストラクタ依存は **コンテナの通常の解決ル�
 
 | インターフェイス | 名前空間 | パッケージ | 持つメソッド | 使うべき場面 |
 |---|---|---|---|---|
-| `IViewModuleRegistrar` | `Kibinago.Modules` | コア (`Kibinago`) | `RegisterViews()` のみ | DI を使わないプロジェクト、または DI ありアプリの中の DI 不要なレガシーモジュール |
+| `IViewModuleRegistrar` | `Kibinago.Services` | コア (`Kibinago`) | `RegisterViews()` のみ | DI を使わないプロジェクト、または DI ありアプリの中の DI 不要なレガシーモジュール |
 | `IModuleRegistrar` | `Kibinago.DependencyInjection` | DI パッケージ | `RegisterViews()` + `RegisterServices()` | M.E.DI で Service・Presenter を登録するモジュール |
 
 `IModuleRegistrar` は **`IViewModuleRegistrar` を継承** しています (`interface IModuleRegistrar : IViewModuleRegistrar`)。つまり「DI ありモジュール」は自動的に「View 専用モジュール」としても扱え、Shell プロジェクトは登録時にどちらの型でも受け取れます。

@@ -1,6 +1,6 @@
 # EventAggregator
 
-`EventAggregator` (`Kibinago.Common.EventAggregator.EventAggregator`) は、**Presenter 間の疎結合な pub/sub** のためのスレッドセーフなメッセージング機構です。
+`EventAggregator` (`Kibinago.Events.EventAggregator`) は、**Presenter 間の疎結合な pub/sub** のためのスレッドセーフなメッセージング機構です。
 複数の Presenter が同じイベントに反応する必要があるが、互いに直接参照を持たせたくない場面で使います。
 
 > **位置づけ**: 親子の Presenter 間や、同一機能内の通信には **使うべきではありません**。それらは直接メソッド呼び出しや共有 Service で扱います。EventAggregator は「直接の関係を持たない複数 Presenter が共通の出来事に反応する」場合の専用ツールです。

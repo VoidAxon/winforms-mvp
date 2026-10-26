@@ -1,7 +1,7 @@
 using System;
 using System.Drawing;
 using Kibinago.Common;
-using Kibinago.Services.Implementations.DialogOptions;
+using Kibinago.Services;
 using Kibinago.Testing;
 using Xunit;
 

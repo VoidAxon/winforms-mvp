@@ -1,7 +1,7 @@
 using System;
 using System.Drawing;
 using System.Windows.Forms;
-using Kibinago.Services.Implementations;
+using Kibinago.Services;
 
 namespace Kibinago.Samples.MessageBoxDemo
 {

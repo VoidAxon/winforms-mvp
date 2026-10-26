@@ -15,7 +15,7 @@ It ships as five packages:
 - **`Kibinago.Testing`** (`netstandard2.0`, depends on Core; test projects only) — `PresenterTestHost`, `TestServices` (`Create()`, `CreateFakes()`), `CapturingActionBinder` and optional fakes of the presenter-facing services (`FakeMessageService`, `FakeToastService`, `FakeDialogProvider`, `FakeWindowNavigator`, `InMemoryFileService`, `RecordingLoggerFactory`), plus `FakeValidationErrorDisplay` for a mock view implementing `IValidatableView`. No test-framework dependency.
 - **`Kibinago.Templates`** (template package, `templates/`) — `dotnet new` templates: `kibinago` (app with service/view registration + main window, `--framework net10.0-windows|net472`, `--kibinago-version`, `--no-restore`), `mvp-window` (`--param-type`, `--validation`, `--edit`, `--namespace`), `mvp-control`, `kibinago-tests` (`--app-project`). Install with `dotnet new install Kibinago.Templates` (or a local `.nupkg` path).
 
-Namespaces are the same in both assemblies (`Kibinago.*`, `Kibinago.Services`, `Kibinago.Common`, ...).
+Namespaces are the same in both assemblies; there are ten: `Kibinago`, `Kibinago.Presenters`, `.Views`, `.ViewActions`, `.Services` (service interfaces + their options + default implementations, toasts, view mapping, modules), `.Validation`, `.Events` (`IEventAggregator`, `ValueChanged`/`ValueChangingEventArgs`), `.Common`, `.Configuration`, `.Logging` (plus `Kibinago.DependencyInjection` / `Kibinago.Testing`). `ApiSurfaceTests` pins this list — don't add sub-namespaces such as `.Implementations`.
 
 It implements a **Supervising Controller** variant of MVP with a clear split between Form and UserControl scenarios.
 
@@ -80,7 +80,7 @@ TextBox NameTextBox { get; }             bool HasSelection { get; }
 - `private`: action handlers (`OnSave`), helpers.
 - A Presenter should expose **zero public events**. For cross-presenter notifications use a Service event or `IEventAggregator`. For close results, call the base `RequestClose(result, status)` / `RequestClose(status)` (it goes through the presenter's own `CanClose`) — no interface to implement, no extension method.
 
-View events need no hand-written EventArgs class and never a WinForms one (MVP004): `EventHandler` when the presenter reads the value from the view, `EventHandler<T>` with a business type to send it (`event EventHandler<int> RecordActivated;` — `T` need not derive from EventArgs), a tuple for two or three related values (`EventHandler<(int RecordId, string Column)>`), `EventHandler<ValueChangedEventArgs<T>>` (`Kibinago.Common.Events`, `OldValue` / `NewValue`) after a change when the previous value matters, `EventHandler<ValueChangingEventArgs<T>>` (+ `Cancel`) before a change the presenter may veto (the view applies it only when `!e.Cancel`), `EventHandler<CancelEventArgs>` (BCL) for a veto without values.
+View events need no hand-written EventArgs class and never a WinForms one (MVP004): `EventHandler` when the presenter reads the value from the view, `EventHandler<T>` with a business type to send it (`event EventHandler<int> RecordActivated;` — `T` need not derive from EventArgs), a tuple for two or three related values (`EventHandler<(int RecordId, string Column)>`), `EventHandler<ValueChangedEventArgs<T>>` (`Kibinago.Events`, `OldValue` / `NewValue`) after a change when the previous value matters, `EventHandler<ValueChangingEventArgs<T>>` (+ `Cancel`) before a change the presenter may veto (the view applies it only when `!e.Cancel`), `EventHandler<CancelEventArgs>` (BCL) for a veto without values.
 
 Subscribe to view events with the protected `SubscribeViewEvent(h => View.X += h, h => View.X -= h, handler)` (and `SubscribeViewEvent<TEventArgs>(..., e => ...)` for `EventHandler<T>`): one line instead of a `+=` plus a matching `-=`, unsubscribed when the presenter is disposed, and silent once disposal has begun (windows dispose the presenter first, then the form, whose controls can still raise events while torn down). Subscriptions registered via `.DisposeWith(Disposables)` (event tokens, `Cascade.Bind` unsubscribers, `Disposable.Create(() => view.Event -= handler)` wrappers) are released automatically after `Cleanup()`; presenters normally need no `Cleanup` override for unsubscription.
 
@@ -342,14 +342,15 @@ Use for cross-presenter/cross-module events. Do **not** use for parent-child coo
 /
 ├── src/        Core libraries (shippable)
 │   ├── Kibinago.Core/              Platform-neutral core (netstandard2.0, no WinForms reference)
-│   │   ├── Presenters|Views|Models|ViewActions/   presenter bases, ViewAction dispatcher
-│   │   ├── Services/                  Service interfaces, ServiceLocator, FileService
-│   │   ├── Common/                    EventAggregator, ChangeTracker, validation, utilities
+│   │   ├── Presenters|Views|ViewActions/   presenter bases, ViewAction dispatcher
+│   │   ├── Services/                  Service interfaces, dialog options, ServiceLocator, FileService
+│   │   ├── Validation/  Events/       ValidationState; EventAggregator, ValueChanged/ChangingEventArgs
+│   │   ├── Common/                    ChangeTracker, InteractionResult, selection, rate limiting, utilities
 │   │   └── Logging/                   In-house logging abstraction
 │   ├── Kibinago/                   WinForms implementation (net472;net10.0-windows, depends on Core)
 │   │   ├── Presenters|ViewActions/    ViewActionBinder, Connect hosting extensions
-│   │   ├── Services/                  WindowNavigator, MessageService, DialogProvider, toasts, view mapping
-│   │   └── Common/                    Toast options/renderers, control binding helpers
+│   │   ├── Services/                  WindowNavigator, MessageService, DialogProvider, toasts, view mapping, modules
+│   │   └── Validation/  Views/        ErrorProviderDisplay; control binding helpers
 │   ├── Kibinago.DependencyInjection/   Optional M.E.DI integration (net472;net10.0-windows)
 │   ├── Kibinago.Testing/           PresenterTestHost, TestServices, service fakes (netstandard2.0, test projects only)
 │   └── Kibinago.Analyzers/             Roslyn analyzers (in the .sln, build-only — bundled into Kibinago.Core package)

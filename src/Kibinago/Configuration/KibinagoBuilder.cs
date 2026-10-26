@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 using Kibinago.Common;
-using Kibinago.Common.EventAggregator;
+using Kibinago.Events;
 using Kibinago.Logging;
 using Kibinago.Services;
-using Kibinago.Services.Implementations;
+using Kibinago.ViewActions;
 
 namespace Kibinago.Configuration
 {

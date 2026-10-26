@@ -3,7 +3,7 @@ using System.Windows.Forms;
 using Kibinago.Common;
 using Kibinago.ViewActions;
 using Kibinago.Views;
-using Kibinago.Services.Implementations;
+using Kibinago.Services;
 
 namespace Kibinago.Samples.AnchoredMessageDemo
 {

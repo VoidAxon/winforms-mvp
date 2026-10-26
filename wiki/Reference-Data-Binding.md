@@ -92,10 +92,10 @@ C# 8.0+ の場合は record や `INotifyPropertyChanged` 自動生成ライブ�
 
 ### フレームワーク提供の `NotifyingObject`
 
-繰り返しの `INotifyPropertyChanged` 実装を省くため、フレームワークは `NotifyingObject` 基底クラスを提供します (`Kibinago.Models` 名前空間)。
+繰り返しの `INotifyPropertyChanged` 実装を省くため、フレームワークは `NotifyingObject` 基底クラスを提供します (`Kibinago.Common` 名前空間)。
 
 ```csharp
-using Kibinago.Models;
+using Kibinago.Common;
 
 public class UserModel : NotifyingObject
 {
@@ -419,7 +419,7 @@ pictureBox.BindImageLocation(model, m => m.AvatarUrl);
 複数の RadioButton を 1 つのプロパティに連動させる場合は、`BindRadioGroup` 拡張メソッドが便利です。各 RadioButton と「対応する値」のペアを列挙してバインドします。
 
 ```csharp
-using Kibinago.Models;
+using Kibinago.Common;
 
 public enum Priority { Low, Medium, High }
 

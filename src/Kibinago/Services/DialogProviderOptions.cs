@@ -2,7 +2,7 @@ namespace Kibinago.Services
 {
     /// <summary>
     /// Default titles, filter and error messages for the built-in dialog provider
-    /// (<see cref="Implementations.DialogProvider"/>), set through <c>mvp.Dialogs</c>. A value
+    /// (<see cref="DialogProvider"/>), set through <c>mvp.Dialogs</c>. A value
     /// given per call (e.g. <c>OpenFileDialogOptions.Title</c>) wins. Copied when the provider is
     /// created; later edits have no effect.
     /// </summary>

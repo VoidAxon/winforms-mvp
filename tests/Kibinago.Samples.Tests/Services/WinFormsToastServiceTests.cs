@@ -8,7 +8,6 @@ using Kibinago.Common;
 using Kibinago.Logging;
 using Kibinago.Samples.Tests.TestHelpers;
 using Kibinago.Services;
-using Kibinago.Services.Implementations;
 using Xunit;
 
 namespace Kibinago.Samples.Tests.Services

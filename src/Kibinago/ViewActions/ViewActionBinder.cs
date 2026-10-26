@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Windows.Forms;
-using Kibinago.Common.Events;
+using Kibinago.Events;
 using Kibinago.Logging;
 
 namespace Kibinago.ViewActions

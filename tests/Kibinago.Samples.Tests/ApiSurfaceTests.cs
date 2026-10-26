@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Linq;
 using System.Reflection;
 using Kibinago.Configuration;
 using Kibinago.Logging;
@@ -53,6 +54,25 @@ namespace Kibinago.Samples.Tests
         public void LoggerFactory_ImplementersWriteOneMethod()
         {
             Assert.Single(typeof(ILoggerFactory).GetMethods());
+        }
+
+        [Theory]
+        [InlineData(typeof(PresenterBase<IViewBase>))]   // Kibinago.Core
+        [InlineData(typeof(ViewActionBinder))]           // Kibinago
+        public void PublicTypes_LiveInTheDocumentedNamespaces(Type anyTypeOfAssembly)
+        {
+            var allowed = new[]
+            {
+                "Kibinago", "Kibinago.Common", "Kibinago.Configuration", "Kibinago.Events", "Kibinago.Logging",
+                "Kibinago.Presenters", "Kibinago.Services", "Kibinago.Validation", "Kibinago.ViewActions", "Kibinago.Views",
+            };
+
+            var misplaced = anyTypeOfAssembly.Assembly.GetExportedTypes()
+                .Where(t => Array.IndexOf(allowed, t.Namespace) < 0)
+                .Select(t => t.FullName)
+                .ToArray();
+
+            Assert.Empty(misplaced);
         }
     }
 }

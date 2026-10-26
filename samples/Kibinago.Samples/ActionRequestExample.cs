@@ -1,5 +1,5 @@
 using System;
-using Kibinago.Common.Events;
+using Kibinago.Events;
 using Kibinago.Views;
 using Kibinago.Presenters;
 using Kibinago.ViewActions;

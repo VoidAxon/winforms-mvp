@@ -2,8 +2,6 @@
 using System.Drawing.Printing;
 using System.Windows.Forms;
 using Kibinago.Services;
-using Kibinago.Services.Implementations;
-using Kibinago.Services.Implementations.DialogOptions;
 using Xunit;
 
 namespace Kibinago.Samples.Tests.Services

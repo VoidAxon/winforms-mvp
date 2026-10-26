@@ -5,7 +5,7 @@ using Kibinago.Presenters;
 using Kibinago.ViewActions;
 using Kibinago.Views;
 using Kibinago.Samples.Tests.Mocks;
-using Kibinago.Services.Implementations;
+using Kibinago.Services;
 using Xunit;
 using CloseReason = Kibinago.Common.CloseReason;
 using Kibinago.Testing;

@@ -4,7 +4,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Kibinago.DependencyInjection;
 using Kibinago.Samples.Tests.Mocks;
 using Kibinago.Services;
-using Kibinago.Services.Implementations;
 using Xunit;
 using Kibinago.Testing;
 
@@ -88,10 +87,10 @@ namespace Kibinago.Samples.Tests.DependencyInjection
             services.AddKibinago(new ViewMappingRegister());
 
             var provider = services.BuildServiceProvider();
-            var first = provider.GetService<Kibinago.Common.EventAggregator.IEventAggregator>();
+            var first = provider.GetService<Kibinago.Events.IEventAggregator>();
 
-            Assert.IsType<Kibinago.Common.EventAggregator.EventAggregator>(first);
-            Assert.Same(first, provider.GetService<Kibinago.Common.EventAggregator.IEventAggregator>());
+            Assert.IsType<Kibinago.Events.EventAggregator>(first);
+            Assert.Same(first, provider.GetService<Kibinago.Events.IEventAggregator>());
         }
 
         [Fact]

@@ -3,7 +3,6 @@ using System.Windows.Forms;
 using Kibinago;
 using Kibinago.Presenters;
 using Kibinago.Services;
-using Kibinago.Services.Implementations;
 
 namespace MyMvpApp
 {

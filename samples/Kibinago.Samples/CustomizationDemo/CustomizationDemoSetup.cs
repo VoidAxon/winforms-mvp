@@ -1,6 +1,7 @@
 using System.Drawing;
 using Kibinago.Common;
 using Kibinago.Configuration;
+using Kibinago.Services;
 
 namespace Kibinago.Samples.CustomizationDemo
 {

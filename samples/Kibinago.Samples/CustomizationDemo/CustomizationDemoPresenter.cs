@@ -1,5 +1,6 @@
 using Kibinago.Common;
 using Kibinago.Presenters;
+using Kibinago.Services;
 
 namespace Kibinago.Samples.CustomizationDemo
 {

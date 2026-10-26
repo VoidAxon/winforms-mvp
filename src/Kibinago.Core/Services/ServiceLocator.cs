@@ -1,7 +1,7 @@
 using System;
 using System.Reflection;
 using Kibinago.Logging;
-using Kibinago.Services.Implementations;
+using Kibinago.Services;
 
 namespace Kibinago.Services
 {
@@ -118,8 +118,8 @@ namespace Kibinago.Services
             provider.RegisterInstance<ILoggerFactory>(NullLoggerFactory.Instance);
             provider.RegisterInstance<Kibinago.Common.IObjectCloner>(Kibinago.Common.BuiltInObjectCloner.Instance);
             provider.RegisterInstance<Kibinago.Common.IObjectContentComparer>(Kibinago.Common.BuiltInObjectContentComparer.Instance);
-            provider.RegisterSingleton<Kibinago.Common.EventAggregator.IEventAggregator>(sp =>
-                new Kibinago.Common.EventAggregator.EventAggregator(sp.ResolveRequired<ILoggerFactory>()));
+            provider.RegisterSingleton<Kibinago.Events.IEventAggregator>(sp =>
+                new Kibinago.Events.EventAggregator(sp.ResolveRequired<ILoggerFactory>()));
             PlatformRegistration.Value?.Invoke(provider);
         }
 
@@ -127,7 +127,7 @@ namespace Kibinago.Services
         // navigator) through an internal static Register(IServiceRegistry) on a well-known type.
         // Looked up once; null when the Kibinago assembly is not deployed (e.g. pure presenter tests).
         private const string PlatformRegistrationType =
-            "Kibinago.Services.Implementations.WinFormsPlatformServices, Kibinago";
+            "Kibinago.Services.WinFormsPlatformServices, Kibinago";
 
         private static readonly Lazy<Action<IServiceRegistry>> PlatformRegistration =
             new Lazy<Action<IServiceRegistry>>(() =>

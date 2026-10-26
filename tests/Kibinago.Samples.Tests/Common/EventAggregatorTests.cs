@@ -8,7 +8,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Kibinago.Common.EventAggregator;
+using Kibinago.Events;
 using Xunit;
 using Xunit.Abstractions;
 

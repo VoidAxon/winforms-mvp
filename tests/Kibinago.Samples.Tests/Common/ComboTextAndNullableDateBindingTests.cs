@@ -1,7 +1,7 @@
 using System;
 using System.ComponentModel;
 using System.Windows.Forms;
-using Kibinago.Common.Extensions;
+using Kibinago.Views;
 using Xunit;
 
 namespace Kibinago.Samples.Tests.Common

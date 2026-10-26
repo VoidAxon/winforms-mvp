@@ -1,6 +1,6 @@
 ﻿using System.Drawing;
 using Kibinago.Common;
-using Kibinago.Services.Implementations.DialogOptions;
+using Kibinago.Services;
 
 namespace Kibinago.Services
 {

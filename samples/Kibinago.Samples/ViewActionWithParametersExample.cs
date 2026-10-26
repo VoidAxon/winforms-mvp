@@ -124,7 +124,7 @@ namespace Kibinago.Samples
         /// </summary>
         private void OnOpenDocument()
         {
-            var options = new Kibinago.Services.Implementations.DialogOptions.OpenFileDialogOptions
+            var options = new Kibinago.Services.OpenFileDialogOptions
             {
                 Filter = "Text Files|*.txt|All Files|*.*",
                 Title = "Open Document"
@@ -155,7 +155,7 @@ namespace Kibinago.Samples
         /// </summary>
         private void OnSaveDocumentAs()
         {
-            var options = new Kibinago.Services.Implementations.DialogOptions.SaveFileDialogOptions
+            var options = new Kibinago.Services.SaveFileDialogOptions
             {
                 Filter = "Text Files|*.txt|All Files|*.*",
                 Title = "Save Document As",

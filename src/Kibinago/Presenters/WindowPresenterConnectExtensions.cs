@@ -2,7 +2,6 @@ using System;
 using Kibinago.Common;
 using Kibinago.Views;
 using Kibinago.Services;
-using Kibinago.Services.Implementations;
 
 namespace Kibinago.Presenters
 {
