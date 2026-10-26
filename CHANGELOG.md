@@ -8,6 +8,8 @@
 
 ## [Unreleased]
 
+## [1.0.0-preview.12] - 2026-10-26
+
 ### Changed (変更) — 1.0 前の公開 API の整理 (破壊的変更)
 
 - `PresenterBase<TView>` と `WindowPresenterBaseCore<TView>` のコンストラクタ、`SetView` を `private protected` に。「直接継承しない」とされていたが継承でき、継承しても初期化の流れを呼べない半端な拡張点だった。アプリは従来どおり `WindowPresenterBase` / `ControlPresenterBase` から派生する。
