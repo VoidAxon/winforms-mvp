@@ -262,6 +262,76 @@ public sealed class OrderListPresenter : WindowPresenterBase<IOrderListView>
 }
 ```
 
+### `Files` (`IFileService`) からの移行
+
+1.0.0-preview.12 で `IFileService` / `Files` / `InMemoryFileService` を削除しました。`Files.WriteAllText(...)` を使っていた Presenter は、**その操作の用途を名前にしたインターフェイス** を 1 つ作ってコンストラクタで受け取ります。エンコーディングやフォルダ構成といったファイルの細部は実装側に移ります。
+
+```csharp
+// 移行前
+private void OnExportCsv()
+{
+    var path = Dialogs.ShowSaveFileDialog(new SaveFileDialogOptions { Filter = "CSV (*.csv)|*.csv" });
+    if (!path.IsOk) return;
+    try
+    {
+        Files.WriteAllText(path.Value, OrderCsv.Format(_rows), new UTF8Encoding(true));   // Excel 向けに BOM 付き
+    }
+    catch (IOException ex) { Messages.ShowError("保存できませんでした。" + ex.Message); return; }
+    Toasts.Show("保存しました", ToastType.Success);
+}
+```
+
+```csharp
+// 移行後: 用途ごとのインターフェイス (Presenter と同じく WinForms に依存しない場所に置く)
+public interface IOrderCsvExporter
+{
+    /// <summary>書けなければ IOException / UnauthorizedAccessException。</summary>
+    void Export(string path, IReadOnlyList<OrderRow> rows);
+}
+
+// 実装 (アプリ側): ファイルの細部はここだけ
+public sealed class OrderCsvFileExporter : IOrderCsvExporter
+{
+    public void Export(string path, IReadOnlyList<OrderRow> rows)
+        => File.WriteAllText(path, OrderCsv.Format(rows), new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
+}
+
+// Presenter: コンストラクタで受け取り、Files の代わりに呼ぶ
+public OrderListPresenter(IOrderService orders, IOrderCsvExporter csv) { _orders = orders; _csv = csv; }
+
+private void OnExportCsv()
+{
+    var path = Dialogs.ShowSaveFileDialog(new SaveFileDialogOptions { Filter = "CSV (*.csv)|*.csv" });
+    if (!path.IsOk) return;
+    try { _csv.Export(path.Value, _rows); }
+    catch (IOException ex) { Messages.ShowError("保存できませんでした。" + ex.Message); return; }
+    Toasts.Show("保存しました", ToastType.Success);
+}
+
+// 組み立て (Program.cs など)
+new OrderListPresenter(orders, new OrderCsvFileExporter()).Connect(mainForm);
+```
+
+テストの分担も変わります:
+
+- **Presenter のテスト** はインターフェイスのフェイクを渡し、「どの行をどのパスへ出力したか」「失敗したらエラーを表示したか」を確かめます (`fakes.Files.Failure = ...` の代わりにフェイクが例外を投げる)。
+- **実装のテスト** (BOM 付き UTF-8 になっているか、フォルダが作られるか) は一時フォルダに実際に書いて確かめます (`Path.GetTempPath()` の下に作り、テスト後に削除)。
+
+```csharp
+public sealed class FakeOrderCsvExporter : IOrderCsvExporter
+{
+    public Exception Failure;
+    public List<(string Path, List<OrderRow> Rows)> Exports = new List<(string, List<OrderRow>)>();
+    public void Export(string path, IReadOnlyList<OrderRow> rows)
+    {
+        if (Failure != null) throw Failure;
+        Exports.Add((path, rows.ToList()));
+    }
+}
+```
+
+バックグラウンド処理の中で書くもの (例: 画像の変換前後をフォルダに残す) も同じです: `IConversionCheckOutput.Write(folder, id, before, after)` のように、処理の意味で 1 メソッドにまとめます。
+
 ### DI コンテナを使わない場合: `Services`
 
 `MvpApplication.Configure(services: reg => ...)` で登録した自前のサービスは、Presenter の `protected IServiceProvider Services` から取得できます (`Services.Resolve<ICsvExporter>()`)。`Navigator` が開く Presenter のように、コンストラクタ引数を渡す側がその依存を知らないときに使います。

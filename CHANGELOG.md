@@ -8,6 +8,10 @@
 
 ## [Unreleased]
 
+### Documentation (ドキュメント)
+
+- wiki: `Files` (`IFileService`、preview.12 で削除) からの移行例 — 用途ごとのインターフェイスを注入する書き換え、Presenter と実装のテストの分担 ([Platform Services](wiki/Reference-Platform-Services.md))。実際のアプリを preview.12 に移行して、`Files` が使われていたことから追加。
+
 ## [1.0.0-preview.12] - 2026-10-26
 
 ### Changed (変更) — 1.0 前の公開 API の整理 (破壊的変更)
