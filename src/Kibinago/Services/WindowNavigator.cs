@@ -79,7 +79,7 @@ namespace Kibinago.Services
             Action<InteractionResult<TResult>> onClosed = null
             )
             where TPresenter : IWindowPresenter, IInitializable
-            => ShowModelessCore(presenter, owner, key, onClosed, () => presenter.Initialize);
+            => ModelessCore(presenter, owner, key, onClosed, () => presenter.Initialize, show: true);
 
         /// <inheritdoc />
         public IWindowView ShowWindow<TPresenter>(TPresenter presenter,
@@ -101,7 +101,7 @@ namespace Kibinago.Services
             object key = null,
             Action<InteractionResult<TResult>> onClosed = null)
             where TPresenter : IWindowPresenter, IInitializable<TParam>
-            => ShowModelessCore(presenter, owner, key, onClosed, () => () => presenter.Initialize(parameters));
+            => ModelessCore(presenter, owner, key, onClosed, () => () => presenter.Initialize(parameters), show: true);
 
         /// <inheritdoc />
         public IWindowView ShowWindow<TPresenter, TParam>(
@@ -118,6 +118,38 @@ namespace Kibinago.Services
                 key,
                 onClosed: null);
         }
+        #endregion
+
+        #region Prepared (not shown)
+
+        /// <summary>
+        /// Prepares the presenter's window without showing it: created, attached, initialized, close gate
+        /// wired — the caller places and shows the returned Form (a docking host's pane). Until it is shown,
+        /// a <c>RequestClose</c> cancels the opening (it closes in <c>Load</c> without appearing), as for
+        /// <c>Connect</c>. A key that maps to an open window returns that window's view, not activated; the new
+        /// presenter is disposed and its <paramref name="onClosed"/> never called.
+        /// </summary>
+        public IWindowView PrepareWindow<TPresenter, TResult>(TPresenter presenter, object key = null,
+            Action<InteractionResult<TResult>> onClosed = null)
+            where TPresenter : IWindowPresenter, IInitializable
+            => ModelessCore(presenter, null, key, onClosed, () => presenter.Initialize, show: false);
+
+        /// <inheritdoc />
+        public IWindowView PrepareWindow<TPresenter>(TPresenter presenter, object key = null)
+            where TPresenter : IWindowPresenter, IInitializable
+            => PrepareWindow<TPresenter, object>(presenter, key, onClosed: null);
+
+        /// <inheritdoc cref="PrepareWindow{TPresenter, TResult}(TPresenter, object, Action{InteractionResult{TResult}})"/>
+        public IWindowView PrepareWindow<TPresenter, TParam, TResult>(TPresenter presenter, TParam parameters,
+            object key = null, Action<InteractionResult<TResult>> onClosed = null)
+            where TPresenter : IWindowPresenter, IInitializable<TParam>
+            => ModelessCore(presenter, null, key, onClosed, () => () => presenter.Initialize(parameters), show: false);
+
+        /// <inheritdoc />
+        public IWindowView PrepareWindow<TPresenter, TParam>(TPresenter presenter, TParam parameters, object key = null)
+            where TPresenter : IWindowPresenter, IInitializable<TParam>
+            => PrepareWindow<TPresenter, TParam, object>(presenter, parameters, key, onClosed: null);
+
         #endregion
 
         #region Core
@@ -148,14 +180,20 @@ namespace Kibinago.Services
             return result;
         }
 
-        private IWindowView ShowModelessCore<TPresenter, TResult>(
+        // show: false for PrepareWindow — the caller shows the Form (wired like an adopted Form, so it is still
+        // opening until it first becomes visible); an existing keyed window is not activated.
+        private IWindowView ModelessCore<TPresenter, TResult>(
             TPresenter presenter, IWindowView owner, object key,
-            Action<InteractionResult<TResult>> onClosed, Func<Action> initializerFactory)
+            Action<InteractionResult<TResult>> onClosed, Func<Action> initializerFactory, bool show)
             where TPresenter : IPresenter
         {
-            object instanceKey;
-            var existing = TryActivateExisting(presenter, key, out instanceKey);
-            if (existing != null) return existing;
+            var existing = FindOpen(presenter, key, out var instanceKey);
+            if (existing != null)
+            {
+                if (show) existing.Activate();
+                (presenter as IDisposable)?.Dispose();
+                return (IWindowView)existing;
+            }
 
             Form newForm = null;
             Action<InteractionResult<TResult>> safeOnClosed = onClosed ?? (r => { });
@@ -166,7 +204,7 @@ namespace Kibinago.Services
                     safeOnClosed(r);
                 },
                 disposeForm: false, instanceKey,
-                out var controller, out var resolvedOwner);
+                out var controller, out var resolvedOwner, adopted: !show);
 
             // RequestClose during initialization cancelled the opening: never shown. The key is released
             // and onClosed runs (it may reopen the same key) before presenter and Form are disposed.
@@ -175,6 +213,8 @@ namespace Kibinago.Services
                 controller.ConvergeWithoutShow();
                 return null;
             }
+
+            if (!show) return (IWindowView)newForm;   // the caller places and shows it
 
             controller.BeginShowing();
             if (resolvedOwner != null) newForm.Show(resolvedOwner); else newForm.Show();
@@ -193,7 +233,7 @@ namespace Kibinago.Services
         private Form PrepareForm<TResult>(
             IPresenter presenter, IWindowView owner, Func<Action> initializerFactory,
             Action<InteractionResult<TResult>> onClosed, bool disposeForm, object instanceKey,
-            out WindowLifecycleController controller, out IWin32Window resolvedOwner)
+            out WindowLifecycleController controller, out IWin32Window resolvedOwner, bool adopted = false)
         {
             if (presenter == null) throw new ArgumentNullException(nameof(presenter));
 
@@ -220,7 +260,7 @@ namespace Kibinago.Services
 
                 RegisterOpenForm(instanceKey, form);
                 initialize();
-                controller.WireFormEvents();
+                controller.WireFormEvents(adopted);
                 return form;
             }
             catch
@@ -233,32 +273,22 @@ namespace Kibinago.Services
         }
 
         /// <summary>
-        /// Singleton-per-key activation. Keys are scoped by the presenter's runtime type: the
-        /// registry key is (presenter type, selected key), so two screens that both use, say, a
-        /// record id never activate each other's window. If that key maps to a live form, the form
-        /// is activated, the freshly created presenter is disposed, and the existing view is
-        /// returned (non-null). Otherwise returns null and outputs the scoped key.
+        /// The open window for <paramref name="key"/>, or null. Keys are scoped by the presenter's runtime
+        /// type: the registry key is (presenter type, key), so two screens that both use, say, a record id
+        /// never get each other's window. Outputs the scoped key (null without a key: never shared).
         /// </summary>
-        private IWindowView TryActivateExisting<TPresenter>(
-            TPresenter presenter, object key, out object instanceKey)
+        private Form FindOpen<TPresenter>(TPresenter presenter, object key, out object instanceKey)
             where TPresenter : IPresenter
         {
             instanceKey = null;
-            if (key == null) return null;
-
-                        if (key == null || presenter == null) return null;   // a null presenter is rejected by PrepareForm
+            if (key == null || presenter == null) return null;   // a null presenter is rejected by PrepareForm
             instanceKey = (presenter.GetType(), key);
 
             lock (_lock)
             {
                 if (_openForms.TryGetValue(instanceKey, out var existingForm))
                 {
-                    if (existingForm != null && !existingForm.IsDisposed)
-                    {
-                        existingForm.Activate();
-                        (presenter as IDisposable)?.Dispose();
-                        return (IWindowView)existingForm;
-                    }
+                    if (existingForm != null && !existingForm.IsDisposed) return existingForm;
                     _openForms.Remove(instanceKey);
                 }
             }

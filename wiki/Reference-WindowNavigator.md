@@ -45,6 +45,7 @@ Navigator.For(new CustomerEditPresenter(_repository))
 - [Modal ウィンドウ](#modal-ウィンドウ)
 - [Non-Modal ウィンドウ](#non-modal-ウィンドウ)
 - [シングルトンウィンドウ](#シングルトンウィンドウ)
+- [表示せずに用意する — PrepareWindow](#表示せずに用意する--preparewindow-ドッキングタブmdi)
 - [Fluent API: TPresenter 型推論](#fluent-api-tpresenter-型推論)
 - [パラメータ vs DI: 役割分担](#パラメータ-vs-di-役割分担)
 - [結果の受け取り (RequestClose)](#結果の受け取り-requestclose)
@@ -180,6 +181,53 @@ Navigator.For(new DocumentPresenter(_repository))
 1. 内部辞書に `(DocumentPresenter, documentId)` のエントリがあれば、既存ウィンドウを `Activate()` して前面に出す
 2. なければ新規ウィンドウを生成して、辞書に登録
 3. ウィンドウが閉じたら自動的に辞書から削除 (表示前にキャンセルされた場合も、`onClosed` の前に削除)
+
+---
+
+## 表示せずに用意する — `PrepareWindow` (ドッキング・タブ・MDI)
+
+`PrepareWindow` は `ShowWindow` から **最後の表示だけを除いた** ものです: View の生成 → Presenter のアタッチ → 初期化 → クローズゲートの接続 → キーの登録まで行い、表示はせずに View を返します。置き場所と表示は呼び出し側 (コンテナの View) が決めます。ドッキングライブラリのペイン、タブのドキュメント、レイアウトの復元のように、**コンテナが自分で配置する** 画面のためのものです。
+
+```csharp
+// コンテナの Presenter (WinForms 型は出てこない)
+var pane = Navigator.For(new NotePresenter(_store)).WithParam(noteId)
+                    .PrepareWindow<int>(key: noteId, onClosed: r => { if (r.IsOk) Refresh(); });
+if (pane != null) View.DockPane(pane);   // null: 初期化中に RequestClose (表示のキャンセル)
+
+// コンテナの Form (View): どこに、どう置くか
+void IShellView.DockPane(IWindowView pane) => ((DockContent)pane).Show(_dockPanel, DockState.Document);
+```
+
+| | `ShowWindow` | `PrepareWindow` |
+|---|---|---|
+| 生成・アタッチ・初期化・ゲート・キー | ✔ | ✔ |
+| 表示 | `form.Show(owner)` | **しない** (呼び出し側) |
+| `owner` 引数 | あり | **なし** (配置はコンテナの仕事。最初の引数は `key` なので、`ShowWindow(View)` から書き換えるとき View を渡さないこと — キーになってしまいます) |
+| 同じキーが開いている | そのウィンドウをアクティブにして返す | **アクティブにせず** その View を返す (どう前面に出すかはコンテナが決める) |
+| 初期化中の `RequestClose` | 表示せず `null` | 同じ (`null`、`onClosed` が呼ばれ、キーは解放) |
+
+表示したあとは `ShowWindow` で開いたウィンドウと同じです: ✕ は `CanClose` / `CanCloseAsync` を通り、閉じたら `onClosed`、キーの解放、Presenter の破棄。表示する前に `RequestClose` された場合は表示のキャンセルになり、呼び出し側が表示した時点 (`Load`) で、見えないまま閉じます (`Connect` と同じ)。
+
+- **表示しなかった View は呼び出し側が片付けます** — `Close()` か `Dispose()` (例: レイアウトの復元で使わなかったペイン)。閉じずに破棄された Form も 1 回だけ終わります (`onClosed` は Cancel、Presenter の破棄、キーの解放。尋ねることはできないので `CanClose` は呼ばれません)。
+- **同じ画面は片方の方法で開きます。** `PrepareWindow` で用意したウィンドウと同じキーで `ShowWindow` を呼ぶと、そのウィンドウをアクティブにして返すだけで、コンテナへの配置はしません。
+- キーは Navigator ごとです。コンテナごとに別のキー空間が必要なら、コンテナごとに Navigator を分けます。
+- 返り値は `IWindowView` です。コンテナの View がそれを自分のペイン型として扱います。
+
+### ドッキング・タブ・MDI ライブラリとの組み合わせ
+
+ライブラリが **何をホストするか** で使い分けます。
+
+| ホストする単位 | 例 | Kibinago での書き方 |
+|---|---|---|
+| **Form** | DockPanelSuite の `DockContent`、DevExpress `DocumentManager` (MDI ドキュメント)、Infragistics `UltraTabbedMdiManager`、Syncfusion `TabbedMDIManager`、標準 MDI 子ウィンドウ | ペインは `WindowPresenterBase`。コンテナの Presenter が `PrepareWindow` し、コンテナの Form がライブラリの API で配置する。✕ は `FormClosing` → `CanClose` |
+| **Control** | DevExpress `DockManager` のパネル、Infragistics `UltraDockManager`、Syncfusion `DockingManager`、Krypton の `KryptonPage` | ペインは `ControlPresenterBase`、`AttachChild` (コンテナの一部) か `Connect`。`FormClosing` は来ないので、ライブラリの「閉じる前」のイベントを View が `event EventHandler<CancelEventArgs> CloseRequested` に変換し、Presenter が `e.Cancel` を決める (同期のみ) |
+
+共通の注意:
+
+- **✕ で本当に閉じる設定にします。** ✕ で隠すだけの設定 (DockPanelSuite の `HideOnClose = true` など) では `FormClosing` が来ないため、`CanClose` も `onClosed` も動きません。
+- **コンテナを閉じるときに全ペインに確認するかは、アプリの決めることです。** 例: コンテナの Presenter の `CanClose` で `View.ClosePanes()` を呼び、Form が各ペインを `Close()` する (それぞれの `CanClose` が判断) — 1 つでも残れば `false`。
+- **レイアウトの復元** (DockPanelSuite の `DeserializeDockContent` など): Presenter が必要なペインを先に `PrepareWindow` して View に渡し、View が永続化文字列とペインを対応付けます。使わなかったペインは `Dispose()` します。
+- 各ライブラリのイベント名・設定名はバージョンで変わることがあるので、使用するバージョンのドキュメントで確認してください。
 
 ---
 

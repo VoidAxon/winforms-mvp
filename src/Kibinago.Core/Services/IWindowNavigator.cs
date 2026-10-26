@@ -57,6 +57,74 @@ namespace Kibinago.Services
             where TPresenter : IWindowPresenter, IInitializable;
 
         // ==================================================
+        // Prepared (not shown) windows — the caller places and shows them
+        // ==================================================
+
+        /// <summary>
+        /// Everything <c>ShowWindow</c> does except showing: creates the view, attaches and initializes the
+        /// presenter and wires the close gate, then returns the view for the caller to place and show (a
+        /// docking host's pane, a tabbed document). Once shown it behaves like a <c>ShowWindow</c> window
+        /// (✕ → <c>CanClose</c>, <paramref name="onClosed"/>, the key released). A view never shown must be
+        /// closed or disposed by the caller (disposing it ends it without asking).
+        /// </summary>
+        /// <typeparam name="TPresenter">The presenter type.</typeparam>
+        /// <typeparam name="TResult">The type of the result the presenter passes to <c>RequestClose</c>.</typeparam>
+        /// <param name="presenter">A new presenter, not yet attached; it is disposed when the window ends.</param>
+        /// <param name="key">Optional key: when a window of the same presenter type with the same key is open,
+        /// its view is returned (not activated — the caller decides) and <paramref name="presenter"/> is disposed.</param>
+        /// <param name="onClosed">Called with the result after the window ended; not called when an existing
+        /// window was returned instead.</param>
+        /// <returns>The prepared view; the open window's view for a matching key; <c>null</c> when the presenter
+        /// cancelled the opening.</returns>
+        IWindowView PrepareWindow<TPresenter, TResult>(
+            TPresenter presenter,
+            object key = null,
+            Action<InteractionResult<TResult>> onClosed = null)
+            where TPresenter : IWindowPresenter, IInitializable;
+
+        /// <summary>Prepares the presenter's window without showing it (see the overload with a result).</summary>
+        /// <typeparam name="TPresenter">The presenter type.</typeparam>
+        /// <param name="presenter">A new presenter, not yet attached; it is disposed when the window ends.</param>
+        /// <param name="key">Optional key (see the overload with a result).</param>
+        /// <returns>The prepared view; the open window's view for a matching key; <c>null</c> when the presenter
+        /// cancelled the opening.</returns>
+        IWindowView PrepareWindow<TPresenter>(
+            TPresenter presenter,
+            object key = null)
+            where TPresenter : IWindowPresenter, IInitializable;
+
+        /// <summary>Prepares the presenter's window with parameters, without showing it (see the parameterless overload with a result).</summary>
+        /// <typeparam name="TPresenter">The presenter type.</typeparam>
+        /// <typeparam name="TParam">The presenter's initialization parameter type.</typeparam>
+        /// <typeparam name="TResult">The type of the result the presenter passes to <c>RequestClose</c>.</typeparam>
+        /// <param name="presenter">A new presenter, not yet attached; it is disposed when the window ends.</param>
+        /// <param name="parameters">Passed to the presenter's <c>Initialize(TParam)</c>.</param>
+        /// <param name="key">Optional key (see the parameterless overload with a result).</param>
+        /// <param name="onClosed">Called with the result after the window ended.</param>
+        /// <returns>The prepared view; the open window's view for a matching key; <c>null</c> when the presenter
+        /// cancelled the opening.</returns>
+        IWindowView PrepareWindow<TPresenter, TParam, TResult>(
+            TPresenter presenter,
+            TParam parameters,
+            object key = null,
+            Action<InteractionResult<TResult>> onClosed = null)
+            where TPresenter : IWindowPresenter, IInitializable<TParam>;
+
+        /// <summary>Prepares the presenter's window with parameters, without showing it.</summary>
+        /// <typeparam name="TPresenter">The presenter type.</typeparam>
+        /// <typeparam name="TParam">The presenter's initialization parameter type.</typeparam>
+        /// <param name="presenter">A new presenter, not yet attached; it is disposed when the window ends.</param>
+        /// <param name="parameters">Passed to the presenter's <c>Initialize(TParam)</c>.</param>
+        /// <param name="key">Optional key (see the parameterless overload with a result).</param>
+        /// <returns>The prepared view; the open window's view for a matching key; <c>null</c> when the presenter
+        /// cancelled the opening.</returns>
+        IWindowView PrepareWindow<TPresenter, TParam>(
+            TPresenter presenter,
+            TParam parameters,
+            object key = null)
+            where TPresenter : IWindowPresenter, IInitializable<TParam>;
+
+        // ==================================================
         // Modal window methods (without parameters)
         // ==================================================
 

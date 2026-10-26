@@ -250,5 +250,53 @@ namespace Kibinago.Samples.Tests.Testing
             Assert.False(modal.HasParameters);
             Assert.Equal(typeof(string), modal.ResultType);
         }
+
+        // ---- PrepareWindow ----
+
+        [Fact]
+        public void Prepare_IsRecordedAsPrepared_AndClosesLikeAWindow()
+        {
+            var navigator = new FakeWindowNavigator();
+            InteractionResult<int> closed = null;
+
+            var view = navigator.For(new FixturePresenter()).PrepareWindow<int>(key: 7, onClosed: r => closed = r);
+
+            var call = Assert.Single(navigator.Calls);
+            Assert.True(call.Prepared);
+            Assert.False(call.Modal);
+            Assert.Equal(7, call.Key);
+            var window = Assert.Single(navigator.Windows);
+            Assert.Same(window.View, view);
+
+            window.CloseWithResult(3);
+            Assert.Equal(3, closed.Value);
+        }
+
+        [Fact]
+        public void Prepare_SameKeyWhileOpen_ReturnsTheSameView_WithoutAnActivation()
+        {
+            var navigator = new FakeWindowNavigator();
+            var second = new FixturePresenter();
+
+            var first = navigator.For(new FixturePresenter()).PrepareWindow(key: 7);
+            var again = navigator.For(second).PrepareWindow(key: 7);
+
+            Assert.Same(first, again);
+            Assert.Single(navigator.Windows);
+            Assert.Equal(0, navigator.Windows[0].Activations);
+            Assert.False(navigator.Calls[1].Activated);
+            Assert.True(second.Disposed);
+        }
+
+        [Fact]
+        public void Prepare_WithParameters_RecordsThem()
+        {
+            var navigator = new FakeWindowNavigator();
+
+            navigator.For(new ParamFixturePresenter()).WithParam(5).PrepareWindow();
+
+            Assert.Equal(5, Assert.Single(navigator.Windows).Parameters);
+            Assert.True(navigator.Calls[0].Prepared);
+        }
     }
 }

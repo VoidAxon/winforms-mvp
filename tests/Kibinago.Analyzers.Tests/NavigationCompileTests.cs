@@ -37,6 +37,12 @@ public sealed class PanelPresenter : ControlPresenterBase<IPanelView> { }
         [InlineData("nav.ShowWindow(new PlainPresenter(), key: 1);")]
         [InlineData("nav.ShowWindowAsModal<ParamPresenter, int, string>(new ParamPresenter(), 3);")]
         [InlineData("nav.ShowWindow(new ParamPresenter(), 3, key: 3);")]
+        [InlineData("IWindowView v = nav.For(new PlainPresenter()).PrepareWindow();")]
+        [InlineData("IWindowView v = nav.For(new PlainPresenter()).PrepareWindow<int>(key: 5, onClosed: r => { });")]
+        [InlineData("IWindowView v = nav.For(new ParamPresenter()).WithParam(3).PrepareWindow(key: 3);")]
+        [InlineData("IWindowView v = nav.For(new ParamPresenter()).WithParam(3).PrepareWindow<string>(onClosed: r => { });")]
+        [InlineData("IWindowView v = nav.PrepareWindow(new PlainPresenter(), key: 1);")]
+        [InlineData("IWindowView v = nav.PrepareWindow<ParamPresenter, int, string>(new ParamPresenter(), 3, key: 3, onClosed: r => { });")]
         public void ValidNavigation_Compiles(string call)
         {
             Assert.Empty(Errors(call));
@@ -56,6 +62,10 @@ public sealed class PanelPresenter : ControlPresenterBase<IPanelView> { }
         [InlineData("nav.For(new PlainPresenter()).WithParam(3);")]
         [InlineData("nav.For(new ParamPresenter()).WithParam(\"x\");")]
         [InlineData("nav.ShowWindowAsModal<ParamPresenter, string, int>(new ParamPresenter(), \"x\");")]
+        [InlineData("nav.For(new ParamPresenter()).PrepareWindow();")]
+        [InlineData("nav.PrepareWindow(new ParamPresenter());")]
+        [InlineData("nav.PrepareWindow(new PanelPresenter());")]
+        [InlineData("nav.For(new PlainPresenter()).PrepareWindow(owner: owner);")]   // no owner: the container places it
         public void InvalidNavigation_DoesNotCompile(string call)
         {
             Assert.NotEmpty(Errors(call));
