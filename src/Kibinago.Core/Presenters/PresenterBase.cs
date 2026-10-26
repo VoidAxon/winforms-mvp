@@ -81,10 +81,6 @@ namespace Kibinago.Presenters
         protected Kibinago.Services.IDialogProvider Dialogs =>
             Services.ResolveRequired<Kibinago.Services.IDialogProvider>();
 
-        /// <summary>Convenience property for accessing IFileService.</summary>
-        protected Kibinago.Services.IFileService Files =>
-            Services.ResolveRequired<Kibinago.Services.IFileService>();
-
         /// <summary>Convenience property for accessing IWindowNavigator.</summary>
         protected Kibinago.Services.IWindowNavigator Navigator =>
             Services.ResolveRequired<Kibinago.Services.IWindowNavigator>();

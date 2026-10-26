@@ -253,9 +253,9 @@ namespace Kibinago.Samples.Tests.Services
             {
                 typeof(IMessageService), typeof(IMessageDialogBackend), typeof(MessageDialogOptions),
                 typeof(IToastService), typeof(IWinFormsToastService), typeof(ToastHostOptions),
-                typeof(IDialogProvider), typeof(IWinFormsDialogProvider), typeof(DialogProviderOptions),
+                typeof(IDialogProvider), typeof(DialogProviderOptions),
                 typeof(IObjectCloner), typeof(IObjectContentComparer), typeof(IEventAggregator),
-                typeof(ILoggerFactory), typeof(IDispatcherConfigurer), typeof(IFileService),
+                typeof(ILoggerFactory), typeof(IDispatcherConfigurer),
                 typeof(IWindowNavigator), typeof(IViewMappingRegister),
             };
 

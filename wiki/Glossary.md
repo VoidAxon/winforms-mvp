@@ -83,12 +83,6 @@ UserControl 系の View を扱う Presenter 基底クラス。`ControlPresenterB
 
 詳細: [EventAggregator](Reference-EventAggregator)
 
-### FileService
-
-`IFileService`。`File.ReadAllText` 等の薄いラッパー。テスト時に in-memory モックに差し替えるためのサービス。Presenter からは `Files` プロパティでアクセスする。
-
-詳細: [Platform Services § IFileService](Reference-Platform-Services#ifileservice--ファイル-io)
-
 ### Fluent API
 
 `WindowNavigator` を使うときの型引数を最小限にする API。`Navigator.For(presenter).WithParam(param).ShowAsModal<TResult>()` のように使う。

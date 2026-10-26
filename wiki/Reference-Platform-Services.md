@@ -1,6 +1,6 @@
 # Platform Services
 
-`Platform Services` は、UI 操作・I/O・ロギング・ウィンドウナビゲーション等を **WinForms から切り離された抽象** として提供するサービス群です。
+`Platform Services` は、UI 操作・ロギング・ウィンドウナビゲーション等を **WinForms から切り離された抽象** として提供するサービス群です。
 Presenter は `MessageBox.Show()` や `new OpenFileDialog()` を直接呼びません。代わりにこれらのサービスを使うことで、Presenter が WinForms に依存しない状態を保ち、単体テストでモックに差し替えられます。
 
 > **MVP の鉄則 2** ([Presenter は UI 型を直接扱わない](Concept-MVP-Pattern#3-つの鉄則-three-iron-rules)) を実現する中核機構です。
@@ -13,7 +13,7 @@ Presenter は `MessageBox.Show()` や `new OpenFileDialog()` を直接呼びま�
 - [`IMessageService` — メッセージダイアログ](#imessageservice--メッセージダイアログ)
 - [アンカー付きフィードバック (View 層)](#アンカー付きフィードバック-view-層)
 - [`IDialogProvider` — システムダイアログ](#idialogprovider--システムダイアログ)
-- [`IFileService` — ファイル I/O](#ifileservice--ファイル-io)
+- [ファイル・データベース・HTTP](#ファイルデータベースhttp)
 - [`ILogger` / `ILoggerFactory` — ロギング](#ilogger--iloggerfactory--ロギング)
 - [`IWindowNavigator` — ウィンドウナビゲーション](#iwindownavigator--ウィンドウナビゲーション)
 - [`InteractionResult<T>` — 失敗しうる操作のラッパー](#interactionresultt--失敗しうる操作のラッパー)
@@ -33,7 +33,6 @@ Presenter は `MessageBox.Show()` や `new OpenFileDialog()` を直接呼びま�
 | メッセージ | `IMessageService` | 情報・警告・エラー・確認ダイアログ |
 | トースト | `IToastService` | 隅に積み上がる非ブロッキング通知 (詳細は [トースト通知](Reference-Toast-Notifications)) |
 | システムダイアログ | `IDialogProvider` | OpenFile / SaveFile / FolderBrowser 等 |
-| ファイル I/O | `IFileService` | `ReadAllText` / `WriteAllText` 等 |
 | ロギング | `ILogger` / `ILoggerFactory` | 構造化ロギング (詳細は [Logging](Reference-Logging)) |
 | ウィンドウナビゲーション | `IWindowNavigator` | Modal / Non-Modal ウィンドウ表示 (詳細は [WindowNavigator](Reference-WindowNavigator)) |
 | イベント集約 | `IEventAggregator` | Presenter 間の Pub/Sub。シングルトンとして既定登録 (詳細は [EventAggregator](Reference-EventAggregator)) |
@@ -180,18 +179,9 @@ public interface IDialogProvider
     InteractionResult<string> ShowFolderBrowserDialog(FolderBrowserDialogOptions options = null);
     InteractionResult<Color>  ShowColorDialog(ColorDialogOptions options = null);
 }
-
-// Kibinago パッケージ — 戻り値が GDI+ / 印刷の型になるダイアログ
-public interface IWinFormsDialogProvider : IDialogProvider
-{
-    InteractionResult<Font>            ShowFontDialog(FontDialogOptions options = null);
-    InteractionResult<PrinterSettings> ShowPrintDialog(PrintDialogOptions options = null);
-    InteractionResult<PageSettings>    ShowPageSetupDialog(PageSetupDialogOptions options = null);
-    InteractionResult<bool>            ShowPrintPreviewDialog(PrintPreviewDialogOptions options = null); // 表示できたら Ok(true)
-}
 ```
 
-> フォント / 印刷系ダイアログは `IDialogProvider` から `IWinFormsDialogProvider` に移動しました。Presenter 向けの `IDialogProvider` (Kibinago.Core) をプラットフォーム非依存に保つためです。必要な場合は View 側コード (または WinForms を知るサービス) で `IWinFormsDialogProvider` を解決してください。`ServiceLocator` の既定プロバイダは同じ `DialogProvider` インスタンスを両方のインターフェイスで登録し、`AddKibinago` も `IWinFormsDialogProvider` を既定登録します。
+> **フォント・印刷系のダイアログはラップしていません。** `FontDialog` / `PrintDialog` / `PageSetupDialog` / `PrintPreviewDialog` は Form のコードで直接使います (オーナーを指定でき、すべての機能が使えます)。Presenter が始める業務の流れ (帳票の書式を選ぶ、出荷票のプリンタを選ぶ等) は、**意味のある View メソッド** (`InteractionResult<ReportTypography> ChooseReportTypography(ReportTypography current)` のように、戻り値はアプリ自身のデータ型) か、アプリの印刷サービスとして表し、`Font` や `PrinterSettings` は Form / サービスの実装の中に閉じ込めます。
 
 ### 使用例
 
@@ -242,33 +232,58 @@ public class OpenFileDialogOptions
 
 ---
 
-## `IFileService` — ファイル I/O
+## ファイル・データベース・HTTP
 
-`System.IO.File` の薄いラッパーで、Presenter から直接 `File.ReadAllText` を呼ばないためのものです。テスト時に in-memory モックに差し替えるのが目的です。
+フレームワークはファイル・データベース・HTTP のサービスを **提供しません** (MVP の規則が Presenter に禁じているのは UI だけで、これらは UI ではありません)。テストしやすく保つための推奨:
+
+- **業務の用途ごとのインターフェイスをコンストラクタで注入する** — `IOrderRepository`、`ICsvExporter`、`IPriceApiClient` のように、画面が必要とする操作だけを持つインターフェイス。`System.IO` / ADO.NET / EF / `HttpClient` はその実装の中に置きます。テストでは、そのインターフェイスのフェイクを渡します。
+- ファイルシステム全体を差し替えたい場合は [System.IO.Abstractions](https://github.com/TestableIO/System.IO.Abstractions) (`IFileSystem`) などのライブラリを使えます。
+- 小さなツールや既存コードの移行中に Presenter から `File.ReadAllText` を直接呼ぶのは禁止ではありません (検査するアナライザーもありません)。ただし `PresenterTestHost` が差し替えられるのは **フレームワークのサービスだけ** なので、直接呼んだ I/O はテストでも本物のディスク・DB・ネットワークに届きます。
 
 ```csharp
-public interface IFileService
+public interface ICsvExporter
 {
-    string ReadAllText(string path);
-    void WriteAllText(string path, string contents);
-    byte[] ReadAllBytes(string path);
-    void WriteAllBytes(string path, byte[] bytes);
-    bool Exists(string path);
-    void Delete(string path);
+    void Export(string path, IReadOnlyList<Order> orders);
+}
+
+public sealed class OrderListPresenter : WindowPresenterBase<IOrderListView>
+{
+    private readonly ICsvExporter _exporter;
+
+    public OrderListPresenter(ICsvExporter exporter) { _exporter = exporter; }
+
+    private void OnExport()
+    {
+        var target = Dialogs.ShowSaveFileDialog(new SaveFileDialogOptions { Filter = "CSV (*.csv)|*.csv" });
+        if (!target.IsOk) return;
+        _exporter.Export(target.Value, View.Orders);
+        Toasts.Show("出力しました", ToastType.Success);
+    }
 }
 ```
 
-```csharp
-private void LoadFile(string path)
-{
-    if (!Files.Exists(path))
-    {
-        Messages.ShowWarning("File not found.", "Open File");
-        return;
-    }
+### DI コンテナを使わない場合: `Services`
 
-    var content = Files.ReadAllText(path);
-    View.Content = content;
+`MvpApplication.Configure(services: reg => ...)` で登録した自前のサービスは、Presenter の `protected IServiceProvider Services` から取得できます (`Services.Resolve<ICsvExporter>()`)。`Navigator` が開く Presenter のように、コンストラクタ引数を渡す側がその依存を知らないときに使います。
+
+- 依存が見えるので、**まずコンストラクタ注入** を検討してください。
+- `Services` を使えるのは `OnViewAttached` / `RegisterViewActions` / `OnInitialize` 以降です。コンストラクタでフレームワークのサービスを使った Presenter はアタッチ時に拒否されます。
+- テストでは `PresenterTestHost.Start(provider, ...)` に渡したプロバイダから解決されるので、そこに登録したフェイクが使われます (グローバルな `ServiceLocator.Current` には触れません)。M.E.DI の `IPresenterFactory` で作った Presenter では、その Presenter のスコープから解決されます。
+
+### アーキテクチャテスト (任意)
+
+「Presenter は `System.Net.Http` や ADO.NET に依存しない」をチームの規則にしたい場合は、アプリのテストで [NetArchTest](https://github.com/BenMorris/NetArchTest) や [ArchUnitNET](https://github.com/TNG/ArchUnitNET) を使って確認できます (フレームワークには組み込みません。境界はアプリごとに違うためです)。
+
+```csharp
+[Fact]
+public void Presenters_DoNotTalkToTheNetworkOrTheDatabase()
+{
+    var result = Types.InAssembly(typeof(OrderListPresenter).Assembly)
+        .That().HaveNameEndingWith("Presenter")
+        .ShouldNot().HaveDependencyOnAny("System.Net.Http", "System.Data.SqlClient", "Microsoft.EntityFrameworkCore")
+        .GetResult();
+
+    Assert.True(result.IsSuccessful, string.Join(", ", result.FailingTypeNames ?? new List<string>()));
 }
 ```
 
@@ -383,13 +398,12 @@ else
 | `Messages` | `IMessageService` | メッセージダイアログ |
 | `Toasts` | `IToastService` | トースト通知 |
 | `Dialogs` | `IDialogProvider` | システムダイアログ |
-| `Files` | `IFileService` | ファイル I/O |
 | `Logger` | `ILogger` | ロギング |
 | `Navigator` | `IWindowNavigator` | ウィンドウ表示 |
 
 変更追跡には `TrackChanges(value)` (起動時の `mvp.ChangeTracking` 設定を反映した `ChangeTracker<T>` を作る) も使えます。詳細は [ChangeTracker](Reference-ChangeTracker)。
 
-業務固有のサービス (`IUserRepository`、`IOrderService` 等) は通常通り **コンストラクタ注入** で受け取ります。DI パターンの選び分けは [Dependency Injection](Reference-DependencyInjection) を参照。
+業務固有のサービス (`IUserRepository`、`IOrderService` 等) は通常通り **コンストラクタ注入** で受け取ります (DI コンテナを使わない場合は `Services` から取得できます — [ファイル・データベース・HTTP](#ファイルデータベースhttp))。DI パターンの選び分けは [Dependency Injection](Reference-DependencyInjection) を参照。
 
 ---
 
@@ -401,10 +415,10 @@ else
 
 ```csharp
 // 設定不要 — ServiceLocator.Current は初回アクセス時に自動的に DefaultServiceProvider を生成する。
-// Messages / Toasts / Dialogs / Files は標準実装、View マッピングは空、ロギングは NullLoggerFactory。
+// Messages / Toasts / Dialogs は標準実装、View マッピングは空、ロギングは NullLoggerFactory。
 // WinForms 系の組み込み (MessageService / トースト / DialogProvider / WindowNavigator / ViewMappingRegister) は
 // 実行時に Kibinago アセンブリの内部フックから登録される。Kibinago.Core だけを配置した場合
-// (Presenter 単体テストなど) は FileService・NullLoggerFactory・EventAggregator・組み込みの変更追跡エンジンのみ。
+// (Presenter 単体テストなど) は NullLoggerFactory・EventAggregator・組み込みの変更追跡エンジンのみ。
 ```
 
 ### フレームワークをカスタマイズする (`MvpApplication.Configure`)
@@ -477,7 +491,7 @@ provider.UseKibinago();   // ServiceLocator.Current = provider
 public void OnSave_ShowsSuccessMessage()
 {
     var fakes = TestServices.CreateFakes();         // フレームワークサービスのフェイクを登録済み
-    // 自前の実装に差し替えるなら Start の前に: fakes.Provider.RegisterInstance<IFileService>(myFiles);
+    // 自前の実装に差し替えるなら Start の前に: fakes.Provider.RegisterInstance<IToastService>(myToasts);
 
     PresenterTestHost.Start(fakes.Provider, new MyPresenter(), mockView);   // アタッチ + 実際の初期化
     mockView.Binder.Dispatch(StandardActions.Save);
@@ -493,7 +507,6 @@ public void OnSave_ShowsSuccessMessage()
 | `Messages` | `FakeMessageService` | `Calls` (`Kind` / `Text` / `Caption` / `IsConfirmation`)、答えの用意: `EnqueueYesNo` / `EnqueueOkCancel` / `EnqueueYesNoCancel` → `YesNoHandler` / `OkCancelHandler` / `YesNoCancelHandler` → `AnswerUnscripted(yes)`、`ClearCalls()` / `ResetScripts()` |
 | `Toasts` | `FakeToastService` | `Calls` (`Text` / `Type` / `Duration`)、`ClearCalls()` |
 | `Dialogs` | `FakeDialogProvider` | `EnqueueOpenFile` / `EnqueueOpenMultipleFiles` / `EnqueueSaveFile` / `EnqueueFolderBrowser` / `EnqueueColor`、`OpenFileHandler` 等 (オプションを受け取る関数)、`CancelUnscripted()`、`Calls` (`Kind` / `Options`) |
-| `Files` | `InMemoryFileService` | どの OS でも Windows のパス規則 (基準フォルダ `C:\test`)、`SeedFile(path, text)` / `SeedFile(path, bytes)` / `SeedDirectory`、`FilePaths` / `DirectoryPaths`、`Failure` (操作ごとに例外を注入) |
 | `Navigator` | `FakeWindowNavigator` | モーダル: `RespondTo<TPresenter, TResult>(r => ...)` / `RespondTo<TPresenter>(...)`、`LastModalParameters<T>()`、`CancelUnscripted()`。非モーダル: `Windows` (`FakeWindow.CloseWithResult(value)` / `Close()` / `CloseWithError(...)`)。`Calls` |
 | `Logs` | `RecordingLoggerFactory` | `Entries` (`Category` / `Level` / `Exception` / `Message` / `Template` / `Args`)、`Clear()` |
 

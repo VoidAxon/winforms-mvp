@@ -335,7 +335,7 @@ Dispatcher.Dispatch(DocumentActions.Open, "C:\\path\\to\\file.txt");
 // Handler
 private void OnOpenDocument(string filePath)
 {
-    var content = Files.ReadAllText(filePath);
+    View.Content = _documents.Load(filePath);   // _documents: コンストラクタで注入したサービス
     // ...
 }
 ```

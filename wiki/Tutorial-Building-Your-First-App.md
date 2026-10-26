@@ -553,7 +553,7 @@ Mock View はインターフェイスを実装するだけのシンプルなク�
 |------|------------|
 | ViewAction を深掘りしたい | [ViewAction システム](Reference-ViewAction-System) |
 | 複数ウィンドウを扱うアプリにしたい | [WindowNavigator](Reference-WindowNavigator) |
-| データを実ファイル/DB に保存したい | [Platform Services](Reference-Platform-Services) (`IFileService`) |
+| データを実ファイル/DB に保存したい | [Platform Services § ファイル・データベース・HTTP](Reference-Platform-Services#ファイルデータベースhttp) |
 | 親子データの連動を扱いたい | [HowTo: マスター/詳細パターン](HowTo-Implement-Master-Detail) |
 | 非同期処理 (大量データ読み込み等) を加えたい | [HowTo: 非同期処理を扱う](HowTo-Handle-Async-Operations) |
 | 設計ルールを徹底的に理解したい | [MVP 設計ルール (全 17 条)](Design-Rules) |

@@ -573,6 +573,7 @@ public class GoodPresenter : WindowPresenterBase<IMyView>
 - [ ] メソッドは `void` (Rule 7)
 - [ ] View には `IXxxView` 越しにアクセス (Rule 8)
 - [ ] 公開メンバーはコンストラクタのみ (Rule 16・17)
+- [ ] ファイル・DB・HTTP は用途ごとのインターフェイス (`IOrderRepository`、`ICsvExporter` 等) をコンストラクタで受け取る — `File.*` / `HttpClient` を直接呼ぶと `PresenterTestHost` では差し替えられない ([Platform Services](Reference-Platform-Services#ファイルデータベースhttp))。DI コンテナなしなら `Services.Resolve<T>()` (`OnInitialize` 以降)
 
 ### モデル / データ
 - [ ] 状態は Presenter の Model フィールドに、UI ではなく Model が Single Source of Truth (Rule 13)

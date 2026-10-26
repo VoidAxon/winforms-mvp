@@ -26,7 +26,8 @@ tracking, selection, rate limiting, disposables), `.Configuration`, `.Logging` �
 | Cancel async work when the window closes | `protected CancellationToken Lifetime` |
 | Subscribe to a view event, auto-unsubscribed | `SubscribeViewEvent(h => View.X += h, h => View.X -= h, handler)` (+ `<TEventArgs>`) |
 | Release anything with the presenter | `something.DisposeWith(Disposables)` (see §13) |
-| Built-in services, no constructor injection | `Messages`, `Toasts`, `Dialogs`, `Files`, `Navigator`, `Logger` (see §5) |
+| Built-in services, no constructor injection | `Messages`, `Toasts`, `Dialogs`, `Navigator`, `Logger` (see §5) |
+| Your own registered services without a DI container | `Services.Resolve<T>()` from `OnViewAttached` / `OnInitialize` on (not the constructor); constructor injection preferred |
 | Validation state / change tracking | `Validation` (§8), `TrackChanges(model)` (§7) |
 | Embed a panel presenter in an MVP screen (it needs services) | parent view exposes `IPanelView Panel { get; }`; parent presenter: `AttachChild(new PanelPresenter(deps), View.Panel[, param])` in `OnInitialize` — disposed with the parent or its control · [wiki](wiki/HowTo-Implement-Master-Detail.md) |
 | Panels added / removed at runtime (rows, tabs) | `var handle = AttachChild(...)` keyed by the child view; remove: `handle.Dispose()` then `View.RemoveXxx(view)` |
@@ -93,8 +94,8 @@ System shutdown / Task Manager never reach `CanClose`. Save-on-close: call `Requ
 | Message boxes (never `MessageBox.Show` in a presenter) | `Messages` — `IMessageService`: `ShowInfo/Warning/Error`, `ConfirmYesNo`, `ConfirmOkCancel`, `ConfirmYesNoCancel` → `ConfirmResult` |
 | Restyle every message box | `IMessageDialogBackend` (`mvp.Messages.UseDialogs(...)`) |
 | Open / save / folder / color dialogs | `Dialogs` — `IDialogProvider` (+ `OpenFileDialogOptions`, `SaveFileDialogOptions`, …) |
-| Font / print dialogs (view-side, GDI+ types) | `IWinFormsDialogProvider` (WinForms) |
-| File system (testable) | `Files` — `IFileService` (`ReadAllText`, `WriteAllText(path, text, encoding)`, …) |
+| Font / print dialogs | not wrapped: the Form uses `FontDialog` / `PrintDialog` directly; a presenter-started flow is a semantic view method with app data types · [wiki](wiki/Reference-Platform-Services.md) |
+| Files, database, HTTP | not provided: constructor-inject a purpose-shaped interface (`ICsvExporter`, `IOrderRepository`); optional architecture test recipe · [wiki](wiki/Reference-Platform-Services.md) |
 | Corner toast (thread-safe) | `Toasts` — `IToastService.Show(text, ToastType, duration?)` · [wiki](wiki/Reference-Toast-Notifications.md) |
 | Toast with per-call options / anchored (view-side) | `IWinFormsToastService`, `ToastOptions`; look: `ToastStyle` (`Soft`, `Card`, `Solid`), custom `ToastRenderer` |
 | Feedback at a control's position (view code only) | `AnchoredToast.Show*(...)`, `AnchoredMessageBox.Show*/Confirm*(...)`; a presenter calls a semantic view method |
@@ -183,14 +184,13 @@ Callbacks run on the creating thread's context; without `onError` a failure reac
 | Need | Use |
 |---|---|
 | Run a presenter's real init with a mock view (no Form) | `using var host = PresenterTestHost.Start([services,] presenter, view[, param])` |
-| Fake every framework service at once | `var fakes = TestServices.CreateFakes();` → `Start(fakes.Provider, …)`; `fakes.Messages` / `Toasts` / `Dialogs` / `Files` / `Navigator` / `Logs` |
+| Fake every framework service at once | `var fakes = TestServices.CreateFakes();` → `Start(fakes.Provider, …)`; `fakes.Messages` / `Toasts` / `Dialogs` / `Navigator` / `Logs` |
 | Only the services you register (own fakes, Moq, …) | `var sp = TestServices.Create(); sp.RegisterInstance<IMessageService>(mine);` (or replace one in `fakes.Provider` before `Start`) |
 | Trigger actions like a bound control | the mock view exposes `CapturingActionBinder Binder` as its `ActionBinder` → `view.Binder.Dispatch(...)`, `await DispatchAsync(...)`, `CanDispatch(...)`; `IsBound`, `BindCount` / `UnbindCount` (view handed to a new presenter) |
 | Results and closing | `host.CloseRequested`, `CloseStatus`, `CloseResult`; `host.CanClose(reason)`, `await host.CanCloseAsync(reason)`; `await host.Initialized` |
 | Messages | `FakeMessageService`: `Calls` (`Kind`, `Text`, `Caption`, `IsConfirmation`); answers `EnqueueYesNo(...)` → `YesNoHandler` → `AnswerUnscripted(yes)`, otherwise `UnscriptedInteractionException` |
 | Dialogs | `FakeDialogProvider`: `EnqueueSaveFile(InteractionResult<string>.Ok(path))`, `SaveFileHandler = o => …`, `CancelUnscripted()`; `Calls` |
 | Child windows | `FakeWindowNavigator`: modal `RespondTo<TPresenter, TResult>(r => InteractionResult<TResult>.Ok(…))` or typed by the parameters `RespondTo<TPresenter, TParam, TResult>(p => …)`, `LastModalParameters<T>()`; non-modal `Windows[i].CloseWithResult(value)` / `Close()` / `CloseWithError(...)`; same key / disposal / result-type rules as `WindowNavigator` |
-| Files | `InMemoryFileService`: Windows path rules on any host (base `C:\test`), `SeedFile`, `FilePaths`, `Failure = c => new IOException(...)` |
 | Logs and toasts | `RecordingLoggerFactory.Entries` (`Level`, `Message`, `Exception`), `FakeToastService.Calls` |
 | Validation errors | the mock view returns a `FakeValidationErrorDisplay` as `ValidationErrors` (`IValidatableView`) → `Errors`, `RevealAll`, `ErrorsFor(field)`, `HasError(field)`, `ShowCount` / `ResetCount` |
 

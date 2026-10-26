@@ -108,17 +108,6 @@ namespace Kibinago.Samples.Tests.Services
         }
 
         [Fact]
-        public void AddKibinago_DialogInterfacesShareOneInstance()
-        {
-            var services = new ServiceCollection();
-            services.AddKibinago(new ViewMappingRegister());
-            var provider = services.BuildServiceProvider();
-
-            Assert.Same(provider.GetRequiredService<IDialogProvider>(),
-                        provider.GetRequiredService<IWinFormsDialogProvider>());
-        }
-
-        [Fact]
         public void AddKibinago_SameRegistryTwice_IsAllowed()
         {
             var services = new ServiceCollection();

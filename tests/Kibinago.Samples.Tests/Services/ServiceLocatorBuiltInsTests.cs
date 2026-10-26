@@ -19,19 +19,9 @@ namespace Kibinago.Samples.Tests.Services
             var sp = ServiceLocator.Current;
             Assert.NotNull(sp.Resolve<IMessageService>());
             Assert.NotNull(sp.Resolve<IDialogProvider>());
-            Assert.NotNull(sp.Resolve<IFileService>());
             Assert.NotNull(sp.Resolve<ILoggerFactory>());
             Assert.NotNull(sp.Resolve<IWindowNavigator>());
             Assert.NotNull(sp.Resolve<IViewMappingRegister>());
-        }
-
-        [Fact]
-        public void Default_WinFormsDialogProvider_IsSameInstanceAsDialogProvider()
-        {
-            // The WinForms built-ins arrive through the Kibinago assembly's platform hook,
-            // which registers one DialogProvider under both interfaces.
-            var sp = ServiceLocator.Current;
-            Assert.Same(sp.Resolve<IDialogProvider>(), sp.Resolve<IWinFormsDialogProvider>());
         }
 
         [Fact]

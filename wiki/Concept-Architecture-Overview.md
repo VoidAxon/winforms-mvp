@@ -35,7 +35,7 @@ MVP パターン自体の思想は [MVP パターンとは](Concept-MVP-Pattern)
 │  Model Layer                │   │  Platform Services Layer    │
 │   • Repository              │   │   • IMessageService         │
 │   • Domain Model / DTO      │   │   • IDialogProvider         │
-│   • Business Logic          │   │   • IFileService            │
+│   • Business Logic          │   │   • IToastService           │
 │                             │   │   • ILogger                 │
 └─────────────────────────────┘   │   • IWindowNavigator        │
                                   └─────────────────────────────┘
@@ -111,7 +111,6 @@ Presenter からは、コンストラクタ注入なしで以下のサービス�
 |----------|----|----|
 | `Messages` | `IMessageService` | メッセージ・確認ダイアログ |
 | `Dialogs` | `IDialogProvider` | OpenFile / SaveFile / FolderBrowser |
-| `Files` | `IFileService` | ファイル I/O |
 | `Logger` | `ILogger` | 構造化ロギング |
 | `Navigator` | `IWindowNavigator` | 子ウィンドウの表示 |
 

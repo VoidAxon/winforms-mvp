@@ -319,13 +319,6 @@ namespace Kibinago.Samples.Tests.DependencyInjection
         }
 
         [Fact]
-        public void AddKibinago_Provider_ResolvesIFileService()
-        {
-            var provider = BuildProvider();
-            Assert.NotNull(provider.GetService<IFileService>());
-        }
-
-        [Fact]
         public void AddKibinago_Provider_ResolvesILoggerFactory()
         {
             var provider = BuildProvider();

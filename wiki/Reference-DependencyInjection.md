@@ -478,7 +478,7 @@ public class ServiceProviderPresenterFactory : IPresenterFactory
 
 - **Scoped サービスは Presenter (ウィンドウ) 単位** になります。同じウィンドウの Presenter 内では共有され、別ウィンドウとは共有されません。
 - ルートコンテナが transient な Presenter (とその View・transient 依存) を終了まで保持し続けることがなくなります (以前はルートから解決していたため、`IDisposable` な Presenter が溜まり続けていました)。
-- Presenter の **フレームワークサービス** (`Messages` / `Navigator` / `Toasts` / `Dialogs` / `Files` / `Logger` / `TrackChanges` の設定) も **同じスコープ** から解決されます (`ServiceLocator.Current` ではありません)。コンストラクタで受け取ったサービスと便利プロパティが同じインスタンスになり、Scoped で登録したフレームワークサービスもウィンドウごとになります。フレームワークサービスはコンテナに登録しておきます (`AddKibinago`)。登録がなければ、アクセスしたとき (View のアタッチ時の `Logger` など) に例外になり、`ServiceLocator.Current` には戻りません。
+- Presenter の **フレームワークサービス** (`Messages` / `Navigator` / `Toasts` / `Dialogs` / `Logger` / `Services` / `TrackChanges` の設定) も **同じスコープ** から解決されます (`ServiceLocator.Current` ではありません)。コンストラクタで受け取ったサービスと便利プロパティが同じインスタンスになり、Scoped で登録したフレームワークサービスもウィンドウごとになります。フレームワークサービスはコンテナに登録しておきます (`AddKibinago`)。登録がなければ、アクセスしたとき (View のアタッチ時の `Logger` など) に例外になり、`ServiceLocator.Current` には戻りません。
 - コンストラクタで便利プロパティ (`Messages` など) を使う Presenter は、`Create` が `InvalidOperationException` で拒否します (スコープを結びつける前に別のプロバイダから解決してしまうため)。`OnViewAttached` / `OnInitialize` で使うか、そのサービスをコンストラクタで受け取ってください。
 
 Presenter のコンストラクタ依存は **コンテナの通常の解決ルール** にそのまま乗ります。未登録の Presenter を要求すると `InvalidOperationException` がスローされる、という M.E.DI の標準セマンティクスをそのまま継承します。
