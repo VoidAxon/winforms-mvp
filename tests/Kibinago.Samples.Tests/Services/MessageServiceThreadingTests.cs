@@ -91,6 +91,42 @@ namespace Kibinago.Samples.Tests.Services
         }
 
         [Fact]
+        public void Show_OnASecondUiThread_StaysOnThatThread()
+        {
+            // An app with two UI threads: a call made on the second one (inside its message loop) must not
+            // be sent to the first thread's form, or the dialog would not be modal to the caller's window.
+            OnUiThreadWithForm(firstUiForm =>
+            {
+                var backend = new RecordingBackend();
+                var messages = new MessageService(backend, new MessageDialogOptions()) { OpenFormLocator = () => firstUiForm };
+                int second = 0;
+
+                var secondUi = new Thread(() =>
+                {
+                    second = Thread.CurrentThread.ManagedThreadId;
+                    using (var form = new Form { ShowInTaskbar = false, Opacity = 0 })
+                    {
+                        form.Shown += (s, e) => { messages.ShowInfo("From the second window."); form.Close(); };
+                        Application.Run(form);
+                    }
+                });
+                secondUi.SetApartmentState(ApartmentState.STA);
+                secondUi.Start();
+                // Keep the first UI thread responsive: if the call were sent here, it would still finish
+                // (and the assertion below would fail) instead of hanging the test.
+                var deadline = DateTime.UtcNow.AddSeconds(10);
+                while (secondUi.IsAlive && DateTime.UtcNow < deadline)
+                {
+                    Application.DoEvents();
+                    Thread.Sleep(10);
+                }
+
+                Assert.False(secondUi.IsAlive, "the second UI thread did not finish");
+                Assert.Equal(second, backend.ShownOnThread);
+            });
+        }
+
+        [Fact]
         public void Show_FromWorkerThread_WithoutAnyForm_IsShownOnTheCallingThread()
         {
             // Before the first window opens (or after the last one closed) there is no UI thread to go to.

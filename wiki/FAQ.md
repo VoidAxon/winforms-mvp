@@ -55,6 +55,10 @@ A. View が `Form` なら `WindowPresenterBase`、`UserControl` なら `ControlP
 
 A. いいえ。`MessageBox.Show()` は WinForms 型なので、[MVP の鉄則 2](Concept-MVP-Pattern#3-つの鉄則-three-iron-rules) に違反します。代わりに `Messages.ShowInfo()` 等を使ってください。
 
+### Q. `ConfirmYesNoAsync` のような非同期版はないのですか? 待っている間 UI が止まりませんか?
+
+A. ありません。必要もありません。`Messages.ConfirmYesNo` などのモーダルダイアログは、表示中に自分のメッセージループを回すので、ほかのウィンドウの再描画・タイマー・非同期処理の続きは動き続けます (UI はフリーズしません。止まるのは呼び出した行が答えを待つことだけ)。保存など本当に待つ処理は async のアクションハンドラや `CanCloseAsync` で書きます。ワーカースレッド (`Task.Run` の中) から呼んでも、ダイアログは UI スレッドで表示されます ([Platform Services](Reference-Platform-Services#imessageservice--メッセージダイアログ))。トースト (`Toasts`) もワーカースレッドから呼べます。
+
 ### Q. Presenter の中で `await` してもよいですか?
 
 A. はい。ViewAction ハンドラを `async Task` で書いて `Dispatcher.Register` に渡すのが標準パターンです (`async void` にはしない)。実行中のアクションは自動で無効化され、失敗はログに出ます。初期ロードは `OnInitializeAsync`、閉じる前の保存は `CanCloseAsync` をオーバーライドします。詳しくは [HowTo: 非同期処理を扱う](HowTo-Handle-Async-Operations) を参照。

@@ -78,8 +78,10 @@ namespace Kibinago.Services.Implementations
                 Icon = icon,
             };
 
-            // On the UI thread (or with no UI thread to go to): show here. From a worker thread: show on the
-            // UI thread, so the dialog is modal to the application's windows, and wait for the answer.
+            // On a UI thread (this thread runs a message loop — in an app with several UI threads, the
+            // caller's), or with no UI thread to go to: show here. From a worker thread: show on the UI
+            // thread, so the dialog is modal to the application's windows, and wait for the answer.
+            if (Application.MessageLoop) return _backend.Show(request);
             var host = OpenFormLocator();
             if (host == null || !host.InvokeRequired) return _backend.Show(request);
             try
