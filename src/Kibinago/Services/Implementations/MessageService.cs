@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.ExceptionServices;
 using System.Windows.Forms;
 using Kibinago.Common;
 
@@ -84,17 +85,27 @@ namespace Kibinago.Services.Implementations
             if (Application.MessageLoop) return _backend.Show(request);
             var host = OpenFormLocator();
             if (host == null || !host.InvokeRequired) return _backend.Show(request);
+
+            // The backend's own failure is carried out of Invoke, so whatever Invoke itself throws means
+            // the call never reached the UI thread (the form closed meanwhile): show here instead.
+            var result = MessageDialogResult.None;
+            Exception backendFailure = null;
+            bool reached = false;
             try
             {
-                return (MessageDialogResult)host.Invoke(new Func<MessageDialogResult>(() => _backend.Show(request)));
+                host.Invoke(new Action(() =>
+                {
+                    reached = true;
+                    try { result = _backend.Show(request); }
+                    catch (Exception ex) { backendFailure = ex; }
+                }));
             }
-            catch (Exception ex) when ((ex is ObjectDisposedException || ex is InvalidOperationException)
-                                       && (host.IsDisposed || !host.IsHandleCreated))
+            catch (Exception ex) when (!reached && (ex is ObjectDisposedException || ex is InvalidOperationException))
             {
-                // The form closed between the lookup and the call: no UI thread to go to any more.
-                // (A failure of the backend itself, with the form still open, propagates.)
                 return _backend.Show(request);
             }
+            if (backendFailure != null) ExceptionDispatchInfo.Capture(backendFailure).Throw();
+            return result;
         }
     }
 }

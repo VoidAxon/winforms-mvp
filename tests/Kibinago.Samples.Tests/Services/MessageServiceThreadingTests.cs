@@ -91,6 +91,41 @@ namespace Kibinago.Samples.Tests.Services
         }
 
         [Fact]
+        public void BackendFailure_FromWorkerThread_PropagatesToTheWorkerAndIsNotShownTwice()
+        {
+            OnUiThreadWithForm(form =>
+            {
+                int calls = 0;
+                var backend = new ThrowingBackend(() => calls++);
+                var messages = new MessageService(backend, new MessageDialogOptions()) { OpenFormLocator = () => form };
+
+                var task = Task.Run(() => messages.ShowError("Boom"));
+                var deadline = DateTime.UtcNow.AddSeconds(10);
+                while (!task.IsCompleted && DateTime.UtcNow < deadline)
+                {
+                    Application.DoEvents();
+                    Thread.Sleep(10);
+                }
+
+                var failure = Assert.Throws<AggregateException>(() => task.Wait());
+                Assert.IsType<InvalidOperationException>(failure.InnerException);
+                Assert.Equal(1, calls);
+            });
+        }
+
+        private sealed class ThrowingBackend : IMessageDialogBackend
+        {
+            private readonly Action _onShow;
+            public ThrowingBackend(Action onShow) { _onShow = onShow; }
+
+            public MessageDialogResult Show(MessageDialogRequest request)
+            {
+                _onShow();
+                throw new InvalidOperationException("backend failed");
+            }
+        }
+
+        [Fact]
         public void Show_OnASecondUiThread_StaysOnThatThread()
         {
             // An app with two UI threads: a call made on the second one (inside its message loop) must not
