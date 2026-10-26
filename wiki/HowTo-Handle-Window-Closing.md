@@ -28,7 +28,8 @@
 
 ダーティ状態のない最小限のダイアログです。Save/Cancel ハンドラから結果を Push するだけです。X ボタンでいつでも閉じてよいウィンドウなら `CanClose` のオーバーライドは不要です (`RequestClose` もゲートを通りますが、既定の `CanClose` は常に `true` です)。
 
-> モーダルダイアログでも、アクションにバインドしたボタンの `DialogResult` は `None` のままにします。`DialogResult.OK` などを設定すると、WinForms がハンドラやゲートの判断を待たずにダイアログを閉じてしまいます。
+> **ボタンの `DialogResult` は使いません。閉じるかどうかは Presenter (`RequestClose`) が決めます。** WinForms はボタンの `DialogResult` を `Click` より先にフォームへ写すので、`None` 以外だとハンドラが「閉じない」と決めても (確認で「いいえ」、検証エラー、async の処理中) モーダルが閉じてしまいます (ゲート `CanClose` は通りますが、既定の `CanClose` は `true`)。`Form.CancelButton` を設定すると WinForms がそのボタンの `DialogResult` を黙って `Cancel` にするため、気づきにくい罠でした。
+> そのため **Binder はアクションにバインドしたボタンの `DialogResult` を、購読するとき (`Bind` / `Bind` 後の `Add`) に `None` に戻します** (dispatcher があればデバッグログ)。Esc は引き続き `CancelButton` をクリックするのでアクションが動きます。`AcceptButton` / `CancelButton` はそのまま設定してかまいません。バインドしていないボタンは変更しません。`Unbind` でも元に戻しません。`Bind` の **後で** `CancelButton` を設定し直すと WinForms がまた `Cancel` を入れるので、`CancelButton` は `InitializeComponent` (または `Bind` 前) で設定します。
 
 ```csharp
 public class ConfirmDeletePresenter : WindowPresenterBase<IConfirmDeleteView>

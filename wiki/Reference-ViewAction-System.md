@@ -676,6 +676,7 @@ void IChoiceView.ShowChoices(IReadOnlyList<Choice> choices)
 - `Remove(controls...)`: そのコントロールはアクションを発火しなくなり、`Enabled` の管理も外れます (値はそのまま)。外したコントロールは別のアクションに `Add` し直せます。未登録・削除済みのコントロールは無視されます。
 - **破棄 (`Dispose`) されたコントロールは自動的に外れます** (`Bind` 前・バインド中・`Unbind` 後のいずれでも)。破棄済みのコントロールの `Add` は `ObjectDisposedException`。
 - `Unbind()` 中に `Add` したコントロールは記録だけされ、次の `Bind` で購読されます。
+- **バインドしたボタンの `DialogResult` は `None` に戻ります** (購読するとき: `Bind()` / `Bind(dispatcher)` / `Bind` 後の `Add`。`Unbind` / `Remove` でも元に戻しません)。WinForms はボタンの `DialogResult` を `Click` より先にフォームへ写すため、残っているとハンドラの判断に関係なくモーダルが閉じます。`Form.CancelButton` は自動で `Cancel` を入れるので、`CancelButton` は `Bind` 前に設定します。閉じるのは Presenter の `RequestClose` です ([ウィンドウを閉じる](HowTo-Handle-Window-Closing))。
 - Binder の操作 (`Add` / `Remove` / `RegisterStrategy` / `Bind` / `Unbind`) は UI スレッドで行います。
 
 ### カスタムコントロールに対応する

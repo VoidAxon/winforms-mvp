@@ -40,16 +40,14 @@ namespace Kibinago.Samples.NavigatorDemo
             {
                 Text = "OK",
                 Location = new Point(100, 100),
-                Size = new Size(90, 30),
-                DialogResult = DialogResult.OK
+                Size = new Size(90, 30)
             };
 
             _cancelButton = new Button
             {
                 Text = "Cancel",
                 Location = new Point(210, 100),
-                Size = new Size(90, 30),
-                DialogResult = DialogResult.Cancel
+                Size = new Size(90, 30)
             };
 
             this.Controls.AddRange(new Control[] {

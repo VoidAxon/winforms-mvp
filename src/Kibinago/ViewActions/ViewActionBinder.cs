@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Windows.Forms;
 using Kibinago.Common.Events;
+using Kibinago.Logging;
 
 namespace Kibinago.ViewActions
 {
@@ -43,6 +44,14 @@ namespace Kibinago.ViewActions
     /// Routing is decided by which <c>Bind</c> overload runs, never by who listens:
     /// <see cref="Bind(ViewActionDispatcher)"/> always dispatches; <see cref="Bind()"/> only raises
     /// <see cref="ActionTriggered"/>. Subscribing to <see cref="ActionTriggered"/> never changes routing.
+    /// </para>
+    /// <para>
+    /// A bound button's <see cref="IButtonControl.DialogResult"/> is reset to <see cref="DialogResult.None"/>
+    /// when it is subscribed (either <c>Bind</c> overload, or <c>Add</c> after <c>Bind</c>) and is not restored
+    /// by <see cref="Unbind"/>: WinForms copies it to the form before <c>Click</c>, so it would close a modal
+    /// window whatever the handler decides (<see cref="Form.CancelButton"/> silently sets it to
+    /// <c>Cancel</c>). Closing is the presenter's <c>RequestClose</c>. Set <c>CancelButton</c> before
+    /// <c>Bind</c>; Esc still clicks it.
     /// </para>
     /// </remarks>
     public class ViewActionBinder : IViewActionBinder, IEnumerable<ActionBinding>
@@ -353,7 +362,22 @@ namespace Kibinago.ViewActions
             var strategy = ResolveStrategy(entry.Component)
                 ?? throw new InvalidOperationException(
                     $"{DescribeComponent(entry.Component)} has no binding strategy any more.");
+            ReleaseDialogResult(entry);
             entry.Unsubscribe = strategy(entry.Component, entry.Handler);
+        }
+
+        // A bound button must not close a modal window by itself: WinForms copies its DialogResult to the
+        // form BEFORE raising Click, so the modal loop would close the window even when the handler
+        // decided not to (and Form.CancelButton silently gives its button DialogResult.Cancel). Closing is
+        // the presenter's call (RequestClose). Not restored on Unbind: that would re-arm the auto close.
+        private void ReleaseDialogResult(Entry entry)
+        {
+            if (!(entry.Component is IButtonControl button) || button.DialogResult == DialogResult.None) return;
+            var previous = button.DialogResult;
+            button.DialogResult = DialogResult.None;
+            _dispatcher?.Logger.LogDebug(
+                "{Component} is bound to {Action}: its DialogResult {Previous} was reset to None so only the presenter closes the window.",
+                DescribeComponent(entry.Component), entry.ActionKey, previous);
         }
 
         private static void Unsubscribe(Entry entry)
