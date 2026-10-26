@@ -28,6 +28,7 @@ Navigator.For(new CustomerEditPresenter(_repository))
              onClosed: r => { if (r.IsOk) Reload(); });
 ```
 
+- `For` は拡張メソッドです。ファイルの先頭に `using Kibinago.Services;` が必要です (テンプレートが生成する Presenter には入っています)。ないと `CS1061: 'IWindowNavigator' に 'For' の定義が含まれておらず` になります。
 - モーダルは閉じるまで戻らず、`InteractionResult<T>` (`IsOk` / `IsCancelled` / `IsError`、`Value`) を返します。非モーダルはすぐ戻り、結果は `onClosed` で受け取ります。
 - Presenter が初期化中 (`OnInitialize` や `OnInitializeAsync` の最初の `await` まで) に `RequestClose` を呼ぶと、表示がキャンセルされます: `Show` / `ShowDialog` は呼ばれず、モーダルはその結果を返し、非モーダルは `null` を返します ([表示前のキャンセル](#表示前のキャンセル))。
 - `keySelector` が返すキーのウィンドウがすでに開いていれば、そのウィンドウをアクティブにします。このとき新しい Presenter は破棄され、その `onClosed` は登録されません。キーは Presenter の型ごとに分かれています (内部では `(Presenter の実行時の型, キー)`)。別の画面が同じレコード ID をキーにしても、互いのウィンドウを開いてしまうことはありません。同じ Presenter 型 + 同じキーのときだけ既存のウィンドウを使います (Presenter の派生クラスは別の型として扱われます)。

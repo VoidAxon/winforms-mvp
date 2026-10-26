@@ -223,10 +223,11 @@ public class MainPresenter : WindowPresenterBase<IMainView>
 
     protected override void OnViewAttached()
     {
-        View.GreetRequested += OnGreetRequested;
+        // 1 行で購読し、Presenter の破棄時に自動で解除される
+        SubscribeViewEvent(h => View.GreetRequested += h, h => View.GreetRequested -= h, OnGreetRequested);
     }
 
-    private void OnGreetRequested(object sender, EventArgs e)
+    private void OnGreetRequested()
     {
         View.WelcomeMessage = $"Hello, {View.UserName}!";
     }
@@ -235,7 +236,7 @@ public class MainPresenter : WindowPresenterBase<IMainView>
 
 **ポイント**
 
-- `OnViewAttached()` は View が presenter にアタッチされた直後に呼ばれるフック。ここで View のイベントを購読する。
+- `OnViewAttached()` は View が presenter にアタッチされた直後に呼ばれるフック。ここで View のイベントを `SubscribeViewEvent` で購読する (`+=` と `-=` を 1 行で書き、Presenter の破棄時に解除される。ハンドラは引数なしのメソッド)。
 - Presenter は `Button` の存在を知らない。「`GreetRequested` が起きたら何をするか」だけを書く。
 
 ### 3.3 Form (View 実装) を更新する
@@ -336,7 +337,7 @@ public class MainPresenter : WindowPresenterBase<IMainView>
     protected override void OnViewAttached()
     {
         // Re-evaluate CanExecute when the input changes.
-        View.UserNameChanged += (s, e) => Dispatcher.RaiseCanExecuteChanged();
+        SubscribeViewEvent(h => View.UserNameChanged += h, h => View.UserNameChanged -= h, Dispatcher.RaiseCanExecuteChanged);
     }
 
     protected override void RegisterViewActions()
@@ -415,7 +416,7 @@ public class MainForm : Form, IMainView
 Presenter から `MessageBox.Show()` を直接呼ぶのは **MVP 違反** です。代わりに `Messages` プロパティ越しに `IMessageService` を使います。
 
 ```csharp
-private void OnGreetRequested(object sender, EventArgs e)
+private void OnGreetRequested()
 {
     Messages.ShowInfo($"Hello, {View.UserName}!", "Greeting");
 }

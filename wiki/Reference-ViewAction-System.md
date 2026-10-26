@@ -442,13 +442,11 @@ private void OnSave()
 ユーザー入力等、アクション実行を伴わない状態変化では、明示的に再評価をトリガーします。
 
 ```csharp
-protected override void OnInitialize()
+protected override void OnViewAttached()
 {
-    View.SelectionChanged += (s, e) =>
-    {
-        // 選択状態が変わったので CanExecute を再評価
-        Dispatcher.RaiseCanExecuteChanged();
-    };
+    // 選択状態が変わったら CanExecute を再評価
+    SubscribeViewEvent(h => View.SelectionChanged += h, h => View.SelectionChanged -= h,
+        Dispatcher.RaiseCanExecuteChanged);
 }
 ```
 
@@ -753,11 +751,10 @@ protected override void OnViewAttached()
 
     // Binder は Dispatcher に接続されていないため、ボタンの有効/無効は自動更新されない。
     // 可否は意味のある View メンバー経由で伝える (Form 側が Enabled に反映する)。
-    View.SelectionChanged += OnSelectionChanged;
-    Disposable.Create(() => View.SelectionChanged -= OnSelectionChanged).DisposeWith(Disposables);
+    SubscribeViewEvent(h => View.SelectionChanged += h, h => View.SelectionChanged -= h, OnSelectionChanged);
 }
 
-private void OnSelectionChanged(object sender, EventArgs e) => View.CanDelete = View.HasSelection;
+private void OnSelectionChanged() => View.CanDelete = View.HasSelection;
 ```
 
 | 観点 | Explicit パターン |

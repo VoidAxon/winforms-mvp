@@ -190,7 +190,7 @@ public class EditOrderPresenter : WindowPresenterBase<IEditOrderView, int>
 
     protected override void OnViewAttached()
     {
-        View.DataChanged += OnDataChanged;
+        SubscribeViewEvent(h => View.DataChanged += h, h => View.DataChanged -= h, OnDataChanged);
     }
 
     protected override void RegisterViewActions()
@@ -208,7 +208,7 @@ public class EditOrderPresenter : WindowPresenterBase<IEditOrderView, int>
 
     private bool HasUnsavedChanges => _tracker != null && _tracker.IsChanged;
 
-    private void OnDataChanged(object sender, EventArgs e)
+    private void OnDataChanged()
     {
         _order.Name = View.OrderName;        // 編集は _order に入れる
         _order.Quantity = View.Quantity;
@@ -254,7 +254,7 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView, int>
 
     protected override void OnViewAttached()
     {
-        View.DataChanged += OnDataChanged;
+        SubscribeViewEvent(h => View.DataChanged += h, h => View.DataChanged -= h, OnDataChanged);
     }
 
     protected override void RegisterViewActions()
@@ -275,7 +275,7 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView, int>
 
     private bool HasUnsavedChanges => _tracker != null && _tracker.IsChangedWith(ReadModel());
 
-    private void OnDataChanged(object sender, EventArgs e)
+    private void OnDataChanged()
     {
         View.IsDirty = HasUnsavedChanges;
         Dispatcher.RaiseCanExecuteChanged();
@@ -463,7 +463,7 @@ tracker は変更を通知しません (イベントはありません)。その
 ボタンの活性は変更の有無だけで決まるわけではないので、Presenter は View のデータ変更ハンドラでどのみち `RaiseCanExecuteChanged()` を呼びます。同じ場所で `IsChanged` / `IsChangedWith` を読みます。
 
 ```csharp
-private void OnDataChanged(object sender, EventArgs e)
+private void OnDataChanged()
 {
     View.IsDirty = _tracker.IsChanged;   // 書き方 2 は _tracker.IsChangedWith(ReadModel())
     Dispatcher.RaiseCanExecuteChanged();

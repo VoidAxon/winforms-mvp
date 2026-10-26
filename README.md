@@ -80,12 +80,13 @@ public class UserEditorForm : Form, IUserEditorView
     }
 }
 
-// 4. 起動
-var register = new ViewMappingRegister();
-register.RegisterFromAssembly(Assembly.GetExecutingAssembly());
-
-var navigator = new WindowNavigator(register);
-navigator.ShowWindow(new UserEditorPresenter());
+// 4. 起動 (dotnet new kibinago が生成する Program.cs と同じ形)
+MvpApplication.Configure();                                     // フレームワークの既定サービス
+ServiceLocator.Current.Resolve<IViewMappingRegister>()
+    .RegisterFromAssembly(typeof(Program).Assembly);            // Navigator で開く Form を登録
+var mainForm = new UserEditorForm();
+new UserEditorPresenter().Connect(mainForm);
+MvpApplication.Run(mainForm);
 ```
 
 ---
@@ -129,12 +130,15 @@ navigator.ShowWindow(new UserEditorPresenter());
 ### 方法B — Releases から .nupkg をダウンロード（認証不要）
 
 1. リポジトリの **Releases** ページを開き、目的のバージョンの `.nupkg` ファイルをダウンロードします。
-2. ローカルフォルダに置き、ソースとして登録してインストールします (`Kibinago` は `Kibinago.Core` に依存するので、両方の `.nupkg` を同じフォルダに置いてください):
+2. ソリューションの隣の `packages` フォルダに置き (`Kibinago` は `Kibinago.Core` に依存するので、すべての `.nupkg` を同じフォルダに)、ソースとして登録してインストールします:
 
    ```bash
-   dotnet nuget add source C:\path\to\folder --name kibinago-local --configfile nuget.config   # ソリューションの nuget.config に登録
+   dotnet new nugetconfig                                                             # nuget.config がまだなければ作る
+   dotnet nuget add source packages --name kibinago-local --configfile nuget.config   # 相対パス: nuget.config の場所から解決
    dotnet add package Kibinago --prerelease
    ```
+
+   ソースは **相対パス** で登録します。`C:\...` や `/home/...` の絶対パスにすると、別の PC (Windows ⇔ Linux / WSL を含む) やチームの他の人の環境で restore できなくなります。
 
 ### ソースをプロジェクト参照で使う場合
 
@@ -154,7 +158,7 @@ navigator.ShowWindow(new UserEditorPresenter());
 
 ```bash
 dotnet new install Kibinago.Templates::<version>                   # フィード経由。プレビュー期間中はバージョン指定が必須 (例: ::1.0.0-preview.1)
-dotnet new install C:\path\to\folder\Kibinago.Templates.<version>.nupkg   # ローカルの .nupkg から
+dotnet new install packages/Kibinago.Templates.<version>.nupkg   # ローカルの .nupkg から
 ```
 
 生成されるプロジェクトは `Kibinago` パッケージを参照するので、上記 A / B どちらかのソースを `nuget.config` に設定しておいてください。4 行で動くアプリ + ウィンドウ + テストができます:
@@ -255,7 +259,7 @@ dotnet build MyApp.Tests && dotnet run --project MyApp
 | `Kibinago.Templates` | (テンプレート) | `dotnet new` テンプレート: `kibinago` (アプリ) / `mvp-window` / `mvp-control` / `kibinago-tests` |
 
 名前空間はアセンブリをまたいで変わりません。`net40` のサポートは終了しました (最低 .NET Framework 4.7.2)。
-`Microsoft.Extensions.Logging` 連携については出荷パッケージは無く、M.E.L. の `ILoggerFactory` を框架の `ILoggerFactory` に橋渡しする **~30 行のアダプタを自分で書きます** ([Logging](https://github.com/VoidAxon/winforms-mvp/wiki/Reference-Logging) 参照、全ターゲットで利用可)。
+`Microsoft.Extensions.Logging` 連携については出荷パッケージは無く、M.E.L. の `ILoggerFactory` をフレームワークの `ILoggerFactory` に橋渡しする **~30 行のアダプタを自分で書きます** ([Logging](https://github.com/VoidAxon/winforms-mvp/wiki/Reference-Logging) 参照、全ターゲットで利用可)。
 
 ---
 

@@ -169,12 +169,12 @@ SubscribeViewEvent<ValueChangingEventArgs<int>>(h => View.SelectedRecordChanging
 // ✅ Good
 protected override void OnViewAttached()
 {
-    View.SelectionChanged += OnSelectionChanged;
-    View.DataChanged      += OnDataChanged;
+    SubscribeViewEvent(h => View.SelectionChanged += h, h => View.SelectionChanged -= h, OnSelectionChanged);
+    SubscribeViewEvent(h => View.DataChanged += h, h => View.DataChanged -= h, OnDataChanged);
 }
 
-private void OnSelectionChanged(object sender, EventArgs e) { ... }
-private void OnDataChanged(object sender, EventArgs e) { ... }
+private void OnSelectionChanged() { ... }
+private void OnDataChanged() { ... }
 
 // ❌ Bad — 何のメソッドか不明
 private void HandleSelection(...) { ... }

@@ -52,7 +52,7 @@
 public interface ICategorySelectionService    { Category Selected { get; } event EventHandler Changed; }
 public interface ISubCategorySelectionService { SubCategory Selected { get; } event EventHandler Changed; }
 public interface IProductSelectionService     { Product Selected { get; } event EventHandler Changed; }
-// ↑ 型引数が違うだけの同型を、インターフェイス・実装・DI 登録まで N 份手書き
+// ↑ 型引数が違うだけの同型を、インターフェイス・実装・DI 登録まで N 個手書き
 ```
 
 ジェネリックで一発のはずのものを手で展開しているだけ。純粋なボイラープレートです。
@@ -241,16 +241,14 @@ public sealed class CategoryListPresenter : ControlPresenterBase<ISelectListView
 
     protected override void OnViewAttached()
     {
-        // 出: View 選択 → Selection。購読の解除は Disposables バッグが自動で行う
-        EventHandler handler = OnUserSelected;
-        View.SelectionChanged += handler;
-        Disposable.Create(() => View.SelectionChanged -= handler).DisposeWith(Disposables);
+        // 出: View 選択 → Selection。購読の解除は SubscribeViewEvent が Presenter の破棄時に自動で行う
+        SubscribeViewEvent(h => View.SelectionChanged += h, h => View.SelectionChanged -= h, OnUserSelected);
     }
 
     protected override void OnInitialize()
         => View.Items = _repo.GetAll();                  // 初期リスト読み込みは OnInitialize
 
-    private void OnUserSelected(object sender, EventArgs e) => _selection.Select(View.Selected);
+    private void OnUserSelected() => _selection.Select(View.Selected);
 
     // Cleanup の override は不要 — Disposables は Dispose 時にフレームワークが解放する
 }
@@ -272,9 +270,7 @@ public sealed class SubCategoryListPresenter : ControlPresenterBase<ISelectListV
 
     protected override void OnViewAttached()
     {
-        EventHandler handler = OnUserSelected;
-        View.SelectionChanged += handler;
-        Disposable.Create(() => View.SelectionChanged -= handler).DisposeWith(Disposables);
+        SubscribeViewEvent(h => View.SelectionChanged += h, h => View.SelectionChanged -= h, OnUserSelected);
 
         Cascade.Bind(_parent, _self, category =>
         {
@@ -293,7 +289,7 @@ public sealed class SubCategoryListPresenter : ControlPresenterBase<ISelectListV
 
     }
 
-    private void OnUserSelected(object sender, EventArgs e) => _self.Select(View.Selected);
+    private void OnUserSelected() => _self.Select(View.Selected);
 
     // Cleanup の override は不要 — フレームワークが Disposables を自動解放する
 }
@@ -315,9 +311,7 @@ public sealed class ProductListPresenter : ControlPresenterBase<ISelectListView<
 
     protected override void OnViewAttached()
     {
-        EventHandler handler = OnUserSelected;
-        View.SelectionChanged += handler;
-        Disposable.Create(() => View.SelectionChanged -= handler).DisposeWith(Disposables);
+        SubscribeViewEvent(h => View.SelectionChanged += h, h => View.SelectionChanged -= h, OnUserSelected);
 
         Cascade.Bind(_parent, _self, sub =>
         {
@@ -330,7 +324,7 @@ public sealed class ProductListPresenter : ControlPresenterBase<ISelectListView<
         }).DisposeWith(Disposables);
     }
 
-    private void OnUserSelected(object sender, EventArgs e) => _self.Select(View.Selected);
+    private void OnUserSelected() => _self.Select(View.Selected);
 }
 ```
 
@@ -419,7 +413,7 @@ public IList<T> Items
 // SelectedIndexChanged ハンドラ内: if (_suppress) return; ...
 ```
 
-> この抑制は **View 側の責務** であって `Cascade` には入れません。回灌の経路は View を通るため、`Cascade` からは見えないからです。原語はあくまで純粋に保ちます。
+> この抑制は **View 側の責務** であって `Cascade` には入れません。書き戻しの経路は View を通るため、`Cascade` からは見えないからです。プリミティブはあくまで純粋に保ちます。
 
 ---
 

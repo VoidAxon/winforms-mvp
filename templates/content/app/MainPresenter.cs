@@ -1,5 +1,6 @@
 using Kibinago.Common;
 using Kibinago.Presenters;
+using Kibinago.Services;   // Navigator.For(...) and the other service interfaces
 
 namespace MyMvpApp
 {
