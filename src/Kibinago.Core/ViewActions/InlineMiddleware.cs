@@ -1,25 +1,22 @@
 using System;
+using System.Threading.Tasks;
 
 namespace Kibinago.ViewActions
 {
-    /// <summary>
-    /// Adapts a lambda <c>(context, next) =&gt; { ... }</c> into an
-    /// <see cref="IDispatchMiddleware"/> so callers can write inline middleware
-    /// without declaring a class.
-    /// </summary>
+    /// <summary>Adapts a lambda passed to <see cref="ViewActionDispatcher.Use(Func{DispatchContext, DispatchDelegate, Task})"/>.</summary>
     internal sealed class InlineMiddleware : IDispatchMiddleware
     {
-        private readonly Action<DispatchContext, DispatchDelegate> _func;
+        private readonly Func<DispatchContext, DispatchDelegate, Task> _func;
 
-        public InlineMiddleware(Action<DispatchContext, DispatchDelegate> func)
+        public InlineMiddleware(Func<DispatchContext, DispatchDelegate, Task> func)
         {
             if (func == null) throw new ArgumentNullException(nameof(func));
             _func = func;
         }
 
-        public void Invoke(DispatchContext context, DispatchDelegate next)
+        public Task InvokeAsync(DispatchContext context, DispatchDelegate next)
         {
-            _func(context, next);
+            return _func(context, next);
         }
     }
 }

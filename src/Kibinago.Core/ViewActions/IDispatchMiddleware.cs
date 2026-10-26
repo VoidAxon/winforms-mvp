@@ -1,38 +1,46 @@
+using System.Threading.Tasks;
+
 namespace Kibinago.ViewActions
 {
     /// <summary>
-    /// Delegate for the next step in the dispatch pipeline. Invoking it transfers
-    /// control to the next middleware (or the registered handler, if the current
-    /// middleware is the innermost). Not invoking it short-circuits the pipeline —
-    /// the handler will not run.
+    /// The next step in the dispatch pipeline: the next middleware, or the registered handler for the
+    /// innermost one. The returned task completes when that step — including an asynchronous
+    /// handler — has finished, and faults with its failure. Not calling it short-circuits the
+    /// pipeline: the handler does not run.
     /// </summary>
-    public delegate void DispatchDelegate(DispatchContext context);
+    /// <param name="context">The dispatch being processed.</param>
+    /// <returns>A task that completes when the rest of the pipeline has finished.</returns>
+    public delegate Task DispatchDelegate(DispatchContext context);
 
     /// <summary>
-    /// A cross-cutting interceptor applied around every <see cref="ViewActionDispatcher.Dispatch"/>
-    /// call. Middleware uses an "onion" model: code before <c>next(context)</c> runs
-    /// pre-handler; code after <c>next(context)</c> (including <c>finally</c> blocks)
-    /// runs post-handler in reverse registration order.
+    /// A cross-cutting step around every dispatch (audit, timing, authorization, error dialogs). Onion
+    /// model: code before <c>await next(context)</c> runs before the handler, code after it (and
+    /// <c>finally</c>) runs after the handler has finished — for an asynchronous handler, after its
+    /// last <c>await</c> — in reverse registration order.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Typical uses include audit logging, performance measurement, authorization gates,
-    /// and unified exception handling — concerns that would otherwise be duplicated
-    /// across every action handler.
+    /// A failure of the handler arrives at <c>await next(context)</c>. Catching it handles it (it does
+    /// not propagate; <see cref="DispatchContext.Exception"/> stays a record); rethrowing, or throwing
+    /// another exception, propagates that like an unhandled handler failure. A cancellation because
+    /// the presenter was disposed arrives as an <see cref="System.OperationCanceledException"/>; do not
+    /// show it as an error.
     /// </para>
     /// <para>
-    /// Middleware is invoked synchronously on the UI thread. The framework deliberately
-    /// keeps the contract minimal; carry per-dispatch state on instance fields when
-    /// possible, and only spill onto <see cref="DispatchContext"/> when downstream
-    /// middleware needs to observe it.
+    /// Middleware runs on the dispatching (UI) thread, and continues there after an <c>await</c>. The
+    /// action stays disabled until the whole pipeline has finished. Always await <c>next</c>: a
+    /// middleware that does not still has the handler tracked to its end, but cannot observe it.
     /// </para>
     /// </remarks>
     public interface IDispatchMiddleware
     {
         /// <summary>
-        /// Runs the middleware. Call <paramref name="next"/> to continue the pipeline,
-        /// or omit it to short-circuit.
+        /// Runs the middleware. Await <paramref name="next"/> to continue the pipeline, or return
+        /// without calling it to short-circuit.
         /// </summary>
-        void Invoke(DispatchContext context, DispatchDelegate next);
+        /// <param name="context">The dispatch being processed.</param>
+        /// <param name="next">The rest of the pipeline.</param>
+        /// <returns>A task that completes when this middleware has finished.</returns>
+        Task InvokeAsync(DispatchContext context, DispatchDelegate next);
     }
 }

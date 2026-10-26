@@ -1,4 +1,5 @@
 using System;
+using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel.DataAnnotations;
@@ -64,9 +65,9 @@ namespace Kibinago.Samples.Tests.Common
             dispatcher.Register(Save, () => throw new InvalidOperationException("boom"));
             Exception seenInFinally = null;
             bool executedInFinally = true;
-            dispatcher.Use((ctx, next) =>
+            dispatcher.Use(async (ctx, next) =>
             {
-                try { next(ctx); }
+                try { await next(ctx); }
                 finally
                 {
                     seenInFinally = ctx.Exception;

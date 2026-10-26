@@ -64,7 +64,7 @@ Optional: a simple screen can use plain view events instead.
 | Controls created or removed at run time (choices, rows) | `binder.Add(...)` after `Bind` works at once; `binder.Remove(controls)`; disposed controls drop out |
 | A control the binder does not know (grid, list, third-party editor) | `binder.RegisterStrategy<T>((c, h) => c.SomeEvent += (EventHandler)h, ...)` before `Add` (unknown controls are rejected at `Add`) |
 | Share one binder through the app's own base form | [wiki § 基底 Form](wiki/Reference-ViewAction-System.md) (`protected ViewActionBinder Binder` + explicit `IActionableView.ActionBinder`) |
-| Cross-cutting behavior (audit, timing, error dialogs) | `Dispatcher.Use(middleware)` / `IDispatchMiddleware`, `DispatchContext` |
+| Cross-cutting behavior (audit, timing, error dialogs) — wraps async handlers to their end | `Dispatcher.Use(async (ctx, next) => { ...; await next(ctx); ... })` / `IDispatchMiddleware.InvokeAsync`, `DispatchContext` |
 | Fail fast on wiring mistakes (Debug) | `mvp.Actions.StrictValidation()` / `IDispatcherConfigurer` (`DispatchValidationMode.Strict`) |
 | Legacy form migration (event-only) | Explicit pattern: `ActionBinder => null`, `binder.Bind()`, `ActionRequest` + `ActionRequestEventArgs` |
 

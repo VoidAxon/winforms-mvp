@@ -269,11 +269,13 @@ namespace Kibinago.ViewActions
         }
 
         /// <summary>
-        /// Adds an inline middleware as a lambda. Convenience overload of
+        /// Adds an inline middleware: <c>Use(async (ctx, next) =&gt; { ...; await next(ctx); ... })</c>, or
+        /// <c>(ctx, next) =&gt; next(ctx)</c> for a synchronous pass-through. Convenience overload of
         /// <see cref="Use(IDispatchMiddleware)"/>.
         /// </summary>
+        /// <param name="middleware">The middleware; returns a task that completes when it has finished.</param>
         /// <returns>This dispatcher, to allow chaining.</returns>
-        public ViewActionDispatcher Use(Action<DispatchContext, DispatchDelegate> middleware)
+        public ViewActionDispatcher Use(Func<DispatchContext, DispatchDelegate, Task> middleware)
         {
             if (middleware == null) throw new ArgumentNullException(nameof(middleware));
             return Use(new InlineMiddleware(middleware));
@@ -499,38 +501,35 @@ namespace Kibinago.ViewActions
         }
 
         /// <summary>
-        /// Finishes a dispatch whose handler started successfully. A synchronous handler (null task)
-        /// or one that already completed finishes inline; otherwise the action stays "running"
-        /// (CanDispatch = false) until the task completes, on the dispatching thread's context.
+        /// Finishes a dispatch whose handler started successfully (fast path), or a pipeline run (slow
+        /// path). A synchronous handler (null task) or a task that already completed finishes inline;
+        /// otherwise the action stays "running" (CanDispatch = false) until the task completes, on the
+        /// dispatching thread's context.
         /// </summary>
         /// <param name="actionKey">The dispatched action.</param>
         /// <param name="entry">The registered handler, kept "running" until <paramref name="pending"/> completes.</param>
-        /// <param name="pending">The handler's task; null for a synchronous handler.</param>
+        /// <param name="pending">The handler's task (null for a synchronous handler), or the pipeline's outcome.</param>
         /// <param name="context">The middleware pipeline's context; null on the fast path.</param>
-        /// <param name="delivery">How a handler failure leaves the dispatcher (faulted task, or thrown / posted).</param>
-        /// <param name="succeeded">False when the dispatch already failed around a handler that did
-        /// start (a middleware threw after calling next): the handler is still tracked to its end,
-        /// but no ActionExecuted is raised.</param>
+        /// <param name="delivery">How a failure leaves the dispatcher (faulted task, or thrown / posted).</param>
         private Task Complete(ViewAction actionKey, ActionHandlerEntry entry, Task pending, DispatchContext context,
-            Delivery delivery, bool succeeded = true)
+            Delivery delivery)
         {
             if (pending == null)
             {
-                if (succeeded && !_inactive) ActionExecuted?.Invoke(this, new ActionExecutedEventArgs(actionKey));
-                else NotifyCanExecuteChanged();
+                if (!_inactive) ActionExecuted?.Invoke(this, new ActionExecutedEventArgs(actionKey));
                 return Task.CompletedTask;
             }
 
             if (pending.IsCompleted)
             {
-                var failure = Finish(actionKey, entry, pending, context, succeeded);
-                // !succeeded: the pipeline failed around this handler and reports its own failure.
-                return failure == null || !succeeded ? Task.CompletedTask : delivery.FailNow(failure);
+                var failure = Finish(actionKey, entry, pending, context, ranAsync: false);
+                return failure == null ? Task.CompletedTask : delivery.FailNow(failure);
             }
 
+            entry.IsRunning = true;      // also a synchronous handler behind a middleware that awaits
             NotifyCanExecuteChanged();   // the action is now running: disable it
-            var tracking = AwaitHandler(actionKey, entry, pending, context, succeeded);
-            if (delivery.Awaitable) return tracking;   // (!succeeded: it faults only for a subscriber's failure)
+            var tracking = AwaitHandler(actionKey, entry, pending, context);
+            if (delivery.Awaitable) return tracking;
 
             // Dispatch's caller has returned: a later failure goes to the dispatching context.
             tracking.ContinueWith(t => delivery.FailLater(ExceptionDispatchInfo.Capture(t.Exception.InnerException)),
@@ -540,29 +539,26 @@ namespace Kibinago.ViewActions
         }
 
         /// <summary>
-        /// Completes when the handler has finished and been finished; faults with its failure (unless
-        /// <paramref name="succeeded"/> is false: the pipeline reports its own). Built on a
-        /// TaskCompletionSource so that a failure which is an OperationCanceledException still faults
+        /// Completes when the handler has finished and been finished; faults with its failure. Built on
+        /// a TaskCompletionSource so that a failure which is an OperationCanceledException still faults
         /// the task instead of cancelling it.
         /// </summary>
-        private Task AwaitHandler(ViewAction actionKey, ActionHandlerEntry entry, Task pending, DispatchContext context,
-            bool succeeded)
+        private Task AwaitHandler(ViewAction actionKey, ActionHandlerEntry entry, Task pending, DispatchContext context)
         {
             var result = new TaskCompletionSource<bool>();
             // FinishWhenDone never throws (it returns what failed), so the bridge always completes.
-            FinishWhenDone(actionKey, entry, pending, context, succeeded).ContinueWith(t =>
+            FinishWhenDone(actionKey, entry, pending, context).ContinueWith(t =>
             {
                 var (handlerFailure, subscriberFailure) = t.Status == TaskStatus.RanToCompletion ? t.Result : (null, null);
-                // A subscriber's failure always counts; the handler's is the pipeline's to report when it failed.
-                if (subscriberFailure != null) result.SetException(subscriberFailure.SourceException);
-                else if (handlerFailure != null && succeeded) result.SetException(handlerFailure.SourceException);
+                var failure = subscriberFailure ?? handlerFailure;
+                if (failure != null) result.SetException(failure.SourceException);
                 else result.SetResult(true);
             }, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
             return result.Task;
         }
 
         private async Task<(ExceptionDispatchInfo Handler, ExceptionDispatchInfo Subscriber)> FinishWhenDone(
-            ViewAction actionKey, ActionHandlerEntry entry, Task pending, DispatchContext context, bool succeeded)
+            ViewAction actionKey, ActionHandlerEntry entry, Task pending, DispatchContext context)
         {
             try
             {
@@ -574,7 +570,7 @@ namespace Kibinago.ViewActions
             }
             try
             {
-                return (Finish(actionKey, entry, pending, context, succeeded), null);
+                return (Finish(actionKey, entry, pending, context, ranAsync: true), null);
             }
             catch (Exception ex)
             {
@@ -586,19 +582,28 @@ namespace Kibinago.ViewActions
 
         /// <summary>Restores the action after its handler ended; returns the failure to propagate
         /// (null for success and cancellation).</summary>
+        /// <param name="actionKey">The dispatched action.</param>
+        /// <param name="entry">The registered handler.</param>
+        /// <param name="completed">The handler's task (fast path) or the pipeline's outcome.</param>
+        /// <param name="context">The pipeline's context; null on the fast path.</param>
+        /// <param name="ranAsync">The action was disabled while it ran and must be refreshed.</param>
         private ExceptionDispatchInfo Finish(ViewAction actionKey, ActionHandlerEntry entry, Task completed, DispatchContext context,
-            bool succeeded)
+            bool ranAsync)
         {
             entry.IsRunning = false;
 
             if (completed.Status == TaskStatus.RanToCompletion)
             {
-                if (!succeeded)
+                // Through middleware, success means the handler ran and did not fail: not short-circuited,
+                // not a failure a middleware caught (that one refreshes CanExecute: state may have changed).
+                if (context == null || (context.HandlerExecuted && !context.HandlerFailed))
+                {
+                    if (!_inactive) ActionExecuted?.Invoke(this, new ActionExecutedEventArgs(actionKey));
+                }
+                else if (ranAsync || context.HandlerFailed)
                 {
                     NotifyCanExecuteChanged();
-                    return null;
                 }
-                if (!_inactive) ActionExecuted?.Invoke(this, new ActionExecutedEventArgs(actionKey));
                 return null;
             }
 
@@ -637,64 +642,47 @@ namespace Kibinago.ViewActions
         {
             // Compile once per dispatcher; invalidated by Use() calls.
             var pipeline = _compiledPipeline ?? (_compiledPipeline = CompilePipeline());
-
             var context = new DispatchContext(actionKey, payload, entry.PayloadType, entry.Handler, Lifetime);
 
-            ExceptionDispatchInfo thrown = null;
+            // The pipeline's outcome finishes exactly like a handler's task on the fast path: only a
+            // failure that escaped every middleware propagates (one that caught it has handled it;
+            // ctx.Exception stays a record).
+            return Complete(actionKey, entry, RunPipeline(pipeline, context), context, delivery);
+        }
+
+        /// <summary>
+        /// Runs the pipeline and returns its outcome; never throws. When a middleware returned without
+        /// awaiting an asynchronous handler, the outcome also waits for the handler, whose result then
+        /// counts (nobody observed it) unless the pipeline itself failed.
+        /// </summary>
+        private static Task RunPipeline(DispatchDelegate pipeline, DispatchContext context)
+        {
+            Task outcome;
             try
             {
-                pipeline(context);
-            }
-            catch (OperationCanceledException) when (Lifetime.IsCancellationRequested)
-            {
-                _logger.LogDebug("ViewActionDispatcher: {ActionKey} was cancelled because its owner was disposed", actionKey);
+                outcome = pipeline(context) ?? Task.CompletedTask;
             }
             catch (Exception ex)
             {
-                // No middleware caught the exception (or one threw its own).
-                LogHandlerFailure(actionKey, ex);
-                context.Exception = ex;
-                thrown = ExceptionDispatchInfo.Capture(ex);
+                // Thrown synchronously: by a middleware, or by the handler and not caught.
+                outcome = Faulted(ex);
             }
 
-            // Only an exception that escaped the pipeline propagates. A middleware that caught it has
-            // handled it (e.g. showed its own dialog); ctx.Exception stays a record for auditing.
-            var failure = thrown;
+            if (outcome.IsCompleted && (context.HandlerTask == null || context.HandlerTask.IsCompleted))
+                return outcome;
 
-            if (context.HandlerExecuted && context.Exception == null)
-            {
-                var completion = context.Completion;
-                return Complete(actionKey, entry,
-                    entry.Handler.IsAsync ? completion : null, context, delivery);
-            }
-
-            // A middleware failed after an asynchronous handler started: keep tracking the handler
-            // (it is still running, must stay disabled, and its own failure must be observed).
-            if (context.HandlerExecuted && entry.Handler.IsAsync)
-            {
-                var tracking = Complete(actionKey, entry, context.Completion, context, delivery, succeeded: false);
-                if (failure == null) return tracking;   // a middleware recorded a failure but handled it
-                return delivery.Awaitable ? AfterHandler(tracking, failure) : delivery.FailNow(failure);
-            }
-
-            entry.IsRunning = false;
-            if (failure != null || context.HandlerFailed)
-            {
-                // Mirror the fast path: a failed handler may have changed state (also when handled).
-                NotifyCanExecuteChanged();
-            }
-            return failure == null ? Task.CompletedTask : delivery.FailNow(failure);
-        }
-
-        /// <summary>DispatchAsync after a middleware failed around a started handler: fault with the
-        /// middleware's failure once the handler has finished.</summary>
-        private static Task AfterHandler(Task tracking, ExceptionDispatchInfo failure)
-        {
-            // Bridged like AwaitHandler, so an OperationCanceledException failure faults the task.
-            // The handler's own failure was logged; the pipeline's is the one reported.
             var result = new TaskCompletionSource<bool>();
-            tracking.ContinueWith(_ => result.SetException(failure.SourceException),
-                CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+            outcome.ContinueWith(o =>
+            {
+                var handler = context.HandlerTask;
+                if (handler == null || handler.IsCompleted)
+                {
+                    Transfer(o, result);
+                    return;
+                }
+                handler.ContinueWith(h => Transfer(o.Status == TaskStatus.RanToCompletion ? h : o, result),
+                    CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+            }, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
             return result.Task;
         }
 
@@ -703,8 +691,8 @@ namespace Kibinago.ViewActions
             // Terminal step: read the handler off the context and invoke it.
             // Reading from context (not capturing the per-dispatch entry) lets the compiled
             // pipeline be cached and reused across all actions registered on this dispatcher.
-            // The exception is recorded here, as it leaves the handler, so outer middleware
-            // (audit, perf) already sees ctx.Exception in its finally block while unwinding.
+            // The failure is recorded as it leaves the handler, so outer middleware (audit, perf)
+            // already sees ctx.Exception in its finally block while unwinding.
             DispatchDelegate next = ctx =>
             {
                 Task pending;
@@ -719,7 +707,8 @@ namespace Kibinago.ViewActions
                     throw;
                 }
                 ctx.HandlerExecuted = true;
-                if (pending != null) ctx.Completion = pending;
+                if (pending == null || pending.Status == TaskStatus.RanToCompletion) return Task.CompletedTask;
+                return ctx.HandlerTask = ObserveHandler(ctx, pending);
             };
 
             // Build the chain inside-out so that the first-registered middleware ends up
@@ -730,10 +719,55 @@ namespace Kibinago.ViewActions
             {
                 var middleware = middlewares[i];
                 var capturedNext = next;
-                next = ctx => middleware.Invoke(ctx, capturedNext);
+                next = ctx => middleware.InvokeAsync(ctx, capturedNext);
             }
 
             return next;
+        }
+
+        /// <summary>
+        /// The handler's task as the pipeline sees it: records a failure on the context before an
+        /// awaiting middleware resumes. Bridged so a failure that is an OperationCanceledException stays
+        /// a failure.
+        /// </summary>
+        private static Task ObserveHandler(DispatchContext ctx, Task pending)
+        {
+            var result = new TaskCompletionSource<bool>();
+            pending.ContinueWith(t =>
+            {
+                if (t.IsFaulted)
+                {
+                    var error = t.Exception.InnerExceptions.Count == 1 ? t.Exception.InnerException : t.Exception;
+                    ctx.HandlerFailed = true;
+                    if (!(error is OperationCanceledException && ctx.CancellationToken.IsCancellationRequested))
+                        ctx.Exception = error;
+                    result.SetException(t.Exception.InnerExceptions);
+                }
+                else if (t.IsCanceled)
+                {
+                    ctx.HandlerFailed = true;
+                    result.SetCanceled();
+                }
+                else
+                {
+                    result.SetResult(true);
+                }
+            }, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+            return result.Task;
+        }
+
+        private static Task Faulted(Exception error)
+        {
+            var result = new TaskCompletionSource<bool>();
+            result.SetException(error);
+            return result.Task;
+        }
+
+        private static void Transfer(Task from, TaskCompletionSource<bool> to)
+        {
+            if (from.IsFaulted) to.SetException(from.Exception.InnerExceptions);
+            else if (from.IsCanceled) to.SetCanceled();
+            else to.SetResult(true);
         }
 
         private bool SafeCanExecute(ViewAction actionKey, ActionHandlerEntry entry)

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using System.Linq;
 using Kibinago.Logging;
 using Kibinago.ViewActions;
@@ -26,7 +27,7 @@ namespace Kibinago.Samples.Tests.ViewActions
             var dispatcher = new ViewActionDispatcher();
             Assert.Throws<ArgumentNullException>(() => dispatcher.Use((IDispatchMiddleware)null));
             Assert.Throws<ArgumentNullException>(
-                () => dispatcher.Use((Action<DispatchContext, DispatchDelegate>)null));
+                () => dispatcher.Use((Func<DispatchContext, DispatchDelegate, Task>)null));
         }
 
         [Fact]
@@ -74,16 +75,16 @@ namespace Kibinago.Samples.Tests.ViewActions
             var dispatcher = new ViewActionDispatcher();
             var trace = new List<string>();
 
-            dispatcher.Use((ctx, next) =>
+            dispatcher.Use(async (ctx, next) =>
             {
                 trace.Add("outer:pre");
-                next(ctx);
+                await next(ctx);
                 trace.Add("outer:post");
             });
-            dispatcher.Use((ctx, next) =>
+            dispatcher.Use(async (ctx, next) =>
             {
                 trace.Add("inner:pre");
-                next(ctx);
+                await next(ctx);
                 trace.Add("inner:post");
             });
 
@@ -107,11 +108,12 @@ namespace Kibinago.Samples.Tests.ViewActions
             dispatcher.Use((ctx, next) =>
             {
                 // Deliberately do not call next(ctx)
+                return Task.CompletedTask;
             });
-            dispatcher.Use((ctx, next) =>
+            dispatcher.Use(async (ctx, next) =>
             {
                 innerEntered = true;
-                next(ctx);
+                await next(ctx);
             });
 
             dispatcher.Register(TestAction, () => handlerCalled = true);
@@ -129,7 +131,7 @@ namespace Kibinago.Samples.Tests.ViewActions
             bool actionExecutedRaised = false;
             dispatcher.ActionExecuted += (s, k) => actionExecutedRaised = true;
 
-            dispatcher.Use((ctx, next) => { /* short-circuit */ });
+            dispatcher.Use((ctx, next) => { /* short-circuit */ return Task.CompletedTask; });
             dispatcher.Register(TestAction, () => { });
 
             dispatcher.Dispatch(TestAction);
@@ -145,10 +147,10 @@ namespace Kibinago.Samples.Tests.ViewActions
             var dispatcher = new ViewActionDispatcher();
             DispatchContext captured = null;
 
-            dispatcher.Use((ctx, next) =>
+            dispatcher.Use(async (ctx, next) =>
             {
                 captured = ctx;
-                next(ctx);
+                await next(ctx);
             });
 
             dispatcher.Register<string>(TestAction, _ => { });
@@ -166,9 +168,9 @@ namespace Kibinago.Samples.Tests.ViewActions
             var dispatcher = new ViewActionDispatcher();
             DispatchContext captured = null;
 
-            dispatcher.Use((ctx, next) =>
+            dispatcher.Use(async (ctx, next) =>
             {
-                next(ctx);
+                await next(ctx);
                 captured = ctx;
             });
 
@@ -189,6 +191,7 @@ namespace Kibinago.Samples.Tests.ViewActions
             {
                 captured = ctx;
                 // short-circuit
+                return Task.CompletedTask;
             });
 
             dispatcher.Register(TestAction, () => { });
@@ -268,9 +271,9 @@ namespace Kibinago.Samples.Tests.ViewActions
             var dispatcher = new ViewActionDispatcher();
             Exception caughtByMiddleware = null;
 
-            dispatcher.Use((ctx, next) =>
+            dispatcher.Use(async (ctx, next) =>
             {
-                try { next(ctx); }
+                try { await next(ctx); }
                 catch (Exception ex)
                 {
                     caughtByMiddleware = ex;
@@ -292,9 +295,9 @@ namespace Kibinago.Samples.Tests.ViewActions
             bool actionExecutedRaised = false;
             dispatcher.ActionExecuted += (s, k) => actionExecutedRaised = true;
 
-            dispatcher.Use((ctx, next) =>
+            dispatcher.Use(async (ctx, next) =>
             {
-                try { next(ctx); }
+                try { await next(ctx); }
                 catch (Exception ex) { ctx.Exception = ex; }
             });
 
@@ -313,9 +316,9 @@ namespace Kibinago.Samples.Tests.ViewActions
             bool actionExecutedRaised = false;
             dispatcher.ActionExecuted += (s, k) => actionExecutedRaised = true;
 
-            dispatcher.Use((ctx, next) =>
+            dispatcher.Use(async (ctx, next) =>
             {
-                try { next(ctx); }
+                try { await next(ctx); }
                 catch { /* fully swallow */ }
             });
 
@@ -360,10 +363,10 @@ namespace Kibinago.Samples.Tests.ViewActions
 
             if (forceSlowPath)
             {
-                dispatcher.Use((ctx, next) =>
+                dispatcher.Use(async (ctx, next) =>
                 {
                     middlewareEntered = true;
-                    next(ctx);
+                    await next(ctx);
                 });
             }
 
@@ -388,10 +391,10 @@ namespace Kibinago.Samples.Tests.ViewActions
 
             if (forceSlowPath)
             {
-                dispatcher.Use((ctx, next) =>
+                dispatcher.Use(async (ctx, next) =>
                 {
                     middlewareEntered = true;
-                    next(ctx);
+                    await next(ctx);
                 });
             }
 
@@ -474,10 +477,10 @@ namespace Kibinago.Samples.Tests.ViewActions
                 _trace = trace;
             }
 
-            public void Invoke(DispatchContext context, DispatchDelegate next)
+            public async Task InvokeAsync(DispatchContext context, DispatchDelegate next)
             {
                 _trace.Add(_name + ":pre");
-                next(context);
+                await next(context);
                 _trace.Add(_name + ":post");
             }
         }
@@ -491,10 +494,10 @@ namespace Kibinago.Samples.Tests.ViewActions
                 onInstantiated?.Invoke();
             }
 
-            public void Invoke(DispatchContext context, DispatchDelegate next)
+            public Task InvokeAsync(DispatchContext context, DispatchDelegate next)
             {
                 InvokeCount++;
-                next(context);
+                return next(context);
             }
         }
     }

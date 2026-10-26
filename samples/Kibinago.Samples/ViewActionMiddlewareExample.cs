@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Threading.Tasks;
 using Kibinago.Logging;
 using Kibinago.ViewActions;
 
@@ -57,7 +58,7 @@ namespace Kibinago.Samples
             _userResolver = userResolver ?? throw new ArgumentNullException(nameof(userResolver));
         }
 
-        public void Invoke(DispatchContext context, DispatchDelegate next)
+        public async Task InvokeAsync(DispatchContext context, DispatchDelegate next)
         {
             var entry = new AuditEntry
             {
@@ -68,7 +69,7 @@ namespace Kibinago.Samples
 
             try
             {
-                next(context);
+                await next(context);   // completes when the handler has finished, even an async one
             }
             finally
             {
@@ -95,12 +96,12 @@ namespace Kibinago.Samples
             _slowThresholdMs = slowThresholdMs;
         }
 
-        public void Invoke(DispatchContext context, DispatchDelegate next)
+        public async Task InvokeAsync(DispatchContext context, DispatchDelegate next)
         {
             var sw = Stopwatch.StartNew();
             try
             {
-                next(context);
+                await next(context);   // an async handler is timed to its end, not to its first await
             }
             finally
             {
@@ -140,11 +141,15 @@ namespace Kibinago.Samples
             _logger = logger ?? NullLogger.Instance;
         }
 
-        public void Invoke(DispatchContext context, DispatchDelegate next)
+        public async Task InvokeAsync(DispatchContext context, DispatchDelegate next)
         {
             try
             {
-                next(context);
+                await next(context);   // also catches a failure after the handler's first await
+            }
+            catch (OperationCanceledException) when (context.CancellationToken.IsCancellationRequested)
+            {
+                throw;   // the window closed while the action ran: not an error, the framework stays silent
             }
             catch (ArgumentException ex)
             {
@@ -187,16 +192,15 @@ namespace Kibinago.Samples
     //
     //      protected override void RegisterViewActions()
     //      {
-    //          _dispatcher.Use(new PerformanceMiddleware(Logger, slowThresholdMs: 50));
-    //          _dispatcher.Register(CommonActions.Save, OnSave);
+    //          Dispatcher.Use(new PerformanceMiddleware(Logger, slowThresholdMs: 50));
+    //          Dispatcher.Register(CommonActions.Save, OnSave);
     //      }
     //
     //  Inline lambdas also work for one-off cases:
     //
-    //      _dispatcher.Use((ctx, next) =>
-    //      {
-    //          if (_isReadOnly && IsDestructive(ctx.Action)) return;  // short-circuit
-    //          next(ctx);
-    //      });
+    //      Dispatcher.Use((ctx, next) =>
+    //          _isReadOnly && IsDestructive(ctx.Action)
+    //              ? Task.CompletedTask   // short-circuit
+    //              : next(ctx));
     // ============================================================================
 }

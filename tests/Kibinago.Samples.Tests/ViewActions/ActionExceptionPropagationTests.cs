@@ -154,7 +154,7 @@ namespace Kibinago.Samples.Tests.ViewActions
         {
             var (dispatcher, _) = NewDispatcher();
             Exception seen = null;
-            dispatcher.Use((ctx, next) => { try { next(ctx); } finally { seen = ctx.Exception; } });
+            dispatcher.Use(async (ctx, next) => { try { await next(ctx); } finally { seen = ctx.Exception; } });
             dispatcher.Register(Save, () => throw new InvalidOperationException("boom"));
 
             Assert.Throws<InvalidOperationException>(() => dispatcher.Dispatch(Save));
@@ -167,9 +167,9 @@ namespace Kibinago.Samples.Tests.ViewActions
             var (dispatcher, _) = NewDispatcher();
             bool executed = false, refreshed = false;
             dispatcher.ActionExecuted += (s, e) => executed = true;
-            dispatcher.Use((ctx, next) =>
+            dispatcher.Use(async (ctx, next) =>
             {
-                try { next(ctx); }
+                try { await next(ctx); }
                 catch (InvalidOperationException) { ctx.Exception = null; }   // e.g. showed its own message
             });
             dispatcher.Register(Save, () => throw new InvalidOperationException("boom"));
@@ -186,10 +186,10 @@ namespace Kibinago.Samples.Tests.ViewActions
         {
             var (dispatcher, _) = NewDispatcher();
             Exception audited = null;
-            dispatcher.Use((ctx, next) => { try { next(ctx); } finally { audited = ctx.Exception; } });   // outer: audit
-            dispatcher.Use((ctx, next) =>
+            dispatcher.Use(async (ctx, next) => { try { await next(ctx); } finally { audited = ctx.Exception; } });   // outer: audit
+            dispatcher.Use(async (ctx, next) =>
             {
-                try { next(ctx); }
+                try { await next(ctx); }
                 catch (InvalidOperationException) { /* showed an error dialog; ctx.Exception stays set */ }
             });
             dispatcher.Register(Save, () => throw new InvalidOperationException("boom"));
@@ -203,9 +203,9 @@ namespace Kibinago.Samples.Tests.ViewActions
         public void Middleware_ThatRethrowsAnotherException_PropagatesThatOne()
         {
             var (dispatcher, _) = NewDispatcher();
-            dispatcher.Use((ctx, next) =>
+            dispatcher.Use(async (ctx, next) =>
             {
-                try { next(ctx); }
+                try { await next(ctx); }
                 catch (InvalidOperationException ex) { throw new ApplicationException("wrapped", ex); }
             });
             dispatcher.Register(Save, () => throw new InvalidOperationException("boom"));
@@ -293,17 +293,15 @@ namespace Kibinago.Samples.Tests.ViewActions
         }
 
         [Fact]
-        public async Task SubscriberThrows_AfterAHandledMiddlewareFailure_StillFaultsDispatchAsync()
+        public async Task SubscriberThrows_AfterAnAsyncPipeline_StillFaultsDispatchAsync()
         {
             var (dispatcher, _) = NewDispatcher();
             var handler = new TaskCompletionSource<bool>();
             dispatcher.Register(Save, () => (Task)handler.Task);
-            dispatcher.Use((ctx, next) => { next(ctx); ctx.Exception = new ApplicationException("handled by middleware"); });
-            bool handlerDone = false;
-            dispatcher.CanExecuteChanged += (s, e) => { if (handlerDone) throw new InvalidOperationException("subscriber"); };
+            dispatcher.Use(async (ctx, next) => { await next(ctx); ctx.Exception = new ApplicationException("a record only"); });
+            dispatcher.ActionExecuted += (s, e) => throw new InvalidOperationException("subscriber");
 
             var task = dispatcher.DispatchAsync(Save);
-            handlerDone = true;
             handler.SetResult(true);
 
             var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => task);

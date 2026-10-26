@@ -35,28 +35,16 @@ namespace Kibinago.ViewActions
         public Type ExpectedPayloadType { get; }
 
         /// <summary>
-        /// <c>true</c> once the registered handler has actually been invoked (for an asynchronous
-        /// handler: once it has started; see <see cref="Completion"/>). Middleware
-        /// can inspect this in <c>finally</c> blocks to know whether the dispatch reached
-        /// the terminal step (for example, whether to record an audit entry as "executed"
-        /// vs "short-circuited").
+        /// <c>true</c> once the registered handler has been invoked (an asynchronous one: once it has
+        /// started). Middleware can read it in <c>finally</c> to tell "executed" from
+        /// "short-circuited" (for example, in an audit entry).
         /// </summary>
         public bool HandlerExecuted { get; internal set; }
 
         /// <summary>
-        /// For an asynchronous handler, the task that completes when the handler finishes; for a
-        /// synchronous handler, a completed task. Middleware runs around the handler's synchronous
-        /// part only — observe this to time or audit the whole asynchronous operation. A failure
-        /// after the first <c>await</c> is logged by the dispatcher, not surfaced through
-        /// <see cref="Exception"/> (middleware has already returned by then).
-        /// </summary>
-        public System.Threading.Tasks.Task Completion { get; internal set; } = System.Threading.Tasks.Task.CompletedTask;
-
-        /// <summary>
-        /// The exception thrown by the handler, if any. Set by the framework's built-in
-        /// safety-net catch around the handler invocation. Middleware can read this in
-        /// outer <c>finally</c> blocks to react to failures, and may clear it (set to
-        /// <c>null</c>) to signal "I handled it" to subsequent observers.
+        /// The handler's failure, if any — thrown synchronously or after an <c>await</c>. Set as the
+        /// failure leaves the handler, so an outer middleware's <c>finally</c> already sees it. It is a
+        /// record: whether the failure propagates depends only on whether a middleware caught it.
         /// </summary>
         public Exception Exception { get; set; }
 
@@ -64,6 +52,10 @@ namespace Kibinago.ViewActions
         internal bool HandlerFailed { get; set; }
 
         internal IViewActionHandler Handler { get; }
+
+        /// <summary>What the handler step returned (null until it ran, or for a synchronous handler):
+        /// tracked to its end even when a middleware does not await it.</summary>
+        internal System.Threading.Tasks.Task HandlerTask { get; set; }
 
         /// <summary>The token passed to an asynchronous handler (cancelled when the owner is disposed).</summary>
         public System.Threading.CancellationToken CancellationToken { get; }

@@ -89,24 +89,6 @@ namespace Kibinago.Samples.Tests.ViewActions
         }
 
         [Fact]
-        public async Task Middleware_SeesTheHandlersCompletionTask()
-        {
-            var dispatcher = new ViewActionDispatcher();
-            var gate = new TaskCompletionSource<bool>();
-            dispatcher.Register(Save, () => (Task)gate.Task);
-            Task seen = null;
-            dispatcher.Use((ctx, next) => { next(ctx); seen = ctx.Completion; });
-
-            var dispatch = dispatcher.DispatchAsync(Save);
-
-            Assert.NotNull(seen);
-            Assert.False(seen.IsCompleted);
-            gate.SetResult(true);
-            await dispatch;
-            Assert.True(seen.IsCompleted);
-        }
-
-        [Fact]
         public async Task MiddlewareThrowsAfterStartingAsyncHandler_HandlerIsStillTracked()
         {
             var dispatcher = new ViewActionDispatcher();

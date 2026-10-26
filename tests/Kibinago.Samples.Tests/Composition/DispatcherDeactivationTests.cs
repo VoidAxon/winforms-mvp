@@ -72,7 +72,7 @@ namespace Kibinago.Samples.Tests.Composition
         {
             var dispatcher = new ViewActionDispatcher();
             int middleware = 0;
-            dispatcher.Use((ctx, next) => { middleware++; next(ctx); });
+            dispatcher.Use(async (ctx, next) => { middleware++; await next(ctx); });
             dispatcher.Register(Run, () => { });
             dispatcher.Deactivate();
 
