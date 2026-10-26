@@ -8,6 +8,11 @@
 
 ## [Unreleased]
 
+### Added (追加)
+
+- **テンプレート `mvp-window --edit`: 編集ダイアログ** — モデルを受け取って開き、保存したモデルを結果として返し、未保存の変更があれば ✕ / Esc / Cancel で「保存しますか？」(はい: 検証して結果を返す / いいえ: 破棄 / キャンセル: 続ける)。Ok と「はい」は検証に失敗すると最初のエラーを出してフォーカスし、閉じない。`ChangeTracker` (`IsChangedWith(ReadModel())` / `AcceptChanges(model)`) と `CanClose` 内の `RequestClose(model, Ok)` を使う、いちばんよくある画面の完成形 (新人試用 2 回目: 3 ページを読んで組み立てる必要があった)。`verify-templates.sh` が生成された Presenter を 8 つのテストで動かす。
+- `verify-templates.sh` は最初にコンパイラサーバーを止める (別のビルドで古い WinForms アナライザーを読み込んだサーバーが生成プロジェクトのビルドを失敗させていた)。
+
 ### Changed (変更)
 
 - **`Selection<T>`: 一覧を再読込して同じ行を選び直すと、新しいインスタンスに置き換わる** (新人試用 2 回目で発覚)。以前は Key (`ISelectable` / comparer) が同じだと何もせず、`Current` は古いインスタンスのまま、`CurrentChanged` も起きなかったため、編集・保存後に詳細パネルが古いデータを表示していた (回避策の `Select(null)` → `Select(item)` は下位の連鎖まで無駄にクリアしていた)。

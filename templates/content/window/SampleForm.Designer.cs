@@ -17,14 +17,14 @@ namespace MvpNamespace
 
         private void InitializeComponent()
         {
-//#if (Validation)
+//#if (HasModel)
             this.components = new System.ComponentModel.Container();
 //#endif
             this.lblTitle = new System.Windows.Forms.Label();
             this.txtTitle = new System.Windows.Forms.TextBox();
             this.btnOk = new System.Windows.Forms.Button();
             this.btnCancel = new System.Windows.Forms.Button();
-//#if (Validation)
+//#if (HasModel)
             this.errorProvider = new System.Windows.Forms.ErrorProvider(this.components);
             ((System.ComponentModel.ISupportInitialize)(this.errorProvider)).BeginInit();
 //#endif
@@ -63,7 +63,7 @@ namespace MvpNamespace
             this.btnCancel.TabIndex = 3;
             this.btnCancel.Text = "Cancel";
             this.btnCancel.UseVisualStyleBackColor = true;
-//#if (Validation)
+//#if (HasModel)
             //
             // errorProvider
             //
@@ -88,7 +88,7 @@ namespace MvpNamespace
             this.Name = "SampleForm";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
             this.Text = "Sample";
-//#if (Validation)
+//#if (HasModel)
             ((System.ComponentModel.ISupportInitialize)(this.errorProvider)).EndInit();
 //#endif
             this.ResumeLayout(false);
@@ -101,7 +101,7 @@ namespace MvpNamespace
         private System.Windows.Forms.TextBox txtTitle;
         private System.Windows.Forms.Button btnOk;
         private System.Windows.Forms.Button btnCancel;
-//#if (Validation)
+//#if (HasModel)
         private System.Windows.Forms.ErrorProvider errorProvider;
 //#endif
     }

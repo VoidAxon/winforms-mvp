@@ -101,13 +101,14 @@ dotnet new kibinago -n MyApp [--framework net10.0-windows|net472] [--kibinago-ve
 **アプリのプロジェクトフォルダ内で** 実行します。
 
 ```bash
-dotnet new mvp-window -n OrderEdit [--param-type int] [--validation] [--namespace MyApp.Orders]
+dotnet new mvp-window -n OrderEdit [--param-type int] [--validation | --edit] [--namespace MyApp.Orders]
 ```
 
 | オプション | 既定値 | 説明 |
 |-----------|-------|------|
 | `--param-type` | (なし) | ウィンドウを開くときのパラメータ型。指定すると `WindowPresenterBase<IOrderEditView, int>` と `OnInitialize(int parameters)` になる。自分の型 (`Customer` など) を指定するときは、その型を **先に** 作っておく (なければ生成直後のビルドが失敗する。名前空間が違えば `using` を足す) |
 | `--validation` | `false` | `OrderEditModel` (DataAnnotations) を追加し、View を `IValidatableView` にして `ErrorProviderDisplay` でエラーをフィールドの横に表示 |
+| `--edit` | `false` | **編集ダイアログ** (下記)。モデルを受け取って開き、保存したモデルを結果として返し、未保存の変更があれば ✕ / Esc / Cancel で「保存しますか？」と聞く。`--validation` を含む。`--param-type` は無視 (パラメータはモデル) |
 | `-ns`, `--namespace` | プロジェクトの `RootNamespace` | 生成ファイルの名前空間。サブフォルダに生成するときに指定する |
 
 生成されるファイル: `IOrderEditView.cs` / `OrderEditActions.cs` / `OrderEditPresenter.cs` / `OrderEditForm.cs` / `OrderEditForm.Designer.cs` (`--validation` 時は `OrderEditModel.cs` も)。
@@ -122,6 +123,35 @@ Navigator.For(new OrderEditPresenter()).ShowAsModal();
 // --param-type int の場合
 Navigator.For(new OrderEditPresenter()).WithParam(orderId).ShowAsModal();
 ```
+
+### 編集ダイアログ (`--edit`)
+
+「一覧から開いて 1 件を編集し、保存したら一覧に返す」ダイアログを、未保存の確認まで含めて生成します。
+
+```bash
+dotnet new mvp-window -n CustomerEdit --edit
+```
+
+- `CustomerEditPresenter : WindowPresenterBase<ICustomerEditView, CustomerEditModel>` — 開くときにモデルを受け取り、画面に表示した内容を `ChangeTracker` で覚えます。
+- **Ok**: 検証 (`Validation.Check`) → 失敗なら最初のエラーをメッセージで出してそのフィールドへフォーカス → 成功なら `AcceptChanges` してモデルを結果に閉じる。
+- **✕ / Esc / Cancel**: 変更がなければそのまま閉じる。変更があれば「保存しますか？」— はい: 検証して結果を返して閉じる (不正なら閉じない)、いいえ: 破棄して閉じる、キャンセル: 編集を続ける。Esc は Form の `CancelButton` (Cancel ボタン) で、同じ確認を通ります。
+- 保存 (リポジトリへの書き込み) は呼び出し側で行います。ダイアログの中で保存したい場合は、Presenter のコンストラクタにリポジトリを足し、`OnOk` と `CanClose` の「はい」で保存してから `RequestClose` します (非同期なら `CanCloseAsync`)。
+
+呼び出し側 (一覧の Presenter):
+
+```csharp
+private void OnEdit()
+{
+    var r = Navigator.For(new CustomerEditPresenter()).WithParam(ToEditModel(View.SelectedCustomer)).ShowAsModal<CustomerEditModel>();
+    if (!r.IsOk) return;
+    var saved = _repository.Save(r.Value);
+    Reload();
+    _selection.Select(saved);   // Selection<T>: 同じ行の新しいインスタンスでも詳細表示が更新される
+}
+// 追加は WithParam(new CustomerEditModel())
+```
+
+フィールドを足すときは、`CustomerEditModel` にプロパティ (と検証属性) を、View インターフェイス・Form にプロパティとコントロール (`ErrorProviderDisplay.Map(...)` も) を、Presenter の `OnInitialize` と `ReadModel` に 1 行ずつ足します。テストの書き方は [HowTo: Presenter をテストする § 検証エラーを検証する](HowTo-Test-A-Presenter#検証エラーを検証する) と [ウィンドウクローズのテスト](HowTo-Test-A-Presenter#ウィンドウクローズのテスト) を参照 (`_fakes.Messages.EnqueueYesNoCancel(ConfirmResult.Yes)` → `host.CanClose()` → `host.CloseResult`)。
 
 > **ポイント:** 名前空間の既定値はプロジェクトの `RootNamespace` から読み取ります。これには **restore 済みのプロジェクト** が必要です (`dotnet new kibinago` は自動で restore します。`--no-restore` で作った場合は先に `dotnet restore`)。サブフォルダ (例: `Dialogs/`) に生成するときは `--namespace MyApp.Dialogs` のように明示してください。
 

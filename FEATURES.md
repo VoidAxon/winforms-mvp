@@ -203,7 +203,7 @@ With a `ProjectReference`, reference `Kibinago.Analyzers` as an analyzer explici
 
 **`dotnet new` templates** (`dotnet new install Kibinago.Templates`) · [wiki](wiki/HowTo-Use-Templates.md):
 `kibinago` (app; `--framework net10.0-windows|net472`, `--kibinago-version`, `--no-restore`) ·
-`mvp-window` (`--param-type`, `--validation`, `--namespace`) · `mvp-control` (`--namespace`) ·
+`mvp-window` (`--param-type`, `--validation`, `--edit` = edit dialog with result + unsaved-changes prompt, `--namespace`) · `mvp-control` (`--namespace`) ·
 `kibinago-tests` (`--framework`, `--kibinago-version`, `--app-project`).
 
 ## 16. Where to read more
