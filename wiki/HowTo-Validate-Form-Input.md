@@ -109,13 +109,12 @@ public interface IValidatableView : IViewBase
 }
 ```
 
-`IValidationErrorDisplay` (`Kibinago.Common.Validation.Core`) は View 側のエラーの受け口で、WinForms 型を含みません。`ShowErrors(errors, revealAll)` で全エラーを受け取り、`Reset()` で「訪問済みフィールド」を忘れます。通常は自分で実装せず、WinForms パッケージの `ErrorProviderDisplay` を使います。
+`IValidationErrorDisplay` (`Kibinago.Validation`) は View 側のエラーの受け口で、WinForms 型を含みません。`ShowErrors(errors, revealAll)` で全エラーを受け取り、`Reset()` で「訪問済みフィールド」を忘れます。通常は自分で実装せず、WinForms パッケージの `ErrorProviderDisplay` を使います。
 
 ### 3. Form: ErrorProviderDisplay でフィールドとコントロールを対応付ける
 
 ```csharp
-using Kibinago.Common.Validation;        // ErrorProviderDisplay / ControlErrorDisplay
-using Kibinago.Common.Validation.Core;   // ValidationState / IValidationErrorDisplay
+using Kibinago.Validation;   // ValidationState, ErrorProviderDisplay, ...
 
 public partial class RegistrationForm : Form, IRegistrationView
 {
@@ -317,7 +316,7 @@ private void CheckUserNameAvailable(RegistrationModel model)
 
 ### ValidationState API
 
-`Kibinago.Common.Validation.Core.ValidationState` (`Kibinago.Core`)。Presenter では基底クラスの `Validation` プロパティで使います。
+`Kibinago.Validation.ValidationState` (`Kibinago.Core`)。Presenter では基底クラスの `Validation` プロパティで使います。
 
 | メンバー | 説明 |
 |---|---|
@@ -466,7 +465,7 @@ public class EditUserPresenter : WindowPresenterBase<IEditUserView>
 
 ## リファレンス: ModelValidator (DataAnnotations 連携)
 
-`Validation.Validate` / `Check` は内部で `ModelValidator.For<T>().ValidateAll(model)` を使います。画面のエラー表示とは関係なく Model を検証したい場合 (インポート処理、サービス層、Model の単体テストなど) は `IModelValidator<T>` (`Kibinago.Common.Validation.Core`) を直接使えます。
+`Validation.Validate` / `Check` は内部で `ModelValidator.For<T>().ValidateAll(model)` を使います。画面のエラー表示とは関係なく Model を検証したい場合 (インポート処理、サービス層、Model の単体テストなど) は `IModelValidator<T>` (`Kibinago.Validation`) を直接使えます。
 
 ```csharp
 private readonly IModelValidator<UserModel> _validator = ModelValidator.For<UserModel>();
@@ -497,7 +496,7 @@ foreach (var err in errors)
 > | 場面 | 使う型 | 特徴 |
 > |---|---|---|
 > | `IValidatableObject.Validate` / `[CustomValidation]` メソッドの戻り値 | **`System.ComponentModel.DataAnnotations.ValidationResult`** (BCL) | `IsValid` プロパティは **ない**。成功は `ValidationResult.Success` (= `null`) を返す/何も `yield` しない |
-> | `IModelValidator<T>.ValidateAll` / `ValidateSequential` の戻り値 | **`Kibinago.Common.Validation.Core.ModelValidationResult`** (フレームワーク) | `IsValid` プロパティが **ある** |
+> | `IModelValidator<T>.ValidateAll` / `ValidateSequential` の戻り値 | **`Kibinago.Validation.ModelValidationResult`** (フレームワーク) | `IsValid` プロパティが **ある** |
 >
 > `IValidatableObject.Validate` を実装するファイルでは **`using System.ComponentModel.DataAnnotations;`** を入れ、戻り値は BCL の `ValidationResult` を `yield` してください (フレームワークの `ModelValidationResult` を返すと契約を満たさずコンパイルエラー)。
 
@@ -535,7 +534,7 @@ public class MinimumAgeAttribute : ValidationAttribute
 
 ## `[ValidationOrder]` でフィールド順序を制御
 
-`ErrorsInOrder()` / `FirstError` は、ふつうはモデルの **宣言順** で十分です。宣言順と画面の順が違うプロパティにだけ `[ValidationOrder(N)]` (`Kibinago.Common.Validation.Attributes`) を付けて動かします。
+`ErrorsInOrder()` / `FirstError` は、ふつうはモデルの **宣言順** で十分です。宣言順と画面の順が違うプロパティにだけ `[ValidationOrder(N)]` (`Kibinago.Validation`) を付けて動かします。
 
 ```csharp
 public sealed class OrderInput : NotifyingObject

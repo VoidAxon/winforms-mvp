@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Windows.Forms;
 using Kibinago.Views;
 using Kibinago.Services;
-using Kibinago.Services.Implementations;
 using Xunit;
 
 namespace Kibinago.Samples.Tests.Services

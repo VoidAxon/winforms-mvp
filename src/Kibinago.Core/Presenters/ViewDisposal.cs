@@ -24,7 +24,7 @@ namespace Kibinago.Presenters
         // Found once by name, like the WinForms platform services; a no-op when the Kibinago
         // assembly is not deployed (presenter tests with plain fake views).
         private const string ObserverType =
-            "Kibinago.Services.Implementations.ControlDisposalObserver, Kibinago";
+            "Kibinago.Services.ControlDisposalObserver, Kibinago";
 
         private static readonly Lazy<IViewDisposalObserver> Lazy = new Lazy<IViewDisposalObserver>(() =>
             Type.GetType(ObserverType, throwOnError: false)

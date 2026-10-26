@@ -4,7 +4,7 @@ using Kibinago.Common;
 namespace Kibinago.Services
 {
     /// <summary>
-    /// Defaults for the toast service (<see cref="Implementations.WinFormsToastService"/>), set once
+    /// Defaults for the toast service (<see cref="WinFormsToastService"/>), set once
     /// at startup through <c>mvp.Toasts</c> (or by registering an instance). Individual calls can
     /// override the per-toast appearance via <see cref="ToastOptions"/>.
     /// </summary>

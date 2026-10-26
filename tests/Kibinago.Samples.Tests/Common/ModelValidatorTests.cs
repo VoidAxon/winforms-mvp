@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
-using Kibinago.Common.Validation.Core;
+using Kibinago.Validation;
 using Xunit;
 
 namespace Kibinago.Samples.Tests.Common

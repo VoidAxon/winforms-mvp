@@ -173,7 +173,7 @@ Logger.LogInformation($"User {userName} opened document {docId}");
 
 ```csharp
 using Kibinago.Logging;
-using Kibinago.Services.Implementations;
+using Kibinago.Services;
 
 internal static class Program
 {
@@ -202,7 +202,7 @@ internal static class Program
 ```csharp
 using Microsoft.Extensions.Logging;
 using MyApp.Logging;                              // 自分のアプリのアダプタ名前空間
-using Kibinago.Services.Implementations;
+using Kibinago.Services;
 
 internal static class Program
 {

@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using Kibinago.Common.Validation.Core;
+using Kibinago.Validation;
 
 namespace Kibinago.Testing
 {

@@ -15,6 +15,21 @@
 - `ILoggerFactory` は `CreateLogger(string)` だけになり、`CreateLogger(Type)` は拡張メソッド (`LoggerFactoryExtensions`、`CreateLogger(type.FullName)` と同じ、`null` は例外)。アダプターを書くときに実装するのは 1 メソッド。
 - `ViewActionBinder.RegisterStrategy<T>` のコールバックが受け取るハンドラーは `Delegate` ではなく `EventHandler` (キャスト不要)。
 - `ModelValidationResult` は `sealed`。`MemberNames` は作成時のコピー (`IReadOnlyList<string>`、渡したリストを後で変えても結果は変わらない)。メッセージだけを比べる `Equals` / `GetHashCode` を削除 (別のフィールドに同じメッセージのエラーが同じものとして扱われ、`Distinct()` で 1 件に減っていた)。
+- **名前空間の整理** (18 → 10: `Kibinago`, `.Presenters`, `.Views`, `.ViewActions`, `.Services`, `.Validation`, `.Events`, `.Common`, `.Configuration`, `.Logging`)。型名とアセンブリは変わらない。`using` を書き換える:
+
+  | 旧 | 新 |
+  |---|---|
+  | `Kibinago.Common.Validation` / `.Validation.Core` / `.Validation.Attributes` | `Kibinago.Validation` |
+  | `Kibinago.Common.EventAggregator`、`Kibinago.Common.Events` (`ValueChanged` / `ValueChangingEventArgs`) | `Kibinago.Events` |
+  | `Kibinago.Common.Events` の `ActionRequestEventArgs(<T>)` / `ActionExecutedEventArgs` / `IActionRequestEventArgsWithValue` | `Kibinago.ViewActions` |
+  | `Kibinago.Services` の `IDispatcherConfigurer` / `ActionDispatcherConfigurer` | `Kibinago.ViewActions` |
+  | `Kibinago.Services.Implementations` (`ViewMappingRegister`、`RegisterFromAssembly`、`WindowNavigator`、`MessageService`、`AnchoredToast` など)、`.Implementations.DialogOptions` | `Kibinago.Services` |
+  | `Kibinago.Common` の `ToastType` / `ToastOptions` / `ToastPosition` / `ToastStyle` / `ToastRenderer` | `Kibinago.Services` |
+  | `Kibinago.Modules` (`IViewModuleRegistrar`、`RegisterModules`) | `Kibinago.Services` |
+  | `Kibinago.Models` (`NotifyingObject`) | `Kibinago.Common` |
+  | `Kibinago.Common.Extensions` (`ControlBindingExtensions`) | `Kibinago.Views` |
+
+  アプリテンプレートの `Program.cs` は `using Kibinago.Services.Implementations;` が不要に、`mvp-window --validation` の Form は検証の `using` が 1 行に。
 
 ### Removed (削除)
 

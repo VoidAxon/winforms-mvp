@@ -3,7 +3,7 @@ using Kibinago.Presenters;
 using System.Drawing;
 using System.Windows.Forms;
 using Kibinago.Samples.ToDoDemo;
-using Kibinago.Services.Implementations;
+using Kibinago.Services;
 
 namespace Kibinago.Samples
 {

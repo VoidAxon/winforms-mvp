@@ -2,10 +2,9 @@ using System;
 using System.ComponentModel;
 using System.Drawing;
 using System.Windows.Forms;
-using Kibinago.Common.Events;
-using Kibinago.Common.Extensions;
-using Kibinago.Models;
+using Kibinago.Events;
 using Kibinago.Views;
+using Kibinago.Common;
 using Kibinago.ViewActions;
 
 namespace Kibinago.Samples.EmailDemo

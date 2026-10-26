@@ -582,4 +582,4 @@ protected override void Cleanup()
 
 - See `README.md` for detailed pattern explanation and message flow diagrams
 - See original `ComplexInteractionDemo` for Service-Based comparison
-- See `Kibinago.Common.EventAggregator` source code for implementation details
+- See `Kibinago.Events` source code for implementation details

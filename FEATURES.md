@@ -8,7 +8,10 @@ One line per feature: **what it is for → entry point**. Details and examples l
 **WinForms** = `Kibinago` (net472 / net10.0-windows; forms, dialogs, toasts, binding) ·
 **DI** = `Kibinago.DependencyInjection` (optional M.E.DI) · **Testing** = `Kibinago.Testing` (test projects only) ·
 **Templates** = `Kibinago.Templates`.
-Namespaces are the same in Core and WinForms (`Kibinago.*`, `Kibinago.Services`, `Kibinago.Common`, …).
+Namespaces are the same in Core and WinForms; there are ten: `Kibinago` (`MvpApplication`), `.Presenters`, `.Views`,
+`.ViewActions`, `.Services` (service interfaces, their options and default implementations, toasts, view mapping),
+`.Validation`, `.Events` (`IEventAggregator`, `ValueChanged`/`ValueChangingEventArgs`), `.Common` (results, change
+tracking, selection, rate limiting, disposables), `.Configuration`, `.Logging` — plus `Kibinago.DependencyInjection` / `Kibinago.Testing`.
 
 ---
 
@@ -29,7 +32,7 @@ Namespaces are the same in Core and WinForms (`Kibinago.*`, `Kibinago.Services`,
 | Panels added / removed at runtime (rows, tabs) | `var handle = AttachChild(...)` keyed by the child view; remove: `handle.Dispose()` then `View.RemoveXxx(view)` |
 | Host a UserControl presenter without an MVP parent (WinForms) | `presenter.Connect(view[, param])` — attaches, initializes, disposes with the control |
 | Host a Form you create yourself (shell, legacy) | `presenter.Connect(form[, param][, onClosed])` (WinForms) |
-| Input model the form binds to | `NotifyingObject` (`SetProperty(ref field, value)`), `Kibinago.Models` |
+| Input model the form binds to | `NotifyingObject` (`SetProperty(ref field, value)`), `Kibinago.Common` |
 
 Public surface of a presenter: the constructor only (Rules 16/17, analyzer-enforced). Handlers are `private`.
 
@@ -39,7 +42,7 @@ Public surface of a presenter: the constructor only (Rules 16/17, analyzer-enfor
 |---|---|
 | Any view (UserControl) / a view with actions / a window | `IViewBase` / `IActionableView` (`ActionBinder`) / `IWindowView` |
 | A view that shows validation errors | `IValidatableView` (`ValidationErrors`) — connected to `Validation` automatically |
-| View events — no hand-written EventArgs, never a WinForms one (MVP004) | `EventHandler` (presenter reads the view) · `EventHandler<int>` / any business type · a tuple `EventHandler<(int Id, string Column)>` · `EventHandler<ValueChangedEventArgs<T>>` (after a change: `OldValue`, `NewValue`) · `EventHandler<ValueChangingEventArgs<T>>` (before it; the presenter may set `Cancel`) · BCL `EventHandler<CancelEventArgs>` — `Kibinago.Common.Events` · [wiki § Rule 4](wiki/Design-Rules.md) |
+| View events — no hand-written EventArgs, never a WinForms one (MVP004) | `EventHandler` (presenter reads the view) · `EventHandler<int>` / any business type · a tuple `EventHandler<(int Id, string Column)>` · `EventHandler<ValueChangedEventArgs<T>>` (after a change: `OldValue`, `NewValue`) · `EventHandler<ValueChangingEventArgs<T>>` (before it; the presenter may set `Cancel`) · BCL `EventHandler<CancelEventArgs>` — `Kibinago.Events` · [wiki § Rule 4](wiki/Design-Rules.md) |
 | Open a legacy (non-MVP) popup from a migrated screen | a semantic view method returning `InteractionResult<T>` (`InteractionResult<Customer> EditCustomer(Customer current)`), implemented by the Form; a form shared by many screens: a small relay service · [migration wiki, Step 7](wiki/HowTo-Migrate-From-Legacy-WinForms.md) |
 
 View interfaces expose data and behavior, never controls. Forms need no closing code.
@@ -78,11 +81,11 @@ A list's double-click: raise a view event, the presenter calls `Dispatcher.Dispa
 | The screen must not open (data gone, no permission) | in `OnInitialize`: `Messages.ShowWarning(why); RequestClose(InteractionStatus.Cancel); return;` (or `RequestClose(why, Error)` for the caller to show): never shown (Navigator does not show it; `Connect` hides and closes it in `Load`); modeless `ShowWindow` returns `null` |
 | Result type | `InteractionResult<T>` (`IsOk`, `IsCancelled`, `IsError`, `Value`, `ErrorMessage`), `InteractionStatus`, `CloseReason` |
 | Map view interfaces to Forms (WinForms) | `IViewMappingRegister`: `RegisterFromAssembly`, `RegisterFromNamespace`, `Register<IView, Form>()`, `Register<IView>(() => new Form(deps))` |
-| UI module registers its own views | `IViewModuleRegistrar` + `register.RegisterModules(...)` (`Kibinago.Modules`) |
+| UI module registers its own views | `IViewModuleRegistrar` + `register.RegisterModules(...)` (`Kibinago.Services`) |
 
 System shutdown / Task Manager never reach `CanClose`. Save-on-close: call `RequestClose(result)` inside `CanClose` and return `true`. Save / 破棄 handlers `AcceptChanges()` before `RequestClose`, so the gate does not ask; tests: `await host.WaitForCloseDecisionAsync()` for an async gate.
 
-## 5. Services — presenter-facing interfaces in Core, implementations in WinForms · [wiki](wiki/Reference-Platform-Services.md)
+## 5. Services — `Kibinago.Services`; presenter-facing interfaces in Core, implementations in WinForms · [wiki](wiki/Reference-Platform-Services.md)
 
 | Need | Use |
 |---|---|
@@ -124,7 +127,7 @@ Precedence: a directly registered service > the `mvp.` choice > the built-in def
 
 Detection only (no undo, no events). The model's own `Equals` is ignored by design.
 
-## 8. Validation — `Kibinago.Common.Validation(.Core)` · [wiki](wiki/HowTo-Validate-Form-Input.md)
+## 8. Validation — `Kibinago.Validation` · [wiki](wiki/HowTo-Validate-Form-Input.md)
 
 | Need | Use |
 |---|---|
@@ -137,7 +140,7 @@ Detection only (no undo, no events). The model's own `Equals` is ignored by desi
 
 Two display styles, both supported: **message only** (the view does not implement `IValidatableView`; the usual WinForms style) or **message + icons**. Keep Submit enabled while there are errors (it reveals unvisited fields).
 
-## 9. Binding helpers — WinForms, `Kibinago.Common.Extensions` · [wiki](wiki/Reference-Data-Binding.md)
+## 9. Binding helpers — WinForms, `Kibinago.Views` · [wiki](wiki/Reference-Data-Binding.md)
 
 Expression-based two-way binding of controls to an `INotifyPropertyChanged` model (Supervising Controller):
 `control.BindProperty(model, x => x.Prop, "ControlProperty"[, updateMode, formattingEnabled])`, `textBox.Bind(...)`,
@@ -153,7 +156,7 @@ Expression-based two-way binding of controls to an `INotifyPropertyChanged` mode
 | Share "the current selection" (master-detail) | `Selection<T>` / `ISelection<T>` (`Current`, `Select`; `CurrentChanged` = a different object incl. the same record reloaded → refresh a detail view; `IdentityChanged` = another record or cleared → reload dependants, used by `Cascade`); stable identity: `ISelectable.Key`, value types: `SelectableItem.Of/From/FromEnum` · [wiki](wiki/HowTo-Implement-Master-Detail.md) |
 | Parent → child reloads (category → subcategory) | `Cascade.Bind(from, target, reload)`, `Cascade.Combine(a, b, target, reload)` · [wiki](wiki/HowTo-Handle-Cascading-Selection.md) |
 
-## 11. Cross-presenter events — Core · [wiki](wiki/Reference-EventAggregator.md)
+## 11. Cross-presenter events — Core, `Kibinago.Events` · [wiki](wiki/Reference-EventAggregator.md)
 
 `IEventAggregator` (constructor-inject; one per provider): `Subscribe<T>(handler[, filter]).DisposeWith(Disposables)`, `Publish<T>(msg)`.
 Delivered on the subscriber's UI thread; held strongly until the token is disposed (analyzer MVP017).

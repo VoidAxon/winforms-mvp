@@ -1,6 +1,6 @@
 using System;
 using System.Windows.Forms;
-using Kibinago.Common.Events;
+using Kibinago.Events;
 using Kibinago.ViewActions;
 using Xunit;
 

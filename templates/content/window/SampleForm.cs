@@ -4,8 +4,7 @@ using System;
 using System.ComponentModel;
 using System.Windows.Forms;
 //#if (HasModel)
-using Kibinago.Common.Validation;
-using Kibinago.Common.Validation.Core;
+using Kibinago.Validation;
 //#endif
 using Kibinago.ViewActions;
 

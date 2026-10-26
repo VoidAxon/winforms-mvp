@@ -1,5 +1,5 @@
 using Kibinago.Common;
-using Kibinago.Common.EventAggregator;
+using Kibinago.Events;
 using Kibinago.Services;
 using Xunit;
 

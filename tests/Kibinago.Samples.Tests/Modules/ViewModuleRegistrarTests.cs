@@ -1,8 +1,6 @@
 using System;
 using System.Collections.Generic;
-using Kibinago.Modules;
 using Kibinago.Services;
-using Kibinago.Services.Implementations;
 using Xunit;
 
 namespace Kibinago.Samples.Tests.Modules

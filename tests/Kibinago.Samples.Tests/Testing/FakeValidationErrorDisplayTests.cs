@@ -1,5 +1,5 @@
 using System.ComponentModel.DataAnnotations;
-using Kibinago.Common.Validation.Core;
+using Kibinago.Validation;
 using Kibinago.Presenters;
 using Kibinago.ViewActions;
 using Kibinago.Views;

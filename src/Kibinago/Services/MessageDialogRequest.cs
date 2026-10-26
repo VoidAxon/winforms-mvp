@@ -67,8 +67,8 @@ namespace Kibinago.Services
 
     /// <summary>
     /// One message box for an <see cref="IMessageDialogBackend"/> to show. Built by
-    /// <see cref="Implementations.MessageService"/> (centered) and
-    /// <see cref="Implementations.AnchoredMessageBox"/> (positioned).
+    /// <see cref="MessageService"/> (centered) and
+    /// <see cref="AnchoredMessageBox"/> (positioned).
     /// </summary>
     public sealed class MessageDialogRequest
     {

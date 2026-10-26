@@ -5,8 +5,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using Kibinago.Common;
 using Kibinago.Logging;
-using Kibinago.Common.Events;
-using Kibinago.Common.Validation.Core;
+using Kibinago.Events;
+using Kibinago.Validation;
 using Kibinago.Views;
 using Kibinago.ViewActions;
 using Kibinago.Services;
@@ -358,7 +358,7 @@ namespace Kibinago.Presenters
 
         /// <summary>
         /// One-shot configuration of the underlying dispatcher: wires the logger and applies
-        /// the optional global <see cref="Kibinago.Services.IDispatcherConfigurer"/>. Called
+        /// the optional global <see cref="Kibinago.ViewActions.IDispatcherConfigurer"/>. Called
         /// from <see cref="SetView"/> so global middleware is in place before user code in
         /// <c>RegisterViewActions</c> registers local middleware or action handlers.
         /// </summary>
@@ -381,7 +381,7 @@ namespace Kibinago.Presenters
             if (_dispatcherInitialized) return;
             _dispatcherInitialized = true;  // set BEFORE invoking callback (re-entrancy guard)
             _dispatcher.Logger = Logger;
-            Services.Resolve<Kibinago.Services.IDispatcherConfigurer>()?.Configure(_dispatcher);
+            Services.Resolve<Kibinago.ViewActions.IDispatcherConfigurer>()?.Configure(_dispatcher);
         }
 
         /// <summary>

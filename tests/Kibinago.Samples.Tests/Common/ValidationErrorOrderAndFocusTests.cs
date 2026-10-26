@@ -3,8 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Windows.Forms;
-using Kibinago.Common.Validation;
-using Kibinago.Common.Validation.Core;
+using Kibinago.Validation;
 using Xunit;
 
 namespace Kibinago.Samples.Tests.Common

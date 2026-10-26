@@ -9,7 +9,6 @@ using Kibinago.ViewActions;
 using Kibinago.Views;
 using Kibinago.Samples.Tests.Mocks;
 using Kibinago.Services;
-using Kibinago.Services.Implementations;
 using Xunit;
 using Kibinago.Testing;
 

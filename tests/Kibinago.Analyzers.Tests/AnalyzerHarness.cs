@@ -40,7 +40,7 @@ namespace System.Windows.Forms
     public interface IMessageFilter { }
 }
 
-namespace Kibinago.Common.EventAggregator
+namespace Kibinago.Events
 {
     public interface IEventAggregator
     {

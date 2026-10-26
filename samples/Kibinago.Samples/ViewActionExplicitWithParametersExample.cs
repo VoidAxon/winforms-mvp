@@ -1,7 +1,7 @@
 using System;
 using System.Windows.Forms;
 using Kibinago.Common;
-using Kibinago.Common.Events;
+using Kibinago.Events;
 using Kibinago.Views;
 using Kibinago.Presenters;
 using Kibinago.ViewActions;

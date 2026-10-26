@@ -6,7 +6,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Kibinago.Logging;
-using Kibinago.Common.EventAggregator;
+using Kibinago.Events;
 using Kibinago.Samples.Tests.TestHelpers;
 using Xunit;
 

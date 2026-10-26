@@ -157,7 +157,7 @@ SubscribeViewEvent<ValueChangingEventArgs<int>>(h => View.SelectedRecordChanging
     e => { if (_tracker.IsChanged) e.Cancel = !Messages.ConfirmYesNo("保存されていない変更があります。移動しますか？"); });
 ```
 
-`ValueChangedEventArgs<T>` / `ValueChangingEventArgs<T>` は `Kibinago.Common.Events` (Core) にあります。`ValueChanged` は変わった後 (元に戻すと画面が一瞬変わる)、`ValueChanging` は変わる前に止められます。
+`ValueChangedEventArgs<T>` / `ValueChangingEventArgs<T>` は `Kibinago.Events` (Core) にあります。`ValueChanged` は変わった後 (元に戻すと画面が一瞬変わる)、`ValueChanging` は変わる前に止められます。
 
 ---
 

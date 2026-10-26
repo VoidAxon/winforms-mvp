@@ -1,5 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
-using Kibinago.Modules;
+using Kibinago.Services;
 
 namespace Kibinago.DependencyInjection
 {

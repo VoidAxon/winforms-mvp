@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using System.Windows.Forms;
-using Kibinago.Common.EventAggregator;
+using Kibinago.Events;
 using Kibinago.Presenters;
 using Kibinago.Services;
 using Kibinago.Samples.ComplexInteractionDemo.Models;

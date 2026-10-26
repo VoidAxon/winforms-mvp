@@ -1,13 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Windows.Forms;
-using Kibinago.Common.Events;
+using Kibinago.Events;
 using Kibinago.Logging;
 using Kibinago.Presenters;
 using Kibinago.Views;
 using Kibinago.ViewActions;
 using Kibinago.Services;
-using Kibinago.Services.Implementations;
 
 namespace Kibinago.Samples
 {

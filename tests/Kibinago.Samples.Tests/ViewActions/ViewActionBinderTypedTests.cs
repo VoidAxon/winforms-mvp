@@ -1,5 +1,4 @@
 using System.Windows.Forms;
-using Kibinago.Common.Events;
 using Kibinago.ViewActions;
 using Xunit;
 

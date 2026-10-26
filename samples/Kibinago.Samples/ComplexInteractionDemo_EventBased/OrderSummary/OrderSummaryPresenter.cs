@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Kibinago.Common.EventAggregator;
+using Kibinago.Events;
 using Kibinago.Presenters;
 using Kibinago.Samples.ComplexInteractionDemo.Models;
 using Kibinago.Samples.ComplexInteractionDemo.OrderSummary;

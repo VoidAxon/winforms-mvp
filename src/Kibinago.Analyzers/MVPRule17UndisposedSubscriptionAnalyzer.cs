@@ -16,7 +16,7 @@ namespace Kibinago.Analyzers
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public class MVPRule17UndisposedSubscriptionAnalyzer : DiagnosticAnalyzer
     {
-        private const string EventAggregatorInterface = "Kibinago.Common.EventAggregator.IEventAggregator";
+        private const string EventAggregatorInterface = "Kibinago.Events.IEventAggregator";
 
         public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
             ImmutableArray.Create(DiagnosticDescriptors.MVPRule17UndisposedSubscription);

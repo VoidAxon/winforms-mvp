@@ -543,7 +543,7 @@ public class EventsPresenter { public event EventHandler Changed; }"));
 
         // ------------------------------------------------------------------ MVP017
 
-        private const string EventUsings = Usings + "using Kibinago.Common.EventAggregator;\n";
+        private const string EventUsings = Usings + "using Kibinago.Events;\n";
 
         [Fact]
         public void MVP017_DiscardedSubscribe_Reports()

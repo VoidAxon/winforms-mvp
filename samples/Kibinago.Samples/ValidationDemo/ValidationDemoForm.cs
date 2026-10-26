@@ -1,8 +1,7 @@
 using System;
 using System.Drawing;
 using System.Windows.Forms;
-using Kibinago.Common.Validation;
-using Kibinago.Common.Validation.Core;
+using Kibinago.Validation;
 using Kibinago.ViewActions;
 
 namespace Kibinago.Samples.ValidationDemo

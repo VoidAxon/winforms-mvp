@@ -4,7 +4,6 @@ using System.Windows.Forms;
 using Microsoft.Extensions.DependencyInjection;
 using Kibinago.Presenters;
 using Kibinago.Services;
-using Kibinago.Services.Implementations;
 
 namespace Kibinago.Samples.MVPComparisonDemo
 {

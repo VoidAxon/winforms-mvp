@@ -3,7 +3,6 @@ using System.Drawing;
 using System.Windows.Forms;
 using Kibinago.Common;
 using Kibinago.Services;
-using Kibinago.Services.Implementations;
 
 namespace Kibinago.Samples.ToastDemo
 {

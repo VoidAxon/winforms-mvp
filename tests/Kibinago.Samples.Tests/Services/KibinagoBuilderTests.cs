@@ -2,13 +2,12 @@ using System;
 using Microsoft.Extensions.DependencyInjection;
 using Kibinago;
 using Kibinago.Common;
-using Kibinago.Common.EventAggregator;
+using Kibinago.Events;
 using Kibinago.Configuration;
 using Kibinago.DependencyInjection;
 using Kibinago.Logging;
 using Kibinago.ViewActions;
 using Kibinago.Services;
-using Kibinago.Services.Implementations;
 using Xunit;
 
 namespace Kibinago.Samples.Tests.Services
@@ -344,7 +343,7 @@ namespace Kibinago.Samples.Tests.Services
         public void Shutdown_DisposesTheConfiguredRoot()
         {
             var sp = MvpApplication.Configure();
-            var events = sp.Resolve<Kibinago.Common.EventAggregator.IEventAggregator>();
+            var events = sp.Resolve<Kibinago.Events.IEventAggregator>();
 
             MvpApplication.Shutdown();
 
@@ -371,7 +370,7 @@ namespace Kibinago.Samples.Tests.Services
                 try
                 {
                     var sp = MvpApplication.Configure();
-                    var events = sp.Resolve<Kibinago.Common.EventAggregator.IEventAggregator>();
+                    var events = sp.Resolve<Kibinago.Events.IEventAggregator>();
                     var form = new System.Windows.Forms.Form { ShowInTaskbar = false, Opacity = 0 };
                     form.Shown += (s, e) => form.BeginInvoke((System.Action)form.Close);
 

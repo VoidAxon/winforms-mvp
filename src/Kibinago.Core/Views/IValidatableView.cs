@@ -1,4 +1,4 @@
-using Kibinago.Common.Validation.Core;
+using Kibinago.Validation;
 
 namespace Kibinago.Views
 {

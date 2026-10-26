@@ -38,8 +38,8 @@ namespace Kibinago.Samples.Tests.Services
         public void Default_IToastService_ForwardsToTheWinFormsToastService()
         {
             var sp = ServiceLocator.Current;
-            Assert.IsType<Kibinago.Services.Implementations.WinFormsToastService>(sp.Resolve<IWinFormsToastService>());
-            var forwarder = Assert.IsType<Kibinago.Services.Implementations.ToastServiceForwarder>(sp.Resolve<IToastService>());
+            Assert.IsType<Kibinago.Services.WinFormsToastService>(sp.Resolve<IWinFormsToastService>());
+            var forwarder = Assert.IsType<Kibinago.Services.ToastServiceForwarder>(sp.Resolve<IToastService>());
             Assert.Same(sp.Resolve<IWinFormsToastService>(), forwarder.Target);
         }
 

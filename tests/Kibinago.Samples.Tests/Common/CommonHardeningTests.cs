@@ -5,8 +5,8 @@ using System.ComponentModel.DataAnnotations;
 using System.Threading;
 using System.Windows.Forms;
 using Kibinago.Common;
-using Kibinago.Common.EventAggregator;
-using Kibinago.Common.Validation.Core;
+using Kibinago.Events;
+using Kibinago.Validation;
 using Kibinago.ViewActions;
 using Xunit;
 

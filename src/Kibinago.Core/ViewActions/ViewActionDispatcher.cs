@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Runtime.ExceptionServices;
 using System.Threading;
 using System.Threading.Tasks;
-using Kibinago.Common.Events;
+using Kibinago.Events;
 using Kibinago.Logging;
 
 namespace Kibinago.ViewActions
@@ -106,7 +106,7 @@ namespace Kibinago.ViewActions
         /// <remarks>
         /// This does not affect handler/<c>CanExecute</c> exception handling (always caught and
         /// logged) nor disabled actions (<c>CanExecute</c> false is never an error). Configure it
-        /// once via <see cref="Kibinago.Services.IDispatcherConfigurer"/> so it applies before any dispatch.
+        /// once via <see cref="Kibinago.ViewActions.IDispatcherConfigurer"/> so it applies before any dispatch.
         /// </remarks>
         public DispatchValidationMode ValidationMode
         {

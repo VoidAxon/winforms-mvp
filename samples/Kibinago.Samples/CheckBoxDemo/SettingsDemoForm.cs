@@ -2,7 +2,7 @@ using System;
 using System.Drawing;
 using System.Windows.Forms;
 using Kibinago.Common;
-using Kibinago.Common.Events;
+using Kibinago.Events;
 using Kibinago.Views;
 using Kibinago.ViewActions;
 

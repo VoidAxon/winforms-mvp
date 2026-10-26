@@ -1,7 +1,7 @@
 using System;
 using System.ComponentModel;
 using System.Text;
-using Kibinago.Models;
+using Kibinago.Common;
 
 namespace Kibinago.Samples.MVPComparisonDemo.SupervisingController
 {

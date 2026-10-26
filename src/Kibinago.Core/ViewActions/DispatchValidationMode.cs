@@ -14,7 +14,7 @@ namespace Kibinago.ViewActions
     /// </para>
     /// <para>
     /// The intended use is to enable <see cref="Strict"/> in Debug builds (via
-    /// <see cref="Kibinago.Services.IDispatcherConfigurer"/>) so that a forgotten <c>Register</c> call or a
+    /// <see cref="Kibinago.ViewActions.IDispatcherConfigurer"/>) so that a forgotten <c>Register</c> call or a
     /// mistyped <see cref="ViewAction"/> key surfaces loudly the first time it is dispatched,
     /// instead of silently doing nothing. Production builds keep the default <see cref="Lenient"/>
     /// behaviour (graceful degradation: log and ignore).

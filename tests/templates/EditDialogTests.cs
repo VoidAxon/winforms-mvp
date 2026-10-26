@@ -2,7 +2,7 @@
 // `dotnet new mvp-window -n CustomerEdit --edit` generated, with no Form.
 using System;
 using Kibinago.Common;
-using Kibinago.Common.Validation.Core;
+using Kibinago.Validation;
 using Kibinago.Testing;
 using Kibinago.ViewActions;
 using Xunit;
