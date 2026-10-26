@@ -1,4 +1,4 @@
-//#if (Validation)
+//#if (HasModel)
 using System;
 //#endif
 using Kibinago.Views;
@@ -7,12 +7,12 @@ namespace MvpNamespace
 {
     /// <summary>What the window shows: data, state and events only, never controls.</summary>
     public interface ISampleView : IWindowView
-//#if (Validation)
+//#if (HasModel)
         , IValidatableView
 //#endif
     {
         string Title { get; set; }
-//#if (Validation)
+//#if (HasModel)
 
         /// <summary>Raised when the user edits any field.</summary>
         event EventHandler DataChanged;

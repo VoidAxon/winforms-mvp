@@ -3,6 +3,7 @@
   "symbolInfo": {
     "namespace": { "longName": "namespace", "shortName": "ns" },
     "ParamType": { "longName": "param-type", "shortName": "" },
-    "Validation": { "longName": "validation", "shortName": "" }
+    "Validation": { "longName": "validation", "shortName": "" },
+    "Edit": { "longName": "edit", "shortName": "" }
   }
 }

@@ -42,12 +42,22 @@
       "datatype": "bool",
       "defaultValue": "false",
       "description": "Add a model with validation rules and show errors next to fields (ErrorProvider)."
+    },
+    "Edit": {
+      "type": "parameter",
+      "datatype": "bool",
+      "defaultValue": "false",
+      "description": "An edit dialog: opened with the model, returns the saved model, asks \"Save changes?\" when closed with unsaved edits (X, Esc, Cancel). Includes --validation; --param-type is ignored."
+    },
+    "HasModel": {
+      "type": "computed",
+      "value": "(Validation || Edit)"
     }
   },
   "sources": [
     {
       "modifiers": [
-        { "condition": "(!Validation)", "exclude": [ "SampleModel.cs" ] }
+        { "condition": "(!HasModel)", "exclude": [ "SampleModel.cs" ] }
       ]
     }
   ]

@@ -9,6 +9,10 @@ set -euo pipefail
 # No EnableWindowsTargeting here on purpose: the generated projects set it themselves, so this
 # script on Linux / macOS proves a user there can restore and build them as generated.
 
+# A long-lived compiler server that already loaded another WinForms analyzer version fails the
+# generated projects' build (AD0001 / CS8784 "Could not load System.Windows.Forms.Analyzers"): start fresh.
+dotnet build-server shutdown >/dev/null 2>&1 || true
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 WORK="$(mktemp -d)"
 VERSION="0.0.0-templatetest"
@@ -55,12 +59,15 @@ NUGET
     cd "$dir/DemoApp"
     new mvp-window -n About
     new mvp-window -n OrderEdit --param-type int --validation
+    new mvp-window -n CustomerEdit --edit
     new mvp-control -n CustomerPanel
     mkdir Dialogs && cd Dialogs && new mvp-window -n Confirm --namespace DemoApp.Dialogs
   )
   new kibinago-tests -n DemoApp.Tests -o "$dir/DemoApp.Tests" --framework "$framework" \
       --app-project ../DemoApp/DemoApp.csproj
   grep -q "Version=\"$VERSION\"" "$dir/DemoApp.Tests/DemoApp.Tests.csproj"
+  # The edit dialog (--edit) is driven by tests written against what it generates.
+  cp "$ROOT/tests/templates/EditDialogTests.cs" "$dir/DemoApp.Tests/"
 
   # Item templates take the project's root namespace unless --namespace is given.
   grep -q "^namespace DemoApp$" "$dir/DemoApp/OrderEditPresenter.cs"
@@ -74,7 +81,8 @@ NUGET
   else
     grep -q "SetHighDpiMode" "$dir/DemoApp/Program.cs"
   fi
-  [ -f "$dir/DemoApp/OrderEditModel.cs" ] && [ ! -f "$dir/DemoApp/AboutModel.cs" ]
+  [ -f "$dir/DemoApp/OrderEditModel.cs" ] && [ ! -f "$dir/DemoApp/AboutModel.cs" ] && [ -f "$dir/DemoApp/CustomerEditModel.cs" ]
+  grep -q "WindowPresenterBase<ICustomerEditView, CustomerEditModel>" "$dir/DemoApp/CustomerEditPresenter.cs"
   [ -f "$dir/DemoApp/.gitignore" ]
   # Current idioms in the generated code.
   grep -q "SubscribeViewEvent(h => View.DataChanged" "$dir/DemoApp/OrderEditPresenter.cs"
