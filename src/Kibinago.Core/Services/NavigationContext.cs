@@ -68,6 +68,20 @@ namespace Kibinago.Services
             object key = null,
             Action<InteractionResult<TResult>> onClosed = null)
             => _nav.ShowWindow<TPresenter, TResult>(_presenter, owner, key, onClosed);
+
+        /// <summary>Prepares the window without showing it; the caller places and shows the returned view (see <see cref="IWindowNavigator.PrepareWindow{TPresenter}(TPresenter, object)"/>).</summary>
+        /// <param name="key">Optional key: an open window of the same presenter type with this key is returned instead (not activated).</param>
+        /// <returns>The prepared view; the open window's view for a matching key; <c>null</c> when the presenter cancelled the opening.</returns>
+        public IWindowView PrepareWindow(object key = null)
+            => _nav.PrepareWindow<TPresenter>(_presenter, key);
+
+        /// <summary>Prepares the window without showing it; <paramref name="onClosed"/> receives the result once it has ended.</summary>
+        /// <typeparam name="TResult">The type of the result the presenter passes to <c>RequestClose</c>.</typeparam>
+        /// <param name="key">Optional key: an open window of the same presenter type with this key is returned instead (not activated).</param>
+        /// <param name="onClosed">Called with the result after the window ended.</param>
+        /// <returns>The prepared view; the open window's view for a matching key; <c>null</c> when the presenter cancelled the opening.</returns>
+        public IWindowView PrepareWindow<TResult>(object key = null, Action<InteractionResult<TResult>> onClosed = null)
+            => _nav.PrepareWindow<TPresenter, TResult>(_presenter, key, onClosed);
     }
 
     /// <summary>
@@ -144,5 +158,19 @@ namespace Kibinago.Services
             object key = null,
             Action<InteractionResult<TResult>> onClosed = null)
             => _nav.ShowWindow<TPresenter, TParam, TResult>(_presenter, _parameters, owner, key, onClosed);
+
+        /// <summary>Prepares the window without showing it; the caller places and shows the returned view (see <see cref="IWindowNavigator.PrepareWindow{TPresenter, TParam}(TPresenter, TParam, object)"/>).</summary>
+        /// <param name="key">Optional key: an open window of the same presenter type with this key is returned instead (not activated).</param>
+        /// <returns>The prepared view; the open window's view for a matching key; <c>null</c> when the presenter cancelled the opening.</returns>
+        public IWindowView PrepareWindow(object key = null)
+            => _nav.PrepareWindow<TPresenter, TParam>(_presenter, _parameters, key);
+
+        /// <summary>Prepares the window without showing it; <paramref name="onClosed"/> receives the result once it has ended.</summary>
+        /// <typeparam name="TResult">The type of the result the presenter passes to <c>RequestClose</c>.</typeparam>
+        /// <param name="key">Optional key: an open window of the same presenter type with this key is returned instead (not activated).</param>
+        /// <param name="onClosed">Called with the result after the window ended.</param>
+        /// <returns>The prepared view; the open window's view for a matching key; <c>null</c> when the presenter cancelled the opening.</returns>
+        public IWindowView PrepareWindow<TResult>(object key = null, Action<InteractionResult<TResult>> onClosed = null)
+            => _nav.PrepareWindow<TPresenter, TParam, TResult>(_presenter, _parameters, key, onClosed);
     }
 }

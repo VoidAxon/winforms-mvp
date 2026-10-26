@@ -35,8 +35,9 @@ namespace Kibinago.Testing
     public sealed class NavigationCall
     {
         internal NavigationCall(object presenter, bool modal, object parameters, bool hasParameters,
-            Type resultType, IWindowView owner, object key, bool activated)
+            Type resultType, IWindowView owner, object key, bool activated, bool prepared = false)
         {
+            Prepared = prepared;
             Presenter = presenter;
             PresenterType = presenter.GetType();
             Modal = modal;
@@ -72,11 +73,15 @@ namespace Kibinago.Testing
         /// <summary>The key from the caller's key selector (non-modal), or null.</summary>
         public object Key { get; }
 
-        /// <summary>True when the request activated an open window with the same key instead of opening one.</summary>
+        /// <summary>True when the request activated an open window with the same key instead of opening one
+        /// (never for <c>PrepareWindow</c>, which returns the open window without activating it).</summary>
         public bool Activated { get; }
 
+        /// <summary>True for <c>PrepareWindow</c> (the caller shows the window), false for <c>ShowWindow</c> / modal.</summary>
+        public bool Prepared { get; }
+
         /// <inheritdoc />
-        public override string ToString() => (Modal ? "Modal " : "Window ") + PresenterType.Name;
+        public override string ToString() => (Modal ? "Modal " : Prepared ? "Prepare " : "Window ") + PresenterType.Name;
     }
 
     /// <summary>
@@ -200,6 +205,28 @@ namespace Kibinago.Testing
             => ShowModelessCore<TPresenter, object>(presenter, null, false, false, owner, key, null);
 
         /// <inheritdoc />
+        public virtual IWindowView PrepareWindow<TPresenter, TResult>(TPresenter presenter, object key = null,
+            Action<InteractionResult<TResult>> onClosed = null)
+            where TPresenter : IWindowPresenter, IInitializable
+            => PrepareWindowCore(presenter, null, false, true, key, onClosed);
+
+        /// <inheritdoc />
+        public virtual IWindowView PrepareWindow<TPresenter>(TPresenter presenter, object key = null)
+            where TPresenter : IWindowPresenter, IInitializable
+            => PrepareWindowCore<TPresenter, object>(presenter, null, false, false, key, null);
+
+        /// <inheritdoc />
+        public virtual IWindowView PrepareWindow<TPresenter, TParam, TResult>(TPresenter presenter, TParam parameters,
+            object key = null, Action<InteractionResult<TResult>> onClosed = null)
+            where TPresenter : IWindowPresenter, IInitializable<TParam>
+            => PrepareWindowCore(presenter, parameters, true, true, key, onClosed);
+
+        /// <inheritdoc />
+        public virtual IWindowView PrepareWindow<TPresenter, TParam>(TPresenter presenter, TParam parameters, object key = null)
+            where TPresenter : IWindowPresenter, IInitializable<TParam>
+            => PrepareWindowCore<TPresenter, object>(presenter, parameters, true, false, key, null);
+
+        /// <inheritdoc />
         public virtual InteractionResult ShowWindowAsModal<TPresenter>(TPresenter presenter, IWindowView owner = null)
             where TPresenter : IWindowPresenter, IInitializable
             => ShowModalCore<object>(presenter, null, false, false, owner);
@@ -283,6 +310,22 @@ namespace Kibinago.Testing
             bool hasParameters, bool hasResult, IWindowView owner, object key,
             Action<InteractionResult<TResult>> onClosed)
             where TPresenter : IPresenter
+            => ModelessCore(presenter, parameters, hasParameters, hasResult, owner, key, onClosed, prepared: false);
+
+        /// <summary>
+        /// Every <c>PrepareWindow</c> overload ends here: like <c>ShowModelessCore</c> (a <see cref="FakeWindow"/>
+        /// the test closes), but recorded as prepared, and an open window with the same key is returned
+        /// without counting an activation.
+        /// </summary>
+        protected virtual IWindowView PrepareWindowCore<TPresenter, TResult>(TPresenter presenter, object parameters,
+            bool hasParameters, bool hasResult, object key, Action<InteractionResult<TResult>> onClosed)
+            where TPresenter : IPresenter
+            => ModelessCore(presenter, parameters, hasParameters, hasResult, null, key, onClosed, prepared: true);
+
+        private IWindowView ModelessCore<TPresenter, TResult>(TPresenter presenter, object parameters,
+            bool hasParameters, bool hasResult, IWindowView owner, object key,
+            Action<InteractionResult<TResult>> onClosed, bool prepared)
+            where TPresenter : IPresenter
         {
             if (presenter == null) throw new ArgumentNullException(nameof(presenter));
 
@@ -293,8 +336,9 @@ namespace Kibinago.Testing
             {
                 if (instanceKey != null && _open.TryGetValue(instanceKey, out var existing))
                 {
-                    existing.Activations++;
-                    _calls.Add(new NavigationCall(presenter, false, parameters, hasParameters, resultType, owner, key, true));
+                    if (!prepared) existing.Activations++;
+                    _calls.Add(new NavigationCall(presenter, false, parameters, hasParameters, resultType, owner, key,
+                        activated: !prepared, prepared: prepared));
                     presenter.Dispose();
                     return existing.View;
                 }
@@ -315,7 +359,8 @@ namespace Kibinago.Testing
                 w => Release(instanceKey, w));
             lock (_gate)
             {
-                _calls.Add(new NavigationCall(presenter, false, parameters, hasParameters, resultType, owner, key, false));
+                _calls.Add(new NavigationCall(presenter, false, parameters, hasParameters, resultType, owner, key,
+                    activated: false, prepared: prepared));
                 _windows.Add(window);
                 if (instanceKey != null) _open[instanceKey] = window;
             }

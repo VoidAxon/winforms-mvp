@@ -10,6 +10,7 @@
 
 ### Added (追加)
 
+- **`PrepareWindow`** (`IWindowNavigator` と Fluent API) — `ShowWindow` から表示だけを除いたもの: View の生成・アタッチ・初期化・クローズゲート・キーまで行い、表示せずに View を返す。ドッキングライブラリのペインやタブのドキュメントのように、コンテナが自分で配置・表示する画面のため。`owner` 引数なし、同じキーが開いていればアクティブにせずその View を返す、初期化中の `RequestClose` は `null`、表示前の `RequestClose` は表示時に見えないまま閉じる、表示しなかった View は呼び出し側が `Dispose` (1 回だけ終わる)。`FakeWindowNavigator` も対応 (`NavigationCall.Prepared`)。wiki に Form / Control をホストするドッキング・タブ・MDI ライブラリとの組み合わせ方。
 - `ViewActionBinder.RegisterStrategy<T>(..., setEnabled: (c, enabled) => ...)` — `Control` でも `ToolStripItem` でもないコンポーネント (サードパーティのツールバーコマンドなど) も `canExecute` に合わせて有効 / 無効になる。以前はクリックはバインドできても、灰色にならなかった (実アプリの調査で、こうしたツールバーが多数の画面で使われていた)。`Control` / `ToolStripItem` の型に渡すと既定の `Enabled` の切り替えを置き換える。
 
 ### Fixed (修正)
