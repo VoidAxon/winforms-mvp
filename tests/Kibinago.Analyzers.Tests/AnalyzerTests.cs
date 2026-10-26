@@ -327,6 +327,32 @@ public class OrderForm : Form, IOrderView
         }
 
         [Fact]
+        public void MVP008_UserControlMethodNotInViewInterface_Reports()
+        {
+            Assert.Equal(new[] { "MVP008:Highlight" },
+                IdsWithText(UiUsings + @"
+public interface IOrderPanelView : IViewBase { void ShowTotal(decimal total); }
+public class OrderPanel : UserControl, IOrderPanelView
+{
+    public void ShowTotal(decimal total) { }
+    public void Highlight() { }
+}"));
+        }
+
+        [Fact]
+        public void MVP008_TestDoubleViewThatIsNotAControl_NoDiagnostic()
+        {
+            // A fake view in a test project exposes helpers (RaiseInputChanged, Select(id), ...) on purpose.
+            Assert.Empty(Ids(Usings + @"
+public interface IOrderView : IWindowView { void ShowTotal(decimal total); }
+public class FakeOrderView : IOrderView
+{
+    public void ShowTotal(decimal total) { }
+    public void RaiseInputChanged() { }
+}"));
+        }
+
+        [Fact]
         public void MVP008_ClassImplementingNonViewInterfaceNamedView_NoDiagnostic()
         {
             Assert.Empty(Ids(@"

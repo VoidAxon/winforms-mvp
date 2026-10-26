@@ -58,6 +58,7 @@ TestServices.CreateFakes()      → FakeServices (Kibinago.Testing)
 TestServices.Create()           無出力の ILoggerFactory だけを登録した DefaultServiceProvider (自作フェイクだけで組むとき)
 PresenterTestHost               モック View をアタッチして実際の初期化を走らせ、RequestClose をゲートに通して受理されたクローズを記録し、CanClose / CanCloseAsync ゲートを駆動する
 CapturingActionBinder           フレームワークが View に渡す dispatcher を捕捉。テストから Dispatch する入口
+FakeValidationErrorDisplay      IValidatableView のモック View が ValidationErrors として返す。Presenter の Validation が送ったエラーを記録
 Mock<IXxxView>                  View インターフェイス用のモック (テスト側で書く — CapturingActionBinder を公開する)
 業務依存 (IXxxRepository 等)     Presenter のコンストラクタに注入 (テスト側で書く。フレームワークサービスとは別経路)
 ```
