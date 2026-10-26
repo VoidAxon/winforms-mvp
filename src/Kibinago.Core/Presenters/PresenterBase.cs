@@ -31,7 +31,9 @@ namespace Kibinago.Presenters
         private readonly CancellationTokenSource _lifetime = new CancellationTokenSource();
 
         /// <summary>Creates the presenter and its action dispatcher.</summary>
-        protected PresenterBase()
+        /// <remarks>Only the framework's presenter bases derive from this class: derive from
+        /// <c>WindowPresenterBase</c> or <c>ControlPresenterBase</c>.</remarks>
+        private protected PresenterBase()
         {
             _dispatcher = new ViewActionDispatcher { Lifetime = _lifetime.Token };
         }
@@ -168,9 +170,9 @@ namespace Kibinago.Presenters
         IViewBase IViewAttachable.AttachedView => View;
 
         /// <summary>
-        /// Sets the view for this presenter. Called by derived classes.
+        /// Sets the view for this presenter. Called by the framework's presenter bases.
         /// </summary>
-        protected void SetView(TView view)
+        private protected void SetView(TView view)
         {
             if (view == null)
                 throw new ArgumentNullException(nameof(view));

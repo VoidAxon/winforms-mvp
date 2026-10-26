@@ -8,6 +8,21 @@
 
 ## [Unreleased]
 
+### Changed (変更) — 1.0 前の公開 API の整理 (破壊的変更)
+
+- `PresenterBase<TView>` と `WindowPresenterBaseCore<TView>` のコンストラクタ、`SetView` を `private protected` に。「直接継承しない」とされていたが継承でき、継承しても初期化の流れを呼べない半端な拡張点だった。アプリは従来どおり `WindowPresenterBase` / `ControlPresenterBase` から派生する。
+- `IServiceRegistry.RegisterFactory<T>` → **`RegisterSingleton<T>`** (`DefaultServiceProvider` も)。ファクトリは最初の解決で 1 回だけ呼ばれ、以後は同じインスタンスを返す — 名前から毎回呼ばれると読めていた。
+- `ILoggerFactory` は `CreateLogger(string)` だけになり、`CreateLogger(Type)` は拡張メソッド (`LoggerFactoryExtensions`、`CreateLogger(type.FullName)` と同じ、`null` は例外)。アダプターを書くときに実装するのは 1 メソッド。
+- `ViewActionBinder.RegisterStrategy<T>` のコールバックが受け取るハンドラーは `Delegate` ではなく `EventHandler` (キャスト不要)。
+- `ModelValidationResult` は `sealed`。`MemberNames` は作成時のコピー (`IReadOnlyList<string>`、渡したリストを後で変えても結果は変わらない)。メッセージだけを比べる `Equals` / `GetHashCode` を削除 (別のフィールドに同じメッセージのエラーが同じものとして扱われ、`Distinct()` で 1 件に減っていた)。
+
+### Removed (削除)
+
+- 使われていなかった `ViewAction.WithSuffix(...)` と `ViewAction.WithQualifier(ViewActionFactory)` (キーの作り方は `ViewAction.Create` / `ViewAction.Factory.WithQualifier(...).Create(...)` の 1 通りに)。
+- `ViewActionBinder` の `IEnumerable` 実装 (内部型を列挙するだけで、使い道がなかった)。
+- `KibinagoBuilder` の public コンストラクタ (自分で作っても適用する方法がなかった。`MvpApplication.Configure` / `AddKibinago` のコールバックで受け取る)。
+- `ServiceProviderViewMappingRegister` を internal に (`register.WithServiceProvider(sp)` で作る)。
+
 ### Fixed (修正)
 
 - **ワーカースレッドから `Messages.ShowXxx` / `ConfirmXxx` を呼ぶと、ダイアログがアプリのウィンドウに対してモーダルにならなかった** (`Task.Run` の中など。所有ウィンドウのない `MessageBox` がそのスレッドで開き、背後に隠れたり、表示中にメイン画面を操作できたりした)。`MessageService` は UI スレッドで表示し (開いている Form 経由の `Invoke`)、ワーカーは答えを待つ。`IMessageDialogBackend` は UI スレッドで呼ばれる。メッセージループを回しているスレッド (UI スレッドが複数あるアプリではそれぞれ) からの呼び出しはそのスレッドで、Form が 1 つもないときは従来どおり呼び出したスレッドで表示。トーストは以前から UI スレッドへ回していた (外部からの質問で確認)。FAQ に「非同期版の確認 API がない理由」を追加 (設計上の選択であること、同期ダイアログと WinForms の `ShowDialogAsync` の違いを UI スレッドから呼んだ場合とワーカースレッドから呼んだ場合に分けて説明。「待っている間 UI は止まらない」という誤解を招く書き方は取りやめた)。

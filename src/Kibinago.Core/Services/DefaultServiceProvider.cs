@@ -60,8 +60,8 @@ namespace Kibinago.Services
             }
         }
 
-        /// <summary>Non-generic <see cref="RegisterFactory{TService}"/>, for registration lists built at runtime.</summary>
-        internal void RegisterFactory(Type serviceType, Func<IServiceProvider, object> factory)
+        /// <summary>Non-generic <see cref="RegisterSingleton{TService}"/>, for registration lists built at runtime.</summary>
+        internal void RegisterSingleton(Type serviceType, Func<IServiceProvider, object> factory)
         {
             if (serviceType == null) throw new ArgumentNullException(nameof(serviceType));
             if (factory == null) throw new ArgumentNullException(nameof(factory));
@@ -76,7 +76,7 @@ namespace Kibinago.Services
         /// Factories must not introduce resolution cycles: a cyclic factory graph overflows the stack
         /// (the lock is reentrant, so there is no deadlock — it recurses until the stack is exhausted).
         /// </summary>
-        public void RegisterFactory<TService>(Func<IServiceProvider, TService> factory)
+        public void RegisterSingleton<TService>(Func<IServiceProvider, TService> factory)
         {
             if (factory == null) throw new ArgumentNullException(nameof(factory));
             lock (_lock)

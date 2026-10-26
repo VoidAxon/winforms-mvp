@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Windows.Forms;
@@ -54,7 +53,7 @@ namespace Kibinago.ViewActions
     /// <c>Bind</c>; Esc still clicks it.
     /// </para>
     /// </remarks>
-    public class ViewActionBinder : IViewActionBinder, IEnumerable<ActionBinding>
+    public class ViewActionBinder : IViewActionBinder
     {
         private enum BindMode { Unbound, EventOnly, Dispatcher }
 
@@ -73,11 +72,14 @@ namespace Kibinago.ViewActions
         }
 
         private readonly List<Entry> _entries = new List<Entry>();
+
+        // Bound controls (tests check that disposed controls are removed).
+        internal int BindingCount => _entries.Count;
         private readonly Dictionary<Component, Entry> _byComponent = new Dictionary<Component, Entry>();
 
         // Strategy per component type; a null value marks a type as unsupported (e.g. separators).
-        private readonly Dictionary<Type, Func<Component, Delegate, Action>> _bindingStrategies
-            = new Dictionary<Type, Func<Component, Delegate, Action>>();
+        private readonly Dictionary<Type, Func<Component, EventHandler, Action>> _bindingStrategies
+            = new Dictionary<Type, Func<Component, EventHandler, Action>>();
 
         // Controls whose natural interaction is a click and that have no change event of their own.
         // Exact types only: a third-party editor deriving from Panel must not silently become a click.
@@ -130,67 +132,67 @@ namespace Kibinago.ViewActions
         {
             // CheckBox / RadioButton - CheckedChanged (also on programmatic Checked)
             RegisterStrategy<CheckBox>(
-                (c, h) => c.CheckedChanged += (EventHandler)h,
-                (c, h) => c.CheckedChanged -= (EventHandler)h);
+                (c, h) => c.CheckedChanged += h,
+                (c, h) => c.CheckedChanged -= h);
             RegisterStrategy<RadioButton>(
-                (c, h) => c.CheckedChanged += (EventHandler)h,
-                (c, h) => c.CheckedChanged -= (EventHandler)h);
+                (c, h) => c.CheckedChanged += h,
+                (c, h) => c.CheckedChanged -= h);
 
             // Button (regular buttons, not CheckBox/RadioButton)
             RegisterStrategy<ButtonBase>(
-                (c, h) => c.Click += (EventHandler)h,
-                (c, h) => c.Click -= (EventHandler)h);
+                (c, h) => c.Click += h,
+                (c, h) => c.Click -= h);
 
             // ComboBox - fires only on user-committed selection, not on programmatic SelectedIndex changes
             RegisterStrategy<ComboBox>(
-                (c, h) => c.SelectionChangeCommitted += (EventHandler)h,
-                (c, h) => c.SelectionChangeCommitted -= (EventHandler)h);
+                (c, h) => c.SelectionChangeCommitted += h,
+                (c, h) => c.SelectionChangeCommitted -= h);
 
             // TextBox / RichTextBox / MaskedTextBox - TextChanged: every change, typing AND programmatic
             // Text assignment (no committed-only event). A view that writes a value back assigns it only
             // when it differs (if (txt.Text != value) txt.Text = value;), or the write dispatches again.
             RegisterStrategy<TextBoxBase>(
-                (c, h) => c.TextChanged += (EventHandler)h,
-                (c, h) => c.TextChanged -= (EventHandler)h);
+                (c, h) => c.TextChanged += h,
+                (c, h) => c.TextChanged -= h);
 
             // NumericUpDown - fires on value change (spin buttons, typing, AND programmatic Value
             // assignment). Unlike ComboBox there is no user-committed-only event, so initializing or
             // refilling Value in code will also trigger the action; guard such assignments if that matters.
             RegisterStrategy<NumericUpDown>(
-                (c, h) => c.ValueChanged += (EventHandler)h,
-                (c, h) => c.ValueChanged -= (EventHandler)h);
+                (c, h) => c.ValueChanged += h,
+                (c, h) => c.ValueChanged -= h);
 
             // DateTimePicker - fires on ValueChanged (user pick or programmatic Value set). Same
             // caveat as NumericUpDown: no committed-only event, so assigning Value in code triggers too.
             RegisterStrategy<DateTimePicker>(
-                (c, h) => c.ValueChanged += (EventHandler)h,
-                (c, h) => c.ValueChanged -= (EventHandler)h);
+                (c, h) => c.ValueChanged += h,
+                (c, h) => c.ValueChanged -= h);
 
             // MonthCalendar - DateChanged uses DateRangeEventHandler (not EventHandler), so register
             // via the subscribe overload and adapt the delegate. Same caveat as the other value
             // controls: programmatic SetDate / SelectionRange assignment also triggers.
             RegisterStrategy<MonthCalendar>((c, h) =>
             {
-                DateRangeEventHandler d = (s, e) => ((EventHandler)h)(s, e);
+                DateRangeEventHandler d = (s, e) => h(s, e);
                 c.DateChanged += d;
                 return () => c.DateChanged -= d;
             });
 
             // ToolStripMenuItem, ToolStripButton, ToolStripDropDownButton, ToolStripStatusLabel, ...
             RegisterStrategy<ToolStripItem>(
-                (c, h) => c.Click += (EventHandler)h,
-                (c, h) => c.Click -= (EventHandler)h);
+                (c, h) => c.Click += h,
+                (c, h) => c.Click -= h);
 
             // Editors hosted in a ToolStrip are not clicks.
             RegisterStrategy<ToolStripTextBox>(
-                (c, h) => c.TextChanged += (EventHandler)h,
-                (c, h) => c.TextChanged -= (EventHandler)h);
+                (c, h) => c.TextChanged += h,
+                (c, h) => c.TextChanged -= h);
             // The host clears its ComboBox before raising Disposed: detach from the captured instance.
             RegisterStrategy<ToolStripComboBox>((c, h) =>
             {
                 var combo = c.ComboBox;
-                combo.SelectionChangeCommitted += (EventHandler)h;
-                return () => combo.SelectionChangeCommitted -= (EventHandler)h;
+                combo.SelectionChangeCommitted += h;
+                return () => combo.SelectionChangeCommitted -= h;
             });
             _bindingStrategies[typeof(ToolStripControlHost)] = null;   // other hosted controls: register explicitly
             _bindingStrategies[typeof(ToolStripSeparator)] = null;     // nothing to trigger
@@ -203,7 +205,7 @@ namespace Kibinago.ViewActions
         /// <remarks>The nearest registered base type of a control's runtime type is used. Register a
         /// strategy before adding a control whose type has none (a third-party editor, a custom
         /// clickable control); while bound, a new strategy applies to controls added afterwards.</remarks>
-        public void RegisterStrategy<T>(Action<T, Delegate> attacher, Action<T, Delegate> detacher) where T : Component
+        public void RegisterStrategy<T>(Action<T, EventHandler> attacher, Action<T, EventHandler> detacher) where T : Component
         {
             if (attacher == null) throw new ArgumentNullException(nameof(attacher));
             if (detacher == null) throw new ArgumentNullException(nameof(detacher));
@@ -221,7 +223,7 @@ namespace Kibinago.ViewActions
         /// uses <see cref="DateRangeEventHandler"/>), so the handler must be adapted and the adapted
         /// delegate captured for later removal.
         /// </summary>
-        public void RegisterStrategy<T>(Func<T, Delegate, Action> subscribe) where T : Component
+        public void RegisterStrategy<T>(Func<T, EventHandler, Action> subscribe) where T : Component
         {
             if (subscribe == null) throw new ArgumentNullException(nameof(subscribe));
             _bindingStrategies[typeof(T)] = (comp, handler) => subscribe((T)comp, handler);
@@ -300,8 +302,8 @@ namespace Kibinago.ViewActions
                     throw new InvalidOperationException(
                         $"{DescribeComponent(component)} ({component.GetType().FullName}) has no binding strategy, so " +
                         "nothing would trigger the action. Register the event that should trigger it before adding it, " +
-                        $"e.g. binder.RegisterStrategy<{component.GetType().Name}>((c, h) => c.TextChanged += (EventHandler)h, " +
-                        "(c, h) => c.TextChanged -= (EventHandler)h).");
+                        $"e.g. binder.RegisterStrategy<{component.GetType().Name}>((c, h) => c.TextChanged += h, " +
+                        "(c, h) => c.TextChanged -= h).");
             }
 
             var added = new List<Entry>(components.Length);
@@ -340,7 +342,7 @@ namespace Kibinago.ViewActions
 
         // Nearest registered base type wins; a type registered as null is unsupported. Without a
         // registration only the plain click controls fall back to Click.
-        private Func<Component, Delegate, Action> ResolveStrategy(Component component)
+        private Func<Component, EventHandler, Action> ResolveStrategy(Component component)
         {
             for (var type = component.GetType(); type != null && type != typeof(object); type = type.BaseType)
             {
@@ -350,8 +352,8 @@ namespace Kibinago.ViewActions
                 return (c, h) =>
                 {
                     var control = (Control)c;
-                    control.Click += (EventHandler)h;
-                    return () => control.Click -= (EventHandler)h;
+                    control.Click += h;
+                    return () => control.Click -= h;
                 };
             return null;
         }
@@ -557,13 +559,5 @@ namespace Kibinago.ViewActions
             _dispatcher.CanExecuteChanged -= OnCanExecuteChanged;
             _dispatcher = null;
         }
-
-        IEnumerator<ActionBinding> IEnumerable<ActionBinding>.GetEnumerator()
-        {
-            foreach (var entry in _entries.ToArray())
-                yield return new ActionBinding(entry.ActionKey, new[] { entry.Component }, entry.ValueSelector);
-        }
-
-        IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable<ActionBinding>)this).GetEnumerator();
     }
 }

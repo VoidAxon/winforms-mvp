@@ -115,7 +115,7 @@ namespace Kibinago.Samples.Tests.ViewActions
             {
                 var (dispatcher, calls) = Dispatcher();
                 var binder = new ViewActionBinder();
-                binder.RegisterStrategy<CustomEditor>((c, h) => c.TextChanged += (EventHandler)h, (c, h) => c.TextChanged -= (EventHandler)h);
+                binder.RegisterStrategy<CustomEditor>((c, h) => c.TextChanged += h, (c, h) => c.TextChanged -= h);
                 binder.Add(Run, editor);
                 binder.Bind(dispatcher);
 
@@ -250,7 +250,7 @@ namespace Kibinago.Samples.Tests.ViewActions
             after.Dispose();                           // disposed while bound
             dispatcher.RaiseCanExecuteChanged();       // must not touch disposed controls
 
-            Assert.Empty(binder);
+            Assert.Equal(0, binder.BindingCount);
         }
 
         [Fact]
@@ -264,7 +264,7 @@ namespace Kibinago.Samples.Tests.ViewActions
 
             combo.Dispose();
 
-            Assert.Empty(binder);
+            Assert.Equal(0, binder.BindingCount);
         }
 
         [Fact]

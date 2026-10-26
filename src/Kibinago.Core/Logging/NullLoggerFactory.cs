@@ -14,7 +14,5 @@ namespace Kibinago.Logging
 
         /// <inheritdoc />
         public ILogger CreateLogger(string categoryName) => NullLogger.Instance;
-        /// <inheritdoc />
-        public ILogger CreateLogger(Type type) => NullLogger.Instance;
     }
 }

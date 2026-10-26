@@ -184,8 +184,8 @@ namespace Kibinago.Samples.AnchoredMessageDemo
             _viewActionBinder.Add(AnchoredMessageDemoActions.MenuNotify, _menuNotify);
             // A grid has no built-in binding strategy (which of its events is "the" action?): say it explicitly.
             _viewActionBinder.RegisterStrategy<DataGridView>(
-                (g, h) => g.Click += (System.EventHandler)h,
-                (g, h) => g.Click -= (System.EventHandler)h);
+                (g, h) => g.Click += h,
+                (g, h) => g.Click -= h);
             _viewActionBinder.Add(AnchoredMessageDemoActions.GridTouch, _grid);
             _viewActionBinder.Add(AnchoredMessageDemoActions.ToggleNotify, _notifyCheckBox);
         }

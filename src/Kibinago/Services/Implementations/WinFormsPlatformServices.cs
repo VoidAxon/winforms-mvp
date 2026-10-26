@@ -10,7 +10,7 @@ namespace Kibinago.Services.Implementations
         internal static void Register(IServiceRegistry registry)
         {
             registry.RegisterInstance<IViewMappingRegister>(new ViewMappingRegister());
-            registry.RegisterFactory<IWindowNavigator>(sp =>
+            registry.RegisterSingleton<IWindowNavigator>(sp =>
                 new WindowNavigator(sp.Resolve<IViewMappingRegister>().WithServiceProvider(sp)));
 
             // Messages, toasts, dialogs, change tracking, events, logging: the builder's defaults,

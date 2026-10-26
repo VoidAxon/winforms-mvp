@@ -19,7 +19,7 @@ PresenterBase<TView>                              [共通基底・直接継承�
 
 これらの基底クラスはすべて `Kibinago.Core` パッケージ (`netstandard2.0`、WinForms 非参照) にあります。`Connect` 拡張メソッドや `WindowNavigator` など WinForms に触れる部分は `Kibinago` パッケージ側です (名前空間は共通)。
 
-`WindowPresenterBaseCore<TView>` にはクローズゲート (`CanClose` / `CanCloseAsync` オーバーライド)、Push helper (`RequestClose`)、および `Connect` で使われるクローズシンクバインディングが集約されています。直接継承せず、`WindowPresenterBase<TView>` または `WindowPresenterBase<TView, TParam>` を使ってください。
+`WindowPresenterBaseCore<TView>` にはクローズゲート (`CanClose` / `CanCloseAsync` オーバーライド)、Push helper (`RequestClose`)、および `Connect` で使われるクローズシンクバインディングが集約されています。直接継承せず、`WindowPresenterBase<TView>` または `WindowPresenterBase<TView, TParam>` を使ってください (`PresenterBase` と `WindowPresenterBaseCore` のコンストラクタは `private protected` なので、アプリから直接継承するとコンパイルエラーになります)。
 
 業務結果を返す Presenter は、`RequestClose(result, status)` 基底メソッドを呼ぶだけです — インターフェイスの実装も拡張メソッドも不要。`TResult` は引数から推論されます。開いているウィンドウへの `RequestClose` は X と同じく `CanClose` / `CanCloseAsync` を通り (`CloseReason.Normal`)、渡した結果はゲートが許可したときに呼び出し元へ届く候補です。ウィンドウ表示前 (`OnInitialize` など) の `RequestClose` はゲートを通らず、表示をキャンセルします (詳細は [ウィンドウクローズモデル](Concept-Window-Closing-Model))。
 

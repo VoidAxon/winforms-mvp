@@ -20,8 +20,5 @@ namespace MultiProjectDemo.Shell.Logging
 
         public Fx.ILogger CreateLogger(string categoryName)
             => new MicrosoftLoggerAdapter(_inner.CreateLogger(categoryName));
-
-        public Fx.ILogger CreateLogger(Type type)
-            => new MicrosoftLoggerAdapter(_inner.CreateLogger(type?.FullName ?? string.Empty));
     }
 }

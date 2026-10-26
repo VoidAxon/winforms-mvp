@@ -26,7 +26,7 @@ namespace Kibinago.Configuration
         private bool _built;
 
         /// <summary>Creates an empty builder: every service keeps its built-in default until a group chooses otherwise.</summary>
-        public KibinagoBuilder()
+        internal KibinagoBuilder()
         {
             Messages = new MessagesBuilder(this);
             Toasts = new ToastsBuilder(this);
@@ -130,7 +130,7 @@ namespace Kibinago.Configuration
         {
             foreach (var r in BuildRegistrations())
             {
-                if (r.Factory != null) provider.RegisterFactory(r.ServiceType, r.Factory);
+                if (r.Factory != null) provider.RegisterSingleton(r.ServiceType, r.Factory);
                 else provider.Register(r.ServiceType, r.Instance);
             }
         }
