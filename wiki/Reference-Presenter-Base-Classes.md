@@ -494,14 +494,14 @@ using (var host = PresenterTestHost.Start(presenter, view))
 | `Dispatcher` | `ViewActionDispatcher` | ViewAction のディスパッチャ |
 | `Messages` | `IMessageService` | メッセージダイアログ |
 | `Dialogs` | `IDialogProvider` | OpenFile / SaveFile / FolderBrowser |
-| `Files` | `IFileService` | ファイル I/O |
+| `Services` | `IServiceProvider` | 自前で登録したサービスの取得 (DI コンテナを使わない場合。`OnViewAttached` / `OnInitialize` 以降) — [Platform Services](Reference-Platform-Services#di-コンテナを使わない場合-services) |
 | `Logger` | `ILogger` | 構造化ロギング |
 | `Navigator` | `IWindowNavigator` | 子ウィンドウの表示 |
 | `Lifetime` | `CancellationToken` | Presenter の破棄 (ウィンドウを閉じる / コントロール破棄) でキャンセルされるトークン |
 | `AttachChild(child, view[, parameters])` | `IDisposable` (メソッド) | 子パネルの Presenter を所有・初期化 ([上記](#子-presenter-を所有する-attachchild)) |
 | `Validation` | `ValidationState` | 検証エラー (フィールド名ごと)。`Validate(model)` / `Check(model)` / `SetError` / `Reset`。View が `IValidatableView` なら `ValidationErrors` に自動接続され、変更のたびに `canExecute` を再評価 ([フォーム入力を検証する](HowTo-Validate-Form-Input)) |
 
-`Messages` / `Dialogs` / `Files` / `Logger` / `Navigator` は `ServiceLocator.Current` (`IServiceProvider`) から遅延解決されます。
+`Messages` / `Dialogs` / `Logger` / `Navigator` は `ServiceLocator.Current` (`IServiceProvider`) から遅延解決されます。
 DI コンテナと統合する場合の構成方法は [Dependency Injection](Reference-DependencyInjection) を参照してください。
 
 ---

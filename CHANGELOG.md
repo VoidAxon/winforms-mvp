@@ -36,6 +36,8 @@
 
 ### Removed (削除)
 
+- **`IFileService` / `FileService` / Presenter の `Files` プロパティ / `InMemoryFileService` (`fakes.Files`)** — `System.IO` を薄く包んだだけ (同期・ファイル全体のみ、ストリームも async もない) で、サンプルでもテンプレートでも使われていなかった。ファイルは UI ではないので MVP の規則も禁じていない。代わりに用途ごとのインターフェイス (`ICsvExporter`、`IOrderRepository` 等) をコンストラクタで注入する (ファイルシステム全体なら System.IO.Abstractions)。DB・HTTP も同じ方針をドキュメントに明記。
+- **`IWinFormsDialogProvider`** (`ShowFontDialog` / `ShowPrintDialog` / `ShowPageSetupDialog` / `ShowPrintPreviewDialog`)、`FontDialogOptions` / `PrintDialogOptions` / `PageSetupDialogOptions` / `PrintPreviewDialogOptions`、`DialogProviderOptions` と `mvp.Dialogs` の `PrintPreviewDialogTitle` / `FontSelectErrorMessage` / `PrintDialogErrorMessage` / `PageSetupErrorMessage` / `PrintPreviewErrorMessage` — GDI+ の型を返すので View からしか使えず、Form は `FontDialog` などを直接使える。`FontDialogOptions.ShowColor` で選んだ色は結果に含まれず、`IDialogProvider` を差し替えてもこちらは差し替わらなかった。Presenter が始める流れ (帳票の書式・プリンタの選択) は、アプリのデータ型を返す意味のある View メソッドで表す。`IDialogProvider` (開く / 保存 / フォルダ / 色) と `mvp.Dialogs` はそのまま。
 - 使われていなかった `ViewAction.WithSuffix(...)` と `ViewAction.WithQualifier(ViewActionFactory)` (キーの作り方は `ViewAction.Create` / `ViewAction.Factory.WithQualifier(...).Create(...)` の 1 通りに)。
 - `ViewActionBinder` の `IEnumerable` 実装 (内部型を列挙するだけで、使い道がなかった)。
 - `KibinagoBuilder` の public コンストラクタ (自分で作っても適用する方法がなかった。`MvpApplication.Configure` / `AddKibinago` のコールバックで受け取る)。

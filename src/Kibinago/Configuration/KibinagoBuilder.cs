@@ -107,7 +107,6 @@ namespace Kibinago.Configuration
             Put(FrameworkRegistration.ForInstance(typeof(DialogProviderOptions), Dialogs.Options.Copy()));
             Put(FrameworkRegistration.ForFactory(typeof(DialogProvider), sp => new DialogProvider(sp.ResolveRequired<DialogProviderOptions>())));
             Put(FrameworkRegistration.ForFactory(typeof(IDialogProvider), sp => sp.ResolveRequired<DialogProvider>()));
-            Put(FrameworkRegistration.ForFactory(typeof(IWinFormsDialogProvider), sp => sp.ResolveRequired<DialogProvider>()));
 
             Put(FrameworkRegistration.ForInstance(typeof(IObjectCloner), BuiltInObjectCloner.Instance));
             Put(FrameworkRegistration.ForInstance(typeof(IObjectContentComparer), BuiltInObjectContentComparer.Instance));

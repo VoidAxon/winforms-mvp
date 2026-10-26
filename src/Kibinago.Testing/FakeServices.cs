@@ -31,8 +31,6 @@ namespace Kibinago.Testing
         /// <summary>The registered <see cref="IDialogProvider"/>.</summary>
         public FakeDialogProvider Dialogs { get; } = new FakeDialogProvider();
 
-        /// <summary>The registered <see cref="IFileService"/>.</summary>
-        public InMemoryFileService Files { get; } = new InMemoryFileService();
 
         /// <summary>The registered <c>ILoggerFactory</c> (replaces the silent one).</summary>
         public RecordingLoggerFactory Logs { get; } = new RecordingLoggerFactory();

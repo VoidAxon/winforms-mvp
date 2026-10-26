@@ -428,7 +428,6 @@ private void OnGreetRequested()
 |----------|----|----|
 | `Messages` | `IMessageService` | メッセージダイアログ、確認ダイアログ |
 | `Dialogs` | `IDialogProvider` | OpenFile / SaveFile / FolderBrowser |
-| `Files` | `IFileService` | ファイル I/O |
 | `Logger` | `ILogger` | 構造化ロギング |
 
 これらは `ServiceLocator.Current` から遅延解決されます。コンストラクタ引数は不要です。

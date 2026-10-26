@@ -47,7 +47,7 @@ WinForms アプリケーションのための **Model-View-Presenter** フレー
 - [ViewAction システム](Reference-ViewAction-System) — Dispatcher / Binder / Middleware の完全リファレンス
 - [WindowNavigator](Reference-WindowNavigator) — Modal / 非 Modal、Fluent API、`RequestClose` による結果返却
 - [ViewMappingRegister](Reference-ViewMappingRegister) — View 自動登録、Factory パターン
-- [Platform Services](Reference-Platform-Services) — `IMessageService` / `IToastService` / `IDialogProvider` / `IFileService`
+- [Platform Services](Reference-Platform-Services) — `IMessageService` / `IToastService` / `IDialogProvider`、ファイル・DB・HTTP の扱い
 - [トースト通知](Reference-Toast-Notifications) — 隅に積み上がるトースト、`IToastService` / `IWinFormsToastService`、`ToastOptions` / `mvp.Toasts`、`AnchoredToast`
 - [Data Binding 拡張メソッド](Reference-Data-Binding) — View 側で UI コントロールをモデルに紐付ける拡張メソッド群
 - [Logging](Reference-Logging) — 自社抽象 (外部依存ゼロ)、M.E.L. 連携

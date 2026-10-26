@@ -8,8 +8,8 @@ namespace Kibinago.Services
     /// Provides presenter-facing dialog abstractions for file, folder and color selection.
     /// </summary>
     /// <remarks>
-    /// Font and print dialogs return GDI+/WinForms types (<c>Font</c>, <c>PrinterSettings</c>),
-    /// so they live on <c>IWinFormsDialogProvider</c> in the Kibinago package instead.
+    /// Font and print dialogs are not wrapped: a view uses them directly, and a presenter that starts
+    /// such a workflow calls a semantic view method or an application service with its own data types.
     /// </remarks>
     public interface IDialogProvider
     {

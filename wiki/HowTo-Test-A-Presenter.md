@@ -50,7 +50,6 @@ TestServices.CreateFakes()      → FakeServices (Kibinago.Testing)
    ├── Messages   FakeMessageService      呼び出しを記録し、確認ダイアログの答えをスクリプトで返す
    ├── Toasts     FakeToastService        トーストを記録
    ├── Dialogs    FakeDialogProvider      ファイル / フォルダ / 色ダイアログの答えをスクリプトで返す
-   ├── Files      InMemoryFileService     in-memory ファイルシステム (どの OS でも Windows のパス規則)
    ├── Navigator  FakeWindowNavigator     子ウィンドウの要求を記録し、モーダルの結果を返す / 非モーダルを閉じる
    ├── Logs       RecordingLoggerFactory  ログを記録
    └── Provider   DefaultServiceProvider  上のフェイクを登録済み — PresenterTestHost.Start(fakes.Provider, presenter, view) に渡す
@@ -61,6 +60,7 @@ CapturingActionBinder           フレームワークが View に渡す dispatch
 FakeValidationErrorDisplay      IValidatableView のモック View が ValidationErrors として返す。Presenter の Validation が送ったエラーを記録
 Mock<IXxxView>                  View インターフェイス用のモック (テスト側で書く — CapturingActionBinder を公開する)
 業務依存 (IXxxRepository 等)     Presenter のコンストラクタに注入 (テスト側で書く。フレームワークサービスとは別経路)
+                                ファイル・DB・HTTP もここ (フレームワークはこれらのサービスを提供しない)
 ```
 
 **業務依存 (Repository など) と View のモックはテスト側で書きます** — パッケージが提供するのはフレームワークサービスのフェイクだけです。
@@ -69,9 +69,9 @@ Mock<IXxxView>                  View インターフェイス用のモック (�
 
 ```csharp
 var fakes = TestServices.CreateFakes();                                    // 全部
-fakes.Provider.RegisterInstance<IFileService>(new MyFileService());       // 1 つ差し替え (Start の前に)
+fakes.Provider.RegisterInstance<IToastService>(new MyToasts());           // 1 つ差し替え (Start の前に)
 var sp = TestServices.Create(); sp.RegisterInstance<IMessageService>(mock.Object);   // 使わない (Moq など)
-class SlowFiles : InMemoryFileService { public override string ReadAllText(string path) { ... } }   // 1 操作だけ上書き
+class QuietToasts : FakeToastService { public override void Show(...) { ... } }   // 1 操作だけ上書き
 ```
 
 **答えを用意していない問い合わせは例外になります。** 確認ダイアログ・ファイルダイアログ・モーダルウィンドウをテストが想定していないのに Presenter が出すと、`UnscriptedInteractionException` (何を聞かれたかを含むメッセージ) が投げられます — 想定外の質問が黙って片方の分岐に進むことはありません。気にしないテストでは、`fakes.Messages.AnswerUnscripted(yes: true)` / `fakes.Dialogs.CancelUnscripted()` / `fakes.Navigator.CancelUnscripted()` で既定の答えを決められます。
@@ -149,7 +149,7 @@ public IViewActionBinder ActionBinder => Binder;
 
 > **View が別の Presenter に付け直されたか** (モード切替で子パネルの Presenter を入れ替えるなど) は `IsBound` / `Dispatcher` に加えて `BindCount` / `UnbindCount` で確かめます。旧 Presenter の破棄で 1 回解除、新しい Presenter で 2 回目のバインド — `Assert.Equal(2, view.Binder.BindCount); Assert.Equal(1, view.Binder.UnbindCount);`。
 
-> **業務依存はコンストラクタ、フレームワークサービスは `PresenterTestHost.Start(services, ...)`。** `TestServices.CreateFakes()` が登録するのは Message/Toast/Dialog/File/Navigator/Logger の **フレームワークサービス** だけです。`IUserRepository` のような業務依存は Presenter のコンストラクタに注入します (`new UserEditorPresenter(_repository)`)。実例は [`MainEmailPresenterTests.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/tests/Kibinago.Samples.Tests/Presenters/MainEmailPresenterTests.cs) を参照。
+> **業務依存はコンストラクタ、フレームワークサービスは `PresenterTestHost.Start(services, ...)`。** `TestServices.CreateFakes()` が登録するのは Message/Toast/Dialog/Navigator/Logger の **フレームワークサービス** だけです。`IUserRepository` のような業務依存は Presenter のコンストラクタに注入します (`new UserEditorPresenter(_repository)`)。実例は [`MainEmailPresenterTests.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/tests/Kibinago.Samples.Tests/Presenters/MainEmailPresenterTests.cs) を参照。
 
 > **自分でプロバイダを組むときは `TestServices.Create()` から始めます。** どの Presenter もアタッチ時に `ILoggerFactory` を必要とするため、それだけを登録済みで返します。渡したプロバイダにないサービスはエラーになり、グローバルの既定サービスで補われることはありません (テストが何に依存しているかがコードに現れるように)。プロバイダは呼び出し側の所有で、ホストは破棄しません。Presenter がコンストラクタで `Logger` や `Messages` を使っていると、`Start(services, ...)` は `InvalidOperationException` になります — その処理は `OnViewAttached` / `OnInitialize` に移してください。
 
@@ -229,7 +229,7 @@ public void OnDelete_UserDeclines_DoesNotRemove()
 public void OnImport_WhenUserSelectsFile_ImportsContent()
 {
     _fakes.Dialogs.EnqueueOpenFile(InteractionResult<string>.Ok(@"C:\data\users.csv"));
-    _fakes.Files.SeedFile(@"C:\data\users.csv", "id,name\r\n1,John");   // 親フォルダも作られる
+    _csv.Users[@"C:\data\users.csv"] = new[] { new User { Name = "John" } };   // コンストラクタで注入した IUserCsvReader のフェイク
 
     _view.Binder.Dispatch(ImportActions.Import);
 
@@ -250,39 +250,40 @@ public void OnImport_WhenUserCancels_DoesNothing()
 
 ハンドラ (`OpenFileHandler = o => ...`、`SaveFileHandler`、`FolderBrowserHandler`、`ColorHandler`) は渡されたオプション (`Filter`、`FileName` など) を見て答えられます。`fakes.Dialogs.Calls` には要求ごとの `Kind` と渡されたオプションが残ります。
 
-### ファイル I/O をフェイクにする
+### ファイル・データベース・HTTP をフェイクにする
 
-`InMemoryFileService` はメモリ上のファイルシステムです。**どの OS で動かしても Windows のパス規則** (大文字小文字を区別しない、`\` と `/`、`.` / `..`、相対パスは `C:\test` 基準) に従い、`System.IO` と同じ例外を投げます (親フォルダがなければ `DirectoryNotFoundException`、上書き不可なら `IOException`、ファイルがなければ `FileNotFoundException`)。
+フレームワークはこれらのサービスを提供しません。Presenter には **業務の用途ごとのインターフェイス** (`IUserCsvReader`、`IOrderRepository`、`ICsvExporter` など) をコンストラクタで注入し、テストではそのフェイクを渡します。失敗も、そのフェイクに例外を投げさせて再現します。
 
 ```csharp
-[Fact]
-public void OnLoadConfig_ReadsFromFileSystem()
+private sealed class FakeCsvExporter : ICsvExporter
 {
-    _fakes.Files.SeedFile(@"C:\app\config.json", "{ \"theme\": \"dark\" }");
-
-    _view.Binder.Dispatch(ConfigActions.Load);
-
-    Assert.Equal("dark", _view.Theme);
+    public Exception Failure;
+    public List<string> Written = new List<string>();
+    public void Export(string path, IReadOnlyList<Order> orders)
+    {
+        if (Failure != null) throw Failure;
+        Written.Add(path);
+    }
 }
 
 [Fact]
 public void OnExport_WhenTheFileIsLocked_ShowsError()
 {
+    _exporter.Failure = new IOException("Excel で開かれています");     // _exporter はコンストラクタで注入済み
     _fakes.Dialogs.EnqueueSaveFile(InteractionResult<string>.Ok(@"C:\test\out.csv"));
-    _fakes.Files.Failure = op => op.Operation == FileOperation.Write ? new IOException("Excel で開かれています") : null;
 
     _view.Binder.Dispatch(ExportActions.Export);
 
     Assert.Contains(_fakes.Messages.Calls, m => m.Kind == MessageKind.Error);
-    Assert.Empty(_fakes.Files.FilePaths);
+    Assert.Empty(_exporter.Written);
 }
 ```
 
-テキストは指定したエンコーディングでバイト列として保存されます (既定は BOM なし UTF-8、BOM は読み込み時に解釈)。`FilePaths` / `DirectoryPaths` で中身を確認できます。
+> **`PresenterTestHost` が差し替えられるのはフレームワークのサービスだけです。** Presenter の中で `File.ReadAllText` や `new HttpClient()` を直接呼んでいると、テストでも本物のディスク・ネットワークに届きます。ファイルシステム全体を差し替えたいときは [System.IO.Abstractions](https://github.com/TestableIO/System.IO.Abstractions) の `IFileSystem` を注入する方法もあります。Presenter がこれらに依存しないことをチームの規則にする場合のアーキテクチャテストは [Platform Services](Reference-Platform-Services#アーキテクチャテスト-任意) を参照。
 
 ### 子ウィンドウの表示を検証する
 
-`FakeWindowNavigator` は本番の `WindowNavigator` と同じ規則 (結果の型変換、キーの重複判定、Presenter の破棄、パラメータ必須の Presenter をパラメータなしで開くと例外) で動きます。渡された子 Presenter はアタッチも初期化もされません — 子画面自体の振る舞いは、別のインスタンスを `PresenterTestHost` でテストします。
+`FakeWindowNavigator` は本番の `WindowNavigator` と同じ規則 (結果の型変換、キーの重複判定、Presenter の破棄。パラメータ必須の Presenter をパラメータなしで開くのはコンパイルエラー) で動きます。渡された子 Presenter はアタッチも初期化もされません — 子画面自体の振る舞いは、別のインスタンスを `PresenterTestHost` でテストします。
 
 **モーダル** — Presenter の型ごとに答えを登録します:
 

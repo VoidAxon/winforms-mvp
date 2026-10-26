@@ -1,5 +1,4 @@
 ﻿using System.Drawing;
-using System.Drawing.Printing;
 using System.Windows.Forms;
 using Kibinago.Services;
 using Xunit;
@@ -82,55 +81,15 @@ namespace Kibinago.Samples.Tests.Services
         }
 
         [Fact]
-        public void FontDialog_AppliesEveryOption()
-        {
-            using (var dialog = new FontDialog())
-            {
-                DialogProvider.Configure(dialog, new FontDialogOptions { ShowColor = true });
-                Assert.True(dialog.ShowColor);
-            }
-        }
-
-        [Fact]
-        public void PrintDialog_AppliesEveryOption()
-        {
-            var printer = new PrinterSettings();
-            using (var dialog = new PrintDialog())
-            {
-                DialogProvider.Configure(dialog, new PrintDialogOptions { PrinterSettings = printer, AllowSelection = true, AllowSomePages = false });
-                Assert.Same(printer, dialog.PrinterSettings);
-                Assert.True(dialog.AllowSelection);
-                Assert.False(dialog.AllowSomePages);
-            }
-        }
-
-        [Fact]
-        public void PageSetupDialog_AppliesEveryOption()
-        {
-            var page = new PageSettings();
-            var printer = new PrinterSettings();
-            using (var dialog = new PageSetupDialog())
-            {
-                DialogProvider.Configure(dialog, new PageSetupDialogOptions { PageSettings = page, PrinterSettings = printer });
-                Assert.Same(page, dialog.PageSettings);
-                Assert.Same(printer, dialog.PrinterSettings);
-            }
-        }
-
-        [Fact]
         public void OptionDefaults_MatchTheWinFormsDialogs()
         {
             // An unset option leaves the dialog as WinForms creates it.
             using (var color = new ColorDialog())
             using (var folder = new FolderBrowserDialog())
-            using (var font = new FontDialog())
-            using (var print = new PrintDialog())
             {
                 Assert.Equal(color.AllowFullOpen, new ColorDialogOptions().AllowFullOpen);
                 Assert.Equal(color.AnyColor, new ColorDialogOptions().AnyColor);
                 Assert.Equal(folder.ShowNewFolderButton, new FolderBrowserDialogOptions().ShowNewFolderButton);
-                Assert.Equal(font.ShowColor, new FontDialogOptions().ShowColor);
-                Assert.Equal(print.AllowSelection, new PrintDialogOptions().AllowSelection);
             }
         }
     }

@@ -443,7 +443,7 @@ MvpApplication.Configure(services: reg =>
 
 ```csharp
 var fakes = TestServices.CreateFakes();                              // Kibinago.Testing
-fakes.Provider.RegisterInstance<IFileService>(new MyFileService());  // 差し替えるなら先に
+fakes.Provider.RegisterInstance<IToastService>(new MyToasts());      // 差し替えるなら先に
 
 PresenterTestHost.Start(fakes.Provider, new MyPresenter(), mockView); // 後 (アタッチ + 初期化)
 ```

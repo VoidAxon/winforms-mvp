@@ -253,7 +253,7 @@ Supervising Controller MVP の実現のため、本フレームワークは以�
 |--------|------|----|
 | `WindowPresenterBase<TView>` 系 | Presenter の基底クラス (4 種類) | [Presenter 基底クラス](Reference-Presenter-Base-Classes) |
 | ViewAction システム | UI イベントを宣言的アクションに変換 | [ViewAction システム](Reference-ViewAction-System) |
-| `IMessageService` / `IDialogProvider` / `IFileService` | UI 操作のサービス抽象 | [Platform Services](Reference-Platform-Services) |
+| `IMessageService` / `IDialogProvider` / `IToastService` | UI 操作のサービス抽象 | [Platform Services](Reference-Platform-Services) |
 | `WindowNavigator` | ウィンドウのライフサイクル管理 | [WindowNavigator](Reference-WindowNavigator) |
 | `RequestClose` / `CanClose` override | ウィンドウクローズモデル (X も `RequestClose` も `CanClose` ゲートを通る) | [ウィンドウクローズモデル](Concept-Window-Closing-Model) |
 

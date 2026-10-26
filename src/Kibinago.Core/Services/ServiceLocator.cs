@@ -13,7 +13,7 @@ namespace Kibinago.Services
     /// </summary>
     /// <remarks>
     /// The default provider is pre-seeded with the framework built-ins: <see cref="IMessageService"/>,
-    /// <see cref="IDialogProvider"/>, <see cref="IFileService"/>, <see cref="ILoggerFactory"/>,
+    /// <see cref="IDialogProvider"/>, <see cref="ILoggerFactory"/>,
     /// <see cref="IWindowNavigator"/>, and <c>IViewMappingRegister</c>. The WinForms-backed
     /// services come from the Kibinago assembly, which this core assembly discovers at runtime;
     /// without it only the platform-neutral built-ins are registered. Call
@@ -114,7 +114,6 @@ namespace Kibinago.Services
         /// </summary>
         internal static void RegisterBuiltIns(DefaultServiceProvider provider)
         {
-            provider.RegisterInstance<IFileService>(new FileService());
             provider.RegisterInstance<ILoggerFactory>(NullLoggerFactory.Instance);
             provider.RegisterInstance<Kibinago.Common.IObjectCloner>(Kibinago.Common.BuiltInObjectCloner.Instance);
             provider.RegisterInstance<Kibinago.Common.IObjectContentComparer>(Kibinago.Common.BuiltInObjectContentComparer.Instance);

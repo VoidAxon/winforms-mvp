@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Drawing;
-using System.Drawing.Printing;
 using System.Windows.Forms;
 using Kibinago.Common;
 using Kibinago.Services;
@@ -11,7 +10,7 @@ namespace Kibinago.Services
     /// Default implementation of IDialogProvider using standard WinForms dialogs. Titles, filter
     /// and error messages not given per call come from <see cref="DialogProviderOptions"/>.
     /// </summary>
-    public class DialogProvider : IWinFormsDialogProvider
+    public class DialogProvider : IDialogProvider
     {
         private readonly DialogProviderOptions _options;
 
@@ -49,27 +48,6 @@ namespace Kibinago.Services
             dialog.Color = options.InitialColor ?? Color.Black;
             dialog.AllowFullOpen = options.AllowFullOpen;
             dialog.AnyColor = options.AnyColor;
-        }
-
-        internal static void Configure(FontDialog dialog, FontDialogOptions options)
-        {
-            options = options ?? new FontDialogOptions();
-            dialog.Font = options.InitialFont ?? SystemFonts.DefaultFont;
-            dialog.ShowColor = options.ShowColor;
-        }
-
-        internal static void Configure(PrintDialog dialog, PrintDialogOptions options)
-        {
-            options = options ?? new PrintDialogOptions();
-            dialog.PrinterSettings = options.PrinterSettings ?? new PrinterSettings();
-            dialog.AllowSelection = options.AllowSelection;
-            dialog.AllowSomePages = options.AllowSomePages;
-        }
-
-        internal static void Configure(PageSetupDialog dialog, PageSetupDialogOptions options)
-        {
-            dialog.PageSettings = options?.PageSettings ?? new PageSettings();
-            if (options?.PrinterSettings != null) dialog.PrinterSettings = options.PrinterSettings;
         }
 
         /// <inheritdoc />
@@ -208,101 +186,5 @@ namespace Kibinago.Services
                 return InteractionResult<Color>.Error(_options.ColorSelectErrorMessage, ex);
             }
         }
-
-        /// <inheritdoc />
-        public InteractionResult<Font> ShowFontDialog(FontDialogOptions options = null)
-        {
-            try
-            {
-                using (var dialog = new FontDialog())
-                {
-                    Configure(dialog, options);
-
-                    var result = dialog.ShowDialog();
-                    return result == DialogResult.OK
-                        ? InteractionResult<Font>.Ok(dialog.Font)
-                        : InteractionResult<Font>.Cancel();
-                }
-            }
-            catch (Exception ex)
-            {
-                return InteractionResult<Font>.Error(_options.FontSelectErrorMessage, ex);
-            }
-        }
-
-        // -----------------------
-        // Print Dialogs
-        // -----------------------
-        /// <inheritdoc />
-        public InteractionResult<PrinterSettings> ShowPrintDialog(PrintDialogOptions options = null)
-        {
-            try
-            {
-                using (var dialog = new PrintDialog())
-                {
-                    Configure(dialog, options);
-
-                    var result = dialog.ShowDialog();
-                    return result == DialogResult.OK
-                        ? InteractionResult<PrinterSettings>.Ok(dialog.PrinterSettings)
-                        : InteractionResult<PrinterSettings>.Cancel();
-                }
-            }
-            catch (Exception ex)
-            {
-                return InteractionResult<PrinterSettings>.Error(_options.PrintDialogErrorMessage, ex);
-            }
-        }
-
-        /// <inheritdoc />
-        public InteractionResult<PageSettings> ShowPageSetupDialog(PageSetupDialogOptions options = null)
-        {
-            try
-            {
-                using (var dialog = new PageSetupDialog())
-                {
-                    Configure(dialog, options);
-
-                    var result = dialog.ShowDialog();
-                    return result == DialogResult.OK
-                        ? InteractionResult<PageSettings>.Ok(dialog.PageSettings)
-                        : InteractionResult<PageSettings>.Cancel();
-                }
-            }
-            catch (Exception ex)
-            {
-                return InteractionResult<PageSettings>.Error(_options.PageSetupErrorMessage, ex);
-            }
-        }
-
-        /// <inheritdoc />
-        public InteractionResult<bool> ShowPrintPreviewDialog(PrintPreviewDialogOptions options = null)
-        {
-            try
-            {
-                using (var dialog = new PrintPreviewDialog())
-                {
-                    dialog.Document = options?.Document;
-                    if (!string.IsNullOrEmpty(options?.Title))
-                    {
-                        dialog.Text = options.Title;
-                    }
-                    else
-                    {
-                        dialog.Text = _options.PrintPreviewDialogTitle;
-                    }
-
-                    // PrintPreviewDialog has no OK button: it closes with Cancel (or None) however the
-                    // user leaves it, so the result only reports that the preview was shown.
-                    dialog.ShowDialog();
-                    return InteractionResult<bool>.Ok(true);
-                }
-            }
-            catch (Exception ex)
-            {
-                return InteractionResult<bool>.Error(_options.PrintPreviewErrorMessage, ex);
-            }
-        }
-
     }
 }

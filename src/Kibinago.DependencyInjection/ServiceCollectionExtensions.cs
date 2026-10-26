@@ -17,7 +17,7 @@ namespace Kibinago.DependencyInjection
         /// Registers the framework's own services so that Presenters can ask for
         /// <see cref="IPresenterFactory"/>, <see cref="IViewMappingRegister"/>, and
         /// the built-in platform services (<see cref="IMessageService"/>,
-        /// <see cref="IDialogProvider"/>, <see cref="IFileService"/>,
+        /// <see cref="IDialogProvider"/>,
         /// <see cref="ILoggerFactory"/>, <see cref="IWindowNavigator"/>) via the
         /// M.E.DI container.
         /// </summary>
@@ -72,7 +72,6 @@ namespace Kibinago.DependencyInjection
                     : ServiceDescriptor.Singleton(r.ServiceType, r.Instance));
             }
 
-            services.TryAddSingleton<IFileService, FileService>();
             services.TryAddSingleton<IWindowNavigator>(sp =>
                 new WindowNavigator(
                     sp.GetRequiredService<IViewMappingRegister>().WithServiceProvider(sp)));

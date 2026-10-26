@@ -20,9 +20,6 @@ namespace Kibinago.Services
         /// <summary>Description shown in the folder browser.</summary>
         public string FolderBrowserDescription { get; set; } = "Please select a folder";
 
-        /// <summary>Title of the print preview dialog.</summary>
-        public string PrintPreviewDialogTitle { get; set; } = "Print Preview";
-
         /// <summary>Error message when the open-file dialog fails.</summary>
         public string FileOpenErrorMessage { get; set; } = "Failed to open file";
 
@@ -34,18 +31,6 @@ namespace Kibinago.Services
 
         /// <summary>Error message when the color dialog fails.</summary>
         public string ColorSelectErrorMessage { get; set; } = "Failed to select color";
-
-        /// <summary>Error message when the font dialog fails.</summary>
-        public string FontSelectErrorMessage { get; set; } = "Failed to select font";
-
-        /// <summary>Error message when the print dialog fails.</summary>
-        public string PrintDialogErrorMessage { get; set; } = "Print dialog failed";
-
-        /// <summary>Error message when page setup fails.</summary>
-        public string PageSetupErrorMessage { get; set; } = "Page setup failed";
-
-        /// <summary>Error message when print preview fails.</summary>
-        public string PrintPreviewErrorMessage { get; set; } = "Print preview failed";
 
         internal DialogProviderOptions Copy() => (DialogProviderOptions)MemberwiseClone();
     }

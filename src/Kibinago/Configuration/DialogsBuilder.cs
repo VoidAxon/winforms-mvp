@@ -41,13 +41,6 @@ namespace Kibinago.Configuration
             set { _owner.EnsureNotBuilt(); Options.FolderBrowserDescription = value; }
         }
 
-        /// <summary>See <see cref="DialogProviderOptions.PrintPreviewDialogTitle"/>.</summary>
-        public string PrintPreviewDialogTitle
-        {
-            get => Options.PrintPreviewDialogTitle;
-            set { _owner.EnsureNotBuilt(); Options.PrintPreviewDialogTitle = value; }
-        }
-
         /// <summary>See <see cref="DialogProviderOptions.FileOpenErrorMessage"/>.</summary>
         public string FileOpenErrorMessage
         {
@@ -76,32 +69,5 @@ namespace Kibinago.Configuration
             set { _owner.EnsureNotBuilt(); Options.ColorSelectErrorMessage = value; }
         }
 
-        /// <summary>See <see cref="DialogProviderOptions.FontSelectErrorMessage"/>.</summary>
-        public string FontSelectErrorMessage
-        {
-            get => Options.FontSelectErrorMessage;
-            set { _owner.EnsureNotBuilt(); Options.FontSelectErrorMessage = value; }
-        }
-
-        /// <summary>See <see cref="DialogProviderOptions.PrintDialogErrorMessage"/>.</summary>
-        public string PrintDialogErrorMessage
-        {
-            get => Options.PrintDialogErrorMessage;
-            set { _owner.EnsureNotBuilt(); Options.PrintDialogErrorMessage = value; }
-        }
-
-        /// <summary>See <see cref="DialogProviderOptions.PageSetupErrorMessage"/>.</summary>
-        public string PageSetupErrorMessage
-        {
-            get => Options.PageSetupErrorMessage;
-            set { _owner.EnsureNotBuilt(); Options.PageSetupErrorMessage = value; }
-        }
-
-        /// <summary>See <see cref="DialogProviderOptions.PrintPreviewErrorMessage"/>.</summary>
-        public string PrintPreviewErrorMessage
-        {
-            get => Options.PrintPreviewErrorMessage;
-            set { _owner.EnsureNotBuilt(); Options.PrintPreviewErrorMessage = value; }
-        }
     }
 }
