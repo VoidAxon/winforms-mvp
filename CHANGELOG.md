@@ -8,6 +8,10 @@
 
 ## [Unreleased]
 
+### Added (追加)
+
+- `ViewActionBinder.RegisterStrategy<T>(..., setEnabled: (c, enabled) => ...)` — `Control` でも `ToolStripItem` でもないコンポーネント (サードパーティのツールバーコマンドなど) も `canExecute` に合わせて有効 / 無効になる。以前はクリックはバインドできても、灰色にならなかった (実アプリの調査で、こうしたツールバーが多数の画面で使われていた)。`Control` / `ToolStripItem` の型に渡すと既定の `Enabled` の切り替えを置き換える。
+
 ### Documentation (ドキュメント)
 
 - wiki: `Files` (`IFileService`、preview.12 で削除) からの移行例 — 用途ごとのインターフェイスを注入する書き換え、Presenter と実装のテストの分担 ([Platform Services](wiki/Reference-Platform-Services.md))。実際のアプリを preview.12 に移行して、`Files` が使われていたことから追加。

@@ -703,6 +703,18 @@ _binder.RegisterStrategy<TreeView>((c, h) =>
 
 `subscribe` が返すクロージャは購読した実際のデリゲートインスタンスをキャプチャするため、`Unbind()` が正しく解除できます (ラムダで包んだ別インスタンスを `-=` しようとして解除できない、という問題を回避します)。`EventHandler` 版 (1.) は内部でこの `subscribe` 版に橋渡しされています。
 
+**3. 有効 / 無効の反映 (`setEnabled`)** — Binder が `canExecute` に合わせて `Enabled` を切り替えるのは `Control` と `ToolStripItem` だけです。サードパーティのツールバーコマンドのように、どちらでもない `Component` は、どちらのオーバーロードにも最後の引数 `setEnabled` を渡すと、ボタンと同じように灰色になります (渡さなければ Binder はその有効状態に触れません)。`Control` / `ToolStripItem` の型に渡すと、既定の `Enabled` の切り替えを置き換えます (例: 灰色にする代わりに隠す)。
+
+```csharp
+// 例: クリックイベントが独自のデリゲート型で、Enabled を持つツールバーコマンド
+_binder.RegisterStrategy<ToolbarCommand>((c, h) =>
+{
+    ToolbarClickHandler d = (s, e) => h(s, e);
+    c.Click += d;
+    return () => c.Click -= d;
+}, setEnabled: (c, enabled) => c.Enabled = enabled);
+```
+
 実装の詳細は `src/Kibinago/ViewActions/ViewActionBinder.cs` を参照してください。
 
 ---

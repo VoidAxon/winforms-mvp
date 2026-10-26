@@ -81,6 +81,10 @@ namespace Kibinago.ViewActions
         private readonly Dictionary<Type, Func<Component, EventHandler, Action>> _bindingStrategies
             = new Dictionary<Type, Func<Component, EventHandler, Action>>();
 
+        // How a registered type is enabled; types without one: Control / ToolStripItem Enabled, others untouched.
+        private readonly Dictionary<Type, Action<Component, bool>> _enabledSetters
+            = new Dictionary<Type, Action<Component, bool>>();
+
         // Controls whose natural interaction is a click and that have no change event of their own.
         // Exact types only: a third-party editor deriving from Panel must not silently become a click.
         private static readonly HashSet<Type> ClickControls = new HashSet<Type>
@@ -205,7 +209,14 @@ namespace Kibinago.ViewActions
         /// <remarks>The nearest registered base type of a control's runtime type is used. Register a
         /// strategy before adding a control whose type has none (a third-party editor, a custom
         /// clickable control); while bound, a new strategy applies to controls added afterwards.</remarks>
-        public void RegisterStrategy<T>(Action<T, EventHandler> attacher, Action<T, EventHandler> detacher) where T : Component
+        /// <param name="attacher">Subscribes the handler to the component's trigger event.</param>
+        /// <param name="detacher">Unsubscribes it.</param>
+        /// <param name="setEnabled">How the component follows the action's <c>canExecute</c> — needed for a
+        /// component that is neither a <see cref="Control"/> nor a <see cref="ToolStripItem"/> (a third-party
+        /// toolbar command: <c>(c, enabled) =&gt; c.Enabled = enabled</c>); for those two it replaces setting
+        /// <c>Enabled</c>. Without it such a component is not enabled or disabled by the binder.</param>
+        public void RegisterStrategy<T>(Action<T, EventHandler> attacher, Action<T, EventHandler> detacher,
+            Action<T, bool> setEnabled = null) where T : Component
         {
             if (attacher == null) throw new ArgumentNullException(nameof(attacher));
             if (detacher == null) throw new ArgumentNullException(nameof(detacher));
@@ -214,7 +225,7 @@ namespace Kibinago.ViewActions
             {
                 attacher(control, handler);
                 return () => detacher(control, handler);
-            });
+            }, setEnabled);
         }
 
         /// <summary>
@@ -223,10 +234,16 @@ namespace Kibinago.ViewActions
         /// uses <see cref="DateRangeEventHandler"/>), so the handler must be adapted and the adapted
         /// delegate captured for later removal.
         /// </summary>
-        public void RegisterStrategy<T>(Func<T, EventHandler, Action> subscribe) where T : Component
+        /// <param name="subscribe">Subscribes the handler to the component's trigger event and returns the
+        /// callback that unsubscribes it.</param>
+        /// <param name="setEnabled">How the component follows the action's <c>canExecute</c> (see the other
+        /// overload).</param>
+        public void RegisterStrategy<T>(Func<T, EventHandler, Action> subscribe, Action<T, bool> setEnabled = null) where T : Component
         {
             if (subscribe == null) throw new ArgumentNullException(nameof(subscribe));
             _bindingStrategies[typeof(T)] = (comp, handler) => subscribe((T)comp, handler);
+            if (setEnabled != null) _enabledSetters[typeof(T)] = (comp, enabled) => setEnabled((T)comp, enabled);
+            else _enabledSetters.Remove(typeof(T));
         }
 
         /// <summary>
@@ -355,6 +372,17 @@ namespace Kibinago.ViewActions
                     control.Click += h;
                     return () => control.Click -= h;
                 };
+            return null;
+        }
+
+        // Nearest registered base type, like the binding strategy.
+        private Action<Component, bool> ResolveEnabledSetter(Component component)
+        {
+            for (var type = component.GetType(); type != null && type != typeof(object); type = type.BaseType)
+            {
+                if (_enabledSetters.TryGetValue(type, out var setter)) return setter;
+                if (_bindingStrategies.ContainsKey(type)) return null;   // the nearest strategy has no setter
+            }
             return null;
         }
 
@@ -521,7 +549,9 @@ namespace Kibinago.ViewActions
             Action apply = () =>
             {
                 if (entry.Removed || IsDisposed(entry.Component) || !ReferenceEquals(_dispatcher, dispatcher)) return;
-                if (entry.Component is Control c) c.Enabled = enabled;
+                var setter = ResolveEnabledSetter(entry.Component);
+                if (setter != null) setter(entry.Component, enabled);
+                else if (entry.Component is Control c) c.Enabled = enabled;
                 else if (entry.Component is ToolStripItem t) t.Enabled = enabled;
             };
 
@@ -535,6 +565,10 @@ namespace Kibinago.ViewActions
                 var owner = toolStripItem.GetCurrentParent();
                 if (owner != null && owner.InvokeRequired) owner.BeginInvoke(apply);
                 else apply();
+            }
+            else
+            {
+                apply();   // another component (a registered setter): no thread affinity to check
             }
         }
 
