@@ -158,6 +158,14 @@ namespace Kibinago.Samples.Tests.Services
                 Assert.True(child.UseWaitCursor);    // its parent is still busy
                 outer.Dispose();
                 Assert.False(child.UseWaitCursor);
+
+                var box = new TextBox();
+                child.Controls.Add(box);
+                outer = indicator.Begin(parent, null);   // parent first: the child's controls inherit the cursor
+                inner = indicator.Begin(child, null);
+                outer.Dispose();
+                inner.Dispose();
+                Assert.False(box.UseWaitCursor);          // not taken for the control's own setting
                 AssertNothingBusy();
             }
         }
@@ -203,12 +211,13 @@ namespace Kibinago.Samples.Tests.Services
                 menu.Show(button, new Point(0, 0));   // SourceControl = button
                 item.ShowDropDown();
 
+                Assert.True(Coordinator == null || Coordinator.ShouldBlock(WM_LBUTTONDOWN, IntPtr.Zero, menu) == false);
                 using (new WinFormsBusyIndicator().Begin(form, null))
                 {
+                    Assert.False(menu.Visible);   // closed when the block started (it would not take input)
                     Assert.True(Coordinator.ShouldBlock(WM_LBUTTONDOWN, IntPtr.Zero, menu));
                     Assert.True(Coordinator.ShouldBlock(WM_LBUTTONDOWN, IntPtr.Zero, item.DropDown));
                 }
-                menu.Close();
                 AssertNothingBusy();
             }
         }

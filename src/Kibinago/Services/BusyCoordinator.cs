@@ -72,7 +72,7 @@ namespace Kibinago.Services
             {
                 // Under a busy window (an MDI child of a busy parent) UseWaitCursor is inherited, not the app's.
                 var inherited = _windows.Keys.Any(w => w != window && w.Contains(window));
-                state = new WindowState(window, this, inherited ? false : window.UseWaitCursor);
+                state = new WindowState(window, this, inherited ? false : window.UseWaitCursor, inherited);
                 _windows.Add(window, state);
             }
             state.Requests.Add(request);
@@ -311,8 +311,10 @@ namespace Kibinago.Services
 
         private static void CloseDropDowns(Control root)
         {
+            if (root.ContextMenuStrip != null && root.ContextMenuStrip.Visible) root.ContextMenuStrip.Close();   // not in Controls
             foreach (Control c in root.Controls)
             {
+                if (c.ContextMenuStrip != null && c.ContextMenuStrip.Visible) c.ContextMenuStrip.Close();
                 if (c is ComboBox combo && combo.DroppedDown) combo.DroppedDown = false;
                 if (c is ToolStrip strip)
                     foreach (ToolStripItem item in strip.Items)
@@ -340,10 +342,13 @@ namespace Kibinago.Services
         {
             private readonly BusyCoordinator _owner;
 
-            public WindowState(Control window, BusyCoordinator owner, bool hadWaitCursor)
+            private readonly bool _inherited;
+
+            public WindowState(Control window, BusyCoordinator owner, bool hadWaitCursor, bool inherited)
             {
                 Window = window; _owner = owner;
                 HadWaitCursor = hadWaitCursor;
+                _inherited = inherited;
                 window.Disposed += OnGone;
                 if (window is Form form) form.FormClosed += OnGone;   // a closed modal form may never be disposed
             }
@@ -357,7 +362,7 @@ namespace Kibinago.Services
             public void RememberOwnWaitCursors()
             {
                 _ownWaitCursors = null;
-                if (HadWaitCursor) return;
+                if (HadWaitCursor || _inherited) return;   // inside a busy window the controls' values are not their own
                 Collect(Window);
             }
 
