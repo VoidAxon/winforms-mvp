@@ -131,6 +131,16 @@ namespace Kibinago.Samples.Tests.Services
                 Assert.True(Coordinator.IsBlocked(second));
                 Assert.True(second.UseWaitCursor);
                 busy.Dispose();
+                Assert.False(panel.UseWaitCursor);
+                Assert.False(second.UseWaitCursor);
+
+                var own = new ViewPanel { UseWaitCursor = true };   // a control's own setting moves with it
+                panel.Controls.Add(own);
+                busy = new WinFormsBusyIndicator().Begin(panel, null);
+                first.Controls.Add(panel);
+                busy.Dispose();
+                Assert.True(own.UseWaitCursor);
+                Assert.False(panel.UseWaitCursor);
                 AssertNothingBusy();
             }
         }

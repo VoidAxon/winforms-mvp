@@ -169,13 +169,26 @@ namespace Kibinago.Services
             if (!_views.TryGetValue(view, out var state)) return;
             state.Track();
             var window = WindowOf(view);
-            foreach (var request in state.Requests.ToArray())
+            var moving = state.Requests.Where(r => r.Window != window).ToList();
+            if (moving.Count == 0) return;
+
+            // The view leaves with its own wait-cursor values, not the old window's busy cursor.
+            var own = new List<Control>();
+            foreach (var old in moving.Select(r => r.Window).Distinct())
+                if (_windows.TryGetValue(old, out var oldState)) own.AddRange(oldState.TakeOwnInside(view));
+            if (!view.IsDisposed)
             {
-                if (request.Window == window) continue;
+                view.UseWaitCursor = false;
+                foreach (var c in own) if (!c.IsDisposed) c.UseWaitCursor = true;
+            }
+
+            foreach (var request in moving)
+            {
                 ReleaseWindow(request, immediate: false);
                 request.Window = window;
                 AcquireWindow(request);
             }
+            if (_windows.TryGetValue(window, out var newState)) newState.AddOwn(own);
         }
 
         private void OnWindowGone(Control window) => EndAll(r => r.Window == window, immediate: true);
@@ -391,13 +404,24 @@ namespace Kibinago.Services
             }
 
             /// <summary>Takes over the own values that <paramref name="outer"/> recorded inside this window (it ends first).</summary>
-            public void TakeInside(WindowState outer)
+            public void TakeInside(WindowState outer) => AddOwn(outer.TakeOwnInside(Window));
+
+            /// <summary>Removes and returns the own values recorded in <paramref name="root"/> or inside it.</summary>
+            public List<Control> TakeOwnInside(Control root)
             {
-                if (outer._ownWaitCursors == null) return;
-                var inside = outer._ownWaitCursors.Where(c => c == Window || Window.Contains(c)).ToList();
-                if (inside.Count == 0) return;
-                foreach (var c in inside) outer._ownWaitCursors.Remove(c);
-                (_ownWaitCursors ?? (_ownWaitCursors = new List<Control>())).AddRange(inside);
+                if (_ownWaitCursors == null) return new List<Control>();
+                var inside = _ownWaitCursors.Where(c => c == root || root.Contains(c)).ToList();
+                foreach (var c in inside) _ownWaitCursors.Remove(c);
+                return inside;
+            }
+
+            public void AddOwn(IEnumerable<Control> controls)
+            {
+                foreach (var c in controls)
+                {
+                    if (_ownWaitCursors == null) _ownWaitCursors = new List<Control>();
+                    if (!_ownWaitCursors.Contains(c)) _ownWaitCursors.Add(c);
+                }
             }
 
             /// <summary>Takes over the own values of a window inside this one that ended first.</summary>
