@@ -23,6 +23,7 @@ namespace Kibinago.Services
         private bool _filterInstalled;
         private bool _idleHooked;
         private bool _exitHooked;
+        private readonly System.Threading.Thread _thread = System.Threading.Thread.CurrentThread;
 
         public static BusyCoordinator ForCurrentThread() => _current ?? (_current = new BusyCoordinator());
 
@@ -148,6 +149,7 @@ namespace Kibinago.Services
 
         private void OnThreadExit(object sender, EventArgs e)
         {
+            if (System.Threading.Thread.CurrentThread != _thread) return;   // ThreadExit is raised for every UI thread
             EndAll(r => true, immediate: true);
             Application.ThreadExit -= OnThreadExit;
             _exitHooked = false;
@@ -220,7 +222,14 @@ namespace Kibinago.Services
 
             var window = WindowOfInput(target);
             if (window == null || !_blocked.Contains(window)) return false;
-            if (msg >= WM_NCLBUTTONDOWN && msg <= WM_NCLAST) return target != window;   // a scroll bar: blocked; the form's own frame: not
+            if (msg >= WM_NCLBUTTONDOWN && msg <= WM_NCLAST)
+            {
+                // A control's non-client area (its scroll bars) is blocked; the form's own frame (title bar,
+                // its buttons, borders) is not — except the form's own scroll bars (AutoScroll).
+                const int HTHSCROLL = 6, HTVSCROLL = 7;
+                var hit = (int)wParam;
+                return target != window || hit == HTHSCROLL || hit == HTVSCROLL;
+            }
             if (msg == WM_SYSKEYDOWN && (int)wParam == VK_F4) return false;              // Alt+F4 still closes (through CanClose)
             return (msg >= WM_KEYFIRST && msg <= WM_KEYLAST) || (msg >= WM_LBUTTONDOWN && msg <= WM_MOUSELAST);
         }

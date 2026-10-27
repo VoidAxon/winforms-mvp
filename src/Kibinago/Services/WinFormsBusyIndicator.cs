@@ -17,7 +17,7 @@ namespace Kibinago.Services
     /// </summary>
     /// <remarks>
     /// Call <see cref="Begin"/> on the view's UI thread (presenters do, through <c>ShowBusy</c>); from another
-    /// thread it is posted there and takes effect shortly after. The returned object may be disposed on any
+    /// thread it is posted there (through the nearest control with a handle) and takes effect shortly after. The returned object may be disposed on any
     /// thread. A request also ends when its view or window is closed or disposed, or when the UI thread's
     /// message loop ends.
     /// </remarks>
@@ -45,12 +45,30 @@ namespace Kibinago.Services
         {
             if (!(view is Control control) || control.IsDisposed) return new Token(null);
             var token = new Token(this);
-            if (control.IsHandleCreated && control.InvokeRequired)
+            Action start = () => token.Start(control, message);
+
+            // The UI thread is the one owning the nearest handle (the view's own may not exist yet: a page of a
+            // tab not shown, a form still being set up).
+            var anchor = control;
+            while (anchor != null && !anchor.IsHandleCreated) anchor = anchor.Parent;
+            if (anchor != null)
             {
-                control.BeginInvoke((Action)(() => token.Start(control, message)));
-                return token;
+                if (anchor.InvokeRequired) anchor.BeginInvoke(start);
+                else start();
             }
-            token.Start(control, message);
+            else if (!Thread.CurrentThread.IsThreadPoolThread)
+            {
+                start();   // the UI thread setting the view up (OnInitializeAsync before the window shows)
+            }
+            else
+            {
+                // A worker (Task.Run) and no handle anywhere: start when the root's handle is created, on its thread.
+                var root = control;
+                while (root.Parent != null) root = root.Parent;
+                EventHandler created = null;
+                created = (s, e) => { root.HandleCreated -= created; start(); };
+                root.HandleCreated += created;
+            }
             return token;
         }
 

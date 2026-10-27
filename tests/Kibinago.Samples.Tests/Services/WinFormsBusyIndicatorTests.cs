@@ -165,10 +165,30 @@ namespace Kibinago.Samples.Tests.Services
         }
 
         [Fact]
+        public void BeginOnAPoolThread_BeforeAnyHandle_StartsWhenTheWindowsHandleIsCreated()
+        {
+            using (var form = new ViewForm())
+            {
+                var panel = new ViewPanel();
+                form.Controls.Add(panel);
+                var busy = System.Threading.Tasks.Task.Run(() => new WinFormsBusyIndicator().Begin(panel, null)).Result;
+                Assert.False(form.UseWaitCursor);   // nothing done on the worker
+
+                var handle = form.Handle;           // created here, on this (the UI) thread
+
+                Assert.True(form.UseWaitCursor);
+                Assert.True(Coordinator.IsBlocked(form));
+                busy.Dispose();
+                AssertNothingBusy();
+            }
+        }
+
+        [Fact]
         public void TheInputFilter_DropsInputForTheBusyWindow_ButNotItsFrameAltF4OrOtherWindows()
         {
             const int WM_LBUTTONDOWN = 0x0201, WM_MOUSEMOVE = 0x0200, WM_KEYDOWN = 0x0100, WM_SYSKEYDOWN = 0x0104;
             const int WM_NCLBUTTONDOWN = 0x00A1, VK_F4 = 0x73, VK_A = 0x41;
+            const int HTCAPTION = 2, HTVSCROLL = 7, HTCLOSE = 20;
             using (var form = new ViewForm())
             using (var other = new ViewForm())
             {
@@ -180,7 +200,9 @@ namespace Kibinago.Samples.Tests.Services
                     Assert.True(filter.ShouldBlock(WM_LBUTTONDOWN, IntPtr.Zero, button));
                     Assert.True(filter.ShouldBlock(WM_KEYDOWN, (IntPtr)VK_A, button));
                     Assert.True(filter.ShouldBlock(WM_NCLBUTTONDOWN, IntPtr.Zero, button));   // a control's scroll bar
-                    Assert.False(filter.ShouldBlock(WM_NCLBUTTONDOWN, IntPtr.Zero, form));    // the title bar
+                    Assert.False(filter.ShouldBlock(WM_NCLBUTTONDOWN, (IntPtr)HTCAPTION, form));   // the title bar
+                    Assert.False(filter.ShouldBlock(WM_NCLBUTTONDOWN, (IntPtr)HTCLOSE, form));     // its × button
+                    Assert.True(filter.ShouldBlock(WM_NCLBUTTONDOWN, (IntPtr)HTVSCROLL, form));    // the form's own scroll bar (AutoScroll)
                     Assert.False(filter.ShouldBlock(WM_SYSKEYDOWN, (IntPtr)VK_F4, button));   // Alt+F4
                     Assert.False(filter.ShouldBlock(WM_MOUSEMOVE, IntPtr.Zero, button));
                     Assert.False(filter.ShouldBlock(WM_LBUTTONDOWN, IntPtr.Zero, other));
