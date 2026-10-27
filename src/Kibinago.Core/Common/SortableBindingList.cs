@@ -34,8 +34,8 @@ namespace Kibinago.Common
     /// before a sort.
     /// </para>
     /// <para>
-    /// Rows are not re-sorted while they are edited (that would move the row under the cursor): adding
-    /// or replacing a row, or a notified change of a sort column's value, ends the sorted state
+    /// Rows are not re-sorted while they are edited (that would move the row under the cursor): adding,
+    /// replacing or moving (<see cref="Move"/>) a row, or a notified change of a sort column's value, ends the sorted state
     /// (<see cref="IBindingList.IsSorted"/> becomes <c>false</c>) without moving rows; removing a row
     /// keeps it. <see cref="Resort"/> applies the last sort again, and <see cref="ReplaceAll"/> (a reload)
     /// keeps it. Changes made while <see cref="BindingList{T}.RaiseListChangedEvents"/> is <c>false</c>,
@@ -220,6 +220,33 @@ namespace Kibinago.Common
 
             _applied = keys;
             RaiseReset();
+        }
+
+        /// <summary>
+        /// Moves the row at <paramref name="from"/> to <paramref name="to"/> and raises one
+        /// <see cref="ListChangedType.ItemMoved"/> — a bound grid's current row moves with it (a
+        /// <c>CurrencyManager</c> follows the moved row), instead of the delete and add that
+        /// <c>RemoveAt</c> + <c>Insert</c> report. Ends the sorted state (the rows are no longer in sort
+        /// order); works with <see cref="BindingList{T}.AllowRemove"/> <c>false</c>. A row being added
+        /// (<see cref="BindingList{T}.AddNew"/>) is committed first. Move one row of any list with
+        /// <see cref="ListMoveExtensions"/> (<c>rows.MoveUp(row)</c>), which uses this method for this list.
+        /// </summary>
+        /// <param name="from">The index of the row to move.</param>
+        /// <param name="to">Its new index.</param>
+        public void Move(int from, int to)
+        {
+            if (from < 0 || from >= Count) throw new ArgumentOutOfRangeException(nameof(from));
+            if (to < 0 || to >= Count) throw new ArgumentOutOfRangeException(nameof(to));
+            if (from == to) return;
+
+            if (_pendingNew >= 0) EndNew(_pendingNew);   // its index is about to change
+            var row = _items[from];
+            _items.RemoveAt(from);   // the row stays in the list: its change notifications stay hooked
+            _items.Insert(to, row);
+            _applied = null;
+
+            if (RaiseListChangedEvents)
+                OnListChanged(new ListChangedEventArgs(ListChangedType.ItemMoved, to, from));
         }
 
         /// <inheritdoc />

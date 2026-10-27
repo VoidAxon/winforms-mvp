@@ -632,6 +632,52 @@ private void ShowGlyphs()
 - 他のグリッドも同じ形です: 見出しのクリック (C1FlexGrid なら `AllowSorting = None` + `MouseClick` の `HitTest`) で上の規則を通して `ApplySort`、▲▼ と番号は自前の描画 (`OwnerDrawCell`)。複数列の操作を持つ製品はそれを使えますが、バインド中に並べ替えを一覧に任せるか (`SortDescriptions` が変わるか) を確かめます。C1FlexGrid 2016 の `AllowSorting = MultiColumn` は隣り合う列範囲をまとめて並べる別の操作で、この規則ではありません。
 - コードで決まった並び (業務の既定、保存した並び順の復元) は Presenter の `ApplySort` で足ります。この View のコードは、ユーザーが見出しで複数列を選ぶ画面だけのものです。
 
+### 行の移動: 上へ・下へ・最上へ・最下へ
+
+`Kibinago.Common.ListMoveExtensions` は任意の `IList<T>` の 1 行を動かします: `rows.MoveUp(row)` / `MoveDown` / `MoveToTop` / `MoveToBottom`、動かなかったとき (先頭で「上へ」など、一覧にない行) は `false`。`rows.Move(from, to)` は位置で動かします。移動の規則は Presenter に置き、View は現在行を伝え、移動後にその行を選び直すだけです。
+
+```csharp
+// Presenter: 現在行を動かし、変わった表示順だけをすぐ保存する
+Dispatcher.Register(Actions.MoveUp, () => Move(_rows.MoveUp), canExecute: () => Index() > 0);
+Dispatcher.Register(Actions.MoveDown, () => Move(_rows.MoveDown), canExecute: () => Index() >= 0 && Index() < _rows.Count - 1);
+// MoveToTop / MoveToBottom も同じ。現在行の変化 (View のイベント) で Dispatcher.RaiseCanExecuteChanged()
+
+private void Move(Func<PhraseRow, bool> move)
+{
+    var row = _rows.FirstOrDefault(r => r.Id == View.CurrentId);
+    if (row == null || !move(row)) return;                       // 動いていない: 保存するものはない
+
+    var changes = _rows.Select((r, i) => (r, order: i + 1)).Where(x => x.r.DisplayOrder != x.order).ToList();
+    try
+    {
+        _repository.SaveOrders(changes.Select(x => (x.r.Id, x.order)));   // 1 トランザクション
+        foreach (var (r, order) in changes) r.DisplayOrder = order;
+    }
+    catch (DbException ex)
+    {
+        Messages.ShowError(ex.Message);
+        _rows.ReplaceAll(_repository.List());                    // データベースが正: 読み直す
+    }
+    View.SelectRow(row.Id);
+    Dispatcher.RaiseCanExecuteChanged();
+}
+```
+
+一覧の型ごとに、いちばんよい通知で動かします:
+
+| 一覧 | 動かし方 | バインドしたグリッドの現在行 |
+|---|---|---|
+| `SortableBindingList<T>` (推奨) | `Move`: `ItemMoved` を 1 回 | 動かした行についていく (`CurrencyManager` が位置を移す)。選び直しは不要 |
+| `BindingList<T>` | `RemoveAt` + `Insert` (削除と追加の 2 回) | 別の行に移る。View が移動後に行を選び直す (`SelectRow(id)`) |
+| `ObservableCollection<T>` | 自身の `Move` | (WinForms のバインドでは使わない) |
+| `List<T>` など | `RemoveAt` + `Insert` | 通知なし |
+
+- 未確定の追加行 (`AddNew`、グリッドの新規行) は移動の前に確定されます (`BindingList<T>` 自身が `RemoveItem` / `InsertItem` の最初に確定する)。`AllowRemove = false` の `BindingList<T>` では `RemoveAt` が例外になるので、`SortableBindingList<T>` を使います (その `Move` は `AllowRemove` に関係なく動く)。
+- 移動すると並べ替えの状態は終わります (行は並べ替えの順でなくなる)。行を移動する画面の並びは表示順そのものなので、列見出しの並べ替えは切ります (`SortMode = NotSortable`、C1FlexGrid は `AllowSorting = None`)。
+- 保存は表示順の列 (整数) を 1 から振り直し、**変わった行だけ** を 1 トランザクションで更新します (「上へ」「下へ」は 2 行、「最上へ」「最下へ」は間の行)。表示順に一意制約があると 1 行ずつの更新が途中で重複するので、1 文で入れ替えるか、いったん負の値にしてから正しい値にします。
+- すぐ保存せず「登録」でまとめて保存する画面では、一覧全体を 1 つの `ChangeTracker` で見ます (並びの変更も未保存になる: [ChangeTracker](Reference-ChangeTracker))。
+- 複数行をまとめて動かす画面は、`Move(from, to)` を自分で繰り返します (上へは上の行から、下へは下の行から)。
+
 ---
 
 ## 双方向バインドと単方向バインド
