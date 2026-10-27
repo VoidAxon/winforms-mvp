@@ -581,6 +581,57 @@ private void ApplyFilter() =>
 - 絞り込み中に編集した行が条件に合わなくなっても、その場では消えません。次の `ApplyFilter()` で外れます。
 - 件数が多い・条件が複雑なときは、データベースの検索条件にして読み直します。
 
+### 見出しの Shift+クリックで複数列 (View のコード)
+
+`DataGridView` の見出しクリックは 1 列だけを一覧に渡します (`IBindingList.ApplySort(列, 方向)`)。安定ソートなので、続けてクリックすると前の列の順は同じ値の中に残りますが、▲▼ は最後の列だけで、`Resort` / `ReplaceAll` は最後の列だけで並べます。
+
+ユーザーが見出しで複数列を指定する画面では、多くのグリッド製品 (DevExpress、Telerik、ag-Grid など) と同じ規則を View に書きます: **クリック** = その列だけ (並べ替え中の列は逆順)、**Shift+クリック** = 列を追加 (追加済みの列は逆順)、**Ctrl+クリック** = その列を外す。一覧は複数列をそのまま受け取るので、フレームワーク側に追加は要りません。View のコードは 30 行ほどです:
+
+```csharp
+// Form (View)。列は SortMode = Programmatic (自動生成の列なら DataBindingComplete で設定)
+grid.ColumnHeaderMouseClick += OnHeaderClick;
+_rows.ListChanged += (s, e) => BeginInvoke((MethodInvoker)ShowGlyphs);   // Reset の処理でグリッドが付ける▲▼のあとに付け直す
+
+private void OnHeaderClick(object sender, DataGridViewCellMouseEventArgs e)
+{
+    if (e.Button != MouseButtons.Left) return;
+    var column = TypeDescriptor.GetProperties(typeof(PatientRow))[grid.Columns[e.ColumnIndex].DataPropertyName];
+    var keys = _rows.SortDescriptions.Cast<ListSortDescription>().ToList();
+    var index = keys.FindIndex(k => k.PropertyDescriptor.Name == column.Name);
+
+    if ((ModifierKeys & Keys.Control) != 0)
+    {
+        if (index >= 0) keys.RemoveAt(index);
+    }
+    else
+    {
+        var direction = index >= 0 && keys[index].SortDirection == ListSortDirection.Ascending
+            ? ListSortDirection.Descending : ListSortDirection.Ascending;
+        var key = new ListSortDescription(column, direction);
+        if ((ModifierKeys & Keys.Shift) == 0) keys = new List<ListSortDescription> { key };
+        else if (index >= 0) keys[index] = key;
+        else keys.Add(key);
+    }
+    _rows.ApplySort(new ListSortDescriptionCollection(keys.ToArray()));   // 空なら並べ替え解除
+}
+
+private void ShowGlyphs()
+{
+    var keys = _rows.SortDescriptions.Cast<ListSortDescription>().ToList();
+    foreach (DataGridViewColumn column in grid.Columns)
+    {
+        var key = keys.FirstOrDefault(k => k.PropertyDescriptor.Name == column.DataPropertyName);
+        column.HeaderCell.SortGlyphDirection = key == null ? SortOrder.None
+            : key.SortDirection == ListSortDirection.Ascending ? SortOrder.Ascending : SortOrder.Descending;
+    }
+}
+```
+
+- 優先順位の番号 (①②) を見出しに出すなら `CellPainting` (`e.RowIndex == -1`) で `e.Paint(...)` のあとに描きます。見出しの再描画は `grid.Invalidate()` (`InvalidateRow(-1)` は例外)。
+- 編集で並べ替えが終わると `SortDescriptions` は空になり、▲▼ も消えます。次の Shift+クリックは 1 列目からです。
+- 他のグリッドも同じ形です: 見出しのクリック (C1FlexGrid なら `AllowSorting = None` + `MouseClick` の `HitTest`) で上の規則を通して `ApplySort`、▲▼ と番号は自前の描画 (`OwnerDrawCell`)。複数列の操作を持つ製品はそれを使えますが、バインド中に並べ替えを一覧に任せるか (`SortDescriptions` が変わるか) を確かめます。C1FlexGrid 2016 の `AllowSorting = MultiColumn` は隣り合う列範囲をまとめて並べる別の操作で、この規則ではありません。
+- コードで決まった並び (業務の既定、保存した並び順の復元) は Presenter の `ApplySort` で足ります。この View のコードは、ユーザーが見出しで複数列を選ぶ画面だけのものです。
+
 ---
 
 ## 双方向バインドと単方向バインド
