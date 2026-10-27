@@ -166,6 +166,28 @@ namespace Kibinago.Samples.Tests.Services
                 outer.Dispose();
                 inner.Dispose();
                 Assert.False(box.UseWaitCursor);          // not taken for the control's own setting
+
+                inner = indicator.Begin(child, null);     // child first
+                outer = indicator.Begin(parent, null);
+                inner.Dispose();
+                Assert.True(child.UseWaitCursor);         // its parent is still busy
+                outer.Dispose();
+                Assert.False(child.UseWaitCursor);
+                Assert.False(box.UseWaitCursor);
+
+                box.UseWaitCursor = true;                 // the app's own setting survives both orders
+                inner = indicator.Begin(child, null);
+                outer = indicator.Begin(parent, null);
+                inner.Dispose();
+                outer.Dispose();
+                Assert.True(box.UseWaitCursor);
+                Assert.False(child.UseWaitCursor);
+                outer = indicator.Begin(parent, null);
+                inner = indicator.Begin(child, null);
+                outer.Dispose();
+                inner.Dispose();
+                Assert.True(box.UseWaitCursor);
+                Assert.False(child.UseWaitCursor);
                 AssertNothingBusy();
             }
         }

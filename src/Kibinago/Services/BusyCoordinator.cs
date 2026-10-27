@@ -78,7 +78,7 @@ namespace Kibinago.Services
             state.Requests.Add(request);
             if (state.Requests.Count > 1) return;
 
-            state.RememberOwnWaitCursors();
+            state.RememberOwnWaitCursors(c => c != window && _windows.ContainsKey(c));
             window.UseWaitCursor = true;           // stays while the message loop runs (awaits)
             Cursor.Current = Cursors.WaitCursor;   // shows at once, also while synchronous work holds the thread
             Block(window);
@@ -93,11 +93,17 @@ namespace Kibinago.Services
             state.Detach();
             // UseWaitCursor applies to children: inside a still-busy window (an MDI parent) it stays on, and
             // windows inside this one that are still busy keep theirs.
-            var enclosedByBusy = _windows.Keys.Any(w => !w.IsDisposed && w.Contains(state.Window));
+            // The innermost still-busy window around this one (an MDI parent busy longer than its child).
+            var enclosing = _windows.Values.Where(w => !w.Window.IsDisposed && w.Window.Contains(state.Window))
+                .OrderByDescending(w => Depth(w.Window)).FirstOrDefault();
+            // Busy windows inside this one take over the own values recorded inside them (they restore them).
+            foreach (var inner in _windows.Values)
+                if (!inner.Window.IsDisposed && state.Window.Contains(inner.Window)) inner.TakeInside(state);
             if (!state.Window.IsDisposed)
             {
-                state.Window.UseWaitCursor = state.HadWaitCursor || enclosedByBusy;   // sets the whole subtree …
-                state.RestoreOwnWaitCursors();                                         // … so put back the controls' own
+                state.Window.UseWaitCursor = state.HadWaitCursor || enclosing != null;   // sets the whole subtree …
+                if (enclosing != null) enclosing.Adopt(state);                          // … its own values return with the enclosing window
+                else state.RestoreOwnWaitCursors();                                     // … so put back the controls' own
             }
             foreach (var other in _windows.Keys)
                 if (!other.IsDisposed && state.Window.Contains(other)) other.UseWaitCursor = true;
@@ -266,6 +272,13 @@ namespace Kibinago.Services
             return (msg >= WM_KEYFIRST && msg <= WM_KEYLAST) || (msg >= WM_LBUTTONDOWN && msg <= WM_MOUSELAST);
         }
 
+        private static int Depth(Control c)
+        {
+            var depth = 0;
+            for (; c != null; c = c.Parent) depth++;
+            return depth;
+        }
+
         // The window a view is in: its form (an MDI child on its own), else its top-level control.
         internal static Control WindowOf(Control control) => (Control)control.FindForm() ?? control.TopLevelControl ?? control;
 
@@ -359,20 +372,40 @@ namespace Kibinago.Services
             private List<Control> _ownWaitCursors;
 
             // Controls inside the window with UseWaitCursor set of their own (setting it on the window overwrites them).
-            public void RememberOwnWaitCursors()
+            // Busy windows inside this one are skipped: their values are the framework's, theirs to restore.
+            public void RememberOwnWaitCursors(Func<Control, bool> isBusyWindow)
             {
                 _ownWaitCursors = null;
                 if (HadWaitCursor || _inherited) return;   // inside a busy window the controls' values are not their own
-                Collect(Window);
+                Collect(Window, isBusyWindow);
             }
 
-            private void Collect(Control parent)
+            private void Collect(Control parent, Func<Control, bool> isBusyWindow)
             {
                 foreach (Control c in parent.Controls)
                 {
+                    if (isBusyWindow(c)) continue;
                     if (c.UseWaitCursor) (_ownWaitCursors ?? (_ownWaitCursors = new List<Control>())).Add(c);
-                    else if (c.HasChildren) Collect(c);
+                    else if (c.HasChildren) Collect(c, isBusyWindow);
                 }
+            }
+
+            /// <summary>Takes over the own values that <paramref name="outer"/> recorded inside this window (it ends first).</summary>
+            public void TakeInside(WindowState outer)
+            {
+                if (outer._ownWaitCursors == null) return;
+                var inside = outer._ownWaitCursors.Where(c => c == Window || Window.Contains(c)).ToList();
+                if (inside.Count == 0) return;
+                foreach (var c in inside) outer._ownWaitCursors.Remove(c);
+                (_ownWaitCursors ?? (_ownWaitCursors = new List<Control>())).AddRange(inside);
+            }
+
+            /// <summary>Takes over the own values of a window inside this one that ended first.</summary>
+            public void Adopt(WindowState inner)
+            {
+                if (inner._ownWaitCursors == null) return;
+                (_ownWaitCursors ?? (_ownWaitCursors = new List<Control>())).AddRange(inner._ownWaitCursors);
+                inner._ownWaitCursors = null;
             }
 
             public void RestoreOwnWaitCursors()
