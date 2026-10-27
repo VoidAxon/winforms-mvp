@@ -69,14 +69,14 @@ namespace Kibinago.Samples.Tests.Common
         }
 
         [Fact]
-        public void SortableBindingList_Move_EndsTheSortedState()
+        public void SortableBindingList_Move_KeepsTheSort_UntilResort()
         {
             var rows = Rows();
             rows.ApplySort(s => s.ByDescending(r => r.No));
 
             rows.MoveUp(rows[1]);
 
-            Assert.False(((IBindingList)rows).IsSorted);
+            Assert.True(((IBindingList)rows).IsSorted);
             Assert.Equal(new[] { 3, 4, 2, 1 }, Ids(rows));
             rows.Resort();
             Assert.Equal(new[] { 4, 3, 2, 1 }, Ids(rows));

@@ -6,6 +6,7 @@ using System.Globalization;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Threading;
 
 namespace Kibinago.Common
 {
@@ -34,14 +35,15 @@ namespace Kibinago.Common
     /// before a sort.
     /// </para>
     /// <para>
-    /// Rows are not re-sorted while they are edited (that would move the row under the cursor): adding,
-    /// replacing or moving (<see cref="Move"/>) a row, or a notified change of a sort column's value, ends the sorted state
-    /// (<see cref="IBindingList.IsSorted"/> becomes <c>false</c>) without moving rows; removing a row
-    /// keeps it. <see cref="Resort"/> applies the last sort again, and <see cref="ReplaceAll"/> (a reload)
-    /// keeps it. Changes made while <see cref="BindingList{T}.RaiseListChangedEvents"/> is <c>false</c>,
-    /// or to properties that do not notify, are not seen — call <see cref="Resort"/> after them.
-    /// <see cref="RemoveSort"/> keeps the current order (the original order is not restored).
-    /// Filtering is not supported. Not thread-safe: change it, and the objects it holds, on the UI thread.
+    /// The sort is the one the user chose (<see cref="IBindingList.IsSorted"/>, <see cref="SortDescriptions"/>,
+    /// the grid's sort glyph); it stays until <see cref="RemoveSort"/> or another sort. By default rows
+    /// are not re-sorted while they are edited (that would move the row under the cursor, as in Excel):
+    /// an edited, added or moved row stays where it is, and <see cref="Resort"/> puts the rows in order
+    /// again; <see cref="ReplaceAll"/> (a reload) sorts the new rows. With <see cref="KeepSorted"/> the
+    /// list keeps itself in order instead: a row whose sort-column value changes, or a row added, moves
+    /// to its place once the change is complete. <see cref="RemoveSort"/> keeps the current order (the
+    /// original order is not restored). Filtering is not supported. Not thread-safe: change it, and the
+    /// objects it holds, on the UI thread.
     /// </para>
     /// </remarks>
     /// <typeparam name="T">The row type; its public properties are the sortable columns.</typeparam>
@@ -52,10 +54,13 @@ namespace Kibinago.Common
         private readonly List<T> _items;
         private readonly Dictionary<string, IComparer> _comparers = new Dictionary<string, IComparer>(StringComparer.Ordinal);
         private StringComparer _stringComparer = StringComparer.Create(CultureInfo.CurrentCulture, ignoreCase: false);
-        private SortKey[] _applied;      // the sort the list is in now (null = not sorted)
-        private SortKey[] _remembered;   // the last requested sort, for Resort / ReplaceAll
+        private SortKey[] _sort;         // the sort the user chose (null = not sorted)
         private int _pendingNew = -1;    // index of the row AddNew created and not yet committed
         private bool _ownReset;          // the Reset being raised is this list's own (after a sort / reload)
+        private bool _keepSorted;
+        private readonly List<T> _toPlace = new List<T>();   // KeepSorted: rows changed since the last placing
+        private bool _placingPosted;
+        private bool _addingNew;         // inside AddNew: its ItemAdded is not a row to place yet
 
         /// <summary>Creates an empty list.</summary>
         public SortableBindingList()
@@ -74,36 +79,54 @@ namespace Kibinago.Common
 
         /// <summary>
         /// The comparison for string values and for values compared by their text. Default: the culture
-        /// current when the list was created, case-sensitive. Setting it ends the sorted state without moving rows.
+        /// current when the list was created, case-sensitive. Rows already sorted are not moved: call <see cref="Resort"/>.
         /// </summary>
         public StringComparer StringComparer
         {
             get => _stringComparer;
+            set => _stringComparer = value ?? throw new ArgumentNullException(nameof(value));
+        }
+
+        /// <summary>
+        /// Keeps the rows in sort order: a row whose sort-column value changes (or a row added) moves to its
+        /// place with one <see cref="ListChangedType.ItemMoved"/> (a bound grid's current row moves with it),
+        /// after the change is complete — posted to the <see cref="SynchronizationContext"/> current at the
+        /// change (the UI thread), so a grid committing a cell edit is not interrupted; without one, at once.
+        /// Default <c>false</c>: edited rows stay where they are until <see cref="Resort"/> (the edited row
+        /// does not jump away from the user). Setting it to <c>true</c> on a sorted list sorts it now.
+        /// Changes made while <see cref="BindingList{T}.RaiseListChangedEvents"/> is <c>false</c>, or to
+        /// properties that do not notify, are not seen — call <see cref="Resort"/> after them.
+        /// </summary>
+        public bool KeepSorted
+        {
+            get => _keepSorted;
             set
             {
-                _stringComparer = value ?? throw new ArgumentNullException(nameof(value));
-                _applied = null;
+                if (_keepSorted == value) return;
+                _keepSorted = value;
+                if (value) Resort();
             }
         }
 
         /// <summary>
-        /// The sort the list is in, first column first; empty when it is not sorted.
+        /// The sort the user chose, first column first; empty when it is not sorted. The rows are in this
+        /// order after a sort; edits can leave them out of it (see <see cref="KeepSorted"/>, <see cref="Resort"/>).
         /// </summary>
         public ListSortDescriptionCollection SortDescriptions =>
-            new ListSortDescriptionCollection((_applied ?? NoKeys)
+            new ListSortDescriptionCollection((_sort ?? NoKeys)
                 .Select(k => new ListSortDescription(k.Property, k.Direction)).ToArray());
 
         /// <inheritdoc />
         protected override bool SupportsSortingCore => true;
 
         /// <inheritdoc />
-        protected override bool IsSortedCore => _applied != null;
+        protected override bool IsSortedCore => _sort != null;
 
         /// <inheritdoc />
-        protected override PropertyDescriptor SortPropertyCore => _applied?[0].Property;
+        protected override PropertyDescriptor SortPropertyCore => _sort?[0].Property;
 
         /// <inheritdoc />
-        protected override ListSortDirection SortDirectionCore => _applied?[0].Direction ?? ListSortDirection.Ascending;
+        protected override ListSortDirection SortDirectionCore => _sort?[0].Direction ?? ListSortDirection.Ascending;
 
         bool IBindingListView.SupportsAdvancedSorting => true;
 
@@ -120,7 +143,7 @@ namespace Kibinago.Common
         /// <summary>
         /// Uses <paramref name="comparer"/> for the values of one column (for example, Japanese names by
         /// their reading): <c>rows.SetComparer(r => r.Name, comparer)</c>; <c>null</c> goes back to the
-        /// default comparison. Ends the sorted state without moving rows when that column is part of it.
+        /// default comparison. Rows already sorted are not moved: call <see cref="Resort"/>.
         /// </summary>
         /// <typeparam name="TKey">The property type.</typeparam>
         /// <param name="property">The column: one property of the row (<c>r => r.Name</c>; no paths).</param>
@@ -133,7 +156,6 @@ namespace Kibinago.Common
                     + " is " + descriptor.PropertyType.Name + "; use a comparer of the property's type.", nameof(property));
             if (comparer == null) _comparers.Remove(descriptor.Name);
             else _comparers[descriptor.Name] = new BoxedComparer<TKey>(comparer);
-            if (IsSortedBy(descriptor.Name)) _applied = null;
         }
 
         /// <summary>
@@ -184,13 +206,12 @@ namespace Kibinago.Common
         public void RemoveSort() => RemoveSortCore();
 
         /// <summary>
-        /// Applies the last sort again — after rows were added or edited, or after changes made with
-        /// <see cref="BindingList{T}.RaiseListChangedEvents"/> off. Does nothing when no sort was applied
-        /// (or it was removed).
+        /// Puts the rows in the sort order again — after rows were added or edited, or after changes made
+        /// with <see cref="BindingList{T}.RaiseListChangedEvents"/> off. Does nothing when the list is not sorted.
         /// </summary>
         public void Resort()
         {
-            if (_remembered != null) Sort(_remembered);
+            if (_sort != null) Sort(_sort);
         }
 
         /// <summary>
@@ -203,8 +224,7 @@ namespace Kibinago.Common
             if (items == null) throw new ArgumentNullException(nameof(items));
 
             var rows = new List<T>(items);
-            var keys = _remembered;
-            if (keys != null) rows = Order(rows, keys);   // may throw: nothing has changed yet
+            if (_sort != null) rows = Order(rows, _sort);   // may throw: nothing has changed yet
 
             var raise = RaiseListChangedEvents;
             RaiseListChangedEvents = false;
@@ -218,7 +238,7 @@ namespace Kibinago.Common
                 RaiseListChangedEvents = raise;
             }
 
-            _applied = keys;
+            _toPlace.Clear();
             RaiseReset();
         }
 
@@ -226,8 +246,8 @@ namespace Kibinago.Common
         /// Moves the row at <paramref name="from"/> to <paramref name="to"/> and raises one
         /// <see cref="ListChangedType.ItemMoved"/> — a bound grid's current row moves with it (a
         /// <c>CurrencyManager</c> follows the moved row), instead of the delete and add that
-        /// <c>RemoveAt</c> + <c>Insert</c> report. Ends the sorted state (the rows are no longer in sort
-        /// order); works with <see cref="BindingList{T}.AllowRemove"/> <c>false</c>. A row being added
+        /// <c>RemoveAt</c> + <c>Insert</c> report. The sort is kept (the moved row may be out of order,
+        /// even with <see cref="KeepSorted"/>, until its value changes or <see cref="Resort"/>); works with <see cref="BindingList{T}.AllowRemove"/> <c>false</c>. A row being added
         /// (<see cref="BindingList{T}.AddNew"/>) is committed first. Move one row of any list with
         /// <see cref="ListMoveExtensions"/> (<c>rows.MoveUp(row)</c>), which uses this method for this list.
         /// </summary>
@@ -239,11 +259,10 @@ namespace Kibinago.Common
             if (to < 0 || to >= Count) throw new ArgumentOutOfRangeException(nameof(to));
             if (from == to) return;
 
-            if (_pendingNew >= 0) EndNew(_pendingNew);   // its index is about to change
+            CommitPendingNew();   // its index is about to change
             var row = _items[from];
             _items.RemoveAt(from);   // the row stays in the list: its change notifications stay hooked
             _items.Insert(to, row);
-            _applied = null;
 
             if (RaiseListChangedEvents)
                 OnListChanged(new ListChangedEventArgs(ListChangedType.ItemMoved, to, from));
@@ -259,15 +278,18 @@ namespace Kibinago.Common
         /// <inheritdoc />
         protected override void RemoveSortCore()
         {
-            _applied = null;
-            _remembered = null;
+            _sort = null;
+            _toPlace.Clear();
             RaiseReset();
         }
 
         /// <inheritdoc />
         protected override object AddNewCore()
         {
-            var item = base.AddNewCore();
+            object item;
+            _addingNew = true;
+            try { item = base.AddNewCore(); }
+            finally { _addingNew = false; }
             _pendingNew = item is T row ? IndexOf(row) : -1;
             return item;
         }
@@ -275,8 +297,10 @@ namespace Kibinago.Common
         /// <inheritdoc />
         public override void EndNew(int itemIndex)
         {
-            if (itemIndex == _pendingNew) _pendingNew = -1;
+            var committed = itemIndex >= 0 && itemIndex == _pendingNew;
+            if (committed) _pendingNew = -1;
             base.EndNew(itemIndex);
+            if (committed && itemIndex < Count) Place(this[itemIndex]);   // the new row is complete now
         }
 
         /// <inheritdoc />
@@ -287,29 +311,80 @@ namespace Kibinago.Common
         }
 
         /// <inheritdoc />
-        protected override void InsertItem(int index, T item)
-        {
-            _applied = null;
-            base.InsertItem(index, item);
-        }
-
-        /// <inheritdoc />
-        protected override void SetItem(int index, T item)
-        {
-            _applied = null;
-            base.SetItem(index, item);
-        }
-
-        /// <inheritdoc />
         protected override void OnListChanged(ListChangedEventArgs e)
         {
-            // A row's PropertyChanged with no name ("everything changed") arrives as a Reset.
-            if (_applied != null && !_ownReset
-                && (e.ListChangedType == ListChangedType.Reset
-                    || (e.ListChangedType == ListChangedType.ItemChanged
-                        && (e.PropertyDescriptor == null || IsSortedBy(e.PropertyDescriptor.Name)))))
-                _applied = null;
             base.OnListChanged(e);
+            if (!_keepSorted || _sort == null || _addingNew || e.NewIndex == _pendingNew && e.NewIndex >= 0) return;   // a new row: placed when committed
+
+            switch (e.ListChangedType)
+            {
+                case ListChangedType.ItemChanged when e.PropertyDescriptor == null || IsSortedBy(e.PropertyDescriptor.Name):
+                case ListChangedType.ItemAdded:
+                    if (e.NewIndex >= 0 && e.NewIndex < Count) Place(this[e.NewIndex]);
+                    break;
+                case ListChangedType.Reset when !_ownReset:   // a row's PropertyChanged with no name ("everything changed")
+                    Place(default, all: true);
+                    break;
+            }
+        }
+
+        // KeepSorted: the row goes to its place once the change is complete (posted, so a grid that is
+        // committing a cell edit finishes first); several changes before that are placed together.
+        private void Place(T row, bool all = false)
+        {
+            if (!_keepSorted || _sort == null) return;
+            if (all) _toPlace.Add(row);   // default(T) marks "everything"
+            else if (IndexOfReference(_toPlace, row) < 0) _toPlace.Add(row);
+            if (_placingPosted) return;
+
+            var context = SynchronizationContext.Current;
+            if (context == null)
+            {
+                PlaceNow();
+                return;
+            }
+            _placingPosted = true;
+            context.Post(_ => { _placingPosted = false; PlaceNow(); }, null);
+        }
+
+        private void PlaceNow()
+        {
+            if (_toPlace.Count == 0 || !_keepSorted || _sort == null) { _toPlace.Clear(); return; }
+            if (_pendingNew >= 0) return;   // kept: placed when the new row is committed (EndNew)
+            var rows = _toPlace.Where(r => IndexOfReference(_items, r) >= 0).ToList();
+            var everything = _toPlace.Count != rows.Count;   // "everything changed", or a placed row was removed
+            _toPlace.Clear();
+
+            var sorted = Order(_items, _sort);
+            if (!everything && rows.Count == 1)
+            {
+                var row = rows[0];
+                var others = _items.Where(r => !ReferenceEquals(r, row));
+                if (others.SequenceEqual(sorted.Where(r => !ReferenceEquals(r, row)), ReferenceComparer.Instance))
+                {
+                    Move(IndexOfReference(_items, row), IndexOfReference(sorted, row));   // one ItemMoved
+                    return;
+                }
+            }
+            if (!sorted.SequenceEqual(_items, ReferenceComparer.Instance)) Sort(_sort);   // several rows: one Reset
+        }
+
+        // Commits the row AddNew created without placing it (the caller is about to move or sort the rows).
+        private void CommitPendingNew()
+        {
+            if (_pendingNew < 0) return;
+            var index = _pendingNew;
+            _pendingNew = -1;
+            base.EndNew(index);
+        }
+
+        private static int IndexOfReference(List<T> rows, T row) => rows.FindIndex(r => ReferenceEquals(r, row));
+
+        private sealed class ReferenceComparer : IEqualityComparer<T>
+        {
+            public static readonly ReferenceComparer Instance = new ReferenceComparer();
+            public bool Equals(T x, T y) => ReferenceEquals(x, y);
+            public int GetHashCode(T obj) => System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(obj);
         }
 
         private void RaiseReset()
@@ -323,11 +398,11 @@ namespace Kibinago.Common
         {
             var sorted = Order(_items, keys);   // may throw: nothing has changed yet
 
-            if (_pendingNew >= 0) EndNew(_pendingNew);   // its index is about to change
+            CommitPendingNew();   // its index is about to change
             _items.Clear();
             _items.AddRange(sorted);                     // a permutation: no item hooks change
-            _applied = keys;
-            _remembered = keys;
+            _sort = keys;
+            _toPlace.Clear();
             RaiseReset();
         }
 
@@ -394,7 +469,7 @@ namespace Kibinago.Common
             || typeof(IComparable<>).MakeGenericType(type).IsAssignableFrom(type);
 
         private bool IsSortedBy(string propertyName) =>
-            _applied != null && _applied.Any(k => k.Property.Name == propertyName);
+            _sort != null && _sort.Any(k => k.Property.Name == propertyName);
 
         private static PropertyDescriptor PropertyOf<TKey>(Expression<Func<T, TKey>> property, string parameterName)
         {

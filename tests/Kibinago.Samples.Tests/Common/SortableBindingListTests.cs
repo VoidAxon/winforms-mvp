@@ -242,34 +242,184 @@ namespace Kibinago.Samples.Tests.Common
         }
 
         [Fact]
-        public void AddOrEditingASortColumn_EndsTheSortedState_WithoutMovingRows()
+        public void AddOrEditingASortColumn_KeepsTheSort_WithoutMovingRows()
         {
             var list = Wards();
             IBindingList bindable = list;
             list.ApplySort(s => s.By(r => r.No));
 
-            list[0].No = 100;   // notified change of a sort column
-            Assert.False(bindable.IsSorted);
+            list[0].No = 100;   // notified change of a sort column: the row stays (not under the cursor's feet)
+            Assert.True(bindable.IsSorted);   // the sort the user chose (the grid's glyph) stays
+            Assert.Equal(nameof(Row.No), bindable.SortProperty.Name);
             Assert.Equal(new[] { 3, 1, 5, 4, 2 }, Ids(list));
 
             list.Resort();
-            Assert.True(bindable.IsSorted);
             Assert.Equal(new[] { 1, 5, 4, 2, 3 }, Ids(list));
 
             list.Add(new Row(6, "C", 0));
-            Assert.False(bindable.IsSorted);
+            Assert.True(bindable.IsSorted);
             Assert.Equal(6, list.Last().Id);
         }
 
         [Fact]
-        public void EverythingChangedNotification_EndsTheSortedState()
+        public void EverythingChangedNotification_KeepsTheSort()
         {
             var list = Wards();
             list.ApplySort(s => s.By(r => r.No));
 
             list[0].RaiseEverythingChanged();   // BindingList turns it into a Reset
 
-            Assert.False(((IBindingList)list).IsSorted);
+            Assert.True(((IBindingList)list).IsSorted);
+            Assert.Equal(new[] { 3, 1, 5, 4, 2 }, Ids(list));
+        }
+
+        [Fact]
+        public void KeepSorted_AnEditedRow_MovesToItsPlace_WithOneItemMoved()
+        {
+            using var _ = WithoutSynchronizationContext();   // placed at once (a UI thread posts it)
+            var list = Wards();
+            list.ApplySort(s => s.By(r => r.No));   // 3 1 5 4 2 (No 1 2 2 3 9)
+            list.KeepSorted = true;
+            var seen = new List<string>();
+            list.ListChanged += (s, e) => seen.Add($"{e.ListChangedType} {e.NewIndex}");
+
+            list[0].No = 5;   // row 3: between 4 (No 3) and 2 (No 9)
+
+            Assert.Equal(new[] { 1, 5, 4, 3, 2 }, Ids(list));
+            Assert.Equal(new[] { "ItemChanged 0", "ItemMoved 3" }, seen);
+            Assert.True(((IBindingList)list).IsSorted);
+        }
+
+        [Fact]
+        public void KeepSorted_EditOfAnotherColumn_MovesNothing()
+        {
+            using var _ = WithoutSynchronizationContext();   // placed at once (a UI thread posts it)
+            var list = Wards();
+            list.ApplySort(s => s.By(r => r.No));
+            list.KeepSorted = true;
+
+            list[0].Ward = "Z";
+
+            Assert.Equal(new[] { 3, 1, 5, 4, 2 }, Ids(list));
+        }
+
+        [Fact]
+        public void KeepSorted_AnAddedRow_GoesToItsPlace()
+        {
+            using var _ = WithoutSynchronizationContext();   // placed at once (a UI thread posts it)
+            var list = Wards();
+            list.ApplySort(s => s.By(r => r.No));
+            list.KeepSorted = true;
+
+            list.Add(new Row(6, "C", 0));
+
+            Assert.Equal(new[] { 6, 3, 1, 5, 4, 2 }, Ids(list));
+        }
+
+        [Fact]
+        public void KeepSorted_ANewRow_IsPlacedWhenCommitted_NotWhileBeingAdded()
+        {
+            using var _ = WithoutSynchronizationContext();   // placed at once (a UI thread posts it)
+            var list = Wards();
+            list.ApplySort(s => s.By(r => r.No));
+            list.KeepSorted = true;
+
+            var added = list.AddNew();   // blank (No 0), pending at the end
+            Assert.Same(added, list.Last());
+            added.Id = 6;
+            added.No = 4;                // the grid fills it in: still pending, not moved
+            Assert.Same(added, list.Last());
+
+            list.EndNew(list.IndexOf(added));
+
+            Assert.Equal(new[] { 3, 1, 5, 4, 6, 2 }, Ids(list));
+        }
+
+        [Fact]
+        public void KeepSorted_IsPostedToTheSynchronizationContext()
+        {
+            var list = Wards();
+            list.ApplySort(s => s.By(r => r.No));
+            list.KeepSorted = true;
+            var context = new QueueingContext();
+            var previous = System.Threading.SynchronizationContext.Current;
+            System.Threading.SynchronizationContext.SetSynchronizationContext(context);
+            try
+            {
+                list[0].No = 5;   // a grid committing a cell edit is still on the stack here
+                Assert.Equal(new[] { 3, 1, 5, 4, 2 }, Ids(list));
+
+                context.RunAll();
+
+                Assert.Equal(new[] { 1, 5, 4, 3, 2 }, Ids(list));
+            }
+            finally
+            {
+                System.Threading.SynchronizationContext.SetSynchronizationContext(previous);
+            }
+        }
+
+        [Fact]
+        public void KeepSorted_SettingItOnASortedList_SortsNow()
+        {
+            using var _ = WithoutSynchronizationContext();   // placed at once (a UI thread posts it)
+            var list = Wards();
+            list.ApplySort(s => s.By(r => r.No));
+            list[0].No = 100;   // out of order (KeepSorted off)
+
+            list.KeepSorted = true;
+
+            Assert.Equal(new[] { 1, 5, 4, 2, 3 }, Ids(list));
+        }
+
+        [Fact]
+        public void KeepSorted_EverythingChanged_SortsAgain()
+        {
+            using var _ = WithoutSynchronizationContext();   // placed at once (a UI thread posts it)
+            var list = Wards();
+            list.ApplySort(s => s.By(r => r.No));
+            list.KeepSorted = true;
+            list.RaiseListChangedEvents = false;
+            list[0].No = 100;
+            list[1].No = 0;
+            list.RaiseListChangedEvents = true;
+
+            list[2].RaiseEverythingChanged();
+
+            Assert.Equal(new[] { 1, 5, 4, 2, 3 }, Ids(list));
+        }
+
+        [Fact]
+        public void KeepSorted_WithoutASort_DoesNothing()
+        {
+            using var _ = WithoutSynchronizationContext();   // placed at once (a UI thread posts it)
+            var list = Wards();
+            list.KeepSorted = true;
+
+            list[0].No = 100;
+
+            Assert.Equal(new[] { 1, 2, 3, 4, 5 }, Ids(list));
+        }
+
+        private static IDisposable WithoutSynchronizationContext()
+        {
+            var previous = System.Threading.SynchronizationContext.Current;
+            System.Threading.SynchronizationContext.SetSynchronizationContext(null);
+            return new Restore(() => System.Threading.SynchronizationContext.SetSynchronizationContext(previous));
+        }
+
+        private sealed class Restore : IDisposable
+        {
+            private readonly Action _restore;
+            public Restore(Action restore) => _restore = restore;
+            public void Dispose() => _restore();
+        }
+
+        private sealed class QueueingContext : System.Threading.SynchronizationContext
+        {
+            private readonly Queue<(System.Threading.SendOrPostCallback, object)> _posted = new Queue<(System.Threading.SendOrPostCallback, object)>();
+            public override void Post(System.Threading.SendOrPostCallback d, object state) => _posted.Enqueue((d, state));
+            public void RunAll() { while (_posted.Count > 0) { var (d, state) = _posted.Dequeue(); d(state); } }
         }
 
         [Fact]

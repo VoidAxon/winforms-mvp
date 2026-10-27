@@ -539,7 +539,7 @@ public void SetRows(SortableBindingList<PatientRow> rows) => grid.DataSource = r
 | 複数列で並べ替え | `rows.ApplySort(s => s.By(r => r.Ward).ThenByDescending(r => r.AdmittedOn))` — 列はコンパイラーが確認する (名前の変更に追従、型違いはビルドエラー)。1 段のプロパティだけ (`r => r.Address.City` のようなパスやフィールドは `ArgumentException`) |
 | 実行時にしか分からない列名で並べ替え (ユーザーが保存した並び順の復元) | `rows.ApplySort(new ListSortDescriptionCollection(...))` (`IBindingListView` の標準メソッド。`TypeDescriptor.GetProperties(typeof(Row))[name]`)、または View で `bindingSource.Sort = "..."` |
 | 再読み込み | `rows.ReplaceAll(items)` — 前回の並べ替えで並べ、`Reset` を 1 回だけ通知 (1 行ずつの `Add` は行数分の通知) |
-| 行の追加・編集のあとで並べ直す | `rows.Resort()` |
+| 行の追加・編集のあとで並べ直す | `rows.Resort()` (編集のたびに自動で並べ直すなら `rows.KeepSorted = true`、下記) |
 | 列ごとの比較 (読み仮名順など) | `rows.SetComparer(r => r.Name, comparer)` (`IComparer<string>` — 列の型と合わないとビルドエラー)、`null` で既定に戻す。文字列全体は `rows.StringComparer = ...` (既定: 作成時のカルチャ、大文字小文字を区別) |
 | 並べ替えの解除 | `rows.RemoveSort()` (今の並びのまま。読み込んだ順には戻らない) |
 
@@ -550,7 +550,17 @@ public void SetRows(SortableBindingList<PatientRow> rows) => grid.DataSource = r
 - **比較で落ちない** — 列ごとに比較方法を 1 つに決める: `SetComparer` の比較 → 文字列は `StringComparer` → 同じ型の値はその型の比較 (`IComparable` / `IComparable<T>`) → それ以外 (型が混在、比較できない型) は文字列にして比較。`null` / `DBNull` は昇順で先頭、降順で末尾。値の取得や比較が例外を投げたときは、並びも並べ替えの状態も変わらない。
 - **値は 1 回だけ取り出す** — 並べ替えのたびに各行の各列を 1 回読む (比較のたびに読まない)。
 
-編集中は自動で並べ直しません (入力中の行がカーソルの下から動くため): 行の追加・置き換え、並べ替えの列の値の変更 (通知されたもの) で並べ替えの状態が終わります (`IsSorted` が `false`、見出しの▲▼が消える)。行は動きません。行の削除では終わりません。`Resort()` で並べ直し、`ReplaceAll` では前回の並べ替えが使われます。`RaiseListChangedEvents = false` の間の変更や、通知しないプロパティの変更は検知できないので、そのあとに `Resort()` を呼びます。追加中の行 (`AddNew`、グリッドの新規行) は並べ替えの前に確定します。
+並べ替え (`IsSorted`、`SortDescriptions`、グリッドの▲▼) は **ユーザーが選んだ並べ替え** です。別の並べ替えか `RemoveSort()` まで残ります。編集で行がその順でなくなることがあり、二つの扱い方を選べます:
+
+| | 既定 (`KeepSorted = false`) | `KeepSorted = true` |
+|---|---|---|
+| 並べ替えの列の値を編集・行を追加 | 行は動かない (Excel、ag-Grid、DataGridView 自身の並べ替えと同じ)。▲▼ は残る | 確定したあと、その行が正しい位置へ移る (`ItemMoved` 1 回: 現在行もついていく)。▲▼ はいつも正しい |
+| 並べ直す | `Resort()` | 不要 (`true` にした時点で並べ直す) |
+| 向く画面 | 入力の多い一覧 (入力中の行が動かない) | 見るための一覧、状態が変わる一覧 |
+
+- `KeepSorted` の移動は、変更を通知したスレッドの `SynchronizationContext` (UI スレッド) に後回しにします: グリッドがセルの編集を確定している最中に行を動かさないため。追加中の行 (`AddNew`、グリッドの新規行) は確定 (`EndNew`) のあとに置きます。複数の行が順でなくなっていたら全体を並べ直します (`Reset` 1 回)。
+- どちらでも、`RaiseListChangedEvents = false` の間の変更や、通知しないプロパティの変更は検知できないので、そのあとに `Resort()` を呼びます。`ReplaceAll` は選んだ並べ替えで並べます。追加中の行は並べ替えの前に確定します。
+- `StringComparer` / `SetComparer` を変えても並んでいる行は動きません (`Resort()` で反映)。
 
 注意点:
 
@@ -628,7 +638,7 @@ private void ShowGlyphs()
 ```
 
 - 優先順位の番号 (①②) を見出しに出すなら `CellPainting` (`e.RowIndex == -1`) で `e.Paint(...)` のあとに描きます。見出しの再描画は `grid.Invalidate()` (`InvalidateRow(-1)` は例外)。
-- 編集で並べ替えが終わると `SortDescriptions` は空になり、▲▼ も消えます。次の Shift+クリックは 1 列目からです。
+- 編集しても並べ替え (`SortDescriptions`) は残るので、▲▼ と番号も残ります (行がその順でないときは `Resort()`、または `KeepSorted = true`)。
 - 他のグリッドも同じ形です: 見出しのクリック (C1FlexGrid なら `AllowSorting = None` + `MouseClick` の `HitTest`) で上の規則を通して `ApplySort`、▲▼ と番号は自前の描画 (`OwnerDrawCell`)。複数列の操作を持つ製品はそれを使えますが、バインド中に並べ替えを一覧に任せるか (`SortDescriptions` が変わるか) を確かめます。C1FlexGrid 2016 の `AllowSorting = MultiColumn` は隣り合う列範囲をまとめて並べる別の操作で、この規則ではありません。
 - コードで決まった並び (業務の既定、保存した並び順の復元) は Presenter の `ApplySort` で足ります。この View のコードは、ユーザーが見出しで複数列を選ぶ画面だけのものです。
 
@@ -673,7 +683,7 @@ private void Move(Func<PhraseRow, bool> move)
 | `List<T>` など | `RemoveAt` + `Insert` | 通知なし |
 
 - 未確定の追加行 (`AddNew`、グリッドの新規行) は移動の前に確定されます (`BindingList<T>` 自身が `RemoveItem` / `InsertItem` の最初に確定する)。`AllowRemove = false` の `BindingList<T>` では `RemoveAt` が例外になるので、`SortableBindingList<T>` を使います (その `Move` は `AllowRemove` に関係なく動く)。
-- 移動すると並べ替えの状態は終わります (行は並べ替えの順でなくなる)。行を移動する画面の並びは表示順そのものなので、列見出しの並べ替えは切ります (`SortMode = NotSortable`、C1FlexGrid は `AllowSorting = None`)。
+- 移動しても並べ替えは残ります (行はその順でなくなる。`KeepSorted` でも、動かした行はその値が変わるまでそのまま)。行を移動する画面の並びは表示順そのものなので、並べ替えは使わず、列見出しの並べ替えも切ります (`SortMode = NotSortable`、C1FlexGrid は `AllowSorting = None`)。
 - 保存は表示順の列 (整数) を 1 から振り直し、**変わった行だけ** を 1 トランザクションで更新します (「上へ」「下へ」は 2 行、「最上へ」「最下へ」は間の行)。表示順に一意制約があると 1 行ずつの更新が途中で重複するので、1 文で入れ替えるか、いったん負の値にしてから正しい値にします。
 - すぐ保存せず「登録」でまとめて保存する画面では、一覧全体を 1 つの `ChangeTracker` で見ます (並びの変更も未保存になる: [ChangeTracker](Reference-ChangeTracker))。
 - 複数行をまとめて動かす画面は、`Move(from, to)` を自分で繰り返します (上へは上の行から、下へは下の行から)。
