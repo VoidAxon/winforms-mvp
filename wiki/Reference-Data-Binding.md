@@ -555,9 +555,31 @@ public void SetRows(SortableBindingList<PatientRow> rows) => grid.DataSource = r
 注意点:
 
 - 並べ替えは `Reset` を通知するので、グリッドの現在行が変わることがあります。選択はレコードのキーで View が保ちます (`SelectedId` → 読み込み・並べ替えのあと `SelectRow(id)`)。
-- フィルターはサポートしません (`IBindingListView.Filter` に代入すると `NotSupportedException`)。絞り込みは Presenter (またはデータベース) で行い、`ReplaceAll` で入れ替えます。
+- フィルターはサポートしません (`IBindingListView.Filter` に代入すると `NotSupportedException`)。絞り込みは下記のとおり Presenter で行います。
 - スレッドセーフではありません。リストと行の変更は UI スレッドで行います。
 - 画面上の並び (見出しクリック) は View の責務、業務上の既定の並び (入院日順など) は Presenter かデータベースで決めます。
+
+### 絞り込み: `ReplaceAll` + LINQ
+
+絞り込みは画面のユースケースのロジックなので Presenter が持ちます。全件を Presenter が持ち、条件が変わるたびに LINQ で絞って `ReplaceAll` に渡します。並べ替えはそのまま保たれ、通知は `Reset` 1 回です。
+
+```csharp
+private IReadOnlyList<PatientRow> _all = Array.Empty<PatientRow>();
+
+private void Reload()
+{
+    _all = _repository.List();
+    ApplyFilter();
+}
+
+private void ApplyFilter() =>
+    _rows.ReplaceAll(_all.Where(r => View.SelectedWard == null || r.Ward == View.SelectedWard));   // 並べ替えは保たれる
+```
+
+- 条件は C# の式なので、名前の変更や型違いはビルドエラーになります (`Filter` の文字列式は実行時まで分かりません)。
+- テストは `_rows` の中身を確かめるだけです (Form 不要)。
+- 絞り込み中に編集した行が条件に合わなくなっても、その場では消えません。次の `ApplyFilter()` で外れます。
+- 件数が多い・条件が複雑なときは、データベースの検索条件にして読み直します。
 
 ---
 
