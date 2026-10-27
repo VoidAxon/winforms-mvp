@@ -163,6 +163,57 @@ namespace Kibinago.Samples.Tests.Services
         }
 
         [Fact]
+        public void ABusyMdiParent_BlocksItsChildren_ABusyChildDoesNotBlockTheParent()
+        {
+            const int WM_LBUTTONDOWN = 0x0201;
+            using (var parent = new ViewForm { IsMdiContainer = true })
+            {
+                var child = new ViewForm(createHandle: false) { MdiParent = parent };
+                var box = new TextBox();
+                child.Controls.Add(box);
+                child.CreateControl();
+                var indicator = new WinFormsBusyIndicator();
+
+                using (indicator.Begin(parent, null))
+                    Assert.True(Coordinator.ShouldBlock(WM_LBUTTONDOWN, IntPtr.Zero, box));
+                Coordinator.ReleaseAfterIdle();
+
+                using (indicator.Begin(child, null))
+                {
+                    Assert.True(Coordinator.ShouldBlock(WM_LBUTTONDOWN, IntPtr.Zero, box));
+                    Assert.False(Coordinator.ShouldBlock(WM_LBUTTONDOWN, IntPtr.Zero, parent));
+                }
+                AssertNothingBusy();
+            }
+        }
+
+        [Fact]
+        public void AnOpenSubmenuOfAContextMenu_IsBlockedWithTheWindowItWasOpenedFrom()
+        {
+            const int WM_LBUTTONDOWN = 0x0201;
+            using (var form = new ViewForm())
+            using (var menu = new ContextMenuStrip())
+            {
+                var button = new Button();
+                form.Controls.Add(button);
+                var item = new ToolStripMenuItem("More");
+                item.DropDownItems.Add("Delete");
+                menu.Items.Add(item);
+                button.ContextMenuStrip = menu;
+                menu.Show(button, new Point(0, 0));   // SourceControl = button
+                item.ShowDropDown();
+
+                using (new WinFormsBusyIndicator().Begin(form, null))
+                {
+                    Assert.True(Coordinator.ShouldBlock(WM_LBUTTONDOWN, IntPtr.Zero, menu));
+                    Assert.True(Coordinator.ShouldBlock(WM_LBUTTONDOWN, IntPtr.Zero, item.DropDown));
+                }
+                menu.Close();
+                AssertNothingBusy();
+            }
+        }
+
+        [Fact]
         public void DisposingABusyChildPanel_ReleasesItsWindow()
         {
             using (var form = new ViewForm())

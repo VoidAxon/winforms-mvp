@@ -242,15 +242,19 @@ namespace Kibinago.Services
             const int WM_LBUTTONDOWN = 0x0201, WM_MOUSELAST = 0x020E;
             const int VK_F4 = 0x73;
 
-            var window = WindowOfInput(target);
-            if (window == null || !_blocked.Contains(window)) return false;
+            var source = SourceOf(target);
+            if (source == null) return false;
+            Control blockedWindow = null;   // the busy window the input is inside (an MDI child of a busy parent too)
+            for (var c = source; c != null && blockedWindow == null; c = c.Parent)
+                if (_blocked.Contains(c)) blockedWindow = c;
+            if (blockedWindow == null) return false;
             if (msg >= WM_NCLBUTTONDOWN && msg <= WM_NCLAST)
             {
-                // A control's non-client area (its scroll bars) is blocked; the form's own frame (title bar,
-                // its buttons, borders) is not — except the form's own scroll bars (AutoScroll).
+                // A control's non-client area (its scroll bars) is blocked; the busy form's own frame (title
+                // bar, its buttons, borders) is not — except the form's own scroll bars (AutoScroll).
                 const int HTHSCROLL = 6, HTVSCROLL = 7;
                 var hit = (int)wParam;
-                return target != window || hit == HTHSCROLL || hit == HTVSCROLL;
+                return target != blockedWindow || hit == HTHSCROLL || hit == HTVSCROLL;
             }
             if (msg == WM_SYSKEYDOWN && (int)wParam == VK_F4) return false;              // Alt+F4 still closes (through CanClose)
             return (msg >= WM_KEYFIRST && msg <= WM_KEYLAST) || (msg >= WM_LBUTTONDOWN && msg <= WM_MOUSELAST);
@@ -259,14 +263,13 @@ namespace Kibinago.Services
         // The window a view is in: its form (an MDI child on its own), else its top-level control.
         internal static Control WindowOf(Control control) => (Control)control.FindForm() ?? control.TopLevelControl ?? control;
 
-        private static Control WindowOfInput(Control target)
+        // A menu that stayed open (a submenu of a context menu too) acts for the control it was opened from.
+        private static Control SourceOf(Control target)
         {
-            if (target is ToolStripDropDown dropDown)   // a menu that stayed open belongs to its owner's window
-            {
-                var owner = (Control)dropDown.OwnerItem?.Owner ?? (dropDown as ContextMenuStrip)?.SourceControl;
-                return owner == null ? null : WindowOf(owner);
-            }
-            return WindowOf(target);
+            var c = target;
+            for (var depth = 0; c is ToolStripDropDown dropDown && depth < 32; depth++)
+                c = (Control)dropDown.OwnerItem?.Owner ?? (dropDown as ContextMenuStrip)?.SourceControl;
+            return c is ToolStripDropDown ? null : c;
         }
 
         private static void CloseDropDowns(Control root)
