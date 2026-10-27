@@ -151,6 +151,8 @@ Expression-based two-way binding of controls to an `INotifyPropertyChanged` mode
 `dateTimePicker.Bind` (incl. `DateTime?` with the check box), `label.Bind` (one-way), `trackBar`/`progressBar`/`richTextBox`/`maskedTextBox`/`listBox` overloads,
 `pictureBox.BindImageLocation`, `pairs.BindRadioGroup(model, x => x.Value)`. One property per expression (no paths).
 
+A grid bound to a list of objects that sorts by header click / several columns: `SortableBindingList<T>` (Core, `Kibinago.Common`; stable, copies the source list, never throws on mixed values, `ApplySort(s => s.By(r => r.Ward).ThenByDescending(r => r.No))` (compiler-checked columns; run-time names: `ApplySort(ListSortDescriptionCollection)`), `ReplaceAll(items)` for a reload keeping the sort, `Resort()`, `SetComparer(r => r.Name, comparer)`) · [wiki](wiki/Reference-Data-Binding.md#一覧グリッド-sortablebindinglistt)
+
 ## 10. Screen composition: UserControls, selection, cascades
 
 | Need | Use |

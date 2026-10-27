@@ -28,6 +28,7 @@
 - [RadioButton グループバインド](#radiobutton-グループバインド)
 - [複雑なバインド](#複雑なバインド)
   - [自作・他社製コントロール](#自作他社製コントロール)
+- [一覧・グリッド: `SortableBindingList<T>`](#一覧グリッド-sortablebindinglistt)
 - [双方向バインドと単方向バインド](#双方向バインドと単方向バインド)
 - [更新タイミング (`DataSourceUpdateMode`)](#更新タイミング-datasourceupdatemode)
 - [使用例: 完全な Form](#使用例-完全な-form)
@@ -462,7 +463,7 @@ pairs.BindRadioGroup(model, m => m.Priority);   // 戻り値 IDisposable は任�
 |------------|------|
 | 子オブジェクトのプロパティ | 子オブジェクト自体をバインドする: `txtCity.Bind(model.Address, a => a.City)`。`Address` を差し替えたらもう一度 `Bind` する。または、モデルに `City` プロパティを置く。`m => m.Address.City` のようなパスは `ArgumentException` (WinForms は `Address` の差し替え後も古いオブジェクトにバインドしたままになり、気づかないまま古いデータを編集するため) |
 | 計算・組み合わせ (`!IsReadOnly`、姓 + 名) | モデルに計算プロパティを置き (`public bool IsEditable => !IsReadOnly;`、元のプロパティ変更時に `IsEditable` も通知)、それをバインド。表示だけの変換なら戻り値 `Binding` の `Format` / `Parse` |
-| 一覧・グリッド | WinForms 標準の `BindingSource` + `BindingList<T>` (`grid.DataSource = bindingSource`)。フレームワークは包まない |
+| 一覧・グリッド | WinForms 標準の `BindingSource` + `BindingList<T>` (`grid.DataSource = bindingSource`)。列見出しで並べ替えるなら `SortableBindingList<T>` ([下記](#一覧グリッド-sortablebindinglistt)) |
 | モデルを新しいインスタンスに差し替える | 既存のバインドは古いインスタンスを指したまま。もう一度 `Bind` する (同じプロパティのバインドは置き換えられる) か、`BindingSource` を間に置いて `bindingSource.DataSource = newModel` |
 
 式による任意の計算バインド (`m => !m.IsReadOnly`) はサポートしません。式の依存関係を追跡する独自のバインドエンジンが必要になり、WinForms 標準の仕組みから外れるためです。
@@ -515,6 +516,48 @@ public partial class TagPicker : UserControl
 イベントがないと、モデル → 画面は動きますが、ユーザーの操作はモデルに届きません (検証や変更検知が古い値のまま動きます)。他社製コントロールでイベント名が規約と違うときは、派生クラスで `XxxChanged` を追加するか、Form でイベントを受けてモデルに書き込みます。
 
 モデル側の文字列は、空文字と `null` を同じ意味で扱うなら setter で揃えておくと、変更検知の誤検出を防げます: `set => SetProperty(ref _name, value ?? "");`
+
+---
+
+## 一覧・グリッド: `SortableBindingList<T>`
+
+`BindingList<T>` は並べ替えができません (`SupportsSorting` が `false`)。そのため、オブジェクトの一覧にバインドしたグリッドは列見出しをクリックしても並びません。`Kibinago.Common.SortableBindingList<T>` (`Kibinago.Core`、WinForms 非依存) は並べ替えのできる `BindingList<T>` で、`IBindingList` / `IBindingListView` を実装します。
+
+```csharp
+// Presenter: 一覧を持ち、View に 1 回渡す
+private readonly SortableBindingList<PatientRow> _rows = new SortableBindingList<PatientRow>();
+protected override void OnInitialize() => View.SetRows(_rows);
+private void Reload() => _rows.ReplaceAll(_repository.List());   // 前回の並べ替えを保ったまま、Reset 1 回
+
+// View (Form)
+public void SetRows(SortableBindingList<PatientRow> rows) => grid.DataSource = rows;   // 見出しクリックで並ぶ (SortMode = Automatic)
+```
+
+| やりたいこと | 書き方 |
+|---|---|
+| 列見出しで並べ替え | バインドするだけ (`DataGridView` は列の `SortMode = Automatic` で `ApplySort` を呼ぶ。他社製グリッドも `IBindingList` の並べ替えを使うものは同じ) |
+| 複数列で並べ替え | `rows.ApplySort(s => s.By(r => r.Ward).ThenByDescending(r => r.AdmittedOn))` — 列はコンパイラーが確認する (名前の変更に追従、型違いはビルドエラー)。1 段のプロパティだけ (`r => r.Address.City` のようなパスやフィールドは `ArgumentException`) |
+| 実行時にしか分からない列名で並べ替え (ユーザーが保存した並び順の復元) | `rows.ApplySort(new ListSortDescriptionCollection(...))` (`IBindingListView` の標準メソッド。`TypeDescriptor.GetProperties(typeof(Row))[name]`)、または View で `bindingSource.Sort = "..."` |
+| 再読み込み | `rows.ReplaceAll(items)` — 前回の並べ替えで並べ、`Reset` を 1 回だけ通知 (1 行ずつの `Add` は行数分の通知) |
+| 行の追加・編集のあとで並べ直す | `rows.Resort()` |
+| 列ごとの比較 (読み仮名順など) | `rows.SetComparer(r => r.Name, comparer)` (`IComparer<string>` — 列の型と合わないとビルドエラー)、`null` で既定に戻す。文字列全体は `rows.StringComparer = ...` (既定: 作成時のカルチャ、大文字小文字を区別) |
+| 並べ替えの解除 | `rows.RemoveSort()` (今の並びのまま。読み込んだ順には戻らない) |
+
+自作の並べ替えリストでよく起きる問題は、すべて避けています:
+
+- **安定ソート** — 同じ値の行は、昇順でも降順でも元の順番のまま (`List<T>.Sort` は不安定で、並べ替えのたびに同じ値の行の順が変わる)。
+- **呼び出し側のリストを並べ替えない** — コンストラクターはリストをコピーする (オブジェクトはコピーしない)。`BindingList(IList<T>)` は渡したリストをそのまま包むので、配列などを渡すと並べ替えが何もしなくなったり、元のリストの順番が変わったりする。
+- **比較で落ちない** — 列ごとに比較方法を 1 つに決める: `SetComparer` の比較 → 文字列は `StringComparer` → 同じ型の値はその型の比較 (`IComparable` / `IComparable<T>`) → それ以外 (型が混在、比較できない型) は文字列にして比較。`null` / `DBNull` は昇順で先頭、降順で末尾。値の取得や比較が例外を投げたときは、並びも並べ替えの状態も変わらない。
+- **値は 1 回だけ取り出す** — 並べ替えのたびに各行の各列を 1 回読む (比較のたびに読まない)。
+
+編集中は自動で並べ直しません (入力中の行がカーソルの下から動くため): 行の追加・置き換え、並べ替えの列の値の変更 (通知されたもの) で並べ替えの状態が終わります (`IsSorted` が `false`、見出しの▲▼が消える)。行は動きません。行の削除では終わりません。`Resort()` で並べ直し、`ReplaceAll` では前回の並べ替えが使われます。`RaiseListChangedEvents = false` の間の変更や、通知しないプロパティの変更は検知できないので、そのあとに `Resort()` を呼びます。追加中の行 (`AddNew`、グリッドの新規行) は並べ替えの前に確定します。
+
+注意点:
+
+- 並べ替えは `Reset` を通知するので、グリッドの現在行が変わることがあります。選択はレコードのキーで View が保ちます (`SelectedId` → 読み込み・並べ替えのあと `SelectRow(id)`)。
+- フィルターはサポートしません (`IBindingListView.Filter` に代入すると `NotSupportedException`)。絞り込みは Presenter (またはデータベース) で行い、`ReplaceAll` で入れ替えます。
+- スレッドセーフではありません。リストと行の変更は UI スレッドで行います。
+- 画面上の並び (見出しクリック) は View の責務、業務上の既定の並び (入院日順など) は Presenter かデータベースで決めます。
 
 ---
 

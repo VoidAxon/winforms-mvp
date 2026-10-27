@@ -8,6 +8,10 @@
 
 ## [Unreleased]
 
+### Added (追加)
+
+- **`SortableBindingList<T>`** (`Kibinago.Common`、`Kibinago.Core`) — 並べ替えのできる `BindingList<T>` (`IBindingListView`)。オブジェクトの一覧にバインドしたグリッドが列見出しのクリックで並び、`ApplySort(s => s.By(r => r.Ward).ThenByDescending(r => r.No))` (列はコンパイラーが確認。実行時の列名は `ApplySort(ListSortDescriptionCollection)` / `BindingSource.Sort`) で複数列で並ぶ。安定ソート、コンストラクターはリストをコピー (呼び出し側のリストを並べ替えない)、列ごとに比較方法を 1 つに決めて型が混在しても例外にしない (`null` / `DBNull` は昇順で先頭)、`SetComparer(r => r.Name, comparer)` / `StringComparer` で比較を指定、`ReplaceAll(items)` は前回の並べ替えを保って `Reset` 1 回で再読み込み、編集中は自動で並べ直さず `Resort()` で並べ直す。実アプリで、同じような並べ替えリストを画面ごとに自作していたことから追加。
+
 ## [1.0.0-preview.13] - 2026-10-27
 
 ### Added (追加)
