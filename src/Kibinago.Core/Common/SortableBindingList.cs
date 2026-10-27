@@ -399,7 +399,7 @@ namespace Kibinago.Common
                     return;
                 }
             }
-            if (!sorted.SequenceEqual(_items, Identity)) Sort(_sort);   // several rows: one Reset
+            if (!sorted.SequenceEqual(_items, Identity)) Apply(sorted, _sort);   // several rows: one Reset
         }
 
         // Commits the row AddNew created without placing it (the caller is about to move or sort the rows).
@@ -431,10 +431,10 @@ namespace Kibinago.Common
             finally { _ownReset = false; }
         }
 
-        private void Sort(SortKey[] keys)
-        {
-            var sorted = Order(_items, keys);   // may throw: nothing has changed yet
+        private void Sort(SortKey[] keys) => Apply(Order(_items, keys), keys);   // Order may throw: nothing has changed yet
 
+        private void Apply(List<T> sorted, SortKey[] keys)
+        {
             CommitPendingNew();   // its index is about to change
             _items.Clear();
             _items.AddRange(sorted);                     // a permutation: no item hooks change
