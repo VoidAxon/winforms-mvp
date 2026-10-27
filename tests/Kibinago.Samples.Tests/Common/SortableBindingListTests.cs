@@ -444,6 +444,44 @@ namespace Kibinago.Samples.Tests.Common
         }
 
         [Fact]
+        public void KeepSorted_ASecondAddNew_DoesNotPlaceTheNewBlankRow()
+        {
+            using var _ = WithoutSynchronizationContext();
+            var list = new SortableBindingList<Row>(new[] { new Row(1, "A", 1), new Row(2, "A", 2) });
+            list.ApplySort(s => s.By(r => r.No));
+            list.KeepSorted = true;
+            var first = list.AddNew();
+            first.Id = 3;
+            first.No = 3;
+
+            var second = list.AddNew();   // commits the first; the second (No 0) is pending
+
+            Assert.Same(second, list.Last());
+        }
+
+        public struct Point
+        {
+            public Point(int no) => No = no;
+            public int No { get; set; }
+        }
+
+        [Fact]
+        public void KeepSorted_ValueTypeRows_AnAddedRow_MovesWithOneItemMoved()
+        {
+            using var _ = WithoutSynchronizationContext();
+            var list = new SortableBindingList<Point>(new[] { new Point(1), new Point(3) });
+            list.ApplySort(s => s.By(p => p.No));
+            list.KeepSorted = true;
+            var seen = new List<ListChangedType>();
+            list.ListChanged += (s, e) => seen.Add(e.ListChangedType);
+
+            list.Add(new Point(2));
+
+            Assert.Equal(new[] { 1, 2, 3 }, list.Select(p => p.No).ToArray());
+            Assert.Equal(new[] { ListChangedType.ItemAdded, ListChangedType.ItemMoved }, seen);
+        }
+
+        [Fact]
         public void KeepSorted_WithoutASort_DoesNothing()
         {
             using var _ = WithoutSynchronizationContext();   // placed at once (a UI thread posts it)

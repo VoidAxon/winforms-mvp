@@ -294,6 +294,7 @@ namespace Kibinago.Common
             try { item = base.AddNewCore(); }
             finally { _addingNew = false; }
             _pendingNew = item is T row ? IndexOf(row) : -1;
+            if (_toPlace.Count > 0) SchedulePlacing();   // e.g. the previous new row, committed by this insert
             return item;
         }
 
@@ -367,7 +368,7 @@ namespace Kibinago.Common
 
         private void SchedulePlacing()
         {
-            if (_placingPosted || _changing > 0) return;   // a change in progress schedules it when done
+            if (_placingPosted || _changing > 0 || _addingNew) return;   // a change in progress schedules it when done
 
             var context = SynchronizationContext.Current;
             if (context == null)
@@ -388,17 +389,17 @@ namespace Kibinago.Common
             _toPlace.Clear();
 
             var sorted = Order(_items, _sort);
-            if (!everything && rows.Count == 1 && _items.Count(r => ReferenceEquals(r, rows[0])) == 1)
+            if (!everything && rows.Count == 1 && _items.Count(r => Identity.Equals(r, rows[0])) == 1)
             {
                 var row = rows[0];
-                var others = _items.Where(r => !ReferenceEquals(r, row));
-                if (others.SequenceEqual(sorted.Where(r => !ReferenceEquals(r, row)), ReferenceComparer.Instance))
+                var others = _items.Where(r => !Identity.Equals(r, row));
+                if (others.SequenceEqual(sorted.Where(r => !Identity.Equals(r, row)), Identity))
                 {
                     Move(IndexOfReference(_items, row), IndexOfReference(sorted, row));   // one ItemMoved
                     return;
                 }
             }
-            if (!sorted.SequenceEqual(_items, ReferenceComparer.Instance)) Sort(_sort);   // several rows: one Reset
+            if (!sorted.SequenceEqual(_items, Identity)) Sort(_sort);   // several rows: one Reset
         }
 
         // Commits the row AddNew created without placing it (the caller is about to move or sort the rows).
@@ -410,7 +411,11 @@ namespace Kibinago.Common
             base.EndNew(index);
         }
 
-        private static int IndexOfReference(List<T> rows, T row) => rows.FindIndex(r => ReferenceEquals(r, row));
+        // The same row: the same object (a row's own Equals may compare record keys); a value type by value.
+        private static readonly IEqualityComparer<T> Identity =
+            typeof(T).IsValueType ? EqualityComparer<T>.Default : ReferenceComparer.Instance;
+
+        private static int IndexOfReference(List<T> rows, T row) => rows.FindIndex(r => Identity.Equals(r, row));
 
         private sealed class ReferenceComparer : IEqualityComparer<T>
         {
