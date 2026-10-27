@@ -56,13 +56,14 @@ namespace Kibinago.Services
                 if (anchor.InvokeRequired) anchor.BeginInvoke(start);
                 else start();
             }
-            else if (!Thread.CurrentThread.IsThreadPoolThread)
+            else if (SynchronizationContext.Current is WindowsFormsSynchronizationContext || Application.MessageLoop)
             {
                 start();   // the UI thread setting the view up (OnInitializeAsync before the window shows)
             }
             else
             {
-                // A worker (Task.Run) and no handle anywhere: start when the root's handle is created, on its thread.
+                // Not known to be the UI thread and no handle anywhere: start when the root's handle is
+                // created, on the thread that creates it.
                 var root = control;
                 while (root.Parent != null) root = root.Parent;
                 EventHandler created = null;
@@ -78,6 +79,7 @@ namespace Kibinago.Services
             private BusyCoordinator _coordinator;
             private BusyCoordinator.Request _request;
             private SynchronizationContext _context;
+            private Control _marshal;   // posts the release when the UI thread has no context
             private Thread _thread;
             private int _ended;
 
@@ -93,6 +95,7 @@ namespace Kibinago.Services
                 if (Volatile.Read(ref _ended) != 0 || view.IsDisposed) return;
                 _thread = Thread.CurrentThread;
                 _context = SynchronizationContext.Current;
+                _marshal = view;
                 _coordinator = BusyCoordinator.ForCurrentThread();
                 _request = _coordinator.Begin(view, message, _owner._overlay, _owner._delay, _owner._logger);
                 if (Volatile.Read(ref _ended) != 0) Release();   // disposed on another thread while starting
@@ -108,6 +111,16 @@ namespace Kibinago.Services
                     try { _context.Post(_ => Release(), null); }
                     catch (InvalidOperationException) { }             // the UI thread is gone; its exit ended the request
                 }
+                else
+                {
+                    // No context on the UI thread: post through the view (or its nearest handle). Without any
+                    // handle the view is not on screen; its window's close or disposal ends the request.
+                    var anchor = _marshal;
+                    while (anchor != null && !anchor.IsHandleCreated) anchor = anchor.Parent;
+                    if (anchor == null || anchor.IsDisposed) return;
+                    try { anchor.BeginInvoke((Action)Release); }
+                    catch (InvalidOperationException) { }             // its handle went away meanwhile
+                }
             }
 
             private void Release()
@@ -118,6 +131,7 @@ namespace Kibinago.Services
                 _request = null;
                 _owner = null;
                 _context = null;
+                _marshal = null;
                 if (coordinator != null && request != null) coordinator.End(request);
             }
         }

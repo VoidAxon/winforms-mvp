@@ -13,7 +13,13 @@ namespace Kibinago.Samples.Tests.Services
     /// </summary>
     public class WinFormsBusyIndicatorTests
     {
-        private sealed class ViewForm : Form, IViewBase { }
+        private sealed class ViewForm : Form, IViewBase
+        {
+            public ViewForm(bool createHandle = true)
+            {
+                if (createHandle) CreateHandle();   // tests run on the thread that owns it (the UI thread)
+            }
+        }
 
         private sealed class ViewPanel : UserControl, IViewBase { }
 
@@ -165,9 +171,9 @@ namespace Kibinago.Samples.Tests.Services
         }
 
         [Fact]
-        public void BeginOnAPoolThread_BeforeAnyHandle_StartsWhenTheWindowsHandleIsCreated()
+        public void BeginOnAWorker_BeforeAnyHandle_StartsWhenTheWindowsHandleIsCreated()
         {
-            using (var form = new ViewForm())
+            using (var form = new ViewForm(createHandle: false))
             {
                 var panel = new ViewPanel();
                 form.Controls.Add(panel);
