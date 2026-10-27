@@ -55,6 +55,7 @@ namespace Kibinago.Common
         private SortKey[] _applied;      // the sort the list is in now (null = not sorted)
         private SortKey[] _remembered;   // the last requested sort, for Resort / ReplaceAll
         private int _pendingNew = -1;    // index of the row AddNew created and not yet committed
+        private bool _ownReset;          // the Reset being raised is this list's own (after a sort / reload)
 
         /// <summary>Creates an empty list.</summary>
         public SortableBindingList()
@@ -127,6 +128,9 @@ namespace Kibinago.Common
         public void SetComparer<TKey>(Expression<Func<T, TKey>> property, IComparer<TKey> comparer)
         {
             var descriptor = PropertyOf(property, nameof(property));
+            if (!typeof(TKey).IsAssignableFrom(descriptor.PropertyType))   // r => r.IntProp as long: values are ints
+                throw new ArgumentException("The comparer compares " + typeof(TKey).Name + " but " + descriptor.Name
+                    + " is " + descriptor.PropertyType.Name + "; use a comparer of the property's type.", nameof(property));
             if (comparer == null) _comparers.Remove(descriptor.Name);
             else _comparers[descriptor.Name] = new BoxedComparer<TKey>(comparer);
             if (IsSortedBy(descriptor.Name)) _applied = null;
@@ -215,7 +219,7 @@ namespace Kibinago.Common
             }
 
             _applied = keys;
-            ResetBindings();
+            RaiseReset();
         }
 
         /// <inheritdoc />
@@ -230,7 +234,7 @@ namespace Kibinago.Common
         {
             _applied = null;
             _remembered = null;
-            ResetBindings();
+            RaiseReset();
         }
 
         /// <inheritdoc />
@@ -272,10 +276,20 @@ namespace Kibinago.Common
         /// <inheritdoc />
         protected override void OnListChanged(ListChangedEventArgs e)
         {
-            if (_applied != null && e.ListChangedType == ListChangedType.ItemChanged
-                && (e.PropertyDescriptor == null || IsSortedBy(e.PropertyDescriptor.Name)))
+            // A row's PropertyChanged with no name ("everything changed") arrives as a Reset.
+            if (_applied != null && !_ownReset
+                && (e.ListChangedType == ListChangedType.Reset
+                    || (e.ListChangedType == ListChangedType.ItemChanged
+                        && (e.PropertyDescriptor == null || IsSortedBy(e.PropertyDescriptor.Name)))))
                 _applied = null;
             base.OnListChanged(e);
+        }
+
+        private void RaiseReset()
+        {
+            _ownReset = true;
+            try { ResetBindings(); }
+            finally { _ownReset = false; }
         }
 
         private void Sort(SortKey[] keys)
@@ -287,7 +301,7 @@ namespace Kibinago.Common
             _items.AddRange(sorted);                     // a permutation: no item hooks change
             _applied = keys;
             _remembered = keys;
-            ResetBindings();
+            RaiseReset();
         }
 
         private List<T> Order(List<T> rows, SortKey[] keys)
@@ -311,10 +325,11 @@ namespace Kibinago.Common
             {
                 for (var k = 0; k < keys.Length; k++)
                 {
-                    var a = values[k][x];
-                    var b = values[k][y];
+                    var descending = keys[k].Direction == ListSortDirection.Descending;
+                    var a = values[k][descending ? y : x];   // swap rather than negate (-int.MinValue is int.MinValue)
+                    var b = values[k][descending ? x : y];
                     var result = a == null ? (b == null ? 0 : -1) : b == null ? 1 : comparers[k].Compare(a, b);
-                    if (result != 0) return keys[k].Direction == ListSortDirection.Descending ? -result : result;
+                    if (result != 0) return result;
                 }
                 return x.CompareTo(y);   // equal keys keep their order, in both directions
             });

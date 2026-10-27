@@ -23,6 +23,7 @@ namespace Kibinago.Samples.Tests.Common
             public int No { get => _no; set => SetProperty(ref _no, value); }
             public object Value { get => _value; set => SetProperty(ref _value, value); }
             public string Note { get; set; }
+            public void RaiseEverythingChanged() => OnPropertyChanged("");
         }
 
         private static PropertyDescriptor Prop(string name) => TypeDescriptor.GetProperties(typeof(Row))[name];
@@ -258,6 +259,34 @@ namespace Kibinago.Samples.Tests.Common
             list.Add(new Row(6, "C", 0));
             Assert.False(bindable.IsSorted);
             Assert.Equal(6, list.Last().Id);
+        }
+
+        [Fact]
+        public void EverythingChangedNotification_EndsTheSortedState()
+        {
+            var list = Wards();
+            list.ApplySort(s => s.By(r => r.No));
+
+            list[0].RaiseEverythingChanged();   // BindingList turns it into a Reset
+
+            Assert.False(((IBindingList)list).IsSorted);
+        }
+
+        [Fact]
+        public void Descending_WithAComparerReturningIntMinValue_IsReversed()
+        {
+            var list = Wards();
+            list.SetComparer(r => r.No, Comparer<int>.Create((a, b) => a == b ? 0 : a < b ? int.MinValue : int.MaxValue));
+
+            list.ApplySort(s => s.ByDescending(r => r.No));
+
+            Assert.Equal(new[] { 2, 4, 1, 5, 3 }, Ids(list));
+        }
+
+        [Fact]
+        public void SetComparer_OfAnotherType_IsRejected()
+        {
+            Assert.Throws<ArgumentException>(() => Wards().SetComparer<long>(r => r.No, Comparer<long>.Default));
         }
 
         [Fact]
