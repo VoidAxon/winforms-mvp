@@ -61,6 +61,7 @@ namespace Kibinago.Common
         private readonly List<T> _toPlace = new List<T>();   // KeepSorted: rows changed since the last placing
         private bool _placingPosted;
         private bool _addingNew;         // inside AddNew: its ItemAdded is not a row to place yet
+        private int _changing;           // inside an insert / remove / replace / clear: indexes must not move yet
 
         /// <summary>Creates an empty list.</summary>
         public SortableBindingList()
@@ -228,6 +229,7 @@ namespace Kibinago.Common
 
             var raise = RaiseListChangedEvents;
             RaiseListChangedEvents = false;
+            _changing++;
             try
             {
                 Clear();
@@ -235,6 +237,7 @@ namespace Kibinago.Common
             }
             finally
             {
+                _changing--;
                 RaiseListChangedEvents = raise;
             }
 
@@ -313,6 +316,28 @@ namespace Kibinago.Common
         }
 
         /// <inheritdoc />
+        protected override void InsertItem(int index, T item) => Change(() => base.InsertItem(index, item));
+
+        /// <inheritdoc />
+        protected override void RemoveItem(int index) => Change(() => base.RemoveItem(index));
+
+        /// <inheritdoc />
+        protected override void SetItem(int index, T item) => Change(() => base.SetItem(index, item));
+
+        /// <inheritdoc />
+        protected override void ClearItems() => Change(() => base.ClearItems());
+
+        // BindingList commits a pending new row (EndNew) at the start of these, before using the index:
+        // placing rows then would make the index point at another row. Place once the change is done.
+        private void Change(Action change)
+        {
+            _changing++;
+            try { change(); }
+            finally { _changing--; }
+            if (_changing == 0 && _toPlace.Count > 0) SchedulePlacing();
+        }
+
+        /// <inheritdoc />
         protected override void OnListChanged(ListChangedEventArgs e)
         {
             base.OnListChanged(e);
@@ -342,7 +367,7 @@ namespace Kibinago.Common
 
         private void SchedulePlacing()
         {
-            if (_placingPosted) return;
+            if (_placingPosted || _changing > 0) return;   // a change in progress schedules it when done
 
             var context = SynchronizationContext.Current;
             if (context == null)

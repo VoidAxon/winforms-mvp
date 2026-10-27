@@ -429,6 +429,21 @@ namespace Kibinago.Samples.Tests.Common
         }
 
         [Fact]
+        public void KeepSorted_ARemovalThatCommitsANewRow_RemovesTheRowAsked()
+        {
+            using var _ = WithoutSynchronizationContext();
+            var list = new SortableBindingList<Row>(new[] { new Row(1, "A", 1), new Row(2, "A", 2) });
+            list.ApplySort(s => s.By(r => r.No));
+            list.KeepSorted = true;
+            var added = list.AddNew();   // No 0: belongs first once committed
+            added.Id = 3;
+
+            list.RemoveAt(0);            // BindingList commits the new row first, then removes index 0
+
+            Assert.Equal(new[] { 3, 2 }, Ids(list));
+        }
+
+        [Fact]
         public void KeepSorted_WithoutASort_DoesNothing()
         {
             using var _ = WithoutSynchronizationContext();   // placed at once (a UI thread posts it)
