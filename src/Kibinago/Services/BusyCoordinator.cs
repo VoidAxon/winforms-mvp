@@ -90,8 +90,10 @@ namespace Kibinago.Services
 
             _windows.Remove(state.Window);
             state.Detach();
-            if (!state.Window.IsDisposed) state.Window.UseWaitCursor = state.HadWaitCursor;
-            // UseWaitCursor applies to children: windows inside this one that are still busy keep theirs.
+            // UseWaitCursor applies to children: inside a still-busy window (an MDI parent) it stays on, and
+            // windows inside this one that are still busy keep theirs.
+            var enclosedByBusy = _windows.Keys.Any(w => !w.IsDisposed && w.Contains(state.Window));
+            if (!state.Window.IsDisposed) state.Window.UseWaitCursor = state.HadWaitCursor || enclosedByBusy;
             foreach (var other in _windows.Keys)
                 if (!other.IsDisposed && state.Window.Contains(other)) other.UseWaitCursor = true;
             if (_windows.Count == 0) Cursor.Current = Cursors.Default;

@@ -151,6 +151,13 @@ namespace Kibinago.Samples.Tests.Services
                 inner.Dispose();
                 Assert.False(child.UseWaitCursor);
                 Assert.False(parent.UseWaitCursor);
+
+                outer = indicator.Begin(parent, null);
+                inner = indicator.Begin(child, null);
+                inner.Dispose();
+                Assert.True(child.UseWaitCursor);    // its parent is still busy
+                outer.Dispose();
+                Assert.False(child.UseWaitCursor);
                 AssertNothingBusy();
             }
         }

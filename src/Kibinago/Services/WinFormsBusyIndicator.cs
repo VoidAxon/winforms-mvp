@@ -93,29 +93,33 @@ namespace Kibinago.Services
             public void Start(Control view, string message)
             {
                 if (Volatile.Read(ref _ended) != 0 || view.IsDisposed) return;
-                _thread = Thread.CurrentThread;
-                _context = SynchronizationContext.Current;
-                _marshal = view;
                 _coordinator = BusyCoordinator.ForCurrentThread();
                 _request = _coordinator.Begin(view, message, _owner._overlay, _owner._delay, _owner._logger);
+                Volatile.Write(ref _context, SynchronizationContext.Current);
+                Volatile.Write(ref _marshal, view);
+                Volatile.Write(ref _thread, Thread.CurrentThread);   // last: Dispose on another thread now posts the release
                 if (Volatile.Read(ref _ended) != 0) Release();   // disposed on another thread while starting
             }
 
             public void Dispose()
             {
                 if (Interlocked.Exchange(ref _ended, 1) != 0) return;
-                if (_thread == null) return;                          // not started yet: Start sees _ended
-                if (Thread.CurrentThread == _thread) Release();
-                else if (_context != null)
+                // Snapshots: a Start finishing on the UI thread may release (and clear the fields) meanwhile.
+                var thread = Volatile.Read(ref _thread);
+                var context = Volatile.Read(ref _context);
+                var marshal = Volatile.Read(ref _marshal);
+                if (thread == null) return;                           // not started yet: Start sees _ended
+                if (Thread.CurrentThread == thread) Release();
+                else if (context != null)
                 {
-                    try { _context.Post(_ => Release(), null); }
+                    try { context.Post(_ => Release(), null); }
                     catch (InvalidOperationException) { }             // the UI thread is gone; its exit ended the request
                 }
                 else
                 {
                     // No context on the UI thread: post through the view (or its nearest handle). Without any
                     // handle the view is not on screen; its window's close or disposal ends the request.
-                    var anchor = _marshal;
+                    var anchor = marshal;
                     while (anchor != null && !anchor.IsHandleCreated) anchor = anchor.Parent;
                     if (anchor == null || anchor.IsDisposed) return;
                     try { anchor.BeginInvoke((Action)Release); }
@@ -130,8 +134,8 @@ namespace Kibinago.Services
                 _coordinator = null;
                 _request = null;
                 _owner = null;
-                _context = null;
-                _marshal = null;
+                Volatile.Write(ref _context, null);
+                Volatile.Write(ref _marshal, null);
                 if (coordinator != null && request != null) coordinator.End(request);
             }
         }
