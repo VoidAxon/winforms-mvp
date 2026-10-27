@@ -70,7 +70,9 @@ namespace Kibinago.Services
             var window = request.Window;
             if (!_windows.TryGetValue(window, out var state))
             {
-                state = new WindowState(window, this);
+                // Under a busy window (an MDI child of a busy parent) UseWaitCursor is inherited, not the app's.
+                var inherited = _windows.Keys.Any(w => w != window && w.Contains(window));
+                state = new WindowState(window, this, inherited ? false : window.UseWaitCursor);
                 _windows.Add(window, state);
             }
             state.Requests.Add(request);
@@ -89,6 +91,9 @@ namespace Kibinago.Services
             _windows.Remove(state.Window);
             state.Detach();
             if (!state.Window.IsDisposed) state.Window.UseWaitCursor = state.HadWaitCursor;
+            // UseWaitCursor applies to children: windows inside this one that are still busy keep theirs.
+            foreach (var other in _windows.Keys)
+                if (!other.IsDisposed && state.Window.Contains(other)) other.UseWaitCursor = true;
             if (_windows.Count == 0) Cursor.Current = Cursors.Default;
             Unblock(state.Window, immediate);
         }
@@ -293,10 +298,10 @@ namespace Kibinago.Services
         {
             private readonly BusyCoordinator _owner;
 
-            public WindowState(Control window, BusyCoordinator owner)
+            public WindowState(Control window, BusyCoordinator owner, bool hadWaitCursor)
             {
                 Window = window; _owner = owner;
-                HadWaitCursor = window.UseWaitCursor;
+                HadWaitCursor = hadWaitCursor;
                 window.Disposed += OnGone;
                 if (window is Form form) form.FormClosed += OnGone;   // a closed modal form may never be disposed
             }

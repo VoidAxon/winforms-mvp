@@ -185,7 +185,7 @@ namespace Kibinago.Services
                 var indicatorScreen = new Rectangle(viewScreen.Left + _indicatorBounds.Left, viewScreen.Top + _indicatorBounds.Top,
                     _indicatorBounds.Width, _indicatorBounds.Height);
                 var shown = Rectangle.Intersect(indicatorScreen, visible);
-                if (_indicatorBounds.IsEmpty || shown.IsEmpty)
+                if (_indicatorBounds.Width <= 0 || _indicatorBounds.Height <= 0 || shown.Width <= 0 || shown.Height <= 0)
                 {
                     _indicator.Hide();
                     return;

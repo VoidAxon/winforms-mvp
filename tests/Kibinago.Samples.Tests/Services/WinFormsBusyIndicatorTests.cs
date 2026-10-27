@@ -136,6 +136,26 @@ namespace Kibinago.Samples.Tests.Services
         }
 
         [Fact]
+        public void BusyParentAndMdiChild_EndingInEitherOrder_LeaveNoWaitCursor()
+        {
+            using (var parent = new ViewForm { IsMdiContainer = true })
+            {
+                var child = new ViewForm(createHandle: false) { MdiParent = parent };
+                child.CreateControl();
+                var indicator = new WinFormsBusyIndicator();
+                var outer = indicator.Begin(parent, null);
+                var inner = indicator.Begin(child, null);
+
+                outer.Dispose();
+                Assert.True(child.UseWaitCursor);    // still busy itself
+                inner.Dispose();
+                Assert.False(child.UseWaitCursor);
+                Assert.False(parent.UseWaitCursor);
+                AssertNothingBusy();
+            }
+        }
+
+        [Fact]
         public void DisposingABusyChildPanel_ReleasesItsWindow()
         {
             using (var form = new ViewForm())
