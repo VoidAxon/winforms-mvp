@@ -145,6 +145,21 @@ namespace Kibinago.Services
 
         private void OnViewGone(Control view) => EndAll(r => r.View == view, immediate: false);
 
+        // The view (or a container) got another parent: its requests move to the window it is in now.
+        private void OnViewMoved(Control view)
+        {
+            if (!_views.TryGetValue(view, out var state)) return;
+            state.Track();
+            var window = WindowOf(view);
+            foreach (var request in state.Requests.ToArray())
+            {
+                if (request.Window == window) continue;
+                ReleaseWindow(request, immediate: false);
+                request.Window = window;
+                AcquireWindow(request);
+            }
+        }
+
         private void OnWindowGone(Control window) => EndAll(r => r.Window == window, immediate: true);
 
         private void OnThreadExit(object sender, EventArgs e)
@@ -269,7 +284,7 @@ namespace Kibinago.Services
             }
 
             public Control View { get; }
-            public Control Window { get; }
+            public Control Window { get; set; }
             public string Message { get; }
             public bool Ended { get; set; }
         }
@@ -303,10 +318,13 @@ namespace Kibinago.Services
         {
             private readonly BusyCoordinator _owner;
 
+            private readonly List<Control> _tracked = new List<Control>();
+
             public ViewState(Control view, BusyCoordinator owner)
             {
                 View = view; _owner = owner;
                 view.Disposed += OnGone;
+                Track();
             }
 
             public Control View { get; }
@@ -318,7 +336,30 @@ namespace Kibinago.Services
 
             private void OnGone(object sender, EventArgs e) => _owner.OnViewGone(View);
 
-            public void Detach() => View.Disposed -= OnGone;
+            private void OnParentChanged(object sender, EventArgs e) => _owner.OnViewMoved(View);
+
+            // The view and its containers: a new parent anywhere may put it in another window.
+            public void Track()
+            {
+                Untrack();
+                for (var c = View; c != null; c = c.Parent)
+                {
+                    c.ParentChanged += OnParentChanged;
+                    _tracked.Add(c);
+                }
+            }
+
+            private void Untrack()
+            {
+                foreach (var c in _tracked) c.ParentChanged -= OnParentChanged;
+                _tracked.Clear();
+            }
+
+            public void Detach()
+            {
+                View.Disposed -= OnGone;
+                Untrack();
+            }
         }
     }
 }

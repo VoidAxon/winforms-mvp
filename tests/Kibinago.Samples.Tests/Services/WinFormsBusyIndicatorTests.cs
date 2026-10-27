@@ -114,6 +114,28 @@ namespace Kibinago.Samples.Tests.Services
         }
 
         [Fact]
+        public void ABusyPanelMovedToAnotherWindow_MovesTheBlock()
+        {
+            using (var first = new ViewForm())
+            using (var second = new ViewForm())
+            {
+                var panel = new ViewPanel();
+                first.Controls.Add(panel);
+                var busy = new WinFormsBusyIndicator().Begin(panel, null);
+
+                second.Controls.Add(panel);   // reparented while busy
+
+                Coordinator.ReleaseAfterIdle();
+                Assert.False(Coordinator.IsBlocked(first));
+                Assert.False(first.UseWaitCursor);
+                Assert.True(Coordinator.IsBlocked(second));
+                Assert.True(second.UseWaitCursor);
+                busy.Dispose();
+                AssertNothingBusy();
+            }
+        }
+
+        [Fact]
         public void DisposingABusyChildPanel_ReleasesItsWindow()
         {
             using (var form = new ViewForm())
