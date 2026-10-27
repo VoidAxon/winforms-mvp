@@ -306,8 +306,10 @@ namespace Kibinago.Common
         /// <inheritdoc />
         public override void CancelNew(int itemIndex)
         {
-            if (itemIndex == _pendingNew) _pendingNew = -1;
+            var canceled = itemIndex >= 0 && itemIndex == _pendingNew;
+            if (canceled) _pendingNew = -1;
             base.CancelNew(itemIndex);
+            if (canceled && _toPlace.Count > 0) SchedulePlacing();   // changes held while the row was pending
         }
 
         /// <inheritdoc />
@@ -335,6 +337,11 @@ namespace Kibinago.Common
             if (!_keepSorted || _sort == null) return;
             if (all) _toPlace.Add(row);   // default(T) marks "everything"
             else if (IndexOfReference(_toPlace, row) < 0) _toPlace.Add(row);
+            SchedulePlacing();
+        }
+
+        private void SchedulePlacing()
+        {
             if (_placingPosted) return;
 
             var context = SynchronizationContext.Current;
@@ -356,7 +363,7 @@ namespace Kibinago.Common
             _toPlace.Clear();
 
             var sorted = Order(_items, _sort);
-            if (!everything && rows.Count == 1)
+            if (!everything && rows.Count == 1 && _items.Count(r => ReferenceEquals(r, rows[0])) == 1)
             {
                 var row = rows[0];
                 var others = _items.Where(r => !ReferenceEquals(r, row));

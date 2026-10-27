@@ -390,6 +390,45 @@ namespace Kibinago.Samples.Tests.Common
         }
 
         [Fact]
+        public void KeepSorted_ChangesHeldWhileANewRowIsPending_ArePlacedWhenItIsCanceled()
+        {
+            using var _ = WithoutSynchronizationContext();
+            var list = Wards();
+            list.ApplySort(s => s.By(r => r.No));
+            list.KeepSorted = true;
+            var added = list.AddNew();
+
+            list[0].No = 5;   // held: a new row is pending
+            Assert.Equal(3, list[0].Id);
+            list.CancelNew(list.IndexOf(added));
+
+            Assert.Equal(new[] { 1, 5, 4, 3, 2 }, Ids(list));
+        }
+
+        [Fact]
+        public void KeepSorted_ARowListedTwice_IsSortedAsAWhole()
+        {
+            var a = new Row(1, "A", 1);
+            var list = new SortableBindingList<Row>(new[] { a, a, new Row(2, "B", 2) });
+            list.ApplySort(s => s.By(r => r.No));
+            list.KeepSorted = true;
+            var context = new QueueingContext();
+            var previous = System.Threading.SynchronizationContext.Current;
+            System.Threading.SynchronizationContext.SetSynchronizationContext(context);
+            try
+            {
+                a.No = 3;   // notified once per occurrence, placed once
+                context.RunAll();
+            }
+            finally
+            {
+                System.Threading.SynchronizationContext.SetSynchronizationContext(previous);
+            }
+
+            Assert.Equal(new[] { 2, 1, 1 }, Ids(list));
+        }
+
+        [Fact]
         public void KeepSorted_WithoutASort_DoesNothing()
         {
             using var _ = WithoutSynchronizationContext();   // placed at once (a UI thread posts it)
