@@ -78,6 +78,7 @@ namespace Kibinago.Services
             state.Requests.Add(request);
             if (state.Requests.Count > 1) return;
 
+            state.RememberOwnWaitCursors();
             window.UseWaitCursor = true;           // stays while the message loop runs (awaits)
             Cursor.Current = Cursors.WaitCursor;   // shows at once, also while synchronous work holds the thread
             Block(window);
@@ -93,7 +94,11 @@ namespace Kibinago.Services
             // UseWaitCursor applies to children: inside a still-busy window (an MDI parent) it stays on, and
             // windows inside this one that are still busy keep theirs.
             var enclosedByBusy = _windows.Keys.Any(w => !w.IsDisposed && w.Contains(state.Window));
-            if (!state.Window.IsDisposed) state.Window.UseWaitCursor = state.HadWaitCursor || enclosedByBusy;
+            if (!state.Window.IsDisposed)
+            {
+                state.Window.UseWaitCursor = state.HadWaitCursor || enclosedByBusy;   // sets the whole subtree …
+                state.RestoreOwnWaitCursors();                                         // … so put back the controls' own
+            }
             foreach (var other in _windows.Keys)
                 if (!other.IsDisposed && state.Window.Contains(other)) other.UseWaitCursor = true;
             if (_windows.Count == 0) Cursor.Current = Cursors.Default;
@@ -189,6 +194,7 @@ namespace Kibinago.Services
             _releasing.Remove(window);
             _blocked.Add(window);
             CloseDropDowns(window);
+            CancelImeComposition(window);
             if (_filterInstalled) return;
             Application.AddMessageFilter(this);
             _filterInstalled = true;
@@ -272,6 +278,37 @@ namespace Kibinago.Services
             return c is ToolStripDropDown ? null : c;
         }
 
+        // A composition in progress (Japanese input not yet committed) could still be committed from the IME's
+        // candidate window, which is not ours to filter: cancel it. New compositions cannot start (keys are dropped).
+        private static void CancelImeComposition(Control window)
+        {
+            try
+            {
+                var focused = GetFocus();
+                if (focused == IntPtr.Zero) return;
+                var control = Control.FromChildHandle(focused);
+                if (control == null || (control != window && !window.Contains(control))) return;
+                var context = ImmGetContext(focused);
+                if (context == IntPtr.Zero) return;
+                try
+                {
+                    const int NI_COMPOSITIONSTR = 0x0015, CPS_CANCEL = 0x0004;
+                    ImmNotifyIME(context, NI_COMPOSITIONSTR, CPS_CANCEL, 0);
+                }
+                finally
+                {
+                    ImmReleaseContext(focused, context);
+                }
+            }
+            catch (DllNotFoundException) { }   // no IME support on this system
+            catch (EntryPointNotFoundException) { }
+        }
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")] private static extern IntPtr GetFocus();
+        [System.Runtime.InteropServices.DllImport("imm32.dll")] private static extern IntPtr ImmGetContext(IntPtr hwnd);
+        [System.Runtime.InteropServices.DllImport("imm32.dll")] private static extern bool ImmReleaseContext(IntPtr hwnd, IntPtr himc);
+        [System.Runtime.InteropServices.DllImport("imm32.dll")] private static extern bool ImmNotifyIME(IntPtr himc, int action, int index, int value);
+
         private static void CloseDropDowns(Control root)
         {
             foreach (Control c in root.Controls)
@@ -314,6 +351,32 @@ namespace Kibinago.Services
             public Control Window { get; }
             public bool HadWaitCursor { get; }
             public List<Request> Requests { get; } = new List<Request>();
+            private List<Control> _ownWaitCursors;
+
+            // Controls inside the window with UseWaitCursor set of their own (setting it on the window overwrites them).
+            public void RememberOwnWaitCursors()
+            {
+                _ownWaitCursors = null;
+                if (HadWaitCursor) return;
+                Collect(Window);
+            }
+
+            private void Collect(Control parent)
+            {
+                foreach (Control c in parent.Controls)
+                {
+                    if (c.UseWaitCursor) (_ownWaitCursors ?? (_ownWaitCursors = new List<Control>())).Add(c);
+                    else if (c.HasChildren) Collect(c);
+                }
+            }
+
+            public void RestoreOwnWaitCursors()
+            {
+                if (_ownWaitCursors == null) return;
+                foreach (var c in _ownWaitCursors)
+                    if (!c.IsDisposed) c.UseWaitCursor = true;
+                _ownWaitCursors = null;
+            }
 
             private void OnGone(object sender, EventArgs e) => _owner.OnWindowGone(Window);
 

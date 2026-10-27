@@ -53,6 +53,7 @@ Dispatcher.Register(Actions.Load, async ct =>
 - 「ウィンドウ」は View を含むフォームです。子パネル (UserControl + 自分の Presenter) から `ShowBusy()` を呼んでも、そのフォーム全体が止まります。
 - MDI 子フォームでは、その子フォームだけが止まります。MDI 親のメニューやほかの子フォームは使えます (DevExpress / Telerik のオーバーレイと同じ)。
 - 開いていたドロップダウン (コンボボックス、メニュー) は Busy の開始時に閉じます。
+- 確定前の日本語入力 (IME の変換中の文字) は Busy の開始時に取り消します (候補ウィンドウから確定されないように)。
 
 ## オーバーレイ (`mvp.Busy.UseOverlay`)
 

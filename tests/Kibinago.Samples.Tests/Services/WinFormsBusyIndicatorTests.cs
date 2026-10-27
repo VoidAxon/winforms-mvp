@@ -214,6 +214,22 @@ namespace Kibinago.Samples.Tests.Services
         }
 
         [Fact]
+        public void AControlsOwnWaitCursor_IsKeptAfterTheBusyEnds()
+        {
+            using (var form = new ViewForm())
+            {
+                var panel = new ViewPanel { UseWaitCursor = true };
+                form.Controls.Add(panel);
+
+                using (new WinFormsBusyIndicator().Begin(form, null)) { }
+
+                Assert.False(form.UseWaitCursor);
+                Assert.True(panel.UseWaitCursor);
+                AssertNothingBusy();
+            }
+        }
+
+        [Fact]
         public void DisposingABusyChildPanel_ReleasesItsWindow()
         {
             using (var form = new ViewForm())
