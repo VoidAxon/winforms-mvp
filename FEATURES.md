@@ -99,6 +99,7 @@ System shutdown / Task Manager never reach `CanClose`. Save-on-close: call `Requ
 | Files, database, HTTP | not provided: constructor-inject a purpose-shaped interface (`ICsvExporter`, `IOrderRepository`); optional architecture test recipe · [wiki](wiki/Reference-Platform-Services.md) |
 | Corner toast (thread-safe) | `Toasts` — `IToastService.Show(text, ToastType, duration?)` · [wiki](wiki/Reference-Toast-Notifications.md) |
 | Toast with per-call options / anchored (view-side) | `IWinFormsToastService`, `ToastOptions`; look: `ToastStyle` (`Soft`, `Card`, `Solid`), custom `ToastRenderer` |
+| Busy (wait cursor, whole window takes no input, optional overlay) | `using (ShowBusy()) { ... }` on the presenter (`IBusyIndicator`); `mvp.Busy.UseOverlay()` (centred square + ring) or `UseOverlay(new MyRenderer())` (`BusyRenderer`); `mvp.Busy.Delay` · [wiki](wiki/HowTo-Show-Busy.md) |
 | Feedback at a control's position (view code only) | `AnchoredToast.Show*(...)`, `AnchoredMessageBox.Show*/Confirm*(...)`; a presenter calls a semantic view method |
 | Logging (M.E.L.-style names) | `Logger` — `ILogger` (`LogInformation`, `LogError(ex, "...{Name}", arg)`, …); `NullLoggerFactory` (default), `DebugLoggerFactory`; adapter to M.E.L. in `samples/MultiProjectDemo.Shell/Logging/` · [wiki](wiki/Reference-Logging.md) |
 
@@ -107,7 +108,7 @@ System shutdown / Task Manager never reach `CanClose`. Save-on-close: call `Requ
 | Need | Use |
 |---|---|
 | One startup call (no DI container) | `MvpApplication.Configure(framework: mvp => ..., services: reg => ...)`, then `MvpApplication.Run(mainForm)` |
-| Replace / tune framework parts | `KibinagoBuilder`: `mvp.Messages`, `.Toasts`, `.Dialogs`, `.ChangeTracking`, `.Events`, `.Logging`, `.Actions` |
+| Replace / tune framework parts | `KibinagoBuilder`: `mvp.Messages`, `.Toasts`, `.Busy`, `.Dialogs`, `.ChangeTracking`, `.Events`, `.Logging`, `.Actions` |
 | Register business services / a module | `IServiceRegistry.RegisterInstance<T>`, `RegisterSingleton<T>`; a module = a static `Register(IServiceRegistry)` |
 | Ambient provider / built-in container | `ServiceLocator.Current`, `ServiceLocator.Configure(...)`; `DefaultServiceProvider`; `sp.Resolve<T>()`, `ResolveRequired<T>()` |
 | M.E.DI | (DI) `services.AddKibinago(viewRegistry[, mvp => ...])`, `provider.UseKibinago()`, `RegisterModules(...)` with `IModuleRegistrar` |
@@ -189,7 +190,7 @@ Callbacks run on the creating thread's context; without `onError` a failure reac
 | Need | Use |
 |---|---|
 | Run a presenter's real init with a mock view (no Form) | `using var host = PresenterTestHost.Start([services,] presenter, view[, param])` |
-| Fake every framework service at once | `var fakes = TestServices.CreateFakes();` → `Start(fakes.Provider, …)`; `fakes.Messages` / `Toasts` / `Dialogs` / `Navigator` / `Logs` |
+| Fake every framework service at once | `var fakes = TestServices.CreateFakes();` → `Start(fakes.Provider, …)`; `fakes.Messages` / `Toasts` / `Dialogs` / `Navigator` / `Busy` / `Logs` |
 | Only the services you register (own fakes, Moq, …) | `var sp = TestServices.Create(); sp.RegisterInstance<IMessageService>(mine);` (or replace one in `fakes.Provider` before `Start`) |
 | Trigger actions like a bound control | the mock view exposes `CapturingActionBinder Binder` as its `ActionBinder` → `view.Binder.Dispatch(...)`, `await DispatchAsync(...)`, `CanDispatch(...)`; `IsBound`, `BindCount` / `UnbindCount` (view handed to a new presenter) |
 | Results and closing | `host.CloseRequested`, `CloseStatus`, `CloseResult`; `host.CanClose(reason)`, `await host.CanCloseAsync(reason)`; `await host.Initialized` |

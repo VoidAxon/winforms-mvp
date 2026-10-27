@@ -67,6 +67,7 @@ WinForms アプリケーションのための **Model-View-Presenter** フレー
 - [フォーム入力を検証する](HowTo-Validate-Form-Input) — DataAnnotations + Presenter ルールの検証と `ErrorProviderDisplay` によるエラー表示
 - [入力項目の多い編集画面を作る](HowTo-Build-Large-Edit-Screen) — Supervising Controller (入力モデルへのバインド) で View インターフェイスを小さく保つ
 - [非同期処理を扱う](HowTo-Handle-Async-Operations) — async/await、`IProgress<T>`、キャンセル
+- [処理中を示す](HowTo-Show-Busy) — `ShowBusy()`: 待ちカーソル・ウィンドウの入力ブロック・オーバーレイ (差し替え可能)
 - [マスター/詳細パターンを実装する](HowTo-Implement-Master-Detail) — 親子データの連動
 - [グリッドで明細を直接編集する](HowTo-Implement-Editable-Grid) — セルの確定・拒否・書き換え、行の検証、保存のタイミング
 - [Presenter をテストする](HowTo-Test-A-Presenter) — モック、テストパターン

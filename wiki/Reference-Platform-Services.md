@@ -32,6 +32,7 @@ Presenter は `MessageBox.Show()` や `new OpenFileDialog()` を直接呼びま�
 |---------|---------------|----|
 | メッセージ | `IMessageService` | 情報・警告・エラー・確認ダイアログ |
 | トースト | `IToastService` | 隅に積み上がる非ブロッキング通知 (詳細は [トースト通知](Reference-Toast-Notifications)) |
+| 処理中 | `IBusyIndicator` | Presenter の `ShowBusy()` から使う。待ちカーソルとウィンドウの入力ブロック、設定でオーバーレイ (詳細は [処理中を示す](HowTo-Show-Busy)) |
 | システムダイアログ | `IDialogProvider` | OpenFile / SaveFile / FolderBrowser 等 |
 | ロギング | `ILogger` / `ILoggerFactory` | 構造化ロギング (詳細は [Logging](Reference-Logging)) |
 | ウィンドウナビゲーション | `IWindowNavigator` | Modal / Non-Modal ウィンドウ表示 (詳細は [WindowNavigator](Reference-WindowNavigator)) |

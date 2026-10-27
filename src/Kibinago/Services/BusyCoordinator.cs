@@ -1,0 +1,315 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Windows.Forms;
+using Kibinago.Logging;
+
+namespace Kibinago.Services
+{
+    /// <summary>
+    /// The busy state of one UI thread, shared by every <see cref="WinFormsBusyIndicator"/> on it. Requests are
+    /// counted per window (the view's form, an MDI child on its own: wait cursor and input block) and per view
+    /// (the overlay). A request ends exactly once: by its token, or when its view or window is closed or
+    /// disposed, or when the thread's message loop ends. All members run on that thread.
+    /// </summary>
+    internal sealed class BusyCoordinator : IMessageFilter
+    {
+        [ThreadStatic] private static BusyCoordinator _current;
+
+        private readonly Dictionary<Control, WindowState> _windows = new Dictionary<Control, WindowState>();
+        private readonly Dictionary<Control, ViewState> _views = new Dictionary<Control, ViewState>();
+        private readonly HashSet<Control> _blocked = new HashSet<Control>();
+        private readonly HashSet<Control> _releasing = new HashSet<Control>();
+        private bool _filterInstalled;
+        private bool _idleHooked;
+        private bool _exitHooked;
+
+        public static BusyCoordinator ForCurrentThread() => _current ?? (_current = new BusyCoordinator());
+
+        /// <summary>For tests: the coordinator of the calling thread, if any.</summary>
+        internal static BusyCoordinator CurrentOrNull => _current;
+
+        internal int BusyWindowCount => _windows.Count;
+        internal int BusyViewCount => _views.Count;
+        internal bool IsBlocked(Control window) => _blocked.Contains(window);
+
+        // ---- begin / end ----
+
+        public Request Begin(Control view, string message, BusyRenderer overlay, int delay, ILogger logger)
+        {
+            var request = new Request(view, WindowOf(view), message);
+            AcquireWindow(request);
+            try
+            {
+                AcquireView(request, overlay, delay, logger);
+            }
+            catch
+            {
+                ReleaseWindow(request, immediate: false);
+                throw;
+            }
+            if (!_exitHooked)
+            {
+                Application.ThreadExit += OnThreadExit;
+                _exitHooked = true;
+            }
+            return request;
+        }
+
+        public void End(Request request)
+        {
+            if (request.Ended) return;
+            request.Ended = true;
+            ReleaseView(request);
+            ReleaseWindow(request, immediate: false);
+        }
+
+        private void AcquireWindow(Request request)
+        {
+            var window = request.Window;
+            if (!_windows.TryGetValue(window, out var state))
+            {
+                state = new WindowState(window, this);
+                _windows.Add(window, state);
+            }
+            state.Requests.Add(request);
+            if (state.Requests.Count > 1) return;
+
+            window.UseWaitCursor = true;           // stays while the message loop runs (awaits)
+            Cursor.Current = Cursors.WaitCursor;   // shows at once, also while synchronous work holds the thread
+            Block(window);
+        }
+
+        private void ReleaseWindow(Request request, bool immediate)
+        {
+            if (!_windows.TryGetValue(request.Window, out var state) || !state.Requests.Remove(request)) return;
+            if (state.Requests.Count > 0) return;
+
+            _windows.Remove(state.Window);
+            state.Detach();
+            if (!state.Window.IsDisposed) state.Window.UseWaitCursor = state.HadWaitCursor;
+            if (_windows.Count == 0) Cursor.Current = Cursors.Default;
+            Unblock(state.Window, immediate);
+        }
+
+        private void AcquireView(Request request, BusyRenderer overlay, int delay, ILogger logger)
+        {
+            var view = request.View;
+            if (!_views.TryGetValue(view, out var state))
+            {
+                state = new ViewState(view, this);
+                _views.Add(view, state);
+            }
+            state.Requests.Add(request);
+            if (state.Requests.Count == 1)
+            {
+                if (overlay != null)
+                {
+                    try { state.Overlay = new BusyOverlay(view, overlay, delay, request.Message, logger); }
+                    catch (Exception ex)
+                    {
+                        logger?.LogError(ex, "The busy overlay could not be created; the view is busy without it");
+                    }
+                }
+            }
+            else state.Overlay?.SetMessage(state.Message);
+        }
+
+        private void ReleaseView(Request request)
+        {
+            if (!_views.TryGetValue(request.View, out var state) || !state.Requests.Remove(request)) return;
+            if (state.Requests.Count > 0)
+            {
+                state.Overlay?.SetMessage(state.Message);
+                return;
+            }
+            _views.Remove(state.View);
+            state.Detach();
+            state.Overlay?.Dispose();
+            state.Overlay = null;
+        }
+
+        // A view or window that is closed or disposed ends every request on it at once.
+        private void EndAll(Func<Request, bool> match, bool immediate)
+        {
+            var requests = _windows.Values.SelectMany(w => w.Requests).Where(match).Distinct().ToList();
+            foreach (var request in requests)
+            {
+                if (request.Ended) continue;
+                request.Ended = true;
+                ReleaseView(request);
+                ReleaseWindow(request, immediate);
+            }
+        }
+
+        private void OnViewGone(Control view) => EndAll(r => r.View == view, immediate: false);
+
+        private void OnWindowGone(Control window) => EndAll(r => r.Window == window, immediate: true);
+
+        private void OnThreadExit(object sender, EventArgs e)
+        {
+            EndAll(r => true, immediate: true);
+            Application.ThreadExit -= OnThreadExit;
+            _exitHooked = false;
+            if (_idleHooked) { Application.Idle -= OnIdle; _idleHooked = false; }
+            if (_filterInstalled) { Application.RemoveMessageFilter(this); _filterInstalled = false; }
+            _blocked.Clear();
+            _releasing.Clear();
+            if (_current == this) _current = null;
+        }
+
+        // ---- input block ----
+
+        private void Block(Control window)
+        {
+            _releasing.Remove(window);
+            _blocked.Add(window);
+            CloseDropDowns(window);
+            if (_filterInstalled) return;
+            Application.AddMessageFilter(this);
+            _filterInstalled = true;
+        }
+
+        // Normal end: wait for Application.Idle, so clicks and keys queued while synchronous work held the
+        // thread are dropped instead of running after it. A closed window is released at once.
+        private void Unblock(Control window, bool immediate)
+        {
+            if (!_blocked.Contains(window)) return;
+            if (immediate)
+            {
+                _blocked.Remove(window);
+                _releasing.Remove(window);
+                RemoveFilterIfIdle();
+                return;
+            }
+            _releasing.Add(window);
+            if (_idleHooked) return;
+            Application.Idle += OnIdle;
+            _idleHooked = true;
+        }
+
+        private void OnIdle(object sender, EventArgs e) => ReleaseAfterIdle();
+
+        /// <summary>What Application.Idle does: lets go of the windows whose busy state ended (internal for tests).</summary>
+        internal void ReleaseAfterIdle()
+        {
+            if (_idleHooked) Application.Idle -= OnIdle;
+            _idleHooked = false;
+            foreach (var window in _releasing) _blocked.Remove(window);
+            _releasing.Clear();
+            RemoveFilterIfIdle();
+        }
+
+        private void RemoveFilterIfIdle()
+        {
+            if (_blocked.Count > 0 || !_filterInstalled) return;
+            Application.RemoveMessageFilter(this);
+            _filterInstalled = false;
+        }
+
+        public bool PreFilterMessage(ref Message m) => ShouldBlock(m.Msg, m.WParam, Control.FromChildHandle(m.HWnd));
+
+        /// <summary>Whether an input message for <paramref name="target"/> is dropped (internal for tests).</summary>
+        internal bool ShouldBlock(int msg, IntPtr wParam, Control target)
+        {
+            if (target == null || _blocked.Count == 0) return false;   // a MessageBox, a busy overlay, another app
+            const int WM_NCLBUTTONDOWN = 0x00A1, WM_NCLAST = 0x00AD;
+            const int WM_KEYFIRST = 0x0100, WM_SYSKEYDOWN = 0x0104, WM_KEYLAST = 0x0109;
+            const int WM_LBUTTONDOWN = 0x0201, WM_MOUSELAST = 0x020E;
+            const int VK_F4 = 0x73;
+
+            var window = WindowOfInput(target);
+            if (window == null || !_blocked.Contains(window)) return false;
+            if (msg >= WM_NCLBUTTONDOWN && msg <= WM_NCLAST) return target != window;   // a scroll bar: blocked; the form's own frame: not
+            if (msg == WM_SYSKEYDOWN && (int)wParam == VK_F4) return false;              // Alt+F4 still closes (through CanClose)
+            return (msg >= WM_KEYFIRST && msg <= WM_KEYLAST) || (msg >= WM_LBUTTONDOWN && msg <= WM_MOUSELAST);
+        }
+
+        // The window a view is in: its form (an MDI child on its own), else its top-level control.
+        internal static Control WindowOf(Control control) => (Control)control.FindForm() ?? control.TopLevelControl ?? control;
+
+        private static Control WindowOfInput(Control target)
+        {
+            if (target is ToolStripDropDown dropDown)   // a menu that stayed open belongs to its owner's window
+            {
+                var owner = (Control)dropDown.OwnerItem?.Owner ?? (dropDown as ContextMenuStrip)?.SourceControl;
+                return owner == null ? null : WindowOf(owner);
+            }
+            return WindowOf(target);
+        }
+
+        private static void CloseDropDowns(Control root)
+        {
+            foreach (Control c in root.Controls)
+            {
+                if (c is ComboBox combo && combo.DroppedDown) combo.DroppedDown = false;
+                if (c is ToolStrip strip)
+                    foreach (ToolStripItem item in strip.Items)
+                        if (item is ToolStripDropDownItem dropDownItem && dropDownItem.DropDown.Visible) dropDownItem.HideDropDown();
+                if (c.HasChildren) CloseDropDowns(c);
+            }
+        }
+
+        // ---- state ----
+
+        internal sealed class Request
+        {
+            public Request(Control view, Control window, string message)
+            {
+                View = view; Window = window; Message = message;
+            }
+
+            public Control View { get; }
+            public Control Window { get; }
+            public string Message { get; }
+            public bool Ended { get; set; }
+        }
+
+        private sealed class WindowState
+        {
+            private readonly BusyCoordinator _owner;
+
+            public WindowState(Control window, BusyCoordinator owner)
+            {
+                Window = window; _owner = owner;
+                HadWaitCursor = window.UseWaitCursor;
+                window.Disposed += OnGone;
+                if (window is Form form) form.FormClosed += OnGone;   // a closed modal form may never be disposed
+            }
+
+            public Control Window { get; }
+            public bool HadWaitCursor { get; }
+            public List<Request> Requests { get; } = new List<Request>();
+
+            private void OnGone(object sender, EventArgs e) => _owner.OnWindowGone(Window);
+
+            public void Detach()
+            {
+                Window.Disposed -= OnGone;
+                if (Window is Form form) form.FormClosed -= OnGone;
+            }
+        }
+
+        private sealed class ViewState
+        {
+            private readonly BusyCoordinator _owner;
+
+            public ViewState(Control view, BusyCoordinator owner)
+            {
+                View = view; _owner = owner;
+                view.Disposed += OnGone;
+            }
+
+            public Control View { get; }
+            public List<Request> Requests { get; } = new List<Request>();
+            public BusyOverlay Overlay { get; set; }
+
+            /// <summary>The latest non-empty message of the open requests.</summary>
+            public string Message => Requests.Select(r => r.Message).LastOrDefault(m => !string.IsNullOrEmpty(m));
+
+            private void OnGone(object sender, EventArgs e) => _owner.OnViewGone(View);
+
+            public void Detach() => View.Disposed -= OnGone;
+        }
+    }
+}

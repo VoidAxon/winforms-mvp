@@ -37,6 +37,7 @@
 - [フォーム入力を検証する](HowTo-Validate-Form-Input)
 - [入力項目の多い編集画面を作る](HowTo-Build-Large-Edit-Screen)
 - [非同期処理を扱う](HowTo-Handle-Async-Operations)
+- [処理中を示す](HowTo-Show-Busy)
 - [マスター/詳細パターン](HowTo-Implement-Master-Detail)
 - [グリッドで明細を編集](HowTo-Implement-Editable-Grid)
 - [連鎖選択 (カスケード) を扱う](HowTo-Handle-Cascading-Selection)
