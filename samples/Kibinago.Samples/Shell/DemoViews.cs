@@ -16,6 +16,7 @@ using Kibinago.Samples.DebounceThrottleDemo;
 using Kibinago.Samples.EmailDemo;
 using Kibinago.Samples.EmailDemo.Services;
 using Kibinago.Samples.LegacyPopupDemo;
+using Kibinago.Samples.ListDemo;
 using Kibinago.Samples.MasterDetailDemo;
 using Kibinago.Samples.MessageBoxDemo;
 using Kibinago.Samples.MVPComparisonDemo;
@@ -40,6 +41,8 @@ namespace Kibinago.Samples.Shell
         {
             [DemoIds.ToDo] = () => new ToDoDemoControl(),
             [DemoIds.Busy] = () => new BusyDemoControl(),
+            [DemoIds.Sort] = () => new SortDemoControl(),
+            [DemoIds.Move] = () => new MoveDemoControl(),
         };
 
         // The window of each demo that opens from its tab (owner = this main window).

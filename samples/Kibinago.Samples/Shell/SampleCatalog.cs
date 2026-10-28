@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Kibinago.Samples.BusyDemo;
+using Kibinago.Samples.ListDemo;
 using Kibinago.Samples.ToDoDemo;
 
 namespace Kibinago.Samples.Shell
@@ -24,6 +25,8 @@ namespace Kibinago.Samples.Shell
         public const string Toast = "toast";
         public const string AnchoredMessage = "anchored-message";
         public const string Validation = "validation";
+        public const string Sort = "sort";
+        public const string Move = "move";
         public const string MasterDetail = "master-detail";
         public const string Cascade = "cascade";
         public const string ServiceBased = "service-based";
@@ -175,6 +178,24 @@ namespace Kibinago.Samples.Shell
                     SampleDemo.Window(DemoIds.Validation, "入力検証",
                         "DataAnnotations、ErrorProvider、送信時にまとめて表示。",
                         "ValidationDemo/ValidationDemoPresenter.cs", "ValidationDemo/RegistrationModel.cs", "ValidationDemo/IValidationDemoView.cs", "ValidationDemo/ValidationDemoForm.cs"),
+                }),
+
+            new SampleCategory("list", "一覧", "並べ替え、行の移動",
+                "オブジェクトの一覧にバインドしたグリッドは、SortableBindingList<T> なら見出しのクリックで並びます " +
+                "(安定ソート、型が混在しても落ちない、ReplaceAll で並べ替えを保ったまま読み直し)。\r\n" +
+                "一覧は Presenter が持ち、View はグリッドを 1 回バインドするだけです。業務の既定の並び (ApplySort) と絞り込み (ReplaceAll + LINQ) は Presenter に書きます。\r\n" +
+                "上へ・下へ・最上へ・最下へは rows.MoveUp(row) など。SortableBindingList なら現在行が動かした行についていきます。",
+                new[] { new WikiLink("データバインド (一覧・グリッド)", "Reference-Data-Binding") },
+                new[]
+                {
+                    SampleDemo.Embedded(DemoIds.Sort, "並べ替え",
+                        "見出しクリック、Shift+クリックで複数列、病棟で絞り込み、KeepSorted。",
+                        (a, v) => a.Attach(new SortDemoPresenter(), (ISortDemoView)v),
+                        "ListDemo/SortDemoPresenter.cs", "ListDemo/ISortDemoView.cs", "ListDemo/SortDemoControl.cs", "ListDemo/PatientRow.cs"),
+                    SampleDemo.Embedded(DemoIds.Move, "行の移動",
+                        "上へ・下へ・最上へ・最下へ。変わった表示順だけを保存します。",
+                        (a, v) => a.Attach(new MoveDemoPresenter(), (IMoveDemoView)v),
+                        "ListDemo/MoveDemoPresenter.cs", "ListDemo/IMoveDemoView.cs", "ListDemo/MoveDemoControl.cs", "ListDemo/PhraseRow.cs"),
                 }),
 
             new SampleCategory("composition", "画面の組み立て", "マスター/詳細、連動する選択",
