@@ -49,8 +49,7 @@ namespace Kibinago.Services
 
             // The UI thread is the one owning the nearest handle (the view's own may not exist yet: a page of a
             // tab not shown, a form still being set up).
-            var anchor = control;
-            while (anchor != null && !anchor.IsHandleCreated) anchor = anchor.Parent;
+            var anchor = NearestWithHandle(control);
             if (anchor != null)
             {
                 if (anchor.InvokeRequired) anchor.BeginInvoke(start);
@@ -63,14 +62,28 @@ namespace Kibinago.Services
             else
             {
                 // Not known to be the UI thread and no handle anywhere: start when the root's handle is
-                // created, on the thread that creates it.
+                // created, on the thread that creates it. Checked again after subscribing, in case it was
+                // created meanwhile (the token starts once).
                 var root = control;
                 while (root.Parent != null) root = root.Parent;
                 EventHandler created = null;
                 created = (s, e) => { root.HandleCreated -= created; start(); };
                 root.HandleCreated += created;
+                var late = NearestWithHandle(control);
+                if (late != null)
+                {
+                    root.HandleCreated -= created;
+                    try { late.BeginInvoke(start); }
+                    catch (InvalidOperationException) { }   // its handle went away meanwhile: the request ends with the view
+                }
             }
             return token;
+        }
+
+        private static Control NearestWithHandle(Control control)
+        {
+            while (control != null && !control.IsHandleCreated) control = control.Parent;
+            return control;
         }
 
         private sealed class Token : IDisposable
@@ -81,6 +94,7 @@ namespace Kibinago.Services
             private SynchronizationContext _context;
             private Control _marshal;   // posts the release when the UI thread has no context
             private Thread _thread;
+            private int _started;
             private int _ended;
 
             public Token(WinFormsBusyIndicator owner)
@@ -92,6 +106,7 @@ namespace Kibinago.Services
             // On the UI thread.
             public void Start(Control view, string message)
             {
+                if (Interlocked.Exchange(ref _started, 1) != 0) return;   // reached by two routes (handle created meanwhile)
                 if (Volatile.Read(ref _ended) != 0 || view.IsDisposed) return;
                 _coordinator = BusyCoordinator.ForCurrentThread();
                 _request = _coordinator.Begin(view, message, _owner._overlay, _owner._delay, _owner._logger);
@@ -133,8 +148,7 @@ namespace Kibinago.Services
             // disposed meanwhile needs none: its disposal ends the request.
             private bool PostRelease(Control view)
             {
-                var anchor = view;
-                while (anchor != null && !anchor.IsHandleCreated) anchor = anchor.Parent;
+                var anchor = NearestWithHandle(view);
                 if (anchor == null) return view.IsDisposed;
                 if (anchor.IsDisposed) return true;
                 try { anchor.BeginInvoke((Action)Release); }
