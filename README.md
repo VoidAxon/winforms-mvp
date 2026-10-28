@@ -194,6 +194,8 @@ dotnet build MyApp.Tests && dotnet run --project MyApp
    dotnet run --project samples/Kibinago.Samples/Kibinago.Samples.csproj
    ```
 
+   最大化したメイン画面の左に機能の大項目、右のタブにその説明・デモ・コードが並びます。
+
 4. テストを実行 (テストプロジェクトは `net48` ターゲットのため、実行には Windows (または mono) が必要です。ビルド自体は `EnableWindowsTargeting` により Linux / macOS でも可能)
 
    ```bash

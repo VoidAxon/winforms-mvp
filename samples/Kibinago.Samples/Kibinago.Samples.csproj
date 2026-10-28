@@ -22,6 +22,11 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
   </ItemGroup>
 
+  <!-- The sample's own sources, shown in the main window's コード tab (Shell/SampleSources.cs). -->
+  <ItemGroup>
+    <EmbeddedResource Include="**\*.cs" Exclude="bin\**;obj\**" LogicalName="Source/%(RecursiveDir)%(Filename)%(Extension)" WithCulture="false" />
+  </ItemGroup>
+
   <ItemGroup>
     <Compile Remove="obj\**" />
     <EmbeddedResource Remove="obj\**" />
