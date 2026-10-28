@@ -11,7 +11,7 @@ namespace Kibinago.Samples.ComplexInteractionDemo.OrderManagement
     /// <summary>
     /// Main order management form that hosts ProductSelector and OrderSummary controls
     /// </summary>
-    public partial class OrderManagementForm : Form, IOrderManagementView
+    public partial class OrderManagementControl : UserControl, IOrderManagementView
     {
         private ViewActionBinder _binder;
 
@@ -19,11 +19,16 @@ namespace Kibinago.Samples.ComplexInteractionDemo.OrderManagement
 
         public event EventHandler SaveRequested;
 
-        // Child control views (public for presenter access)
-        public ProductSelectorView ProductSelectorView { get; private set; }
-        public OrderSummaryView OrderSummaryView { get; private set; }
+        private ProductSelectorView _productSelector;
+        private OrderSummaryView _orderSummary;
 
-        public OrderManagementForm()
+        // The panels as view interfaces: the parent presenter attaches a presenter to each.
+        [System.ComponentModel.Browsable(false), System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+        public IProductSelectorView ProductSelector => _productSelector;
+        [System.ComponentModel.Browsable(false), System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+        public IOrderSummaryView OrderSummary => _orderSummary;
+
+        public OrderManagementControl()
         {
             InitializeComponent();
             InitializeActionBindings();
@@ -45,19 +50,19 @@ namespace Kibinago.Samples.ComplexInteractionDemo.OrderManagement
         private void InitializeChildControls()
         {
             // Create child controls
-            ProductSelectorView = new ProductSelectorView
+            _productSelector = new ProductSelectorView
             {
                 Dock = DockStyle.Fill
             };
 
-            OrderSummaryView = new OrderSummaryView
+            _orderSummary = new OrderSummaryView
             {
                 Dock = DockStyle.Fill
             };
 
             // Add to panels
-            panelProductSelector.Controls.Add(ProductSelectorView);
-            panelOrderSummary.Controls.Add(OrderSummaryView);
+            panelProductSelector.Controls.Add(_productSelector);
+            panelOrderSummary.Controls.Add(_orderSummary);
         }
 
         public string StatusMessage
@@ -80,7 +85,7 @@ namespace Kibinago.Samples.ComplexInteractionDemo.OrderManagement
             }
         }
 
-        public bool CanSaveOrder => OrderSummaryView?.HasItems ?? false;
+        public bool CanSaveOrder => _orderSummary?.HasItems ?? false;
 
         public void ShowSuccessMessage(string message)
         {

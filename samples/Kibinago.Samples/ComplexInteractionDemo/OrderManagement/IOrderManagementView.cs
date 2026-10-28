@@ -7,8 +7,14 @@ namespace Kibinago.Samples.ComplexInteractionDemo.OrderManagement
     /// <summary>
     /// View interface for the main order management window
     /// </summary>
-    public interface IOrderManagementView : IWindowView
+    public interface IOrderManagementView : IActionableView
     {
+        /// <summary>The product list panel (a child view: the parent presenter attaches its presenter).</summary>
+        ComplexInteractionDemo.ProductSelector.IProductSelectorView ProductSelector { get; }
+
+        /// <summary>The order panel.</summary>
+        ComplexInteractionDemo.OrderSummary.IOrderSummaryView OrderSummary { get; }
+
         /// <summary>
         /// Gets or sets the status message
         /// </summary>

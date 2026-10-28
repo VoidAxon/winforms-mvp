@@ -23,7 +23,7 @@ namespace Kibinago.Samples.ComplexInteractionDemo_ServiceBased.OrderManagement
     /// - Each presenter depends only on the service, not on each other
     /// - Service manages order state and raises events when state changes
     /// </summary>
-    public class OrderManagementPresenter : WindowPresenterBase<IOrderManagementView>
+    public class OrderManagementPresenter : ControlPresenterBase<IOrderManagementView>
     {
         private readonly IOrderManagementService _orderService;
         private readonly List<Product> _products;
@@ -50,6 +50,10 @@ namespace Kibinago.Samples.ComplexInteractionDemo_ServiceBased.OrderManagement
 
         protected override void OnInitialize()
         {
+            // The panels: each gets the SAME service instance — they never reference each other.
+            AttachChild(new ProductSelector.ProductSelectorPresenter(_orderService), View.ProductSelector, _products);
+            AttachChild(new OrderSummary.OrderSummaryPresenter(_orderService), View.OrderSummary);
+
             // KEY DIFFERENCE: Subscribe to Service events instead of child Presenter events
             // Service notifies us when order state changes
             _orderService.ProductAdded += OnServiceProductAdded;
@@ -116,15 +120,6 @@ namespace Kibinago.Samples.ComplexInteractionDemo_ServiceBased.OrderManagement
             // Service total changed - update status and total display
             View.CurrentTotal = e.NewTotal;
             View.StatusMessage = $"Order total: ${e.NewTotal:F2}";
-        }
-
-        /// <summary>
-        /// Gets the available products for the ProductSelector.
-        /// This is called by the Program.cs to pass products to the ProductSelector presenter.
-        /// </summary>
-        public IEnumerable<Product> GetAvailableProducts()
-        {
-            return _products;
         }
 
         protected override void Cleanup()

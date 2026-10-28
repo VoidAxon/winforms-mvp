@@ -7,7 +7,13 @@ using Kibinago.Samples.CheckBoxDemo;
 using Kibinago.Samples.MasterDetailDemo;
 using Kibinago.Samples.ValidationDemo;
 using Kibinago.Samples.ValueBindingDemo;
+using Kibinago.Events;
+using Kibinago.Samples.ComplexInteractionDemo.Models;
+using Kibinago.Samples.ComplexInteractionDemo.OrderManagement;
+using Kibinago.Samples.ComplexInteractionDemo.Services;
 using Kibinago.Services;
+using EventBasedOrders = Kibinago.Samples.ComplexInteractionDemo_EventBased.OrderManagement.OrderManagementPresenter;
+using ServiceBasedOrders = Kibinago.Samples.ComplexInteractionDemo_ServiceBased.OrderManagement.OrderManagementPresenter;
 using Kibinago.Samples.BindingDemo;
 using Kibinago.Samples.BusyDemo;
 using Kibinago.Samples.ChangeTrackingDemo;
@@ -307,15 +313,16 @@ namespace Kibinago.Samples.Shell
                 },
                 new[]
                 {
-                    SampleDemo.Window(DemoIds.ServiceBased, "共有サービス",
+                    SampleDemo.Embedded(DemoIds.ServiceBased, "共有サービス",
                         "すべての Presenter が同じサービスに依存し、サービスのイベントで更新します。",
-                        "ComplexInteractionDemo_ServiceBased/Program.cs",
-                        "ComplexInteractionDemo_ServiceBased/OrderManagement/OrderManagementPresenter.cs",
+                        (a, v) => a.Attach(new ServiceBasedOrders(new OrderManagementService(), SampleProducts.All()), (IOrderManagementView)v),
+                        "ComplexInteractionDemo_ServiceBased/OrderManagement/OrderManagementPresenter.cs", "ComplexInteractionDemo/OrderManagement/IOrderManagementView.cs",
                         "ComplexInteractionDemo_ServiceBased/OrderSummary/OrderSummaryPresenter.cs",
                         "ComplexInteractionDemo_ServiceBased/ProductSelector/ProductSelectorPresenter.cs"),
-                    SampleDemo.Window(DemoIds.EventBased, "EventAggregator",
+                    SampleDemo.Embedded(DemoIds.EventBased, "EventAggregator",
                         "メッセージの発行・購読で、お互いを知らない Presenter が連携します。",
-                        "ComplexInteractionDemo_EventBased/ComplexInteractionDemoEventBasedProgram.cs",
+                        (a, v) => a.Attach(new EventBasedOrders(ServiceLocator.Current.ResolveRequired<IEventAggregator>(), SampleProducts.All()), (IOrderManagementView)v),
+                        "ComplexInteractionDemo_EventBased/OrderManagement/OrderManagementPresenter.cs", "ComplexInteractionDemo/OrderManagement/IOrderManagementView.cs",
                         "ComplexInteractionDemo_EventBased/OrderSummary/OrderSummaryPresenter.cs",
                         "ComplexInteractionDemo_EventBased/ProductSelector/ProductSelectorPresenter.cs",
                         "ComplexInteractionDemo_EventBased/Messages/ProductAddedMessage.cs"),
