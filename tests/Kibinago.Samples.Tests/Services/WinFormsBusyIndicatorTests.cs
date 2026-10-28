@@ -348,58 +348,46 @@ namespace Kibinago.Samples.Tests.Services
         }
 
         [Fact]
-        public void BeginOnAWorker_BeforeAnyHandle_StartsWhenTheWindowsHandleIsCreated()
+        public void BeginOnAWorker_BeforeAnyHandle_DoesNothing_AndRaisesNoError()
         {
             using (var form = new ViewForm(createHandle: false))
             {
                 var panel = new ViewPanel();
                 form.Controls.Add(panel);
                 var busy = System.Threading.Tasks.Task.Run(() => new WinFormsBusyIndicator().Begin(panel, null)).Result;
-                Assert.False(form.UseWaitCursor);   // nothing done on the worker
 
-                var handle = form.Handle;           // created here, on this (the UI) thread
+                var handle = form.Handle;   // no way to the UI thread before: nothing was started
 
-                Assert.True(form.UseWaitCursor);
-                Assert.True(Coordinator.IsBlocked(form));
+                Assert.False(form.UseWaitCursor);
+                Assert.False(Coordinator?.IsBlocked(form) ?? false);
                 busy.Dispose();
                 AssertNothingBusy();
             }
         }
 
         [Fact]
-        public void ARequestEndedOnAWorker_BeforeAnyHandle_WithoutAContext_IsReleasedWhenTheHandleIsCreated()
+        public void WithoutAContext_ARequestEndedOnAWorker_StaysUntilItsWindowGoes_AndRaisesNoError()
         {
-            // A message loop without a WindowsFormsSynchronizationContext (AutoInstall off, per thread): Begin
-            // starts at once on the UI thread, but the worker's Dispose has nothing to post through yet.
+            // A UI thread without a synchronization context (AutoInstall off, per thread): a worker's Dispose
+            // has nothing to post through, so it does nothing; the window's disposal ends the request.
             Exception failure = null;
             var thread = new System.Threading.Thread(() =>
             {
-                WindowsFormsSynchronizationContext.AutoInstall = false;
-                System.Threading.SynchronizationContext.SetSynchronizationContext(null);
-                EventHandler idle = null;
-                idle = (s, e) =>
+                try
                 {
-                    Application.Idle -= idle;
-                    try
-                    {
-                        using (var form = new ViewForm(createHandle: false))
-                        {
-                            var busy = new WinFormsBusyIndicator().Begin(form, null);
-                            Assert.True(form.UseWaitCursor);
+                    WindowsFormsSynchronizationContext.AutoInstall = false;
+                    System.Threading.SynchronizationContext.SetSynchronizationContext(null);
+                    var form = new ViewForm();
+                    var busy = new WinFormsBusyIndicator().Begin(form, null);
+                    Assert.True(form.UseWaitCursor);
 
-                            System.Threading.Tasks.Task.Run(busy.Dispose).Wait();
-                            Assert.True(form.UseWaitCursor);   // nothing to post through yet
+                    System.Threading.Tasks.Task.Run(busy.Dispose).Wait();
+                    Assert.True(form.UseWaitCursor);   // nothing to post through
 
-                            var handle = form.Handle;          // created here: the pending release runs
-                            Assert.False(form.UseWaitCursor);
-                            AssertNothingBusy();
-                        }
-                    }
-                    catch (Exception ex) { failure = ex; }
-                    finally { Application.ExitThread(); }
-                };
-                Application.Idle += idle;
-                Application.Run();
+                    form.Dispose();
+                    AssertNothingBusy();
+                }
+                catch (Exception ex) { failure = ex; }
             });
             thread.SetApartmentState(System.Threading.ApartmentState.STA);
             thread.Start();

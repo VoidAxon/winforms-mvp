@@ -145,6 +145,7 @@ using (PresenterTestHost.Start(fakes.Provider, presenter, view))
 
 - `await` のあと View に触れる前に `Lifetime` を確認します (ウィンドウが閉じられていることがある)。`ShowBusy` の `using` はそのまま抜けて構いません。
 - 中止ボタンなど、Busy 中も押せるべきコントロールはまだ指定できません (ウィンドウ全体が止まります)。
+- UI スレッドへ戻る手段がないときは何もしません (エラーにもなりません): ウィンドウのハンドルがまだ一つもないうちにワーカーから `Begin` した場合と、`WindowsFormsSynchronizationContext.AutoInstall = false` の UI スレッドで、Busy を別スレッドから終えた場合 (そのウィンドウを閉じると終わる)。既定の設定で Presenter から使う限り起きません。
 - `IMessageDialogBackend` を Form で自作すると、そのダイアログは `Application.OpenForms` に出ます (既定の `MessageBox` と `AnchoredMessageBox`、トースト、Busy オーバーレイは出ません)。
 
 ## 関連ページ

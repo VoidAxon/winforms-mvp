@@ -17,9 +17,14 @@ namespace Kibinago.Services
     /// </summary>
     /// <remarks>
     /// Call <see cref="Begin"/> on the view's UI thread (presenters do, through <c>ShowBusy</c>); from another
-    /// thread it is posted there (through the nearest control with a handle) and takes effect shortly after. The returned object may be disposed on any
-    /// thread. A request also ends when its view or window is closed or disposed, or when the UI thread's
-    /// message loop ends.
+    /// thread it is posted there (through the nearest control with a handle) and takes effect shortly after.
+    /// The returned object may be disposed on any thread; from another one the release is posted through the
+    /// UI thread's <see cref="SynchronizationContext"/>. A request also ends when its view or window is closed
+    /// or disposed, or when the UI thread's message loop ends.
+    /// Without a way to reach the UI thread — a worker calling <see cref="Begin"/> before any of the view's
+    /// controls has a handle, or a disposal on another thread when the UI thread has no synchronization
+    /// context (<c>WindowsFormsSynchronizationContext.AutoInstall</c> turned off) — nothing is done: no
+    /// error; such a request ends with its window.
     /// </remarks>
     public sealed class WinFormsBusyIndicator : IBusyIndicator
     {
@@ -49,41 +54,19 @@ namespace Kibinago.Services
 
             // The UI thread is the one owning the nearest handle (the view's own may not exist yet: a page of a
             // tab not shown, a form still being set up).
-            var anchor = NearestWithHandle(control);
+            var anchor = control;
+            while (anchor != null && !anchor.IsHandleCreated) anchor = anchor.Parent;
             if (anchor != null)
             {
                 if (anchor.InvokeRequired) anchor.BeginInvoke(start);
                 else start();
             }
-            else if (SynchronizationContext.Current is WindowsFormsSynchronizationContext || Application.MessageLoop)
+            else if (SynchronizationContext.Current is WindowsFormsSynchronizationContext)
             {
                 start();   // the UI thread setting the view up (OnInitializeAsync before the window shows)
             }
-            else
-            {
-                // Not known to be the UI thread and no handle anywhere: start when the root's handle is
-                // created, on the thread that creates it. Checked again after subscribing, in case it was
-                // created meanwhile (the token starts once).
-                var root = control;
-                while (root.Parent != null) root = root.Parent;
-                EventHandler created = null;
-                created = (s, e) => { root.HandleCreated -= created; start(); };
-                root.HandleCreated += created;
-                var late = NearestWithHandle(control);
-                if (late != null)
-                {
-                    root.HandleCreated -= created;
-                    try { late.BeginInvoke(start); }
-                    catch (InvalidOperationException) { }   // its handle went away meanwhile: the request ends with the view
-                }
-            }
+            // else: no handle anywhere and not known to be the UI thread: nothing (see the remarks)
             return token;
-        }
-
-        private static Control NearestWithHandle(Control control)
-        {
-            while (control != null && !control.IsHandleCreated) control = control.Parent;
-            return control;
         }
 
         private sealed class Token : IDisposable
@@ -92,9 +75,7 @@ namespace Kibinago.Services
             private BusyCoordinator _coordinator;
             private BusyCoordinator.Request _request;
             private SynchronizationContext _context;
-            private Control _marshal;   // posts the release when the UI thread has no context
             private Thread _thread;
-            private int _started;
             private int _ended;
 
             public Token(WinFormsBusyIndicator owner)
@@ -106,12 +87,10 @@ namespace Kibinago.Services
             // On the UI thread.
             public void Start(Control view, string message)
             {
-                if (Interlocked.Exchange(ref _started, 1) != 0) return;   // reached by two routes (handle created meanwhile)
                 if (Volatile.Read(ref _ended) != 0 || view.IsDisposed) return;
                 _coordinator = BusyCoordinator.ForCurrentThread();
                 _request = _coordinator.Begin(view, message, _owner._overlay, _owner._delay, _owner._logger);
                 Volatile.Write(ref _context, SynchronizationContext.Current);
-                Volatile.Write(ref _marshal, view);
                 Volatile.Write(ref _thread, Thread.CurrentThread);   // last: Dispose on another thread now posts the release
                 if (Volatile.Read(ref _ended) != 0) Release();   // disposed on another thread while starting
             }
@@ -122,7 +101,6 @@ namespace Kibinago.Services
                 // Snapshots: a Start finishing on the UI thread may release (and clear the fields) meanwhile.
                 var thread = Volatile.Read(ref _thread);
                 var context = Volatile.Read(ref _context);
-                var marshal = Volatile.Read(ref _marshal);
                 if (thread == null) return;                           // not started yet: Start sees _ended
                 if (Thread.CurrentThread == thread) Release();
                 else if (context != null)
@@ -130,30 +108,7 @@ namespace Kibinago.Services
                     try { context.Post(_ => Release(), null); }
                     catch (InvalidOperationException) { }             // the UI thread is gone; its exit ended the request
                 }
-                else if (marshal != null && !PostRelease(marshal))
-                {
-                    // No context on the UI thread and no handle yet (a form not shown): release when the root's
-                    // handle is created, on the UI thread creating it. Checked again after subscribing, in case
-                    // it was created meanwhile (a second Release does nothing).
-                    var root = marshal;
-                    while (root.Parent != null) root = root.Parent;
-                    EventHandler created = null;
-                    created = (s, e) => { root.HandleCreated -= created; Release(); };
-                    root.HandleCreated += created;
-                    if (PostRelease(marshal)) root.HandleCreated -= created;
-                }
-            }
-
-            // Posts the release through the view or its nearest handle; false when none has a handle. A view
-            // disposed meanwhile needs none: its disposal ends the request.
-            private bool PostRelease(Control view)
-            {
-                var anchor = NearestWithHandle(view);
-                if (anchor == null) return view.IsDisposed;
-                if (anchor.IsDisposed) return true;
-                try { anchor.BeginInvoke((Action)Release); }
-                catch (InvalidOperationException) { }                 // its handle went away meanwhile: its disposal ends the request
-                return true;
+                // else: no context on the UI thread: nothing (see the remarks); the request ends with its window
             }
 
             private void Release()
@@ -164,7 +119,6 @@ namespace Kibinago.Services
                 _request = null;
                 _owner = null;
                 Volatile.Write(ref _context, null);
-                Volatile.Write(ref _marshal, null);
                 if (coordinator != null && request != null) coordinator.End(request);
             }
         }
