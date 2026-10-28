@@ -11,6 +11,8 @@ namespace Kibinago.Samples.CustomizationDemo
     /// </summary>
     public static class CustomizationDemoSetup
     {
+        private static readonly Font BusyFont = new Font("Meiryo UI", 12f);
+
         public static void Configure(KibinagoBuilder mvp)
         {
             // Every message box (presenter Messages and AnchoredMessageBox) uses this dialog.
@@ -21,6 +23,15 @@ namespace Kibinago.Samples.CustomizationDemo
             mvp.Toasts.Duration = 4500;
             mvp.Toasts.Position = ToastPosition.TopRight;
             mvp.Toasts.UseRenderer(new BrandToastRenderer());
+
+            // ShowBusy's overlay: brand-colored backdrop and text, the company font, shown at once.
+            mvp.Busy.UseOverlay(new HudBusyRenderer
+            {
+                Backdrop = Color.FromArgb(110, 0, 120, 110),   // Color.Transparent: no backdrop at all
+                TextColor = Color.FromArgb(0, 90, 80),
+            });
+            mvp.Busy.Font = BusyFont;   // caller-owned: the framework never disposes it
+            mvp.Busy.Delay = 0;
 
             // A third-party compare library plugs in through mvp.ChangeTracking.UseComparer(adapter);
             // the adapter maps the tracker's ignores onto the library's settings, e.g. CompareNETObjects:

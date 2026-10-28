@@ -345,12 +345,12 @@ namespace Kibinago.Samples.Shell
             new SampleCategory(CustomizeCategoryId, "カスタマイズ", "ダイアログ・トーストを差し替える",
                 "設定は起動時の 1 か所だけです (mvp.Messages.UseDialogs、mvp.Toasts.UseRenderer など)。\r\n" +
                 "動いているアプリの設定は変えないので、このデモはカスタム設定で別のプロセスとして起動します " +
-                "(Kibinago.Samples.exe --profile custom)。そちらでは、すべてのメッセージボックスとトーストが差し替わります。",
+                "(Kibinago.Samples.exe --profile custom)。そちらでは、すべてのメッセージボックス・トースト・処理中の表示が差し替わります。",
                 new[] { new WikiLink("フレームワークのカスタマイズ", "HowTo-Customize-Framework") },
                 new[]
                 {
                     SampleDemo.Window(DemoIds.Customization, "カスタム設定",
-                        "会社のダイアログ、ブランドのトースト、変更追跡の比較方法。",
+                        "会社のダイアログ、ブランドのトースト、処理中の表示 (色・フォント)、変更追跡の比較方法。",
                         "CustomizationDemo/CustomizationDemoSetup.cs", "CustomizationDemo/CompanyStyleDialogBackend.cs",
                         "CustomizationDemo/CustomizationDemoPresenter.cs", "CustomizationDemo/CustomizationDemoForm.cs", "Program.cs"),
                 }),

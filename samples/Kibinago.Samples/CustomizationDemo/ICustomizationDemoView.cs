@@ -12,6 +12,7 @@ namespace Kibinago.Samples.CustomizationDemo
         public static readonly ViewAction Confirm = Factory.Create("Confirm");
         public static readonly ViewAction Toast = Factory.Create("Toast");
         public static readonly ViewAction CheckChanges = Factory.Create("CheckChanges");
+        public static readonly ViewAction Busy = Factory.Create("Busy");
     }
 
     /// <summary>

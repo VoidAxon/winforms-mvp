@@ -15,6 +15,7 @@ namespace Kibinago.Samples.CustomizationDemo
         private Button _confirmButton;
         private Button _toastButton;
         private Button _checkButton;
+        private Button _busyButton;
 
         private void InitializeComponent()
         {
@@ -35,8 +36,9 @@ namespace Kibinago.Samples.CustomizationDemo
             _confirmButton = new Button { Text = "Confirm dialog", Location = new Point(170, 120), Size = new Size(140, 32) };
             _toastButton = new Button { Text = "Show toast", Location = new Point(320, 120), Size = new Size(140, 32) };
             _checkButton = new Button { Text = "Check for changes", Location = new Point(20, 165), Size = new Size(200, 32) };
+            _busyButton = new Button { Text = "Show busy (3 s)", Location = new Point(230, 165), Size = new Size(200, 32) };
             _status = new Label { Location = new Point(20, 220), Size = new Size(460, 40), ForeColor = Color.DimGray };
-            Controls.AddRange(new Control[] { _name, _infoButton, _confirmButton, _toastButton, _checkButton, _status });
+            Controls.AddRange(new Control[] { _name, _infoButton, _confirmButton, _toastButton, _checkButton, _busyButton, _status });
         }
     }
 }
