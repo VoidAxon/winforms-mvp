@@ -360,8 +360,8 @@ namespace Kibinago.Samples.Tests.Services
                 System.Threading.SynchronizationContext.SetSynchronizationContext(context);
                 try
                 {
+                    // Posted; it may already run while this STA thread waits for the worker (the wait pumps).
                     var busy = System.Threading.Tasks.Task.Run(() => new WinFormsBusyIndicator().Begin(form, null)).Result;
-                    Assert.False(form.UseWaitCursor);   // posted, not yet run
 
                     Application.DoEvents();             // the UI thread starts it
                     Assert.True(form.UseWaitCursor);
