@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Kibinago.Samples.BindingDemo;
 using Kibinago.Samples.BusyDemo;
 using Kibinago.Samples.ChangeTrackingDemo;
 using Kibinago.Samples.CompositionDemo;
@@ -29,6 +30,7 @@ namespace Kibinago.Samples.Shell
         public const string AnchoredMessage = "anchored-message";
         public const string Validation = "validation";
         public const string FirstError = "first-error";
+        public const string Outpatient = "outpatient";
         public const string ProfileEdit = "profile-edit";
         public const string Sort = "sort";
         public const string Move = "move";
@@ -192,6 +194,19 @@ namespace Kibinago.Samples.Shell
                     SampleDemo.Window(DemoIds.Validation, "入力検証 (アイコン付き)",
                         "DataAnnotations、ErrorProvider、送信時にまとめて表示。",
                         "ValidationDemo/ValidationDemoPresenter.cs", "ValidationDemo/RegistrationModel.cs", "ValidationDemo/IValidationDemoView.cs", "ValidationDemo/ValidationDemoForm.cs"),
+                }),
+
+            new SampleCategory("binding", "バインド", "モデルとコントロールの双方向",
+                "Presenter が入力モデル (INotifyPropertyChanged、NotifyingObject) を持ち、View がコントロールをそれにバインドします。\r\n" +
+                "Presenter はモデルを読み書きするだけで、コントロールには触りません。View 側は 1 コントロール 1 行: textBox.Bind(model, x => x.Name)。\r\n" +
+                "式はコンパイラーが確認します (名前の変更に追従、型違いはビルドエラー)。日付の null はチェックボックス、ラジオボタンは BindRadioGroup。",
+                new[] { new WikiLink("データバインド", "Reference-Data-Binding") },
+                new[]
+                {
+                    SampleDemo.Embedded(DemoIds.Outpatient, "双方向バインド",
+                        "入力するとモデルが変わり、Presenter がモデルを変えるとコントロールが変わります。",
+                        (a, v) => a.Attach(new OutpatientPresenter(), (IOutpatientView)v),
+                        "BindingDemo/OutpatientPresenter.cs", "BindingDemo/IOutpatientView.cs", "BindingDemo/OutpatientControl.cs", "BindingDemo/OutpatientInput.cs"),
                 }),
 
             new SampleCategory("tracking", "変更追跡", "未保存の変更があるか",

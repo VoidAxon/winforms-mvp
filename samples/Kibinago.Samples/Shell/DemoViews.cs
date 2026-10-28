@@ -5,6 +5,7 @@ using System.Windows.Forms;
 using Kibinago.Presenters;
 using Kibinago.Samples.AnchoredMessageDemo;
 using Kibinago.Samples.AsyncDemo;
+using Kibinago.Samples.BindingDemo;
 using Kibinago.Samples.BulkBindingDemo;
 using Kibinago.Samples.BusyDemo;
 using Kibinago.Samples.CascadeDemo;
@@ -50,6 +51,7 @@ namespace Kibinago.Samples.Shell
             [DemoIds.Reservation] = () => new ReservationDemoControl(),
             [DemoIds.FirstError] = () => new IntakeControl(),
             [DemoIds.ProfileEdit] = () => new ProfileEditControl(),
+            [DemoIds.Outpatient] = () => new OutpatientControl(),
         };
 
         // The window of each demo that opens from its tab (owner = this main window).
