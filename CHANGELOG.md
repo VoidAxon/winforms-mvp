@@ -8,6 +8,8 @@
 
 ## [Unreleased]
 
+## [1.0.0-preview.14] - 2026-10-28
+
 ### Added (追加)
 
 - **`ShowBusy()`** (Presenter の protected メソッド、`IBusyIndicator`) — `using (ShowBusy()) { ... }` で処理中を示す。View のウィンドウ (フォーム、MDI 子は子だけ) が待ちカーソルになり、入力を受け付けない (メッセージフィルターでマウスのボタン・ホイール・キー・子のスクロールバーを捨てる。コントロールの見た目は変えない。同期処理中にたまった入力も捨てる。タイトルバー・Alt+F4・ダイアログ・ほかのウィンドウは使える)。入れ子可、Presenter の破棄で終わり、どのスレッドから呼んでも・破棄してもよい (ワーカーからは UI スレッドへ送られ少し遅れて始まる)。`mvp.Busy.UseOverlay()` で View に重ねるオーバーレイ (既定: 白く薄めた上に中央の角丸四角とリング、`mvp.Busy.Delay` 既定 150ms 後。`ShowBusy("集計中…")` の文字はリングの下に `MaxTextWidth` 既定 280px・2 行まで (色は `TextColor`)、残りは「…」。背景の色と濃さは `new HudBusyRenderer { Backdrop = ... }`、`Color.Transparent` で背景なし。文字のフォントは `mvp.Busy.Font`、既定は Windows の UI フォント (`SystemFonts.MessageBoxFont` の書体、日本語の Windows では Yu Gothic UI) の 12pt。四角の中の文字はラベルと同じ GDI・ClearType で描く — `DrawText(..., background:)`): フォームが所有する層付きのポップアップで、View のコントロールにならず `Application.OpenForms` にも出ない。見た目は `BusyRenderer` で差し替え、`mvp.Busy.Use(...)` で丸ごと差し替え。`FakeBusyIndicator` (`fakes.Busy`)。実アプリで待ちカーソルを画面ごとに書いていたことから追加。
