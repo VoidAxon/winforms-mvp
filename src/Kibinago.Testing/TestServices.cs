@@ -20,21 +20,23 @@ namespace Kibinago.Testing
     public static class TestServices
     {
         /// <summary>
-        /// A new provider with only a silent <see cref="ILoggerFactory"/> registered (every presenter
-        /// needs one). Register the fakes the presenter uses; registering an
-        /// <see cref="ILoggerFactory"/> replaces the silent one, e.g. to assert log entries.
+        /// A new provider with only a silent <see cref="ILoggerFactory"/> (every presenter needs one) and a
+        /// busy indicator that shows nothing (<c>ShowBusy</c> is cosmetic) registered. Register the fakes the
+        /// presenter uses; registering an <see cref="ILoggerFactory"/> replaces the silent one, e.g. to assert
+        /// log entries, and a <see cref="FakeBusyIndicator"/> records <c>ShowBusy</c>.
         /// </summary>
         public static DefaultServiceProvider Create()
         {
             var services = new DefaultServiceProvider();
             services.RegisterInstance<ILoggerFactory>(NullLoggerFactory.Instance);
+            services.RegisterInstance<IBusyIndicator>(NullBusyIndicator.Instance);   // cosmetic: ShowBusy needs no fake
             return services;
         }
 
         /// <summary>
         /// <see cref="Create"/> plus a default fake for every presenter-facing framework service:
         /// <see cref="FakeMessageService"/>, <see cref="FakeToastService"/>,
-        /// <see cref="FakeWindowNavigator"/>, <see cref="FakeDialogProvider"/> and
+        /// <see cref="FakeWindowNavigator"/>, <see cref="FakeDialogProvider"/>, <see cref="FakeBusyIndicator"/> and
         /// <see cref="RecordingLoggerFactory"/> (replacing the
         /// silent logger). Replace any of them with your own through <c>Provider.RegisterInstance</c>
         /// before <c>PresenterTestHost.Start</c>.
@@ -48,6 +50,7 @@ namespace Kibinago.Testing
             sp.RegisterInstance<IWindowNavigator>(fakes.Navigator);
             sp.RegisterInstance<IDialogProvider>(fakes.Dialogs);
             sp.RegisterInstance<ILoggerFactory>(fakes.Logs);
+            sp.RegisterInstance<IBusyIndicator>(fakes.Busy);
             return fakes;
         }
     }

@@ -34,5 +34,8 @@ namespace Kibinago.Testing
 
         /// <summary>The registered <c>ILoggerFactory</c> (replaces the silent one).</summary>
         public RecordingLoggerFactory Logs { get; } = new RecordingLoggerFactory();
+
+        /// <summary>The busy indicator fake (<c>ShowBusy</c>): which requests began and ended.</summary>
+        public FakeBusyIndicator Busy { get; } = new FakeBusyIndicator();
     }
 }

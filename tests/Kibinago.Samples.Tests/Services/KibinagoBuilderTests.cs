@@ -247,12 +247,38 @@ namespace Kibinago.Samples.Tests.Services
         }
 
         [Fact]
+        public void Busy_DefaultsToTheWinFormsIndicator_UseOverlayAndDelayAreRegistered()
+        {
+            try
+            {
+                var plain = MvpApplication.Configure();
+                Assert.IsType<WinFormsBusyIndicator>(plain.GetService(typeof(IBusyIndicator)));
+                Assert.Null(plain.GetService(typeof(BusyRenderer)));   // no overlay unless asked
+            }
+            finally { ServiceLocator.Reset(); }
+
+            var renderer = new HudBusyRenderer();
+            try
+            {
+                var configured = MvpApplication.Configure(framework: mvp =>
+                {
+                    mvp.Busy.Delay = 300;
+                    mvp.Busy.UseOverlay(renderer);
+                });
+                Assert.Same(renderer, configured.GetService(typeof(BusyRenderer)));
+                Assert.Equal(300, ((BusyOptions)configured.GetService(typeof(BusyOptions))).Delay);
+            }
+            finally { ServiceLocator.Reset(); }
+        }
+
+        [Fact]
         public void SameBuilder_ResolvesSameImplementationTypes_OnBothPaths()
         {
             var types = new[]
             {
                 typeof(IMessageService), typeof(IMessageDialogBackend), typeof(MessageDialogOptions),
                 typeof(IToastService), typeof(IWinFormsToastService), typeof(ToastHostOptions),
+                typeof(IBusyIndicator), typeof(BusyOptions),
                 typeof(IDialogProvider), typeof(DialogProviderOptions),
                 typeof(IObjectCloner), typeof(IObjectContentComparer), typeof(IEventAggregator),
                 typeof(ILoggerFactory), typeof(IDispatcherConfigurer),

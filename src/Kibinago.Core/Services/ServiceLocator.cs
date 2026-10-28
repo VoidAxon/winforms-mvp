@@ -115,6 +115,7 @@ namespace Kibinago.Services
         internal static void RegisterBuiltIns(DefaultServiceProvider provider)
         {
             provider.RegisterInstance<ILoggerFactory>(NullLoggerFactory.Instance);
+            provider.RegisterInstance<IBusyIndicator>(NullBusyIndicator.Instance);
             provider.RegisterInstance<Kibinago.Common.IObjectCloner>(Kibinago.Common.BuiltInObjectCloner.Instance);
             provider.RegisterInstance<Kibinago.Common.IObjectContentComparer>(Kibinago.Common.BuiltInObjectContentComparer.Instance);
             provider.RegisterSingleton<Kibinago.Events.IEventAggregator>(sp =>

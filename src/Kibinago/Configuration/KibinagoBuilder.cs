@@ -30,6 +30,7 @@ namespace Kibinago.Configuration
         {
             Messages = new MessagesBuilder(this);
             Toasts = new ToastsBuilder(this);
+            Busy = new BusyBuilder(this);
             Dialogs = new DialogsBuilder(this);
             ChangeTracking = new ChangeTrackingBuilder(this);
             Events = new EventsBuilder(this);
@@ -42,6 +43,9 @@ namespace Kibinago.Configuration
 
         /// <summary>Toasts: position, size, font, duration, stacking, style, renderer, or a whole replacement service.</summary>
         public ToastsBuilder Toasts { get; }
+
+        /// <summary>Busy indicator: the overlay (<c>UseOverlay</c>), its delay, or a whole replacement.</summary>
+        public BusyBuilder Busy { get; }
 
         /// <summary>File / folder / print dialogs: default titles, filter, error messages.</summary>
         public DialogsBuilder Dialogs { get; }
@@ -103,6 +107,10 @@ namespace Kibinago.Configuration
                 sp.ResolveRequired<ToastHostOptions>(), sp.Resolve<ToastRenderer>(), sp.Resolve<ILoggerFactory>())));
             Put(FrameworkRegistration.ForFactory(typeof(IWinFormsToastService), sp => sp.ResolveRequired<WinFormsToastService>()));
             Put(FrameworkRegistration.ForFactory(typeof(IToastService), sp => new ToastServiceForwarder(sp.ResolveRequired<IWinFormsToastService>())));
+
+            Put(FrameworkRegistration.ForInstance(typeof(BusyOptions), Busy.Options.Copy()));
+            Put(FrameworkRegistration.ForFactory(typeof(IBusyIndicator), sp => new WinFormsBusyIndicator(
+                sp.ResolveRequired<BusyOptions>(), sp.Resolve<BusyRenderer>(), sp.Resolve<ILoggerFactory>())));
 
             Put(FrameworkRegistration.ForInstance(typeof(DialogProviderOptions), Dialogs.Options.Copy()));
             Put(FrameworkRegistration.ForFactory(typeof(DialogProvider), sp => new DialogProvider(sp.ResolveRequired<DialogProviderOptions>())));

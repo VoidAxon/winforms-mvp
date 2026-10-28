@@ -85,6 +85,70 @@ namespace Kibinago.Presenters
         protected Kibinago.Services.IWindowNavigator Navigator =>
             Services.ResolveRequired<Kibinago.Services.IWindowNavigator>();
 
+        private readonly List<BusyRequest> _busy = new List<BusyRequest>();   // locked: a token may be disposed on any thread
+
+        /// <summary>
+        /// Shows that the view is busy until the result is disposed: <c>using (ShowBusy()) { ... }</c>,
+        /// around synchronous work or <c>await</c>s alike. With the WinForms implementation the view's
+        /// window shows the wait cursor and takes no input (the title bar, dialogs and other windows stay
+        /// usable); with <c>mvp.Busy.UseOverlay()</c> an overlay also covers the view. Calls nest; requests
+        /// still open when the presenter is disposed end then. Call it on the UI thread, once a view is attached.
+        /// </summary>
+        /// <param name="message">A short text for the overlay (the built-in one shows it under the ring, at most two lines); the wait cursor alone shows none.</param>
+        /// <returns>Ends this busy request when disposed (again: no effect).</returns>
+        protected IDisposable ShowBusy(string message = null)
+        {
+            if (View == null)
+                throw new InvalidOperationException(GetType().Name + ": ShowBusy needs an attached view (call it from OnViewAttached on).");
+            var request = new BusyRequest(this);
+            if (_isDisposed) return request;   // closing: nothing to show
+
+            var indicator = Services.Resolve<IBusyIndicator>() ?? NullBusyIndicator.Instance;
+            request.Inner = indicator.Begin(View, message);
+            lock (_busy) _busy.Add(request);
+            if (_isDisposed) request.Dispose();   // Begin led to this presenter's disposal (its EndBusy ran before the Add)
+            return request;
+        }
+
+        private void EndBusy()
+        {
+            BusyRequest[] open;
+            lock (_busy)
+            {
+                open = _busy.ToArray();
+                _busy.Clear();
+            }
+            List<Exception> failures = null;
+            foreach (var request in open)
+            {
+                try { request.Dispose(); }
+                catch (Exception ex) { (failures ?? (failures = new List<Exception>())).Add(ex); }
+            }
+            if (failures != null) throw new AggregateException(failures);
+        }
+
+        // The presenter's handle on one busy request: ends it once, and lets go of the presenter.
+        private sealed class BusyRequest : IDisposable
+        {
+            private PresenterBase<TView> _owner;
+            private IDisposable _inner;
+
+            public BusyRequest(PresenterBase<TView> owner) { _owner = owner; }
+
+            public IDisposable Inner { set => _inner = value; }
+
+            public void Dispose()
+            {
+                var inner = System.Threading.Interlocked.Exchange(ref _inner, null);
+                var owner = System.Threading.Interlocked.Exchange(ref _owner, null);
+                if (owner != null)
+                {
+                    lock (owner._busy) owner._busy.Remove(this);
+                }
+                inner?.Dispose();
+            }
+        }
+
         private ILogger _logger;
 
         /// <summary>
@@ -460,6 +524,7 @@ namespace Kibinago.Presenters
                 _boundBinder?.Unbind();
                 _boundBinder = null;
             });
+            Try(failures, EndBusy);   // busy requests still open end with the presenter
 
             // User teardown first (presenter state still intact), then the children in reverse order
             // (they may still use this presenter's resources), then the framework sweeps the
