@@ -147,9 +147,14 @@ namespace Kibinago.Services
             public Size Size { get; }
             public Graphics Graphics { get; private set; }
 
+            // A Graphics keeps the resolution its bitmap had when it was created: recreate it after a change.
             public void SetDpi(float dpi)
             {
-                if (dpi > 0 && Math.Abs(_bitmap.HorizontalResolution - dpi) > 0.01f) _bitmap.SetResolution(dpi, dpi);
+                if (dpi <= 0 || Math.Abs(_bitmap.HorizontalResolution - dpi) <= 0.01f) return;
+                _bitmap.SetResolution(dpi, dpi);
+                var replacement = Graphics.FromImage(_bitmap);
+                Graphics.Dispose();
+                Graphics = replacement;
             }
 
             public void Present(IntPtr window, Point location)

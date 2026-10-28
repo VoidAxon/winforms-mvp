@@ -466,6 +466,18 @@ namespace Kibinago.Samples.Tests.Services
         }
 
         [Fact]
+        public void APopupSurface_PaintsAtTheDpiItIsGiven_AfterAChangeToo()
+        {
+            using (var form = new ViewForm())
+            using (var popup = new BusyLayeredPopup(form.Handle))
+            {
+                Assert.Equal(144f, popup.Begin(new Size(40, 30), 144).DpiX, 1);
+                Assert.Equal(96f, popup.Begin(new Size(40, 30), 96).DpiX, 1);    // same surface, another DPI
+                Assert.Equal(120f, popup.Begin(new Size(50, 30), 120).DpiY, 1);  // a new surface
+            }
+        }
+
+        [Fact]
         public void APopup_IsNotAForm_AndItsHandleIsGoneAfterDispose()
         {
             using (var form = new ViewForm())

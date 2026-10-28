@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Kibinago.Common;
 using Kibinago.Presenters;
 using Kibinago.Services;
 using Kibinago.Testing;
@@ -124,6 +125,34 @@ namespace Kibinago.Samples.Tests.Presenters
 
                 Assert.False(fakes.Busy.IsBusy);
             }
+        }
+
+        private sealed class ReentrantIndicator : IBusyIndicator
+        {
+            public Action DuringBegin { get; set; }
+            public bool Ended { get; private set; }
+
+            public IDisposable Begin(IViewBase view, string message)
+            {
+                DuringBegin?.Invoke();
+                return Disposable.Create(() => Ended = true);
+            }
+        }
+
+        [Fact]
+        public void APresenterDisposedWhileTheIndicatorBegins_EndsThatRequestToo()
+        {
+            var services = TestServices.Create();
+            var indicator = new ReentrantIndicator();
+            services.RegisterInstance<IBusyIndicator>(indicator);
+            var view = new BusyView();
+            var presenter = new BusyPresenter();
+            var host = PresenterTestHost.Start(services, presenter, view);
+            indicator.DuringBegin = host.Dispose;   // e.g. an indicator whose Begin closes the window
+
+            view.Binder.Dispatch(Actions.Hold);
+
+            Assert.True(indicator.Ended);
         }
 
         [Fact]

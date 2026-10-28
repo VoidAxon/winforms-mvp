@@ -106,6 +106,7 @@ namespace Kibinago.Presenters
             var indicator = Services.Resolve<IBusyIndicator>() ?? NullBusyIndicator.Instance;
             request.Inner = indicator.Begin(View, message);
             lock (_busy) _busy.Add(request);
+            if (_isDisposed) request.Dispose();   // Begin led to this presenter's disposal (its EndBusy ran before the Add)
             return request;
         }
 
