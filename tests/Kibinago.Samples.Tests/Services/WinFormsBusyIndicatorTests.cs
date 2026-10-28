@@ -394,6 +394,15 @@ namespace Kibinago.Samples.Tests.Services
         }
 
         [Fact]
+        public void TheBuiltInLook_HasNoBackdropWindow_WhenItsBackdropIsFullyTransparent()
+        {
+            Assert.True(new HudBusyRenderer().HasBackdrop);
+            Assert.True(new HudBusyRenderer { Backdrop = Color.FromArgb(1, 0, 0, 0) }.HasBackdrop);
+            Assert.False(new HudBusyRenderer { Backdrop = Color.Transparent }.HasBackdrop);
+            Assert.False(new HudBusyRenderer { Backdrop = Color.FromArgb(0, 255, 0, 0) }.HasBackdrop);
+        }
+
+        [Fact]
         public void APopup_IsNotAForm_AndItsHandleIsGoneAfterDispose()
         {
             using (var form = new ViewForm())

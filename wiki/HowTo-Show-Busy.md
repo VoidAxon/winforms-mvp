@@ -68,6 +68,14 @@ MvpApplication.Configure(framework: mvp =>
 ```
 
 - 既定の見た目 (`HudBusyRenderer`) は文字を出しません。リングは Windows 11 の ProgressRing と同じ動きです。
+- 背景の色と濃さは `Backdrop` で変えられます (色のアルファが濃さ。既定は白、115/255)。完全な透明 (`Color.Transparent`) にすると背景を出さず、中央の四角だけになります (View 全体を覆うウィンドウも作りません)。
+
+```csharp
+mvp.Busy.UseOverlay(new HudBusyRenderer { Backdrop = Color.FromArgb(60, 0, 0, 0) });   // 少し暗くする
+mvp.Busy.UseOverlay(new HudBusyRenderer { Backdrop = Color.Transparent });             // 背景なし
+```
+
+- 背景があってもなくても、入力のブロックは同じです (ブロックはメッセージフィルターが行う)。違いはマウスを乗せたときの見た目だけで、背景があると下のボタンが光らず、ないと光ります (押しても何も起きません)。
 - オーバーレイは **View のコントロールではなく、別のウィンドウ** (フォームが所有者の、アクティブにならない層付きウィンドウ) です。View の `Controls`・レイアウト・Z 順は変わらず、`Application.OpenForms` にも出ません。
 - View とその親の移動・サイズ変更・表示切り替えに追従し、親で隠れた部分 (スクロールで外れた部分、MDI の表示域の外) は覆いません。
 - 子パネルの Busy では、オーバーレイはそのパネルの上だけです (どこを読み込み中かが分かる。操作はフォーム全体で止まる)。

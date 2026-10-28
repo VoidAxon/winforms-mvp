@@ -133,14 +133,22 @@ namespace Kibinago.Services
     }
 
     /// <summary>
-    /// The built-in overlay (<c>mvp.Busy.UseOverlay()</c>): the view washed out with white and, in its middle,
-    /// a white rounded square with a ring like the Windows 11 ProgressRing (an arc that grows and shrinks
-    /// while it turns). It shows no text; derive from <see cref="BusyRenderer"/> to show the message.
+    /// The built-in overlay (<c>mvp.Busy.UseOverlay()</c>): the view washed out with <see cref="Backdrop"/>
+    /// (white by default) and, in its middle, a white rounded square with a ring like the Windows 11
+    /// ProgressRing (an arc that grows and shrinks while it turns). It shows no text; derive from
+    /// <see cref="BusyRenderer"/> to show the message.
     /// </summary>
     public class HudBusyRenderer : BusyRenderer
     {
+        /// <summary>
+        /// The color laid over the whole view, its alpha the opacity (default white at 115 of 255). A fully
+        /// transparent color (<see cref="Color.Transparent"/>, alpha 0) means no backdrop: only the square
+        /// shows and no window covers the rest of the view. Set it before the renderer is used.
+        /// </summary>
+        public Color Backdrop { get; set; } = Color.FromArgb(115, 255, 255, 255);
+
         /// <inheritdoc />
-        public override bool HasBackdrop => true;
+        public override bool HasBackdrop => Backdrop.A > 0;
 
         /// <summary>The square's size at 96 dpi (default 72); smaller in a small view.</summary>
         public int Size { get; set; } = 72;
@@ -148,7 +156,7 @@ namespace Kibinago.Services
         /// <inheritdoc />
         public override void PaintBackdrop(BusyPaintContext context)
         {
-            using (var wash = new SolidBrush(Color.FromArgb(115, 255, 255, 255))) context.Graphics.FillRectangle(wash, context.Bounds);
+            using (var wash = new SolidBrush(Backdrop)) context.Graphics.FillRectangle(wash, context.Bounds);
         }
 
         /// <inheritdoc />
