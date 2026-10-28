@@ -8,6 +8,10 @@
 
 ## [Unreleased]
 
+### Added (追加)
+
+- **アナライザ `MVP018`** — フィールド / プロパティに入れた新しい `Debouncer` / `Throttler` を、そのクラスのどこでも破棄していないと警告 (タイマーが画面を閉じた後も発火し、破棄済みの View に触れるため)。生成時の `.DisposeWith(...)`、`.Dispose()` / `?.Dispose()`、`using`、メソッドへの引数 (`Disposables.Add(_x)`) のどれかがクラス内 (partial を含む) にあればよい。Presenter に限らず Form も対象。ローカル変数・static フィールドは対象外。
+
 ## [1.0.0-preview.14] - 2026-10-28
 
 ### Added (追加)

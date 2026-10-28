@@ -124,5 +124,14 @@ namespace Kibinago.Analyzers
             defaultSeverity: DiagnosticSeverity.Warning,
             isEnabledByDefault: true,
             description: "IEventAggregator subscriptions are strong references that live until their token is disposed. Discarding the token from Subscribe leaks the handler and everything it captures (typically the presenter and its view) for the aggregator's lifetime. Assign it to an explicit discard (_ = ...) to state that the subscription is intentionally permanent.");
+
+        public static readonly DiagnosticDescriptor MVPRule18UndisposedRateLimiter = new DiagnosticDescriptor(
+            id: "MVP018",
+            title: "Dispose the Debouncer / Throttler",
+            messageFormat: "'{0}' holds a new {1} that this class never disposes, so a pending call can still run after the presenter or window is gone. Create it with .DisposeWith(Disposables) or dispose it in Cleanup / Dispose.",
+            category: Category,
+            defaultSeverity: DiagnosticSeverity.Warning,
+            isEnabledByDefault: true,
+            description: "A Debouncer or Throttler owns a timer. One stored in a field or property and never disposed keeps firing after its owner is closed: a pending debounce runs against a disposed view, and the timer keeps the owner alive. Dispose it with the owner: .DisposeWith(Disposables) at the creation in a presenter, or .Dispose() in Cleanup / the Form's Dispose.");
     }
 }
