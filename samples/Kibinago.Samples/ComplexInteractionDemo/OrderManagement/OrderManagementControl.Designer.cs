@@ -17,6 +17,9 @@ namespace Kibinago.Samples.ComplexInteractionDemo.OrderManagement
 
         private void InitializeComponent()
         {
+            // The panels are docked: below this size the tab scrolls instead of hiding their buttons.
+            this.AutoScroll = true;
+            this.AutoScrollMinSize = new System.Drawing.Size(800, 560);
             this.panelTop = new System.Windows.Forms.Panel();
             this.lblTitle = new System.Windows.Forms.Label();
             this.panelBottom = new System.Windows.Forms.Panel();
