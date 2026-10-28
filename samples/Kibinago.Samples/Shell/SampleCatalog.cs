@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Kibinago.Samples.BusyDemo;
+using Kibinago.Samples.ChangeTrackingDemo;
 using Kibinago.Samples.CompositionDemo;
 using Kibinago.Samples.FirstErrorDemo;
 using Kibinago.Samples.ListDemo;
@@ -28,6 +29,7 @@ namespace Kibinago.Samples.Shell
         public const string AnchoredMessage = "anchored-message";
         public const string Validation = "validation";
         public const string FirstError = "first-error";
+        public const string ProfileEdit = "profile-edit";
         public const string Sort = "sort";
         public const string Move = "move";
         public const string Contacts = "contacts";
@@ -190,6 +192,20 @@ namespace Kibinago.Samples.Shell
                     SampleDemo.Window(DemoIds.Validation, "入力検証 (アイコン付き)",
                         "DataAnnotations、ErrorProvider、送信時にまとめて表示。",
                         "ValidationDemo/ValidationDemoPresenter.cs", "ValidationDemo/RegistrationModel.cs", "ValidationDemo/IValidationDemoView.cs", "ValidationDemo/ValidationDemoForm.cs"),
+                }),
+
+            new SampleCategory("tracking", "変更追跡", "未保存の変更があるか",
+                "TrackChanges(model) はモデルのスナップショットを取り、IsChanged で内容を比べます (値を元に戻せば「変更なし」)。\r\n" +
+                "検出だけの部品です: 元に戻す機能やイベントはありません。保存したら AcceptChanges()、元に戻すときは読み直して新しく追跡します。\r\n" +
+                "使い方は 2 通り: 1 つのオブジェクトをその場で編集する (このデモ) か、毎回 View から新しいモデルを作って IsChangedWith(model) で比べるか。\r\n" +
+                "画面ごとに無視するメンバーは .Ignore(x => x.UpdatedAt)。ウィンドウでは同じ IsChanged を CanClose の「保存しますか」に使います (ウィンドウ → 閉じる確認)。",
+                new[] { new WikiLink("ChangeTracker", "Reference-ChangeTracker") },
+                new[]
+                {
+                    SampleDemo.Embedded(DemoIds.ProfileEdit, "変更の検出",
+                        "編集すると「未保存の変更」、元の値に戻すと消えます。UpdatedAt は無視。",
+                        (a, v) => a.Attach(new ProfileEditPresenter(), (IProfileEditView)v),
+                        "ChangeTrackingDemo/ProfileEditPresenter.cs", "ChangeTrackingDemo/IProfileEditView.cs", "ChangeTrackingDemo/ProfileEditControl.cs", "ChangeTrackingDemo/PatientProfile.cs"),
                 }),
 
             new SampleCategory("list", "一覧", "並べ替え、行の移動",

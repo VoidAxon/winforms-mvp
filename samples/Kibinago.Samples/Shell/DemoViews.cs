@@ -8,6 +8,7 @@ using Kibinago.Samples.AsyncDemo;
 using Kibinago.Samples.BulkBindingDemo;
 using Kibinago.Samples.BusyDemo;
 using Kibinago.Samples.CascadeDemo;
+using Kibinago.Samples.ChangeTrackingDemo;
 using Kibinago.Samples.CheckBoxDemo;
 using Kibinago.Samples.CompositionDemo;
 using Kibinago.Samples.ComplexInteractionDemo_EventBased;
@@ -48,6 +49,7 @@ namespace Kibinago.Samples.Shell
             [DemoIds.Contacts] = () => new ContactsDemoControl(),
             [DemoIds.Reservation] = () => new ReservationDemoControl(),
             [DemoIds.FirstError] = () => new IntakeControl(),
+            [DemoIds.ProfileEdit] = () => new ProfileEditControl(),
         };
 
         // The window of each demo that opens from its tab (owner = this main window).
