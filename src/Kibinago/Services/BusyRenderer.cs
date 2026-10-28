@@ -18,7 +18,15 @@ namespace Kibinago.Services
         /// </summary>
         public int Delay { get; set; } = 150;
 
-        internal BusyOptions Copy() => new BusyOptions { Delay = Delay };
+        /// <summary>
+        /// The font of the overlay's text (<see cref="BusyLayoutContext.Font"/> / <see cref="BusyPaintContext.Font"/>,
+        /// used by <see cref="BusyPaintContext.DrawText"/>); <c>null</c> (default) for the view's font. Given in
+        /// points it scales with the view's DPI. Caller-owned: referenced, never copied or disposed — keep it
+        /// alive while the application runs.
+        /// </summary>
+        public Font Font { get; set; }
+
+        internal BusyOptions Copy() => new BusyOptions { Delay = Delay, Font = Font };
 
         internal void Validate()
         {
@@ -69,7 +77,7 @@ namespace Kibinago.Services
         /// <summary>DPI scale of the view (1.0 at 96 dpi): multiply pixel sizes by it.</summary>
         public float Scale { get; }
 
-        /// <summary>The view's font.</summary>
+        /// <summary>The font to write with: <see cref="BusyOptions.Font"/> (<c>mvp.Busy.Font</c>), or the view's font.</summary>
         public Font Font { get; }
 
         /// <summary>The text given to <c>ShowBusy</c>, or <c>null</c>.</summary>
@@ -121,7 +129,7 @@ namespace Kibinago.Services
         /// <summary>DPI scale of the view (1.0 at 96 dpi).</summary>
         public float Scale { get; }
 
-        /// <summary>The view's font.</summary>
+        /// <summary>The font to write with: <see cref="BusyOptions.Font"/> (<c>mvp.Busy.Font</c>), or the view's font.</summary>
         public Font Font { get; }
 
         /// <summary>The text given to <c>ShowBusy</c>, or <c>null</c>.</summary>

@@ -79,8 +79,11 @@ MvpApplication.Configure(framework: mvp =>
 {
     mvp.Busy.UseOverlay();     // 既定の見た目: View を白く薄め、中央の白い角丸四角にリング
     mvp.Busy.Delay = 150;      // オーバーレイは 150ms 後から (短い処理でちらつかない)。既定 150
+    mvp.Busy.Font = new Font("Meiryo UI", 9.75f);   // 文字のフォント。既定 (null) は View のフォント
 });
 ```
+
+- `mvp.Busy.Font` はオーバーレイの文字 (`ShowBusy("…")`) に使われ、自作の `BusyRenderer` にも `context.Font` として渡ります。ポイントで指定すれば高 DPI でも大きさが合います。渡した Font はアプリのものです: フレームワークは参照するだけで、コピーも破棄もしません (アプリの実行中は破棄しないでください)。
 
 - 既定の見た目 (`HudBusyRenderer`) のリングは Windows 11 の ProgressRing と同じ動きです。
 - `ShowBusy()` (文字なし) では四角とリングだけ。`ShowBusy("集計中…")` のように文字を渡すと、四角が横に広がり、リングの下に文字が出ます。幅は `MaxTextWidth` (既定 240px) まで、2 行まで、残りは「…」で切ります (長い文字を渡されても画面を崩しません)。

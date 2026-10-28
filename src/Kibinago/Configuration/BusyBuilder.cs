@@ -21,6 +21,13 @@ namespace Kibinago.Configuration
             set { _owner.EnsureNotBuilt(); Options.Delay = value; }
         }
 
+        /// <summary>The overlay's font (<c>null</c>: the view's). Caller-owned, never disposed. See <see cref="BusyOptions.Font"/>.</summary>
+        public System.Drawing.Font Font
+        {
+            get => Options.Font;
+            set { _owner.EnsureNotBuilt(); Options.Font = value; }
+        }
+
         /// <summary>Covers busy views with the built-in overlay (<see cref="HudBusyRenderer"/>: a white square with a ring in the middle).</summary>
         public BusyBuilder UseOverlay() => UseOverlay(new HudBusyRenderer());
 

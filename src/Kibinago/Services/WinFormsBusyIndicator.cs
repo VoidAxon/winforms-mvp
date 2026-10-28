@@ -1,4 +1,5 @@
 using System;
+using System.Drawing;
 using System.Threading;
 using System.Windows.Forms;
 using Kibinago.Logging;
@@ -29,6 +30,7 @@ namespace Kibinago.Services
     public sealed class WinFormsBusyIndicator : IBusyIndicator
     {
         private readonly int _delay;
+        private readonly Font _font;
         private readonly BusyRenderer _overlay;
         private readonly ILogger _logger;
 
@@ -41,6 +43,7 @@ namespace Kibinago.Services
             var copy = (options ?? new BusyOptions()).Copy();
             copy.Validate();
             _delay = copy.Delay;
+            _font = copy.Font;
             _overlay = overlay;
             _logger = loggerFactory?.CreateLogger(typeof(WinFormsBusyIndicator));
         }
@@ -89,7 +92,7 @@ namespace Kibinago.Services
             {
                 if (Volatile.Read(ref _ended) != 0 || view.IsDisposed) return;
                 _coordinator = BusyCoordinator.ForCurrentThread();
-                _request = _coordinator.Begin(view, message, _owner._overlay, _owner._delay, _owner._logger);
+                _request = _coordinator.Begin(view, message, _owner._overlay, _owner._delay, _owner._font, _owner._logger);
                 Volatile.Write(ref _context, SynchronizationContext.Current);
                 Volatile.Write(ref _thread, Thread.CurrentThread);   // last: Dispose on another thread now posts the release
                 if (Volatile.Read(ref _ended) != 0) Release();   // disposed on another thread while starting

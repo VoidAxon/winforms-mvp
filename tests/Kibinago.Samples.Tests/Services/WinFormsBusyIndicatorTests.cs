@@ -23,6 +23,20 @@ namespace Kibinago.Samples.Tests.Services
 
         private sealed class ViewPanel : UserControl, IViewBase { }
 
+        private sealed class FontRecordingRenderer : BusyRenderer
+        {
+            public Font LayoutFont { get; private set; }
+            public Font PaintFont { get; private set; }
+
+            public override Rectangle GetIndicatorBounds(BusyLayoutContext context)
+            {
+                LayoutFont = context.Font;
+                return new Rectangle(0, 0, 20, 20);
+            }
+
+            public override void PaintIndicator(BusyPaintContext context) => PaintFont = context.Font;
+        }
+
         private sealed class ThrowingRenderer : BusyRenderer
         {
             public override Rectangle GetIndicatorBounds(BusyLayoutContext context) => throw new InvalidOperationException("renderer bug");
@@ -485,6 +499,31 @@ namespace Kibinago.Samples.Tests.Services
                     Assert.False(filter.ShouldBlock(WM_MOUSEMOVE, IntPtr.Zero, button));
                     Assert.False(filter.ShouldBlock(WM_LBUTTONDOWN, IntPtr.Zero, other));
                     Assert.False(filter.ShouldBlock(WM_LBUTTONDOWN, IntPtr.Zero, null));      // a MessageBox, an overlay
+                }
+                AssertNothingBusy();
+            }
+        }
+
+        [Fact]
+        public void TheOverlay_WritesWithTheConfiguredFont_OrTheViewsFont()
+        {
+            using (var font = new Font("Arial", 12f))
+            using (var form = new ViewForm { ShowInTaskbar = false, StartPosition = FormStartPosition.Manual, Location = new Point(-2000, -2000), Font = new Font("Tahoma", 9f) })
+            {
+                form.Show();
+                var configured = new FontRecordingRenderer();
+                using (new WinFormsBusyIndicator(new BusyOptions { Delay = 0, Font = font }, configured).Begin(form, null))
+                {
+                    Application.DoEvents();
+                    Assert.Same(font, configured.LayoutFont);
+                    Assert.Same(font, configured.PaintFont);
+                }
+
+                var plain = new FontRecordingRenderer();
+                using (new WinFormsBusyIndicator(new BusyOptions { Delay = 0 }, plain).Begin(form, null))
+                {
+                    Application.DoEvents();
+                    Assert.Same(form.Font, plain.LayoutFont);
                 }
                 AssertNothingBusy();
             }
