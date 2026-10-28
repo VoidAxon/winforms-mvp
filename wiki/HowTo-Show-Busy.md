@@ -37,7 +37,22 @@ Dispatcher.Register(Actions.Load, async ct =>
 - `ShowBusy()` は Presenter の protected メソッドです。戻り値を `Dispose` すると終わります (`using`)。
 - 入れ子にでき、どの順で終わっても構いません。2 回目の `Dispose` は何もしません。
 - Presenter が破棄されると (ウィンドウを閉じた、コントロールが破棄された)、終わっていない Busy もそこで終わります。
-- View がアタッチされてから (`OnViewAttached` 以降)、UI スレッドで呼びます。戻り値の `Dispose` はどのスレッドからでも構いません。
+- View がアタッチされてから (`OnViewAttached` 以降) 呼びます。呼ぶのも戻り値の `Dispose` も、どのスレッドからでも構いません。
+
+重い処理をワーカーで動かすときは、UI スレッドで Busy を始めてから `await Task.Run(...)` するのが基本です (始めた瞬間からブロックされ、終わりも UI スレッド):
+
+```csharp
+Dispatcher.Register(Actions.Export, async ct =>
+{
+    using (ShowBusy("出力中…"))
+    {
+        await Task.Run(() => _exporter.Export(_rows), ct);   // ワーカーで重い処理
+    }
+    Toasts.Show("出力しました", ToastType.Success);
+});
+```
+
+ワーカーの中から `ShowBusy()` を呼んでも動きます: UI スレッドへ送られて少し遅れて始まり (その間の入力はまだ受け付ける)、`Dispose` も UI スレッドへ送られて終わります。ウィンドウにまだハンドルがない (表示前) ときは何もしません。ワーカーから `View` に触れてはいけないのは Busy と関係なく同じです。
 
 ## 何が起きるか
 

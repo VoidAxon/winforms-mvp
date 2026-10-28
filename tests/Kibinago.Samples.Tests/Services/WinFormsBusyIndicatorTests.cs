@@ -352,6 +352,47 @@ namespace Kibinago.Samples.Tests.Services
         }
 
         [Fact]
+        public void BeginAndEndOnAWorker_ArePostedToTheUiThread()
+        {
+            using (var form = new ViewForm())
+            {
+                var context = new WindowsFormsSynchronizationContext();
+                System.Threading.SynchronizationContext.SetSynchronizationContext(context);
+                try
+                {
+                    // Posted; it may already run while this STA thread waits for the worker (the wait pumps).
+                    var busy = System.Threading.Tasks.Task.Run(() => new WinFormsBusyIndicator().Begin(form, null)).Result;
+
+                    Application.DoEvents();             // the UI thread starts it
+                    Assert.True(form.UseWaitCursor);
+                    Assert.True(Coordinator.IsBlocked(form));
+
+                    System.Threading.Tasks.Task.Run(busy.Dispose).Wait();
+                    Application.DoEvents();             // … and ends it
+                    Assert.False(form.UseWaitCursor);
+                    AssertNothingBusy();
+                }
+                finally
+                {
+                    System.Threading.SynchronizationContext.SetSynchronizationContext(null);
+                }
+            }
+        }
+
+        [Fact]
+        public void ARequestBegunAndEndedOnAWorkerBeforeTheUiThreadRuns_NeverStarts()
+        {
+            using (var form = new ViewForm())
+            {
+                System.Threading.Tasks.Task.Run(() => new WinFormsBusyIndicator().Begin(form, null).Dispose()).Wait();
+                Application.DoEvents();   // the posted start finds the request ended
+
+                Assert.False(form.UseWaitCursor);
+                AssertNothingBusy();
+            }
+        }
+
+        [Fact]
         public void BeginOnAWorker_BeforeAnyHandle_DoesNothing_AndRaisesNoError()
         {
             using (var form = new ViewForm(createHandle: false))

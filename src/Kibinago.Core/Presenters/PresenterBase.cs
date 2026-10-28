@@ -92,7 +92,10 @@ namespace Kibinago.Presenters
         /// around synchronous work or <c>await</c>s alike. With the WinForms implementation the view's
         /// window shows the wait cursor and takes no input (the title bar, dialogs and other windows stay
         /// usable); with <c>mvp.Busy.UseOverlay()</c> an overlay also covers the view. Calls nest; requests
-        /// still open when the presenter is disposed end then. Call it on the UI thread, once a view is attached.
+        /// still open when the presenter is disposed end then. Call it once a view is attached, on any thread:
+        /// from a worker the WinForms implementation posts it to the UI thread, so it takes effect shortly
+        /// after (nothing happens before the window has a handle). Usual form: on the UI thread,
+        /// <c>using (ShowBusy()) { await Task.Run(...); }</c>.
         /// </summary>
         /// <param name="message">A short text for the overlay (the built-in one shows it under the ring, at most two lines); the wait cursor alone shows none.</param>
         /// <returns>Ends this busy request when disposed (again: no effect).</returns>
