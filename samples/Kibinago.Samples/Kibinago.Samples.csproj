@@ -20,6 +20,13 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
+    <!-- Syntax-highlighted sources in the main window's コード tab (MIT; sample only, not a framework dependency). -->
+    <PackageReference Include="Scintilla5.NET" Version="7.1.1" />
+  </ItemGroup>
+
+  <!-- The sample's own sources, shown in the main window's コード tab (Shell/SampleSources.cs). -->
+  <ItemGroup>
+    <EmbeddedResource Include="**\*.cs" Exclude="bin\**;obj\**" LogicalName="Source/%(RecursiveDir)%(Filename)%(Extension)" WithCulture="false" />
   </ItemGroup>
 
   <ItemGroup>

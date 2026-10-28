@@ -15,18 +15,6 @@ namespace Kibinago.Samples.ValidationDemo
     /// </summary>
     public partial class ValidationDemoForm : Form, IValidationDemoView
     {
-        private TextBox _userNameTextBox;
-        private TextBox _emailTextBox;
-        private TextBox _passwordTextBox;
-        private TextBox _confirmPasswordTextBox;
-        private NumericUpDown _ageNumeric;
-        private TextBox _phoneTextBox;
-
-        private Button _submitButton;
-        private Button _resetButton;
-        private Button _validateAllButton;
-
-        private ErrorProvider _errorProvider;
         private ControlErrorDisplay _errors;
         private ViewActionBinder _binder;
 
@@ -35,70 +23,6 @@ namespace Kibinago.Samples.ValidationDemo
             InitializeComponent();
             InitializeValidationDisplay();
             InitializeActionBindings();
-        }
-
-        private void InitializeComponent()
-        {
-            this.Text = "Validation Demo - Complex Validation Patterns";
-            this.Size = new Size(700, 520);
-            this.StartPosition = FormStartPosition.CenterScreen;
-            this.Font = new Font("Segoe UI", 9f);
-            this.FormBorderStyle = FormBorderStyle.FixedDialog;
-            this.MaximizeBox = false;
-
-            int labelX = 30;
-            int fieldX = 200;
-            int fieldWidth = 400;
-            int rowHeight = 40;
-            int currentY = 30;
-
-            var titleLabel = new Label
-            {
-                Text = "Registration Form with Validation",
-                Location = new Point(30, currentY),
-                Size = new Size(600, 25),
-                Font = new Font("Segoe UI", 12f, FontStyle.Bold),
-                ForeColor = Color.DarkBlue
-            };
-            this.Controls.Add(titleLabel);
-            currentY += 30;
-
-            var hintLabel = new Label
-            {
-                Text = "Errors appear next to a field after you leave it. Submit or Validate All shows every error. " +
-                       "Try the reserved user name \"admin\".",
-                Location = new Point(30, currentY),
-                Size = new Size(620, 35),
-                ForeColor = Color.DimGray
-            };
-            this.Controls.Add(hintLabel);
-            currentY += 45;
-
-            _userNameTextBox = CreateTextRow("User Name:", labelX, fieldX, fieldWidth, ref currentY, rowHeight);
-            _emailTextBox = CreateTextRow("Email:", labelX, fieldX, fieldWidth, ref currentY, rowHeight);
-            _passwordTextBox = CreateTextRow("Password:", labelX, fieldX, fieldWidth, ref currentY, rowHeight);
-            _passwordTextBox.UseSystemPasswordChar = true;
-            _confirmPasswordTextBox = CreateTextRow("Confirm Password:", labelX, fieldX, fieldWidth, ref currentY, rowHeight);
-            _confirmPasswordTextBox.UseSystemPasswordChar = true;
-
-            this.Controls.Add(CreateRowLabel("Age:", labelX, currentY));
-            _ageNumeric = new NumericUpDown
-            {
-                Location = new Point(fieldX, currentY),
-                Size = new Size(100, 25),
-                Minimum = 0,
-                Maximum = 150
-            };
-            _ageNumeric.ValueChanged += OnFieldChanged;
-            this.Controls.Add(_ageNumeric);
-            currentY += rowHeight;
-
-            _phoneTextBox = CreateTextRow("Phone Number (Optional):", labelX, fieldX, fieldWidth, ref currentY, rowHeight);
-            currentY += 20;
-
-            _submitButton = CreateButton("Submit", labelX, currentY, 150, Color.FromArgb(40, 167, 69));
-            _validateAllButton = CreateButton("Validate All", labelX + 160, currentY, 150, Color.FromArgb(0, 120, 215));
-            _resetButton = CreateButton("Reset", labelX + 320, currentY, 150, Color.Gray);
         }
 
         private void InitializeValidationDisplay()

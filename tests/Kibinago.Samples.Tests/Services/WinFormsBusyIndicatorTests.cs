@@ -11,6 +11,7 @@ namespace Kibinago.Samples.Tests.Services
     /// The WinForms busy indicator: wait cursor, input block, and that every way a request can end leaves
     /// nothing behind (counts, blocked windows, overlay windows, Application.OpenForms).
     /// </summary>
+    [Collection("OpenForms")]   // counts Application.OpenForms: not alongside other tests that show forms
     public class WinFormsBusyIndicatorTests
     {
         private sealed class ViewForm : Form, IViewBase

@@ -12,7 +12,7 @@ namespace Kibinago.Samples.ToDoDemo
     /// - Only data properties, events, and behavior methods
     /// - Presenter has NO knowledge of how UI is implemented
     /// </summary>
-    public interface IToDoView : IWindowView
+    public interface IToDoView : IActionableView   // a panel in a tab (IWindowView is for windows)
     {
         // ========================================
         // Data Properties (no UI types!)

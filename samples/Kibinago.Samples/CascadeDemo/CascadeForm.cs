@@ -4,7 +4,7 @@ using Kibinago.Presenters;
 
 namespace Kibinago.Samples.CascadeDemo
 {
-    public sealed class CascadeForm : Form
+    public sealed partial class CascadeForm : Form
     {
         // held so they are not collected and are disposed with their controls
         private readonly CategoryListPresenter _categoryPresenter;
@@ -13,28 +13,7 @@ namespace Kibinago.Samples.CascadeDemo
 
         public CascadeForm()
         {
-            Text = "Cascade Demo - Category > SubCategory > Product";
-            Width = 720;
-            Height = 420;
-
-            var layout = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                ColumnCount = 3,
-                RowCount = 1,
-                Padding = new Padding(8)
-            };
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.3f));
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.3f));
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.4f));
-
-            var categoryControl = new SelectListControl<Category>("Category") { Dock = DockStyle.Fill };
-            var subCategoryControl = new SelectListControl<SubCategory>("SubCategory") { Dock = DockStyle.Fill };
-            var productControl = new SelectListControl<Product>("Product") { Dock = DockStyle.Fill };
-            layout.Controls.Add(categoryControl, 0, 0);
-            layout.Controls.Add(subCategoryControl, 1, 0);
-            layout.Controls.Add(productControl, 2, 0);
-            Controls.Add(layout);
+            InitializeComponent();
 
             // Per-screen selections (not app-wide singletons).
             var categorySelection = new Selection<Category>();
@@ -47,9 +26,9 @@ namespace Kibinago.Samples.CascadeDemo
             _subCategoryPresenter = new SubCategoryListPresenter(categorySelection, subCategorySelection, catalog);
             _productPresenter = new ProductListPresenter(subCategorySelection, productSelection, catalog);
 
-            _categoryPresenter.Connect(categoryControl);
-            _subCategoryPresenter.Connect(subCategoryControl);
-            _productPresenter.Connect(productControl);
+            _categoryPresenter.Connect(_categoryControl);
+            _subCategoryPresenter.Connect(_subCategoryControl);
+            _productPresenter.Connect(_productControl);
         }
     }
 }

@@ -6,62 +6,14 @@ using Kibinago.ViewActions;
 
 namespace Kibinago.Samples.NavigatorDemo
 {
-    public class ConfirmDialogForm : Form, IConfirmDialogView
+    public partial class ConfirmDialogForm : Form, IConfirmDialogView
     {
-        private Label _messageLabel;
-        private Button _yesButton;
-        private Button _noButton;
-        private Button _cancelButton;
         private ViewActionBinder _binder;
 
         public ConfirmDialogForm()
         {
             InitializeComponent();
             InitializeActionBindings();
-        }
-
-        private void InitializeComponent()
-        {
-            this.Text = "Confirm";
-            this.Size = new Size(400, 200);
-            this.StartPosition = FormStartPosition.CenterParent;
-            this.FormBorderStyle = FormBorderStyle.FixedDialog;
-            this.MaximizeBox = false;
-            this.MinimizeBox = false;
-
-            _messageLabel = new Label
-            {
-                Location = new Point(20, 20),
-                Size = new Size(340, 60),
-                TextAlign = ContentAlignment.MiddleCenter
-            };
-
-            _yesButton = new Button
-            {
-                Text = "Yes",
-                Location = new Point(60, 100),
-                Size = new Size(80, 30)
-            };
-
-            _noButton = new Button
-            {
-                Text = "No",
-                Location = new Point(150, 100),
-                Size = new Size(80, 30)
-            };
-
-            _cancelButton = new Button
-            {
-                Text = "Cancel",
-                Location = new Point(240, 100),
-                Size = new Size(80, 30)
-            };
-
-            this.Controls.AddRange(new Control[] {
-                _messageLabel, _yesButton, _noButton, _cancelButton
-            });
-
-            this.CancelButton = _cancelButton;
         }
 
         public void SetTitle(string title)

@@ -36,9 +36,9 @@ namespace Kibinago.Samples.ToDoDemo
     /// 3. CanExecute predicates that control action availability
     /// 4. AUTOMATIC UI updates after actions (action-driven)
     /// 5. MANUAL UI updates from view events (state-driven via RaiseCanExecuteChanged)
-    /// 6. Simplified service injection with CommonServices.Default
+    /// 6. A control presenter: the sample's main window attaches it to its tab (AttachChild)
     /// </summary>
-    public class ToDoDemoPresenter : WindowPresenterBase<IToDoView>
+    public class ToDoDemoPresenter : ControlPresenterBase<IToDoView>
     {
         // No constructor needed - Platform services are automatically available
 
@@ -83,7 +83,7 @@ namespace Kibinago.Samples.ToDoDemo
             // Subscribe to view events for STATE-DRIVEN updates
             SubscribeToViewEvents();
 
-            View.UpdateStatus("Ready! Try adding tasks and watch buttons enable/disable automatically.");
+            View.UpdateStatus("タスクを追加して、ボタンの有効・無効が自動で切り替わるのを確認してください。");
         }
 
         private void SubscribeToViewEvents()
@@ -93,28 +93,21 @@ namespace Kibinago.Samples.ToDoDemo
             // we call RaiseCanExecuteChanged() to refresh action availability.
             // This is similar to WPF's ICommand.RaiseCanExecuteChanged().
 
-            View.SelectionChanged += (sender, e) =>
+            // SubscribeViewEvent unsubscribes when the presenter is disposed (here: when the tab's
+            // category is left), so no Cleanup override is needed.
+            SubscribeViewEvent(h => View.SelectionChanged += h, h => View.SelectionChanged -= h, () =>
             {
                 // User selected/deselected a task
                 // Notify dispatcher to re-evaluate CanExecute for all actions
                 Dispatcher.RaiseCanExecuteChanged();
 
-                // Update status
-                if (View.HasSelectedTask)
-                {
-                    View.UpdateStatus("Task selected. Delete and Complete actions are now available.");
-                }
-                else
-                {
-                    View.UpdateStatus("No task selected. Delete and Complete actions are disabled.");
-                }
-            };
+                View.UpdateStatus(View.HasSelectedTask
+                    ? "タスクを選択しました。削除と完了が使えます。"
+                    : "タスクが選択されていません。削除と完了は使えません。");
+            });
 
-            View.DataChanged += (sender, e) =>
-            {
-                // Data changed externally (e.g., checkbox toggled)
-                Dispatcher.RaiseCanExecuteChanged();
-            };
+            // Data changed externally (e.g., checkbox toggled)
+            SubscribeViewEvent(h => View.DataChanged += h, h => View.DataChanged -= h, Dispatcher.RaiseCanExecuteChanged);
         }
 
         #region Action Handlers - ACTION-DRIVEN Updates
@@ -130,7 +123,7 @@ namespace Kibinago.Samples.ToDoDemo
 
             if (string.IsNullOrWhiteSpace(taskText))
             {
-                Messages.ShowWarning("Please enter a task description.", "Empty Task");
+                Messages.ShowWarning("タスクの内容を入力してください。", "タスクが空です");
                 return;
             }
 
@@ -139,7 +132,7 @@ namespace Kibinago.Samples.ToDoDemo
             View.TaskText = string.Empty;
 
             // Show confirmation
-            Messages.ShowInfo($"Task added: {taskText}", "Success");
+            Messages.ShowInfo($"タスクを追加しました: {taskText}", "追加");
 
             // UI state automatically updates here!
             // - Save action will become available (HasPendingChanges = true)
@@ -149,7 +142,7 @@ namespace Kibinago.Samples.ToDoDemo
         private void OnRemoveTask()
         {
             // Confirm deletion
-            if (!Messages.ConfirmYesNo("Are you sure you want to delete this task?", "Confirm Delete"))
+            if (!Messages.ConfirmYesNo("このタスクを削除しますか？", "削除の確認"))
             {
                 return;
             }
@@ -178,7 +171,7 @@ namespace Kibinago.Samples.ToDoDemo
             // Simulate saving
             View.ClearPendingChanges();
 
-            Messages.ShowInfo("All changes have been saved!", "Save Successful");
+            Messages.ShowInfo("すべての変更を保存しました。", "保存");
 
             // UI state automatically updates here!
             // - Save action will become unavailable (HasPendingChanges = false)

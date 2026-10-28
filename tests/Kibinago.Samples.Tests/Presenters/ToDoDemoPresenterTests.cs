@@ -214,7 +214,7 @@ namespace Kibinago.Samples.Tests.Presenters
 
             // Assert - Verify success message was displayed
             Assert.Contains(_fakes.Messages.Calls, c => c.Kind == MessageKind.Info);
-            Assert.Contains(_fakes.Messages.Calls, c => c.Kind == MessageKind.Info && c.Text.Contains("saved"));
+            Assert.Contains(_fakes.Messages.Calls, c => c.Kind == MessageKind.Info && c.Text.Contains("保存"));
         }
 
         #endregion
