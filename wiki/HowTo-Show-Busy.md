@@ -67,7 +67,9 @@ MvpApplication.Configure(framework: mvp =>
 });
 ```
 
-- 既定の見た目 (`HudBusyRenderer`) は文字を出しません。リングは Windows 11 の ProgressRing と同じ動きです。
+- 既定の見た目 (`HudBusyRenderer`) のリングは Windows 11 の ProgressRing と同じ動きです。
+- `ShowBusy()` (文字なし) では四角とリングだけ。`ShowBusy("集計中…")` のように文字を渡すと、四角が横に広がり、リングの下に文字が出ます。幅は `MaxTextWidth` (既定 240px) まで、2 行まで、残りは「…」で切ります (長い文字を渡されても画面を崩しません)。
+- オーバーレイを使わない既定 (待ちカーソルだけ) では、文字はどこにも出ません。
 - 背景の色と濃さは `Backdrop` で変えられます (色のアルファが濃さ。既定は白、115/255)。完全な透明 (`Color.Transparent`) にすると背景を出さず、中央の四角だけになります (View 全体を覆うウィンドウも作りません)。
 
 ```csharp
@@ -113,7 +115,7 @@ public sealed class StatusRenderer : BusyRenderer
 ```
 
 - 透明度 (アルファ) は 1 ピクセルごとに効きます。半透明の色は下の View を透かします。
-- 文字は `context.DrawText` で描きます (GDI の `TextRenderer` は透明度を壊します)。長い文字は行数で切って「…」。
+- 文字は `context.DrawText` で描きます (GDI の `TextRenderer` は透明度を壊します)。長い文字は行数で切って「…」。大きさを決めるには `GetIndicatorBounds` で `context.MeasureText(text, width, maxLines)` (同じ折り返しで測る)。
 - アニメーションは `Elapsed` (表示してからの時間) から計算します。タイマーが遅れても速度が変わりません。
 - `ShowBusy("集計中…")` の文字は `Message` で受け取れます。入れ子では、終わっていない中で最後の文字が使われます。
 - 描画中の例外はログに記録され、そのオーバーレイは消えます (Busy 自体 — カーソルと入力のブロック — は続きます)。

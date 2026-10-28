@@ -347,6 +347,69 @@ namespace Kibinago.Samples.Tests.Services
         }
 
         [Fact]
+        public void ARequestEndedOnAWorker_BeforeAnyHandle_WithoutAContext_IsReleasedWhenTheHandleIsCreated()
+        {
+            // A message loop without a WindowsFormsSynchronizationContext (AutoInstall off, per thread): Begin
+            // starts at once on the UI thread, but the worker's Dispose has nothing to post through yet.
+            Exception failure = null;
+            var thread = new System.Threading.Thread(() =>
+            {
+                WindowsFormsSynchronizationContext.AutoInstall = false;
+                System.Threading.SynchronizationContext.SetSynchronizationContext(null);
+                EventHandler idle = null;
+                idle = (s, e) =>
+                {
+                    Application.Idle -= idle;
+                    try
+                    {
+                        using (var form = new ViewForm(createHandle: false))
+                        {
+                            var busy = new WinFormsBusyIndicator().Begin(form, null);
+                            Assert.True(form.UseWaitCursor);
+
+                            System.Threading.Tasks.Task.Run(busy.Dispose).Wait();
+                            Assert.True(form.UseWaitCursor);   // nothing to post through yet
+
+                            var handle = form.Handle;          // created here: the pending release runs
+                            Assert.False(form.UseWaitCursor);
+                            AssertNothingBusy();
+                        }
+                    }
+                    catch (Exception ex) { failure = ex; }
+                    finally { Application.ExitThread(); }
+                };
+                Application.Idle += idle;
+                Application.Run();
+            });
+            thread.SetApartmentState(System.Threading.ApartmentState.STA);
+            thread.Start();
+            Assert.True(thread.Join(10000));
+            if (failure != null) throw new Exception("On the UI thread: " + failure.Message, failure);
+        }
+
+        [Fact]
+        public void TheBuiltInLook_WidensForAMessage_UpToItsMaxTextWidth()
+        {
+            var renderer = new HudBusyRenderer();
+            var view = new Size(1200, 800);
+            Rectangle Bounds(string message) => renderer.GetIndicatorBounds(new BusyLayoutContext(view, 1f, SystemFonts.DefaultFont, message));
+
+            var plain = Bounds(null);
+            Assert.Equal(plain, Bounds(""));
+            Assert.Equal(plain.Width, plain.Height);   // the square
+
+            var text = Bounds("集計中…");
+            Assert.True(text.Height > plain.Height);   // the text under the ring
+
+            var longText = Bounds(new string('長', 400));
+            Assert.True(longText.Width <= renderer.MaxTextWidth + 2 * 14 + 2 * 8 + 1);   // capped: text + padding + shadow margin
+            var lineHeight = SystemFonts.DefaultFont.GetHeight(96);
+            Assert.True(longText.Height < text.Height + 2 * lineHeight);   // two lines at most
+
+            Assert.Equal(Rectangle.Empty, new HudBusyRenderer().GetIndicatorBounds(new BusyLayoutContext(new Size(60, 400), 1f, SystemFonts.DefaultFont, "集計中…")));
+        }
+
+        [Fact]
         public void TheInputFilter_DropsInputForTheBusyWindow_ButNotItsFrameAltF4OrOtherWindows()
         {
             const int WM_LBUTTONDOWN = 0x0201, WM_MOUSEMOVE = 0x0200, WM_KEYDOWN = 0x0100, WM_SYSKEYDOWN = 0x0104;

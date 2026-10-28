@@ -115,16 +115,31 @@ namespace Kibinago.Services
                     try { context.Post(_ => Release(), null); }
                     catch (InvalidOperationException) { }             // the UI thread is gone; its exit ended the request
                 }
-                else
+                else if (marshal != null && !PostRelease(marshal))
                 {
-                    // No context on the UI thread: post through the view (or its nearest handle). Without any
-                    // handle the view is not on screen; its window's close or disposal ends the request.
-                    var anchor = marshal;
-                    while (anchor != null && !anchor.IsHandleCreated) anchor = anchor.Parent;
-                    if (anchor == null || anchor.IsDisposed) return;
-                    try { anchor.BeginInvoke((Action)Release); }
-                    catch (InvalidOperationException) { }             // its handle went away meanwhile
+                    // No context on the UI thread and no handle yet (a form not shown): release when the root's
+                    // handle is created, on the UI thread creating it. Checked again after subscribing, in case
+                    // it was created meanwhile (a second Release does nothing).
+                    var root = marshal;
+                    while (root.Parent != null) root = root.Parent;
+                    EventHandler created = null;
+                    created = (s, e) => { root.HandleCreated -= created; Release(); };
+                    root.HandleCreated += created;
+                    if (PostRelease(marshal)) root.HandleCreated -= created;
                 }
+            }
+
+            // Posts the release through the view or its nearest handle; false when none has a handle. A view
+            // disposed meanwhile needs none: its disposal ends the request.
+            private bool PostRelease(Control view)
+            {
+                var anchor = view;
+                while (anchor != null && !anchor.IsHandleCreated) anchor = anchor.Parent;
+                if (anchor == null) return view.IsDisposed;
+                if (anchor.IsDisposed) return true;
+                try { anchor.BeginInvoke((Action)Release); }
+                catch (InvalidOperationException) { }                 // its handle went away meanwhile: its disposal ends the request
+                return true;
             }
 
             private void Release()

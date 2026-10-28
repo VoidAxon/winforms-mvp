@@ -74,6 +74,31 @@ namespace Kibinago.Services
 
         /// <summary>The text given to <c>ShowBusy</c>, or <c>null</c>.</summary>
         public string Message { get; }
+
+        /// <summary>
+        /// The size <see cref="BusyPaintContext.DrawText"/> needs for <paramref name="text"/> wrapped at
+        /// <paramref name="width"/>, at most <paramref name="maxLines"/> lines (the rest ends with "…" when drawn).
+        /// </summary>
+        /// <param name="text">The text; an empty size when it is empty.</param>
+        /// <param name="width">The widest the text may be, in pixels.</param>
+        /// <param name="maxLines">The most lines shown.</param>
+        /// <returns>The text's width (at most <paramref name="width"/>) and height, in pixels.</returns>
+        public SizeF MeasureText(string text, float width, int maxLines = 2)
+        {
+            if (string.IsNullOrEmpty(text) || width <= 0) return SizeF.Empty;
+            using (var bitmap = new Bitmap(1, 1))
+            {
+                bitmap.SetResolution(96 * Scale, 96 * Scale);
+                using (var g = Graphics.FromImage(bitmap))
+                using (var format = BusyPaintContext.TextFormat(maxLines))
+                {
+                    g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
+                    var lineHeight = Font.GetHeight(g);
+                    var size = g.MeasureString(text, Font, new SizeF(width, lineHeight * Math.Max(1, maxLines) + 1), format);
+                    return new SizeF(Math.Min(width, size.Width), Math.Min(size.Height, lineHeight * Math.Max(1, maxLines) + 1));
+                }
+            }
+        }
     }
 
     /// <summary>What a <see cref="BusyRenderer"/> paints with.</summary>
@@ -120,23 +145,31 @@ namespace Kibinago.Services
             var lineHeight = Font.GetHeight(Graphics);
             var lines = Math.Max(1, Math.Min(maxLines, (int)(box.Height / lineHeight)));
             var clipped = new RectangleF(box.X, box.Y, box.Width, lines * lineHeight + 1);
-            using (var format = new StringFormat { Alignment = alignment, LineAlignment = StringAlignment.Near, Trimming = StringTrimming.EllipsisCharacter })
+            using (var format = TextFormat(lines))
             using (var brush = new SolidBrush(color))
             {
-                if (lines == 1) format.FormatFlags |= StringFormatFlags.NoWrap;
+                format.Alignment = alignment;
                 var hint = Graphics.TextRenderingHint;
                 Graphics.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
                 Graphics.DrawString(text, Font, brush, clipped, format);
                 Graphics.TextRenderingHint = hint;
             }
         }
+
+        internal static StringFormat TextFormat(int lines)
+        {
+            var format = new StringFormat { LineAlignment = StringAlignment.Near, Trimming = StringTrimming.EllipsisCharacter };
+            if (lines <= 1) format.FormatFlags |= StringFormatFlags.NoWrap;
+            return format;
+        }
     }
 
     /// <summary>
     /// The built-in overlay (<c>mvp.Busy.UseOverlay()</c>): the view washed out with <see cref="Backdrop"/>
     /// (white by default) and, in its middle, a white rounded square with a ring like the Windows 11
-    /// ProgressRing (an arc that grows and shrinks while it turns). It shows no text; derive from
-    /// <see cref="BusyRenderer"/> to show the message.
+    /// ProgressRing (an arc that grows and shrinks while it turns). Given a message (<c>ShowBusy("…")</c>),
+    /// the box widens and shows it under the ring: at most <see cref="MaxTextWidth"/> wide and two lines,
+    /// the rest ended with "…".
     /// </summary>
     public class HudBusyRenderer : BusyRenderer
     {
@@ -153,6 +186,11 @@ namespace Kibinago.Services
         /// <summary>The square's size at 96 dpi (default 72); smaller in a small view.</summary>
         public int Size { get; set; } = 72;
 
+        /// <summary>The widest a message may be at 96 dpi (default 240); longer text wraps to a second line, then ends with "…".</summary>
+        public int MaxTextWidth { get; set; } = 240;
+
+        private const int TextLines = 2;
+
         /// <inheritdoc />
         public override void PaintBackdrop(BusyPaintContext context)
         {
@@ -162,12 +200,32 @@ namespace Kibinago.Services
         /// <inheritdoc />
         public override Rectangle GetIndicatorBounds(BusyLayoutContext context)
         {
+            if (!string.IsNullOrEmpty(context.Message)) return TextBounds(context);
             var s = context.Scale;
             var size = Math.Min(Size * s, Math.Min(context.ViewSize.Width, context.ViewSize.Height) - 16 * s);
             if (size < 20 * s) return Rectangle.Empty;   // no room for it
             var margin = Margin(s);
             var outer = (int)Math.Ceiling(size + 2 * margin);
             return new Rectangle((context.ViewSize.Width - outer) / 2, (context.ViewSize.Height - outer) / 2, outer, outer);
+        }
+
+        // With a message: the ring at the top, the text under it; as wide as the text needs, between the
+        // square's size and MaxTextWidth (and the view).
+        private Rectangle TextBounds(BusyLayoutContext context)
+        {
+            var s = context.Scale;
+            var margin = Margin(s);
+            var pad = Pad(s);
+            var room = context.ViewSize.Width - 16 * s - 2 * margin - 2 * pad;
+            var textWidth = Math.Min(MaxTextWidth * s, room);
+            if (textWidth < 40 * s) return Rectangle.Empty;   // no room for it
+            var text = context.MeasureText(context.Message, textWidth, TextLines);
+            var width = Math.Max(Size * s, text.Width + 2 * pad);
+            var height = pad + RingSize(s) + Gap(s) + text.Height + pad;
+            if (height > context.ViewSize.Height - 16 * s) return Rectangle.Empty;
+            var outerWidth = (int)Math.Ceiling(width + 2 * margin);
+            var outerHeight = (int)Math.Ceiling(height + 2 * margin);
+            return new Rectangle((context.ViewSize.Width - outerWidth) / 2, (context.ViewSize.Height - outerHeight) / 2, outerWidth, outerHeight);
         }
 
         /// <inheritdoc />
@@ -177,7 +235,8 @@ namespace Kibinago.Services
             var s = context.Scale;
             var margin = Margin(s);
             var box = new RectangleF(margin, margin, context.Bounds.Width - 2 * margin, context.Bounds.Height - 2 * margin);
-            var radius = Math.Min(12 * s, box.Width / 4);
+            var hasText = !string.IsNullOrEmpty(context.Message);
+            var radius = Math.Min(12 * s, Math.Min(box.Width, box.Height) / 4);
 
             for (var i = 3; i >= 1; i--)   // a soft shadow: widening, fading layers, a little lower
             {
@@ -190,14 +249,28 @@ namespace Kibinago.Services
             using (var path = Rounded(box, radius))
                 g.FillPath(fill, path);
 
-            var ring = box.Width * 0.44f;
-            var ringBox = new RectangleF(box.X + (box.Width - ring) / 2, box.Y + (box.Height - ring) / 2, ring, ring);
+            var ring = hasText ? RingSize(s) : box.Width * 0.44f;
+            var ringTop = hasText ? box.Y + Pad(s) : box.Y + (box.Height - ring) / 2;
+            var ringBox = new RectangleF(box.X + (box.Width - ring) / 2, ringTop, ring, ring);
             var (start, sweep) = Arc(context.Elapsed.TotalMilliseconds);
             using (var pen = new Pen(context.Accent, Math.Max(2f, ring * 0.12f)) { StartCap = LineCap.Round, EndCap = LineCap.Round })
                 g.DrawArc(pen, ringBox, start, sweep);
+
+            if (hasText)
+            {
+                var top = ringBox.Bottom + Gap(s);
+                var textBox = new RectangleF(box.X + Pad(s), top, box.Width - 2 * Pad(s), box.Bottom - Pad(s) - top + 1);
+                context.DrawText(context.Message, textBox, Color.FromArgb(32, 32, 32), TextLines);
+            }
         }
 
         private static float Margin(float scale) => 8 * scale;   // room for the shadow
+
+        private float RingSize(float scale) => Size * scale * 0.44f;   // the ring of the plain square
+
+        private static float Pad(float scale) => 14 * scale;   // inside the box, around the ring and text
+
+        private static float Gap(float scale) => 10 * scale;   // between the ring and the text
 
         // The head runs ahead while the arc grows (0.8 s), then the tail catches up while it shrinks (0.8 s);
         // the ring turns once every 1.3 s.

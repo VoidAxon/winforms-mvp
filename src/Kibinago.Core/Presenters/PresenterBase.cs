@@ -94,7 +94,7 @@ namespace Kibinago.Presenters
         /// usable); with <c>mvp.Busy.UseOverlay()</c> an overlay also covers the view. Calls nest; requests
         /// still open when the presenter is disposed end then. Call it on the UI thread, once a view is attached.
         /// </summary>
-        /// <param name="message">A short text for an overlay that shows one; the built-in overlay shows none.</param>
+        /// <param name="message">A short text for the overlay (the built-in one shows it under the ring, at most two lines); the wait cursor alone shows none.</param>
         /// <returns>Ends this busy request when disposed (again: no effect).</returns>
         protected IDisposable ShowBusy(string message = null)
         {
