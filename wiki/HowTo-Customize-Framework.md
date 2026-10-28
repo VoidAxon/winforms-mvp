@@ -135,7 +135,10 @@ public sealed class CompanyStyleDialogBackend : IMessageDialogBackend
 }
 ```
 
-完全なサンプルは [`samples/Kibinago.Samples/CustomizationDemo/`](https://github.com/VoidAxon/winforms-mvp/tree/master/samples/Kibinago.Samples/CustomizationDemo) (サンプルランチャーの "Framework Customization") を参照してください。
+- **Form で作るダイアログは、表示中 `Application.OpenForms` に入ります。** 既定の `NativeMessageDialogBackend` (Windows のメッセージボックス) やトースト・処理中の表示は Form ではないので入りません。`OpenForms` を順に見る処理 (すべて閉じる、メインウィンドウを探すなど) がある場合は、型でこのダイアログを除いてください (`OpenForms.Cast<Form>().Where(f => !(f is CompanyMessageForm))`)。
+- `request.Location` は `AnchoredMessageBox` (View が位置を決める表示) のときだけ値があります。`Messages` からの呼び出しでは `null` で、オーナーの中央に出します。
+
+完全なサンプルは [`samples/Kibinago.Samples/CustomizationDemo/`](https://github.com/VoidAxon/winforms-mvp/tree/master/samples/Kibinago.Samples/CustomizationDemo) (サンプルの「カスタマイズ」→ カスタム設定で別プロセスを起動) を参照してください。
 
 ---
 
