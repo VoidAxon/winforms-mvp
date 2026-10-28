@@ -328,6 +328,27 @@ namespace Kibinago.Samples.Shell
                         "CustomizationDemo/CustomizationDemoPresenter.cs", "CustomizationDemo/CustomizationDemoForm.cs", "Program.cs"),
                 }),
 
+            new SampleCategory("testing", "テスト・ツール", "Presenter のテスト、アナライザー、テンプレート",
+                "Presenter は Form なしでテストできます: モックの View を作り、PresenterTestHost.Start(services, presenter, view) で本物の初期化を走らせ、" +
+                "ボタンの代わりに view.Binder.Dispatch(アクション) で操作します (Kibinago.Testing パッケージ)。\r\n" +
+                "TestServices.CreateFakes() はフレームワークのサービスをすべて偽物にします (fakes.Messages.Calls で出したメッセージを確認、確認ダイアログの答えも指定できます)。\r\n" +
+                "テストのために Presenter の公開範囲を広げることはしません。\r\n\r\n" +
+                "アナライザー (Kibinago.Core に同梱、すべて警告): MVP001/002 名前、MVP003/004/014 Presenter と View インターフェイスに WinForms の型を入れない、" +
+                "MVP006/007/008/013/016 公開範囲とインターフェイス、MVP017 EventAggregator の購読を捨てない、MVP018 Debouncer / Throttler を破棄する。\r\n\r\n" +
+                "テンプレート: dotnet new kibinago (アプリ)、mvp-window (--edit で編集ダイアログ)、mvp-control、kibinago-tests。",
+                new[]
+                {
+                    new WikiLink("Presenter のテスト", "HowTo-Test-A-Presenter"),
+                    new WikiLink("設計ルールとアナライザー", "Design-Rules"),
+                    new WikiLink("テンプレート", "HowTo-Use-Templates"),
+                },
+                new SampleDemo[0],
+                new[]
+                {
+                    "Tests/ToDoDemoPresenterTests.cs", "Tests/MockToDoView.cs", "Tests/MoveDemoPresenterTests.cs",
+                    "Tests/IntakePresenterTests.cs", "Tests/ReservationDemoPresenterTests.cs", "Tests/ContactsDemoPresenterTests.cs",
+                }),
+
             new SampleCategory("app", "総合アプリ", "メールアプリ",
                 "ここまでの機能を組み合わせた小さなアプリです: Navigator、閉じる確認、変更追跡、入力検証。",
                 new[] { new WikiLink("大きな編集画面の作り方", "HowTo-Build-Large-Edit-Screen") },

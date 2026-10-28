@@ -27,6 +27,9 @@
   <!-- The sample's own sources, shown in the main window's コード tab (Shell/SampleSources.cs). -->
   <ItemGroup>
     <EmbeddedResource Include="**\*.cs" Exclude="bin\**;obj\**" LogicalName="Source/%(RecursiveDir)%(Filename)%(Extension)" WithCulture="false" />
+    <!-- A few presenter tests, for the テスト・ツール category. -->
+    <EmbeddedResource Include="..\..\tests\Kibinago.Samples.Tests\Presenters\ToDoDemoPresenterTests.cs;..\..\tests\Kibinago.Samples.Tests\Mocks\MockToDoView.cs;..\..\tests\Kibinago.Samples.Tests\Samples\*.cs"
+                      LogicalName="Source/Tests/%(Filename)%(Extension)" WithCulture="false" Link="Tests\%(Filename)%(Extension)" />
   </ItemGroup>
 
   <ItemGroup>
