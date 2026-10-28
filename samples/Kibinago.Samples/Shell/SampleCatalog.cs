@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Kibinago.Samples.BusyDemo;
+using Kibinago.Samples.CompositionDemo;
 using Kibinago.Samples.ListDemo;
 using Kibinago.Samples.ToDoDemo;
 
@@ -27,6 +28,8 @@ namespace Kibinago.Samples.Shell
         public const string Validation = "validation";
         public const string Sort = "sort";
         public const string Move = "move";
+        public const string Contacts = "contacts";
+        public const string Reservation = "reservation";
         public const string MasterDetail = "master-detail";
         public const string Cascade = "cascade";
         public const string ServiceBased = "service-based";
@@ -200,7 +203,9 @@ namespace Kibinago.Samples.Shell
 
             new SampleCategory("composition", "画面の組み立て", "マスター/詳細、連動する選択",
                 "1 つの画面を複数の Presenter で組み立てます。親 View のインターフェイスが子 View のインターフェイスを公開し、" +
-                "親 Presenter が AttachChild で子 Presenter をつなぎます。",
+                "親 Presenter が AttachChild で子 Presenter をつなぎます (子は親のサービスを使い、親と一緒に破棄されます)。\r\n" +
+                "行やタブのように実行中に増減するパネルは、AttachChild の戻り値 (ハンドル) を子 View ごとに持ち、外すときはハンドルを破棄してから View がコントロールを外します。\r\n" +
+                "「選択」は Selection<T> で共有し、上の選択が変わったら下を読み直す連動は Cascade.Bind (親が 2 つなら Cascade.Combine) です。",
                 new[]
                 {
                     new WikiLink("マスター/詳細", "HowTo-Implement-Master-Detail"),
@@ -208,6 +213,15 @@ namespace Kibinago.Samples.Shell
                 },
                 new[]
                 {
+                    SampleDemo.Embedded(DemoIds.Contacts, "動的なパネル (AttachChild)",
+                        "連絡先の行を追加・削除。行ごとに子 Presenter が付き、削除でハンドルを破棄します。",
+                        (a, v) => a.Attach(new ContactsDemoPresenter(), (IContactsDemoView)v),
+                        "CompositionDemo/ContactsDemoPresenter.cs", "CompositionDemo/IContactsDemoView.cs", "CompositionDemo/ContactsDemoControl.cs",
+                        "CompositionDemo/ContactRowPresenter.cs", "CompositionDemo/IContactRowView.cs", "CompositionDemo/ContactRowControl.cs", "CompositionDemo/ContactRow.cs"),
+                    SampleDemo.Embedded(DemoIds.Reservation, "3 段の連動 (Cascade.Combine)",
+                        "診療科 → 医師、医師 + 曜日 → 予約枠。上を変えると下が空になり読み直されます。",
+                        (a, v) => a.Attach(new ReservationDemoPresenter(), (IReservationDemoView)v),
+                        "CompositionDemo/ReservationDemoPresenter.cs", "CompositionDemo/IReservationDemoView.cs", "CompositionDemo/ReservationDemoControl.cs", "CompositionDemo/ReservationModels.cs"),
                     SampleDemo.Window(DemoIds.MasterDetail, "マスター/詳細",
                         "顧客を選ぶと注文が切り替わります。",
                         "MasterDetailDemo/MasterDetailPresenter.cs", "MasterDetailDemo/IMasterDetailView.cs", "MasterDetailDemo/MasterDetailForm.cs"),

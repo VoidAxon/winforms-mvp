@@ -9,6 +9,7 @@ using Kibinago.Samples.BulkBindingDemo;
 using Kibinago.Samples.BusyDemo;
 using Kibinago.Samples.CascadeDemo;
 using Kibinago.Samples.CheckBoxDemo;
+using Kibinago.Samples.CompositionDemo;
 using Kibinago.Samples.ComplexInteractionDemo_EventBased;
 using Kibinago.Samples.ComplexInteractionDemo_ServiceBased;
 using Kibinago.Samples.CustomizationDemo;
@@ -43,6 +44,8 @@ namespace Kibinago.Samples.Shell
             [DemoIds.Busy] = () => new BusyDemoControl(),
             [DemoIds.Sort] = () => new SortDemoControl(),
             [DemoIds.Move] = () => new MoveDemoControl(),
+            [DemoIds.Contacts] = () => new ContactsDemoControl(),
+            [DemoIds.Reservation] = () => new ReservationDemoControl(),
         };
 
         // The window of each demo that opens from its tab (owner = this main window).
