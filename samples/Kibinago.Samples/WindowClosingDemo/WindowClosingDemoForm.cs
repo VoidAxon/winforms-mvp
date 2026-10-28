@@ -14,71 +14,14 @@ namespace Kibinago.Samples.WindowClosingDemo
     /// overriding <c>CanClose(CloseReason)</c> (the gate every close goes through) and calling
     /// <c>RequestClose(...)</c> (Push). Buttons are bound to actions; none calls <c>Close()</c>.
     /// </remarks>
-    public class WindowClosingDemoForm : Form, IWindowClosingDemoView
+    public partial class WindowClosingDemoForm : Form, IWindowClosingDemoView
     {
-        private TextBox _textBox;
-        private Button _saveButton;
-        private Button _cancelButton;
-        private Label _statusLabel;
         private ViewActionBinder _binder;
 
         public WindowClosingDemoForm()
         {
             InitializeComponent();
             InitializeActionBindings();
-        }
-
-        private void InitializeComponent()
-        {
-            this.Text = "Window Closing Demo";
-            this.Size = new Size(500, 260);
-            this.StartPosition = FormStartPosition.CenterParent;
-            this.MinimumSize = new Size(400, 220);
-
-            var headerLabel = new Label
-            {
-                Text = "Edit the text, then Save / Cancel / close the window.\n" +
-                       "Closing with unsaved changes triggers a confirm prompt.",
-                Location = new Point(12, 12),
-                Size = new Size(460, 40),
-            };
-
-            _textBox = new TextBox
-            {
-                Location = new Point(12, 60),
-                Size = new Size(460, 23),
-                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
-            };
-            _textBox.TextChanged += (s, e) => EditChanged?.Invoke(this, EventArgs.Empty);
-
-            _saveButton = new Button
-            {
-                Text = "Save",
-                Location = new Point(316, 100),
-                Size = new Size(75, 30),
-                Anchor = AnchorStyles.Top | AnchorStyles.Right,
-            };
-
-            _cancelButton = new Button
-            {
-                Text = "Cancel",
-                Location = new Point(397, 100),
-                Size = new Size(75, 30),
-                Anchor = AnchorStyles.Top | AnchorStyles.Right,
-            };
-
-            _statusLabel = new Label
-            {
-                Location = new Point(12, 150),
-                Size = new Size(460, 60),
-                ForeColor = Color.DimGray,
-                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom,
-            };
-
-            this.Controls.AddRange(new Control[]
-            {
-                headerLabel, _textBox, _saveButton, _cancelButton, _statusLabel
-            });
         }
 
         private void InitializeActionBindings()

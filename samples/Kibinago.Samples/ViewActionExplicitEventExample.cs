@@ -103,53 +103,10 @@ namespace Kibinago.Samples
 
         public event EventHandler SelectionChanged;
 
-        // Form controls (designer-initialized)
-        private TextBox _txtItemName;
-        private NumericUpDown _numItemCount;
-        private ListBox _lstItems;
-        private Label _lblStatus;
-        private Button _btnSave;
-        private Button _btnDelete;
-        private Button _btnRefresh;
-
         public ExplicitEventDemoForm()
         {
             InitializeComponent();
             InitializeActionBindings();
-        }
-
-        private void InitializeComponent()
-        {
-            // Form setup
-            this.Text = "Explicit Event Pattern Demo";
-            this.Size = new System.Drawing.Size(500, 400);
-            this.StartPosition = FormStartPosition.CenterScreen;
-
-            // Controls initialization
-            _txtItemName = new TextBox { Left = 120, Top = 20, Width = 200 };
-            _numItemCount = new NumericUpDown { Left = 120, Top = 50, Width = 100, Maximum = 1000 };
-            _lstItems = new ListBox { Left = 20, Top = 100, Width = 300, Height = 200 };
-            _lblStatus = new Label { Left = 20, Top = 320, Width = 450, Height = 20 };
-
-            _btnSave = new Button { Text = "Save", Left = 350, Top = 100, Width = 100 };
-            _btnDelete = new Button { Text = "Delete", Left = 350, Top = 140, Width = 100 };
-            _btnRefresh = new Button { Text = "Refresh", Left = 350, Top = 180, Width = 100 };
-
-            var lblName = new Label { Text = "Item Name:", Left = 20, Top = 23, Width = 90 };
-            var lblCount = new Label { Text = "Count:", Left = 20, Top = 53, Width = 90 };
-
-            this.Controls.Add(lblName);
-            this.Controls.Add(lblCount);
-            this.Controls.Add(_txtItemName);
-            this.Controls.Add(_numItemCount);
-            this.Controls.Add(_lstItems);
-            this.Controls.Add(_lblStatus);
-            this.Controls.Add(_btnSave);
-            this.Controls.Add(_btnDelete);
-            this.Controls.Add(_btnRefresh);
-
-            // Tell the Presenter the selection changed; it decides what is available
-            _lstItems.SelectedIndexChanged += (s, e) => SelectionChanged?.Invoke(this, EventArgs.Empty);
         }
 
         private void InitializeActionBindings()

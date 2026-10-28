@@ -14,14 +14,10 @@ namespace Kibinago.Samples.Shell
     /// The sample's main window: the categories on the left, the selected category's tabs on the right.
     /// Which control or window belongs to a demo id is in <see cref="DemoViews"/>; the presenter knows only ids.
     /// </summary>
-    public class ShellForm : Form, IShellView
+    public partial class ShellForm : Form, IShellView
     {
         private const string WikiBase = "https://github.com/VoidAxon/winforms-mvp/wiki/";
 
-        private readonly ListBox _categoryList;
-        private readonly TabControl _tabs;
-        private readonly ListBox _sourceFileList;
-        private readonly SourceViewer _sourceText;
         private readonly Dictionary<string, Control> _demoViews = new Dictionary<string, Control>();
         private IReadOnlyList<SampleCategory> _categories = Array.Empty<SampleCategory>();
         private bool _showingCategory;
@@ -29,57 +25,20 @@ namespace Kibinago.Samples.Shell
 
         public ShellForm()
         {
-            Text = "Kibinago サンプル";
-            Font = new Font("Yu Gothic UI", 9.75f);
-            WindowState = FormWindowState.Maximized;
-            StartPosition = FormStartPosition.CenterScreen;
-            Size = new Size(1280, 800);   // after leaving maximized
+            InitializeComponent();
 
-            _categoryList = new ListBox
-            {
-                Dock = DockStyle.Left,
-                Width = 270,
-                DrawMode = DrawMode.OwnerDrawFixed,
-                ItemHeight = 54,
-                BorderStyle = BorderStyle.None,
-                BackColor = Color.FromArgb(243, 243, 243),
-                IntegralHeight = false,
-            };
             _categoryList.DrawItem += DrawCategory;
             _categoryList.SelectedIndexChanged += (s, e) =>
             {
                 if (!_selectingCategory && _categoryList.SelectedIndex >= 0)
                     CategorySelected?.Invoke(this, _categories[_categoryList.SelectedIndex].Id);
             };
-
-            var notice = new Label
-            {
-                Dock = DockStyle.Top,
-                Height = 28,
-                Text = "  大項目を切り替えると、タブの中のデモはリセットされます。",
-                TextAlign = ContentAlignment.MiddleLeft,
-                ForeColor = Color.DimGray,
-                BackColor = Color.FromArgb(250, 250, 250),
-            };
-
-            _tabs = new TabControl { Dock = DockStyle.Fill, Padding = new Point(14, 5) };
             _tabs.SelectedIndexChanged += (s, e) =>
             {
                 if (!_showingCategory && _tabs.SelectedTab?.Tag is string demoId)
                     DemoSelected?.Invoke(this, demoId);
             };
-
-            _sourceFileList = new ListBox { Dock = DockStyle.Left, Width = 260, IntegralHeight = false, BorderStyle = BorderStyle.None };
             _sourceFileList.SelectedIndexChanged += (s, e) => ShowSelectedSource();
-            _sourceText = new SourceViewer { Dock = DockStyle.Fill };
-
-            var right = new Panel { Dock = DockStyle.Fill };
-            right.Controls.Add(_tabs);
-            right.Controls.Add(notice);
-
-            Controls.Add(right);
-            Controls.Add(new Panel { Dock = DockStyle.Left, Width = 1, BackColor = Color.Gainsboro });
-            Controls.Add(_categoryList);
         }
 
         /// <summary>Started with <c>--profile custom</c>: the customized framework configuration is active.</summary>

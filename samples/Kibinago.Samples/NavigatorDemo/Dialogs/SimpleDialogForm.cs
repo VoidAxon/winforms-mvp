@@ -6,55 +6,14 @@ using Kibinago.ViewActions;
 
 namespace Kibinago.Samples.NavigatorDemo
 {
-    public class SimpleDialogForm : Form, ISimpleDialogView
+    public partial class SimpleDialogForm : Form, ISimpleDialogView
     {
-        private Label _messageLabel;
-        private Button _okButton;
-        private Button _cancelButton;
         private ViewActionBinder _binder;
 
         public SimpleDialogForm()
         {
             InitializeComponent();
             InitializeActionBindings();
-        }
-
-        private void InitializeComponent()
-        {
-            this.Text = "Simple Dialog";
-            this.Size = new Size(400, 200);
-            this.StartPosition = FormStartPosition.CenterParent;
-            this.FormBorderStyle = FormBorderStyle.FixedDialog;
-            this.MaximizeBox = false;
-            this.MinimizeBox = false;
-
-            _messageLabel = new Label
-            {
-                Location = new Point(20, 20),
-                Size = new Size(340, 60),
-                TextAlign = ContentAlignment.MiddleCenter
-            };
-
-            _okButton = new Button
-            {
-                Text = "OK",
-                Location = new Point(100, 100),
-                Size = new Size(90, 30)
-            };
-
-            _cancelButton = new Button
-            {
-                Text = "Cancel",
-                Location = new Point(210, 100),
-                Size = new Size(90, 30)
-            };
-
-            this.Controls.AddRange(new Control[] {
-                _messageLabel, _okButton, _cancelButton
-            });
-
-            this.AcceptButton = _okButton;
-            this.CancelButton = _cancelButton;
         }
 
         public void SetMessage(string message)

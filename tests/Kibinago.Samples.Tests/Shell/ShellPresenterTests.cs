@@ -220,6 +220,7 @@ namespace Kibinago.Samples.Tests.Shell
             foreach (var file in categories.SelectMany(c => c.SourceFiles).Concat(demos.SelectMany(d => d.SourceFiles)))
             {
                 Assert.True(SampleSources.Exists(file), $"{file} is not embedded");
+                Assert.False(file.EndsWith(".Designer.cs"), $"{file}: the コード tab shows a view's behaviour, not its layout");
                 Assert.False(string.IsNullOrEmpty(SampleSources.Read(file)));
             }
         }
