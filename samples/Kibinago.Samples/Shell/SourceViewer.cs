@@ -124,8 +124,9 @@ namespace Kibinago.Samples.Shell
                 {
                     if ((Lines[j].FoldLevelFlags & FoldLevelFlags.Header) == 0)
                         continue;
-                    Lines[j].FoldLine(FoldAction.Contract);
-                    Lines[j].ToggleFoldShowText(" … UI の組み立て (左の ⊞ で開く) ");
+                    // Toggling an open fold closes it and shows the text after its first line.
+                    if (Lines[j].Expanded)
+                        Lines[j].ToggleFoldShowText(" … UI の組み立て (左の ⊞ で開く) ");
                     break;
                 }
             }
