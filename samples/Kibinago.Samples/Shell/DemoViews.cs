@@ -22,6 +22,7 @@ using Kibinago.Samples.FirstErrorDemo;
 using Kibinago.Samples.LegacyPopupDemo;
 using Kibinago.Samples.ListDemo;
 using Kibinago.Samples.MasterDetailDemo;
+using Kibinago.Samples.MdiDemo;
 using Kibinago.Samples.MessageBoxDemo;
 using Kibinago.Samples.MVPComparisonDemo;
 using Kibinago.Samples.NavigatorDemo;
@@ -69,6 +70,7 @@ namespace Kibinago.Samples.Shell
             [DemoIds.DebounceThrottle] = owner => new DebounceThrottleDemoForm().Show(owner),
             [DemoIds.Navigator] = owner => ShowConnected(owner, new NavigatorDemoForm(), v => new NavigatorDemoPresenter().Connect(v)),
             [DemoIds.WindowClosing] = owner => ShowConnected(owner, new WindowClosingDemoForm(), v => new WindowClosingDemoPresenter().Connect(v)),
+            [DemoIds.Mdi] = owner => ShowConnected(owner, new MdiHostForm(), v => new MdiHostPresenter().Connect(v)),
             [DemoIds.LegacyPopup] = owner => ShowConnected(owner, new LegacyPopupDemoForm(), v => new LegacyPopupDemoPresenter().Connect(v)),
             [DemoIds.MessageBox] = owner => new MessageBoxDemoForm().Show(owner),
             [DemoIds.Toast] = owner => new ToastDemoForm().Show(owner),

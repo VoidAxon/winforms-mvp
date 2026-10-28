@@ -25,6 +25,7 @@ namespace Kibinago.Samples.Shell
         public const string Navigator = "navigator";
         public const string WindowClosing = "window-closing";
         public const string LegacyPopup = "legacy-popup";
+        public const string Mdi = "mdi";
         public const string MessageBox = "messagebox";
         public const string Toast = "toast";
         public const string AnchoredMessage = "anchored-message";
@@ -136,6 +137,7 @@ namespace Kibinago.Samples.Shell
             new SampleCategory("windows", "ウィンドウ", "開く・結果・閉じる",
                 "ウィンドウは Presenter から Navigator で開きます (モーダルは結果を返し、モードレスはキーで 1 つに)。\r\n" +
                 "閉じるかどうかは Presenter の CanClose / CanCloseAsync が決めます。✕ でも Alt+F4 でも RequestClose でも同じ門を通ります。\r\n" +
+                "置き場所を自分で決めるコンテナ (MDI、ドッキングのペイン、タブ) には PrepareWindow: 表示以外はすべて済ませた View を返します。\r\n" +
                 "ここのデモはウィンドウそのものの機能なので、ボタンで別ウィンドウを開きます。",
                 new[]
                 {
@@ -152,6 +154,10 @@ namespace Kibinago.Samples.Shell
                     SampleDemo.Window(DemoIds.WindowClosing, "閉じる確認",
                         "未保存の変更があるときの「保存しますか」。CanClose / CanCloseAsync。",
                         "WindowClosingDemo/WindowClosingDemoPresenter.cs", "WindowClosingDemo/IWindowClosingDemoView.cs", "WindowClosingDemo/WindowClosingDemoForm.cs"),
+                    SampleDemo.Window(DemoIds.Mdi, "PrepareWindow と MDI",
+                        "Navigator で用意だけしたウィンドウを MDI の子として表示。子の ShowBusy はその子だけを処理中にします。",
+                        "MdiDemo/MdiHostPresenter.cs", "MdiDemo/IMdiHostView.cs", "MdiDemo/MdiHostForm.cs",
+                        "MdiDemo/DocumentPresenter.cs", "MdiDemo/IDocumentView.cs", "MdiDemo/DocumentForm.cs"),
                     SampleDemo.Window(DemoIds.LegacyPopup, "MVP でない Form を開く",
                         "既存の Form を意味のある View メソッドから開き、InteractionResult で返します。",
                         "LegacyPopupDemo/LegacyPopupDemoPresenter.cs", "LegacyPopupDemo/ILegacyPopupDemoView.cs", "LegacyPopupDemo/LegacyPopupDemoForm.cs", "LegacyPopupDemo/LegacyCustomerForm.cs"),
