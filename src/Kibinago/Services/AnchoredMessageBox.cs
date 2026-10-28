@@ -77,14 +77,6 @@ namespace Kibinago.Services
 
         #endregion
 
-        #region Hook State
-
-        private static IntPtr _hookHandle = IntPtr.Zero;
-        private static Point? _targetLocation = null;
-        private static HookProc _hookProc = null;  // Keep reference to prevent GC
-        private static bool _positioned = false;  // Track if positioning is done
-
-        #endregion
 
         #region Public API
 
@@ -167,95 +159,73 @@ namespace Kibinago.Services
             MessageBoxIcon icon,
             Point location)
         {
-            // Set target location for the hook
-            _targetLocation = location;
-            _positioned = false;  // Reset positioned flag
-
-            // Create and install CBT hook
-            _hookProc = new HookProc(CBTHookCallback);  // Keep reference
-            _hookHandle = SetWindowsHookEx(
-                WH_CBT,
-                _hookProc,
-                IntPtr.Zero,
-                GetCurrentThreadId());
-
-            DialogResult result;
-            try
+            // One hook per call: a box shown while another is open (a timer, a handler in its modal loop)
+            // or on another UI thread has its own, and each call removes only its own.
+            using (new HookSession(location))
             {
-                // Show the native MessageBox
-                // The hook will intercept it and set the position
-                if (owner != null)
-                {
-                    result = MessageBox.Show(owner, text, caption, buttons, icon);
-                }
-                else
-                {
-                    result = MessageBox.Show(text, caption, buttons, icon);
-                }
+                return owner != null
+                    ? MessageBox.Show(owner, text, caption, buttons, icon)
+                    : MessageBox.Show(text, caption, buttons, icon);
             }
-            finally
-            {
-                // Always unhook in finally block (safer than unhooking in callback)
-                if (_hookHandle != IntPtr.Zero)
-                {
-                    UnhookWindowsHookEx(_hookHandle);
-                    _hookHandle = IntPtr.Zero;
-                }
-
-                _targetLocation = null;
-                _hookProc = null;  // Allow GC
-                _positioned = false;  // Reset flag
-            }
-
-            return result;
         }
 
-        private static IntPtr CBTHookCallback(int nCode, IntPtr wParam, IntPtr lParam)
+        /// <summary>
+        /// A CBT hook on the current thread that moves the first message box activated after it to a
+        /// location. Holds its own handle and delegate (alive until disposed), so calls never share state.
+        /// </summary>
+        internal sealed class HookSession : IDisposable
         {
-            if (nCode == HCBT_ACTIVATE && _targetLocation.HasValue && !_positioned)
+            private readonly Point _location;
+            private HookProc _proc;   // referenced while the hook is installed (never collected under it)
+            private IntPtr _handle;
+            private bool _positioned;
+
+            public HookSession(Point location)
             {
-                try
-                {
-                    // wParam is the handle of the window being activated
-                    IntPtr hWnd = wParam;
-
-                    // ✅ CRITICAL: Verify this is actually a MessageBox (class name #32770)
-                    // This prevents accidentally positioning tooltips, IME windows, etc.
-                    var className = new System.Text.StringBuilder(32);
-                    GetClassName(hWnd, className, className.Capacity);
-
-                    if (className.ToString() != "#32770")
-                    {
-                        // Not a MessageBox - ignore and continue hook chain
-                        return CallNextHookEx(_hookHandle, nCode, wParam, lParam);
-                    }
-
-                    // This is a MessageBox - clamp the requested location so the whole dialog is
-                    // visible, then move it there (keeping its native size and Z-order).
-                    Point target = ClampToScreen(_targetLocation.Value, hWnd);
-                    SetWindowPos(
-                        hWnd,
-                        IntPtr.Zero,
-                        target.X,
-                        target.Y,
-                        0,
-                        0,
-                        SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
-
-                    // Mark as positioned (prevents re-entry)
-                    _positioned = true;
-                }
-                catch
-                {
-                    // Ignore errors in hook - don't break MessageBox
-                    // Mark as positioned to prevent retry
-                    _positioned = true;
-                }
+                _location = location;
+                _proc = Callback;
+                _handle = SetWindowsHookEx(WH_CBT, _proc, IntPtr.Zero, GetCurrentThreadId());
             }
 
-            // Call the next hook in the chain
-            // Note: We don't unhook here - that's done in the finally block for safety
-            return CallNextHookEx(_hookHandle, nCode, wParam, lParam);
+            public bool IsInstalled => _handle != IntPtr.Zero;
+
+            /// <summary>Removes the hook; <c>true</c> when it was installed and is now removed.</summary>
+            public bool Uninstall()
+            {
+                var handle = _handle;
+                _handle = IntPtr.Zero;
+                var removed = handle != IntPtr.Zero && UnhookWindowsHookEx(handle);
+                _proc = null;
+                return removed;
+            }
+
+            public void Dispose() => Uninstall();
+
+            private IntPtr Callback(int nCode, IntPtr wParam, IntPtr lParam)
+            {
+                if (nCode == HCBT_ACTIVATE && !_positioned)
+                {
+                    try
+                    {
+                        // wParam is the window being activated; only a dialog box (#32770, a MessageBox) is
+                        // moved, not a tooltip or an IME window.
+                        var className = new System.Text.StringBuilder(32);
+                        GetClassName(wParam, className, className.Capacity);
+                        if (className.ToString() == "#32770")
+                        {
+                            // Clamped so the whole dialog is visible; native size and Z-order kept.
+                            var target = ClampToScreen(_location, wParam);
+                            SetWindowPos(wParam, IntPtr.Zero, target.X, target.Y, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+                            _positioned = true;
+                        }
+                    }
+                    catch
+                    {
+                        _positioned = true;   // never break the MessageBox; no retry
+                    }
+                }
+                return CallNextHookEx(_handle, nCode, wParam, lParam);
+            }
         }
 
         /// <summary>

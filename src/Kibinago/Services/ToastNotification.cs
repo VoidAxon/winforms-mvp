@@ -325,8 +325,8 @@ namespace Kibinago.Services
 
         /// <summary>
         /// Composites <see cref="_bitmap"/> onto the layered window with per-pixel alpha, scaled by
-        /// the current fade <see cref="_opacity"/>. Called at show time and on every fade tick (the
-        /// bitmap is unchanged across fade ticks — only the constant alpha varies).
+        /// the current fade <see cref="_opacity"/>. Called once at show time; fade ticks only change the
+        /// constant alpha (<see cref="PushLayeredOpacity"/>).
         /// </summary>
         private void PushLayered()
         {
@@ -370,6 +370,33 @@ namespace Kibinago.Services
             }
         }
 
+        /// <summary>
+        /// Changes only the layered window's constant alpha to the current fade <see cref="_opacity"/>: no
+        /// source DC, so the content pushed by <see cref="PushLayered"/> stays and nothing is copied again.
+        /// </summary>
+        private void PushLayeredOpacity()
+        {
+            if (Handle == IntPtr.Zero)
+            {
+                return;
+            }
+
+            int alpha = (int)(_opacity * 255);
+            if (alpha < 0) alpha = 0;
+            if (alpha > 255) alpha = 255;
+            var blend = new BLENDFUNCTION
+            {
+                BlendOp = AC_SRC_OVER,
+                BlendFlags = 0,
+                SourceConstantAlpha = (byte)alpha,
+                AlphaFormat = AC_SRC_ALPHA,
+            };
+            if (!UpdateLayeredWindowBlend(Handle, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, 0, ref blend, ULW_ALPHA))
+            {
+                PushLayered();   // not accepted (should not happen): push the whole content as before
+            }
+        }
+
         // --- Fade & teardown --------------------------------------------------------------------
 
         private void StartFadeOut()
@@ -386,7 +413,7 @@ namespace Kibinago.Services
                 }
                 else if (_layered)
                 {
-                    PushLayered();
+                    PushLayeredOpacity();
                 }
                 else
                 {
@@ -523,6 +550,10 @@ namespace Kibinago.Services
 
         [DllImport("user32.dll", SetLastError = true)]
         private static extern bool UpdateLayeredWindow(IntPtr hwnd, IntPtr hdcDst, IntPtr pptDst, ref SIZE psize, IntPtr hdcSrc, ref POINT pptSrc, int crKey, ref BLENDFUNCTION pblend, int dwFlags);
+
+        // The same call with no source (hdcSrc, psize, pptSrc all null): changes only the blend.
+        [DllImport("user32.dll", EntryPoint = "UpdateLayeredWindow", SetLastError = true)]
+        private static extern bool UpdateLayeredWindowBlend(IntPtr hwnd, IntPtr hdcDst, IntPtr pptDst, IntPtr psize, IntPtr hdcSrc, IntPtr pptSrc, int crKey, ref BLENDFUNCTION pblend, int dwFlags);
 
         [DllImport("user32.dll")]
         private static extern IntPtr GetDC(IntPtr hWnd);
