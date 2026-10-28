@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Kibinago.Samples.AnchoredMessageDemo;
 using Kibinago.Samples.AsyncDemo;
 using Kibinago.Samples.BulkBindingDemo;
+using Kibinago.Samples.CascadeDemo;
 using Kibinago.Samples.CheckBoxDemo;
 using Kibinago.Samples.MasterDetailDemo;
 using Kibinago.Samples.ValidationDemo;
@@ -288,9 +289,11 @@ namespace Kibinago.Samples.Shell
                         "顧客を選ぶと注文が切り替わります。",
                         (a, v) => a.Attach(new MasterDetailPresenter(), (IMasterDetailView)v),
                         "MasterDetailDemo/MasterDetailPresenter.cs", "MasterDetailDemo/IMasterDetailView.cs", "MasterDetailDemo/MasterDetailControl.cs"),
-                    SampleDemo.Window(DemoIds.Cascade, "連動する選択 (N 段)",
-                        "Selection と Cascade.Bind で、上の選択が変わると下を読み直します。",
-                        "CascadeDemo/CascadePresenters.cs", "CascadeDemo/CascadeModels.cs", "CascadeDemo/CascadeForm.cs", "CascadeDemo/SelectListView.cs"),
+                    SampleDemo.Embedded(DemoIds.Cascade, "連動する選択 (N 段)",
+                        "Selection と Cascade.Bind。親 Presenter が 3 つのリストの子 Presenter を AttachChild でつなぎます。",
+                        (a, v) => a.Attach(new CascadeDemoPresenter(), (ICascadeDemoView)v),
+                        "CascadeDemo/CascadeDemoPresenter.cs", "CascadeDemo/CascadePresenters.cs", "CascadeDemo/ICascadeDemoView.cs",
+                        "CascadeDemo/CascadeDemoControl.cs", "CascadeDemo/SelectListView.cs", "CascadeDemo/CascadeModels.cs"),
                 }),
 
             new SampleCategory("communication", "Presenter 間の連携", "共有サービス、EventAggregator",

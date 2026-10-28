@@ -64,6 +64,7 @@ namespace Kibinago.Samples.Shell
             [DemoIds.AnchoredMessage] = () => new AnchoredMessageDemoControl(),
             [DemoIds.Validation] = () => new ValidationDemoControl(),
             [DemoIds.MasterDetail] = () => new MasterDetailControl(),
+            [DemoIds.Cascade] = () => new CascadeDemoControl(),
             [DemoIds.Outpatient] = () => new OutpatientControl(),
         };
 
@@ -75,7 +76,6 @@ namespace Kibinago.Samples.Shell
             [DemoIds.WindowClosing] = owner => ShowConnected(owner, new WindowClosingDemoForm(), v => new WindowClosingDemoPresenter().Connect(v)),
             [DemoIds.Mdi] = owner => ShowConnected(owner, new MdiHostForm(), v => new MdiHostPresenter().Connect(v)),
             [DemoIds.LegacyPopup] = owner => ShowConnected(owner, new LegacyPopupDemoForm(), v => new LegacyPopupDemoPresenter().Connect(v)),
-            [DemoIds.Cascade] = owner => CascadeDemoProgram.Run(),
             [DemoIds.ServiceBased] = owner => ComplexInteractionDemoServiceBasedProgram.Run(),
             [DemoIds.EventBased] = owner => ComplexInteractionDemoEventBasedProgram.Run(),
             [DemoIds.Customization] = owner =>
