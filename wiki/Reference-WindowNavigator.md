@@ -33,6 +33,9 @@ Navigator.For(new CustomerEditPresenter(_repository))
 - Presenter が初期化中 (`OnInitialize` や `OnInitializeAsync` の最初の `await` まで) に `RequestClose` を呼ぶと、表示がキャンセルされます: `Show` / `ShowDialog` は呼ばれず、モーダルはその結果を返し、非モーダルは `null` を返します ([表示前のキャンセル](#表示前のキャンセル))。
 - `key` に渡したキーのウィンドウがすでに開いていれば、そのウィンドウをアクティブにします。このとき新しい Presenter は破棄され、その `onClosed` は登録されません。キーは Presenter の型ごとに分かれています (内部では `(Presenter の実行時の型, キー)`)。別の画面が同じレコード ID をキーにしても、互いのウィンドウを開いてしまうことはありません。同じ Presenter 型 + 同じキーのときだけ既存のウィンドウを使います (Presenter の派生クラスは別の型として扱われます)。
 - `owner` を渡すと、そのウィンドウに所属します (常に手前に表示され、オーナーと一緒に最小化・クローズされます。オーナーを閉じると、所属するウィンドウの `CanClose` が `ParentClosing` で呼ばれます)。
+- `owner` はウィンドウの View でも、ウィンドウの中のパネルの View (子 Presenter の `View`) でもかまいません。オーナーになるのは、そのパネルがあるウィンドウです (WinForms の `Form.Show(owner)` / `ShowDialog(owner)` がコントロールの最上位のフォームを使う)。そのため、子 Presenter からも `owner: View` で、自分のウィンドウに所属するウィンドウを開けます。
+- MDI の子ウィンドウ (またはその中のパネル) を渡すと、オーナーは **MDI の親ウィンドウ** になります (MDI の子は最上位のウィンドウではないため)。所属するウィンドウは MDI の子を閉じても閉じず、親を閉じたときに閉じます。
+- まだどのウィンドウにも置かれていないパネルを渡すと、オーナーなしと同じです (エラーにはしません)。WinForms のコントロールでない View を渡すと `ArgumentException`。
 
 `ShowWindowAsModal<TPresenter, TParam, TResult>(...)` などの直接呼び出し形式も同じ機能で、以下のリファレンスはこちらで説明しています。
 

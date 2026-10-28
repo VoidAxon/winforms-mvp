@@ -76,7 +76,7 @@ A list's double-click: raise a view event, the presenter calls `Dispatcher.Dispa
 | Need | Use |
 |---|---|
 | Open a modal window and get a result | `Navigator.For(presenter)[.WithParam(p)].ShowAsModal<TResult>()` → `InteractionResult<TResult>` |
-| Open a non-modal window (owner, one per key, callback) | `.ShowWindow<TResult>(owner: View, key: id, onClosed: r => ...)` |
+| Open a non-modal window (owner, one per key, callback) | `.ShowWindow<TResult>(owner: View, key: id, onClosed: r => ...)` — `owner` may be a window's view or a panel's (a child presenter's `View`): its window owns the new one (inside an MDI child: the MDI parent) |
 | Prepare a window without showing it (docking pane, tabbed document, layout restore) | `.PrepareWindow<TResult>(key: id, onClosed: ...)` → the view; the container shows it (`dockContent.Show(dockPanel, …)`) · [wiki](wiki/Reference-WindowNavigator.md) |
 | Wrong navigation fails to compile (missing / wrong `WithParam`, a control presenter) | constraints on `For` / `WithParam` / the direct methods (`IWindowPresenter`, `IInitializable[<TParam>]`) |
 | Close with a result / a 「閉じる」 button (goes through `CanClose` like ✕) | `RequestClose(result, InteractionStatus.Ok)` / `RequestClose(InteractionStatus.Cancel)` as a ViewAction handler |

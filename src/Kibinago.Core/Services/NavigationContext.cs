@@ -33,30 +33,30 @@ namespace Kibinago.Services
         }
 
         /// <summary>Shows the window modally and returns when it closes.</summary>
-        /// <param name="owner">The owner window, or <c>null</c> for none.</param>
+        /// <param name="owner">The owner: a window's view, or the view of a panel in a window (that window owns the new one); <c>null</c> for none.</param>
         /// <returns>How the window was closed.</returns>
-        public InteractionResult ShowAsModal(IWindowView owner = null)
+        public InteractionResult ShowAsModal(IViewBase owner = null)
             => _nav.ShowWindowAsModal<TPresenter>(_presenter, owner);
 
         /// <summary>Shows the window modally and returns its result when it closes.</summary>
         /// <typeparam name="TResult">The type of the result the presenter passes to <c>RequestClose</c>.</typeparam>
-        /// <param name="owner">The owner window, or <c>null</c> for none.</param>
+        /// <param name="owner">The owner: a window's view, or the view of a panel in a window (that window owns the new one); <c>null</c> for none.</param>
         /// <returns>The result the presenter passed to <c>RequestClose</c>, or a cancel result.</returns>
-        public InteractionResult<TResult> ShowAsModal<TResult>(IWindowView owner = null)
+        public InteractionResult<TResult> ShowAsModal<TResult>(IViewBase owner = null)
             => _nav.ShowWindowAsModal<TPresenter, TResult>(_presenter, owner);
 
         /// <summary>Shows the window non-modally and returns at once.</summary>
-        /// <param name="owner">The owner window, or <c>null</c> for none.</param>
+        /// <param name="owner">The owner: a window's view, or the view of a panel in a window (that window owns the new one); <c>null</c> for none.</param>
         /// <param name="key">Optional key: when a window of the same presenter type with the same key is
         /// already open, that window is activated and the presenter is disposed.</param>
         /// <returns>The window's view; the already open window for a matching key; <c>null</c> when the
         /// presenter cancelled the opening.</returns>
-        public IWindowView ShowWindow(IWindowView owner = null, object key = null)
+        public IWindowView ShowWindow(IViewBase owner = null, object key = null)
             => _nav.ShowWindow<TPresenter>(_presenter, owner, key);
 
         /// <summary>Shows the window non-modally and returns at once; <paramref name="onClosed"/> receives the result.</summary>
         /// <typeparam name="TResult">The type of the result the presenter passes to <c>RequestClose</c>.</typeparam>
-        /// <param name="owner">The owner window, or <c>null</c> for none.</param>
+        /// <param name="owner">The owner: a window's view, or the view of a panel in a window (that window owns the new one); <c>null</c> for none.</param>
         /// <param name="key">Optional key: when a window of the same presenter type with the same key is
         /// already open, that window is activated and the presenter is disposed.</param>
         /// <param name="onClosed">Called with the result after the window closes; not called when an
@@ -64,7 +64,7 @@ namespace Kibinago.Services
         /// <returns>The window's view; the already open window for a matching key; <c>null</c> when the
         /// presenter cancelled the opening.</returns>
         public IWindowView ShowWindow<TResult>(
-            IWindowView owner = null,
+            IViewBase owner = null,
             object key = null,
             Action<InteractionResult<TResult>> onClosed = null)
             => _nav.ShowWindow<TPresenter, TResult>(_presenter, owner, key, onClosed);
@@ -123,30 +123,30 @@ namespace Kibinago.Services
         }
 
         /// <summary>Shows the window modally and returns when it closes.</summary>
-        /// <param name="owner">The owner window, or <c>null</c> for none.</param>
+        /// <param name="owner">The owner: a window's view, or the view of a panel in a window (that window owns the new one); <c>null</c> for none.</param>
         /// <returns>How the window was closed.</returns>
-        public InteractionResult ShowAsModal(IWindowView owner = null)
+        public InteractionResult ShowAsModal(IViewBase owner = null)
             => _nav.ShowWindowAsModal<TPresenter, TParam>(_presenter, _parameters, owner);
 
         /// <summary>Shows the window modally and returns its result when it closes.</summary>
         /// <typeparam name="TResult">The type of the result the presenter passes to <c>RequestClose</c>.</typeparam>
-        /// <param name="owner">The owner window, or <c>null</c> for none.</param>
+        /// <param name="owner">The owner: a window's view, or the view of a panel in a window (that window owns the new one); <c>null</c> for none.</param>
         /// <returns>The result the presenter passed to <c>RequestClose</c>, or a cancel result.</returns>
-        public InteractionResult<TResult> ShowAsModal<TResult>(IWindowView owner = null)
+        public InteractionResult<TResult> ShowAsModal<TResult>(IViewBase owner = null)
             => _nav.ShowWindowAsModal<TPresenter, TParam, TResult>(_presenter, _parameters, owner);
 
         /// <summary>Shows the window non-modally and returns at once.</summary>
-        /// <param name="owner">The owner window, or <c>null</c> for none.</param>
+        /// <param name="owner">The owner: a window's view, or the view of a panel in a window (that window owns the new one); <c>null</c> for none.</param>
         /// <param name="key">Optional key: when a window of the same presenter type with the same key is
         /// already open, that window is activated and the presenter is disposed.</param>
         /// <returns>The window's view; the already open window for a matching key; <c>null</c> when the
         /// presenter cancelled the opening.</returns>
-        public IWindowView ShowWindow(IWindowView owner = null, object key = null)
+        public IWindowView ShowWindow(IViewBase owner = null, object key = null)
             => _nav.ShowWindow<TPresenter, TParam>(_presenter, _parameters, owner, key);
 
         /// <summary>Shows the window non-modally and returns at once; <paramref name="onClosed"/> receives the result.</summary>
         /// <typeparam name="TResult">The type of the result the presenter passes to <c>RequestClose</c>.</typeparam>
-        /// <param name="owner">The owner window, or <c>null</c> for none.</param>
+        /// <param name="owner">The owner: a window's view, or the view of a panel in a window (that window owns the new one); <c>null</c> for none.</param>
         /// <param name="key">Optional key: when a window of the same presenter type with the same key is
         /// already open, that window is activated and the presenter is disposed.</param>
         /// <param name="onClosed">Called with the result after the window closes; not called when an
@@ -154,7 +154,7 @@ namespace Kibinago.Services
         /// <returns>The window's view; the already open window for a matching key; <c>null</c> when the
         /// presenter cancelled the opening.</returns>
         public IWindowView ShowWindow<TResult>(
-            IWindowView owner = null,
+            IViewBase owner = null,
             object key = null,
             Action<InteractionResult<TResult>> onClosed = null)
             => _nav.ShowWindow<TPresenter, TParam, TResult>(_presenter, _parameters, owner, key, onClosed);

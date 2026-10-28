@@ -8,6 +8,10 @@
 
 ## [Unreleased]
 
+### Changed (変更)
+
+- **Navigator の `owner` は `IViewBase`** (以前は `IWindowView`) — ウィンドウの中のパネルの子 Presenter も `owner: View` で、自分のウィンドウに所属するウィンドウを開けます (オーナーはパネルのあるウィンドウ。WinForms の `Form.Show(owner)` がコントロールの最上位のフォームを使う)。MDI の子ウィンドウやその中のパネルでは MDI の親ウィンドウがオーナーになること (以前から同じ) を wiki に記載。どのウィンドウにもないパネルはオーナーなし、コントロールでない View は `ArgumentException`。`FakeWindowNavigator` と記録 (`Owner`) も `IViewBase`。
+
 ### Added (追加)
 
 - **アナライザ `MVP018`** — フィールド / プロパティに入れた新しい `Debouncer` / `Throttler` を、そのクラスのどこでも破棄していないと警告 (タイマーが画面を閉じた後も発火し、破棄済みの View に触れるため)。生成時の `.DisposeWith(...)`、`.Dispose()` / `?.Dispose()`、`using`、メソッドへの引数 (`Disposables.Add(_x)`) のどれかがクラス内 (partial を含む) にあればよい。Presenter に限らず Form も対象。ローカル変数・static フィールドは対象外。
