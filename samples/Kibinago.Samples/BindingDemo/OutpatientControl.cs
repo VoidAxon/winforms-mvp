@@ -21,23 +21,23 @@ namespace Kibinago.Samples.BindingDemo
         public IViewActionBinder ActionBinder => _binder;
 
         // One line per control (Kibinago.Views binding helpers): checked by the compiler, one property per expression.
-        public void Bind(OutpatientInput form, IReadOnlyList<DepartmentItem> departments)
+        public void Bind(OutpatientInput input, IReadOnlyList<DepartmentItem> departments)
         {
             _department.DisplayMember = nameof(DepartmentItem.Name);
             _department.ValueMember = nameof(DepartmentItem.Id);
             _department.DataSource = departments;
 
-            _name.Bind(form, x => x.Name);
-            _birthDate.Bind(form, x => x.BirthDate);            // DateTime?: the check box means "no date"
-            _department.Bind(form, x => x.DepartmentId);         // SelectedValue
+            _name.Bind(input, x => x.Name);
+            _birthDate.Bind(input, x => x.BirthDate);            // DateTime?: the check box means "no date"
+            _department.Bind(input, x => x.DepartmentId);         // SelectedValue
             new Dictionary<RadioButton, Gender>
             {
                 [_unknown] = Gender.Unknown,
                 [_male] = Gender.Male,
                 [_female] = Gender.Female,
-            }.BindRadioGroup(form, x => x.Gender);
-            _firstVisit.Bind(form, x => x.FirstVisit);
-            _temperature.Bind(form, x => x.Temperature);
+            }.BindRadioGroup(input, x => x.Gender);
+            _firstVisit.Bind(input, x => x.FirstVisit);
+            _temperature.Bind(input, x => x.Temperature);
         }
 
         public void ShowModel(string text) => _model.Text = text;

@@ -26,48 +26,48 @@ namespace Kibinago.Samples.BindingDemo
             new DepartmentItem { Id = 3, Name = "小児科" },
         };
 
-        private readonly OutpatientInput _form = new OutpatientInput { DepartmentId = 1 };
+        private readonly OutpatientInput _input = new OutpatientInput { DepartmentId = 1 };
 
         protected override void RegisterViewActions()
         {
             Dispatcher.Register(OutpatientActions.FillSample, () =>
             {
                 // Set the model: the bound controls follow.
-                _form.Name = "高橋 健";
-                _form.BirthDate = new System.DateTime(1985, 4, 12);
-                _form.DepartmentId = 2;
-                _form.Gender = Gender.Male;
-                _form.FirstVisit = false;
-                _form.Temperature = 37.2m;
+                _input.Name = "高橋 健";
+                _input.BirthDate = new System.DateTime(1985, 4, 12);
+                _input.DepartmentId = 2;
+                _input.Gender = Gender.Male;
+                _input.FirstVisit = false;
+                _input.Temperature = 37.2m;
             });
             Dispatcher.Register(OutpatientActions.Clear, () =>
             {
-                _form.Name = "";
-                _form.BirthDate = null;   // the picker's check box is cleared
-                _form.DepartmentId = 1;
-                _form.Gender = Gender.Unknown;
-                _form.FirstVisit = true;
-                _form.Temperature = 36.5m;
+                _input.Name = "";
+                _input.BirthDate = null;   // the picker's check box is cleared
+                _input.DepartmentId = 1;
+                _input.Gender = Gender.Unknown;
+                _input.FirstVisit = true;
+                _input.Temperature = 36.5m;
             });
         }
 
         protected override void OnInitialize()
         {
             PropertyChangedEventHandler changed = (s, e) => ShowModel();
-            _form.PropertyChanged += changed;
-            Disposable.Create(() => _form.PropertyChanged -= changed).DisposeWith(Disposables);
+            _input.PropertyChanged += changed;
+            Disposable.Create(() => _input.PropertyChanged -= changed).DisposeWith(Disposables);
 
-            View.Bind(_form, Departments);
+            View.Bind(_input, Departments);
             ShowModel();
         }
 
         private void ShowModel() =>
             View.ShowModel(
-                $"Name        = \"{_form.Name}\"\r\n" +
-                $"BirthDate   = {(_form.BirthDate?.ToString("yyyy/MM/dd") ?? "null")}\r\n" +
-                $"DepartmentId= {_form.DepartmentId}\r\n" +
-                $"Gender      = {_form.Gender}\r\n" +
-                $"FirstVisit  = {_form.FirstVisit}\r\n" +
-                $"Temperature = {_form.Temperature}");
+                $"Name        = \"{_input.Name}\"\r\n" +
+                $"BirthDate   = {(_input.BirthDate?.ToString("yyyy/MM/dd") ?? "null")}\r\n" +
+                $"DepartmentId= {_input.DepartmentId}\r\n" +
+                $"Gender      = {_input.Gender}\r\n" +
+                $"FirstVisit  = {_input.FirstVisit}\r\n" +
+                $"Temperature = {_input.Temperature}");
     }
 }
