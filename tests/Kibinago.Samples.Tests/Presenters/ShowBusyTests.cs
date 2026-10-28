@@ -156,6 +156,22 @@ namespace Kibinago.Samples.Tests.Presenters
         }
 
         [Fact]
+        public async Task ShowBusy_MayBeCalledFromAWorker()
+        {
+            var fakes = TestServices.CreateFakes();
+            var view = new BusyView();
+            var presenter = new BusyPresenter();
+            using (PresenterTestHost.Start(fakes.Provider, presenter, view))
+            {
+                await Task.Run(() => view.Binder.Dispatch(Actions.Hold));   // the handler runs on the worker
+
+                Assert.True(fakes.Busy.IsBusyFor(view));
+                await Task.Run(() => presenter.Held.Dispose());
+                Assert.False(fakes.Busy.IsBusy);
+            }
+        }
+
+        [Fact]
         public void WithTheMinimalTestServices_ShowBusyNeedsNoFake()
         {
             var view = new BusyView();
