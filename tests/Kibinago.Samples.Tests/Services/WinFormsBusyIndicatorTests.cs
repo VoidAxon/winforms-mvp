@@ -524,7 +524,7 @@ namespace Kibinago.Samples.Tests.Services
         }
 
         [Fact]
-        public void TheOverlay_WritesWithTheConfiguredFont_OrTheViewsFont()
+        public void TheOverlay_WritesWithTheConfiguredFont_OrWindowsUiFont()
         {
             using (var font = new Font("Arial", 12f))
             using (var form = new ViewForm { ShowInTaskbar = false, StartPosition = FormStartPosition.Manual, Location = new Point(-2000, -2000), Font = new Font("Tahoma", 9f) })
@@ -542,7 +542,11 @@ namespace Kibinago.Samples.Tests.Services
                 using (new WinFormsBusyIndicator(new BusyOptions { Delay = 0 }, plain).Begin(form, null))
                 {
                     Application.DoEvents();
-                    Assert.Same(form.Font, plain.LayoutFont);
+                    using (var ui = SystemFonts.MessageBoxFont)
+                    {
+                        Assert.Equal(ui.Name, plain.LayoutFont.Name);    // Windows' UI font, not the view's Tahoma
+                        Assert.Equal(ui.Size, plain.LayoutFont.Size);
+                    }
                 }
                 AssertNothingBusy();
             }

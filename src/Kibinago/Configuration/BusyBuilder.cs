@@ -21,7 +21,7 @@ namespace Kibinago.Configuration
             set { _owner.EnsureNotBuilt(); Options.Delay = value; }
         }
 
-        /// <summary>The overlay's font (<c>null</c>: the view's). Caller-owned, never disposed. See <see cref="BusyOptions.Font"/>.</summary>
+        /// <summary>The overlay's font (<c>null</c>: Windows' UI font). Caller-owned, never disposed. See <see cref="BusyOptions.Font"/>.</summary>
         public System.Drawing.Font Font
         {
             get => Options.Font;

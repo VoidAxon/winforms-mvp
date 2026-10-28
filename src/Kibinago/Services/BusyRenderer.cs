@@ -22,7 +22,9 @@ namespace Kibinago.Services
 
         /// <summary>
         /// The font of the overlay's text (<see cref="BusyLayoutContext.Font"/> / <see cref="BusyPaintContext.Font"/>,
-        /// used by <see cref="BusyPaintContext.DrawText"/>); <c>null</c> (default) for the view's font. Given in
+        /// used by <see cref="BusyPaintContext.DrawText"/>); <c>null</c> (default) for Windows' UI font — the one
+        /// its dialogs use (<see cref="SystemFonts.MessageBoxFont"/>; Yu Gothic UI on Japanese Windows 10 / 11),
+        /// not the view's (a .NET Framework form's default is MS UI Gothic). Given in
         /// points it scales with the view's DPI. Caller-owned: referenced, never copied or disposed — keep it
         /// alive while the application runs.
         /// </summary>
@@ -79,7 +81,7 @@ namespace Kibinago.Services
         /// <summary>DPI scale of the view (1.0 at 96 dpi): multiply pixel sizes by it.</summary>
         public float Scale { get; }
 
-        /// <summary>The font to write with: <see cref="BusyOptions.Font"/> (<c>mvp.Busy.Font</c>), or the view's font.</summary>
+        /// <summary>The font to write with: <see cref="BusyOptions.Font"/> (<c>mvp.Busy.Font</c>), or Windows' UI font.</summary>
         public Font Font { get; }
 
         /// <summary>The text given to <c>ShowBusy</c>, or <c>null</c>.</summary>
@@ -143,7 +145,7 @@ namespace Kibinago.Services
         /// <summary>DPI scale of the view (1.0 at 96 dpi).</summary>
         public float Scale { get; }
 
-        /// <summary>The font to write with: <see cref="BusyOptions.Font"/> (<c>mvp.Busy.Font</c>), or the view's font.</summary>
+        /// <summary>The font to write with: <see cref="BusyOptions.Font"/> (<c>mvp.Busy.Font</c>), or Windows' UI font.</summary>
         public Font Font { get; }
 
         /// <summary>The text given to <c>ShowBusy</c>, or <c>null</c>.</summary>

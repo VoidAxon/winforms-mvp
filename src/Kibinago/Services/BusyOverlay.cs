@@ -20,7 +20,8 @@ namespace Kibinago.Services
         private readonly Control _view;
         private readonly BusyRenderer _renderer;
         private readonly ILogger _logger;
-        private readonly Font _font;   // mvp.Busy.Font; null: the view's
+        private readonly Font _font;   // mvp.Busy.Font (caller-owned); null: Windows' UI font
+        private Font _systemFont;      // Windows' UI font, created when first needed and disposed with the overlay
         private readonly Stopwatch _clock = new Stopwatch();
         private readonly List<Control> _tracked = new List<Control>();
         private Timer _delay;
@@ -232,7 +233,7 @@ namespace Kibinago.Services
 
         // The view's client area on screen clipped by every container (scrolled-away or MDI-clipped parts are
         // not covered); empty while the overlay must not show.
-        private Font Font => _font ?? _view.Font;
+        private Font Font => _font ?? (_systemFont ?? (_systemFont = SystemFonts.MessageBoxFont)) ?? _view.Font;
 
         private Rectangle VisibleScreenBounds()
         {
@@ -285,6 +286,8 @@ namespace Kibinago.Services
             }
             if (_mdiParent != null) _mdiParent.MdiChildActivate -= OnLayoutChanged;
             ClosePopups();
+            _systemFont?.Dispose();
+            _systemFont = null;
         }
     }
 }
