@@ -736,5 +736,47 @@ public class Work
 public sealed class Debouncer : IDisposable { public void Dispose() { } }
 public class Work { private Debouncer _d = new Debouncer(); }"));
         }
+
+        [Fact]
+        public void MVP018_DisposedInTheGeneratedDesignerFile_NoDiagnostic()
+        {
+            // A Form usually disposes its fields in Dispose(bool), which lives in Form.Designer.cs (generated code).
+            Assert.Empty(Ids(RateUsings + "using System.Windows.Forms;\n" + @"
+public partial class SearchForm : Form
+{
+    private readonly Debouncer _search = RateLimit.Debounce(300, () => { });
+}", designer: @"
+public partial class SearchForm
+{
+    protected void Dispose(bool disposing) { if (disposing) _search.Dispose(); }
+}"));
+        }
+
+        [Fact]
+        public void MVP018_NameofIsNotADisposal_Reports()
+        {
+            Assert.Single(Ids(RateUsings + @"
+public class Work
+{
+    private readonly Debouncer _search = RateLimit.Debounce(300, () => { });
+    public string Name => nameof(_search);
+}"));
+        }
+
+        [Fact]
+        public void MVP018_AnotherInstancesMember_IsNeitherOwnedNorADisposal()
+        {
+            Assert.Equal(new[] { "MVP018:RateLimit.Debounce(300, () => { })" }, IdsWithText(RateUsings + @"
+public class Work
+{
+    private Debouncer _search;
+    public Work(Work other)
+    {
+        other._search = new Debouncer(TimeSpan.Zero, () => { });   // other's: not checked here
+        _search = RateLimit.Debounce(300, () => { });             // this one is never disposed
+    }
+    public void Close(Work other) => other._search.Dispose();       // disposes other's, not this one
+}"));
+        }
     }
 }

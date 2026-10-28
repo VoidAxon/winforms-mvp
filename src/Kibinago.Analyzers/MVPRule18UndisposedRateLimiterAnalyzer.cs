@@ -24,7 +24,9 @@ namespace Kibinago.Analyzers
 
         public override void Initialize(AnalysisContext context)
         {
-            context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
+            // Generated code is read for disposals (a Form's Dispose(bool) in Form.Designer.cs); without
+            // ReportDiagnostics nothing is reported in it.
+            context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.Analyze);
             context.EnableConcurrentExecution();
             // Per class (all partial parts): collect the creations stored in its members and the
             // members it disposes, then report the creations whose member is never disposed.
@@ -68,7 +70,8 @@ namespace Kibinago.Analyzers
 
             ISymbol member = null;
             if (outer.Parent is AssignmentExpressionSyntax assignment && assignment.Right == outer &&
-                (assignment.IsKind(SyntaxKind.SimpleAssignmentExpression) || assignment.IsKind(SyntaxKind.CoalesceAssignmentExpression)))
+                (assignment.IsKind(SyntaxKind.SimpleAssignmentExpression) || assignment.IsKind(SyntaxKind.CoalesceAssignmentExpression)) &&
+                IsOwnMember(assignment.Left))
                 member = model.GetSymbolInfo(assignment.Left, context.CancellationToken).Symbol;
             else if (outer.Parent is EqualsValueClauseSyntax equals &&
                      (equals.Parent is VariableDeclaratorSyntax || equals.Parent is PropertyDeclarationSyntax))
@@ -81,20 +84,25 @@ namespace Kibinago.Analyzers
         }
 
         // member.Dispose(), member?.Dispose(), member.DisposeWith(...), using (member),
-        // using var x = member, or member passed to a method.
+        // using var x = member, or member passed to a method — on this instance (_d or this._d) only.
         private static void CollectDisposal(SyntaxNodeAnalysisContext context, ConcurrentDictionary<ISymbol, bool> disposed)
         {
             var name = (IdentifierNameSyntax)context.Node;
             ExpressionSyntax use = name;
             if (use.Parent is MemberAccessExpressionSyntax access && access.Name == use)
                 use = access;   // this._d
-            if (!IsDisposingUse(use))
+            if (!IsOwnMember(use) || !IsDisposingUse(use))
                 return;
 
             var symbol = context.SemanticModel.GetSymbolInfo(name, context.CancellationToken).Symbol;
             if (symbol is IFieldSymbol || symbol is IPropertySymbol)
                 disposed.TryAdd(symbol.OriginalDefinition, true);
         }
+
+        // _d or this._d — not another object's member (other._d).
+        private static bool IsOwnMember(ExpressionSyntax expression) =>
+            expression is IdentifierNameSyntax ||
+            (expression is MemberAccessExpressionSyntax access && access.Expression is ThisExpressionSyntax);
 
         // "Debouncer" / "Throttler" when the node creates one (new, or a RateLimit factory), else null.
         private static string CreatedRateLimiter(ExpressionSyntax node, SemanticModel model, SyntaxNodeAnalysisContext context)
@@ -131,8 +139,10 @@ namespace Kibinago.Analyzers
                     return conditional.WhenNotNull is InvocationExpressionSyntax call &&
                            call.Expression is MemberBindingExpressionSyntax binding &&
                            IsDisposeName(binding.Name.Identifier.ValueText);
-                case ArgumentSyntax _:
-                    return true;
+                case ArgumentSyntax argument:
+                    // Passed on, so whoever receives it owns it; nameof(_d) passes nothing.
+                    return !(argument.Parent?.Parent is InvocationExpressionSyntax nameofCall &&
+                             nameofCall.Expression is IdentifierNameSyntax callee && callee.Identifier.ValueText == "nameof");
                 case UsingStatementSyntax usingStatement:
                     return usingStatement.Expression == use;
                 case EqualsValueClauseSyntax equals:

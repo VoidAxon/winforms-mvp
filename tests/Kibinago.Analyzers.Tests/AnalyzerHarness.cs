@@ -123,7 +123,8 @@ namespace Kibinago.Presenters
         /// Returns the MVP diagnostics for <paramref name="source"/>, ordered by position.
         /// Fails if the snippet itself does not compile, so a typo can't masquerade as "no diagnostic".
         /// </summary>
-        public static ImmutableArray<Diagnostic> Analyze(string source)
+        /// <param name="designer">Optional second part compiled as <c>Test.Designer.cs</c> (generated code).</param>
+        public static ImmutableArray<Diagnostic> Analyze(string source, string designer = null)
         {
             var parseOptions = new CSharpParseOptions(LanguageVersion.Latest, DocumentationMode.Diagnose);
             var trees = new[]
@@ -131,6 +132,8 @@ namespace Kibinago.Presenters
                 CSharpSyntaxTree.ParseText(Stubs, parseOptions, path: "Stubs.cs"),
                 CSharpSyntaxTree.ParseText(source, parseOptions, path: "Test.cs"),
             };
+            if (designer != null)
+                trees = trees.Append(CSharpSyntaxTree.ParseText(designer, parseOptions, path: "Test.Designer.cs")).ToArray();
 
             var compilation = CSharpCompilation.Create(
                 "AnalyzerTest",
@@ -154,8 +157,8 @@ namespace Kibinago.Presenters
         }
 
         /// <summary>Diagnostic IDs for <paramref name="source"/>, in source order.</summary>
-        public static string[] Ids(string source) =>
-            Analyze(source).Select(d => d.Id).ToArray();
+        public static string[] Ids(string source, string designer = null) =>
+            Analyze(source, designer).Select(d => d.Id).ToArray();
 
         /// <summary>"ID:flagged text" pairs, for asserting where a diagnostic lands.</summary>
         public static string[] IdsWithText(string source) =>
