@@ -21,7 +21,11 @@ namespace Kibinago.Samples.ChangeTrackingDemo
 
             _name.TextChanged += (s, e) => RaiseEdited();
             _bloodType.SelectedIndexChanged += (s, e) => RaiseEdited();
-            _allergies.ItemCheck += (s, e) => BeginInvoke((MethodInvoker)RaiseEdited);   // after the check state changes
+            _allergies.ItemCheck += (s, e) =>
+            {
+                if (!_loading)
+                    BeginInvoke((MethodInvoker)RaiseEdited);   // ItemCheck comes before the state changes: report it after
+            };
             _memo.TextChanged += (s, e) => RaiseEdited();
         }
 
