@@ -32,7 +32,7 @@ namespace Kibinago.Samples.Tests.Presenters
         // exposes no closing members.
         private sealed class MockView : IWindowClosingDemoView
         {
-            public string Text { get; set; } = "";
+            public string Content { get; set; } = "";
             public string LastStatus { get; private set; }
             public string StatusMessage { set { LastStatus = value; } }
             public CapturingActionBinder Binder { get; } = new CapturingActionBinder();
@@ -44,7 +44,7 @@ namespace Kibinago.Samples.Tests.Presenters
             // Test helper.
             public void SimulateEdit(string newText)
             {
-                Text = newText;
+                Content = newText;
                 EditChanged?.Invoke(this, EventArgs.Empty);
             }
         }
