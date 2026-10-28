@@ -99,7 +99,7 @@ System shutdown / Task Manager never reach `CanClose`. Save-on-close: call `Requ
 | Files, database, HTTP | not provided: constructor-inject a purpose-shaped interface (`ICsvExporter`, `IOrderRepository`); optional architecture test recipe · [wiki](wiki/Reference-Platform-Services.md) |
 | Corner toast (thread-safe) | `Toasts` — `IToastService.Show(text, ToastType, duration?)` · [wiki](wiki/Reference-Toast-Notifications.md) |
 | Toast with per-call options / anchored (view-side) | `IWinFormsToastService`, `ToastOptions`; look: `ToastStyle` (`Soft`, `Card`, `Solid`), custom `ToastRenderer` |
-| Busy (wait cursor, whole window takes no input, optional overlay) | `using (ShowBusy()) { ... }` on the presenter (`IBusyIndicator`); `mvp.Busy.UseOverlay()` (centred square + ring, a `ShowBusy("…")` message under it, two lines at most; backdrop color / opacity: `new HudBusyRenderer { Backdrop = ... }`, `Color.Transparent` = none) or `UseOverlay(new MyRenderer())` (`BusyRenderer`); `mvp.Busy.Delay` · [wiki](wiki/HowTo-Show-Busy.md) |
+| Busy (wait cursor, whole window takes no input — an MDI child only itself — optional overlay) | `using (ShowBusy()) { ... }` on the presenter (`IBusyIndicator`); `mvp.Busy.UseOverlay()` (centred square + ring, a `ShowBusy("…")` message under it, two lines at most; backdrop color / opacity: `new HudBusyRenderer { Backdrop = ... }`, `Color.Transparent` = none) or `UseOverlay(new MyRenderer())` (`BusyRenderer`); `mvp.Busy.Delay` · [wiki](wiki/HowTo-Show-Busy.md) |
 | Feedback at a control's position (view code only) | `AnchoredToast.Show*(...)`, `AnchoredMessageBox.Show*/Confirm*(...)`; a presenter calls a semantic view method |
 | Logging (M.E.L.-style names) | `Logger` — `ILogger` (`LogInformation`, `LogError(ex, "...{Name}", arg)`, …); `NullLoggerFactory` (default), `DebugLoggerFactory`; adapter to M.E.L. in `samples/MultiProjectDemo.Shell/Logging/` · [wiki](wiki/Reference-Logging.md) |
 
@@ -153,6 +153,8 @@ Expression-based two-way binding of controls to an `INotifyPropertyChanged` mode
 `pictureBox.BindImageLocation`, `pairs.BindRadioGroup(model, x => x.Value)`. One property per expression (no paths).
 
 A grid bound to a list of objects that sorts by header click / several columns: `SortableBindingList<T>` (Core, `Kibinago.Common`; stable, copies the source list, never throws on mixed values, `ApplySort(s => s.By(r => r.Ward).ThenByDescending(r => r.No))` (compiler-checked columns; run-time names: `ApplySort(ListSortDescriptionCollection)`), `ReplaceAll(items)` for a reload keeping the sort, edited rows stay put until `Resort()` (the chosen sort and glyph stay) or move to their place with `KeepSorted = true`, `SetComparer(r => r.Name, comparer)`) · [wiki](wiki/Reference-Data-Binding.md#一覧グリッド-sortablebindinglistt)
+
+Several columns chosen in the header (click = that column, Shift+click = add a column, Ctrl+click = remove it, as DevExpress / Telerik / ag-Grid do): about 30 lines of View code passing `ApplySort(ListSortDescriptionCollection)`; no framework part needed · [wiki](wiki/Reference-Data-Binding.md#見出しの-shiftクリックで複数列-view-のコード)
 
 Move one row (上へ / 下へ / 最上へ / 最下へ buttons): `rows.MoveUp(row)` / `MoveDown` / `MoveToTop` / `MoveToBottom` / `Move(from, to)` on any `IList<T>` (Core, `Kibinago.Common.ListMoveExtensions`; `false` when nothing moved). A `SortableBindingList<T>` moves with one `ItemMoved` (the grid's current row follows), a `BindingList<T>` with RemoveAt + Insert (the view re-selects the row). wiki: Reference-Data-Binding (行の移動).
 
