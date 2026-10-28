@@ -140,6 +140,8 @@ protected override void OnFormClosed(FormClosedEventArgs e)
 }
 ```
 
+**アナライザ MVP018:** クラスのフィールドやプロパティに新しい `Debouncer` / `Throttler` を入れたのに、そのクラスのどこにも破棄がないと、アナライザ **`MVP018`** が警告します。次のどれかがクラス内 (partial の別ファイルも含む) にあれば破棄したとみなします: 生成時の `.DisposeWith(...)`、`_x.Dispose()` / `_x?.Dispose()`、`using (_x)`、メソッドへの引数として渡す (`Disposables.Add(_x)` など)。ローカル変数・メソッドへ直接渡した値・static フィールドは対象外です。
+
 ---
 
 ## バックプレッシャー (積み上がり・並行実行の防止)

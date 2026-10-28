@@ -54,6 +54,36 @@ namespace Kibinago.Events
     }
 }
 
+namespace Kibinago.Common
+{
+    public sealed class CompositeDisposable : System.IDisposable
+    {
+        public void Add(System.IDisposable item) { }
+        public void Dispose() { }
+    }
+    public static class DisposableExtensions
+    {
+        public static T DisposeWith<T>(this T disposable, CompositeDisposable bag) where T : System.IDisposable => disposable;
+    }
+    public sealed class Debouncer : System.IDisposable
+    {
+        public Debouncer(System.TimeSpan delay, System.Action action) { }
+        public void Signal() { }
+        public void Dispose() { }
+    }
+    public sealed class Throttler : System.IDisposable
+    {
+        public Throttler(System.TimeSpan interval, System.Action action) { }
+        public void Signal() { }
+        public void Dispose() { }
+    }
+    public static class RateLimit
+    {
+        public static Debouncer Debounce(int milliseconds, System.Action action) => new Debouncer(System.TimeSpan.FromMilliseconds(milliseconds), action);
+        public static Throttler Throttle(int milliseconds, System.Action action) => new Throttler(System.TimeSpan.FromMilliseconds(milliseconds), action);
+    }
+}
+
 namespace Kibinago.Views
 {
     public interface IViewBase { }
@@ -67,6 +97,8 @@ namespace Kibinago.Presenters
     public abstract class PresenterBase<TView> where TView : IViewBase
     {
         protected TView View { get; private set; }
+        protected Kibinago.Common.CompositeDisposable Disposables { get; } = new Kibinago.Common.CompositeDisposable();
+        protected virtual void Cleanup() { }
     }
 
     public abstract class WindowPresenterBase<TView> : PresenterBase<TView> where TView : IWindowView { }

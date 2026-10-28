@@ -179,7 +179,7 @@ For modules / screens that do not know each other — not for parent-child or pa
 | Run once the user stops typing / clicking ▲▼ (search as you type) | `RateLimit.Debounce(300, action)` → `Signal()`; search now: `Signal()` + `Flush()` |
 | Async action; a newer run cancels the stale one | `RateLimit.Debounce(300, async ct => ...)` (`cancelPrevious: true` by default) |
 | At most once per interval while it continues (drag preview) | `RateLimit.Throttle(150, action)` |
-| Release with the presenter | `.DisposeWith(Disposables)` (`Dispose` cancels an async run in flight) |
+| Release with the presenter | `.DisposeWith(Disposables)` (`Dispose` cancels an async run in flight; analyzer MVP018 warns when a field one is never disposed) |
 
 Callbacks run on the creating thread's context; without `onError` a failure reaches `Application.ThreadException`.
 
@@ -210,7 +210,8 @@ Never widen presenter visibility for tests.
 MVP001 view interface ends with `View` · MVP002 presenter ends with `Presenter` · MVP003 presenter creates UI controls ·
 MVP004 UI types in view interfaces / presenters · MVP006 public presenter methods return void · MVP007 presenter uses a concrete Form ·
 MVP008 public Form / UserControl method not in its view interface (test doubles that are not controls are exempt) · MVP013 UI control names in interface method names ·
-MVP014 presenter references WinForms types · MVP016 presenter declares public events · MVP017 `Subscribe` result discarded.
+MVP014 presenter references WinForms types · MVP016 presenter declares public events · MVP017 `Subscribe` result discarded ·
+MVP018 a `Debouncer` / `Throttler` stored in a field / property is never disposed.
 With a `ProjectReference`, reference `Kibinago.Analyzers` as an analyzer explicitly (see `samples/`).
 
 **`dotnet new` templates** (`dotnet new install Kibinago.Templates`) · [wiki](wiki/HowTo-Use-Templates.md):

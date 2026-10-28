@@ -619,5 +619,115 @@ public class Listener
 public class Bus { public IDisposable Subscribe<T>(Action<T> a) => null; }
 public class Listener { public Listener(Bus bus) { bus.Subscribe<string>(s => { }); } }"));
         }
+
+        // ------------------------------------------------------------------ MVP018
+
+        private const string RateUsings = Usings + "using Kibinago.Common;\n";
+
+        [Fact]
+        public void MVP018_FieldNeverDisposed_Reports()
+        {
+            Assert.Equal(new[]
+                {
+                    "MVP018:RateLimit.Debounce(300, Search)",
+                    "MVP018:new Throttler(TimeSpan.FromMilliseconds(100), Preview)",
+                },
+                IdsWithText(RateUsings + @"
+public interface ISearchView : IWindowView { }
+public class SearchPresenter : WindowPresenterBase<ISearchView>
+{
+    private Debouncer _search;
+    private readonly Throttler _preview;
+    public SearchPresenter()
+    {
+        _search = RateLimit.Debounce(300, Search);
+        _preview = new Throttler(TimeSpan.FromMilliseconds(100), Preview);
+    }
+    private void Search() { }
+    private void Preview() { }
+}"));
+        }
+
+        [Fact]
+        public void MVP018_FieldInitializerAndPropertyOutsidePresenter_Reports()
+        {
+            // Not only presenters: a Form's field leaks the same way.
+            Assert.Equal(new[] { "MVP018", "MVP018" }, Ids(RateUsings + "using System.Windows.Forms;\n" + @"
+public class SearchForm : Form
+{
+    private readonly Debouncer _search = RateLimit.Debounce(300, () => { });
+    private Throttler Preview { get; } = new(TimeSpan.FromMilliseconds(100), () => { });
+}"));
+        }
+
+        [Fact]
+        public void MVP018_DisposedSomewhereInTheClass_NoDiagnostic()
+        {
+            Assert.Empty(Ids(RateUsings + @"
+public interface ISearchView : IWindowView { }
+public class SearchPresenter : WindowPresenterBase<ISearchView>
+{
+    private Debouncer _a, _c, _d, _e, _f;
+    private Throttler _b;
+    public SearchPresenter()
+    {
+        _a = RateLimit.Debounce(300, () => { }).DisposeWith(Disposables);   // at the creation
+        _b = RateLimit.Throttle(100, () => { });
+        _c = new Debouncer(TimeSpan.Zero, () => { });
+        _d = new Debouncer(TimeSpan.Zero, () => { });
+        Disposables.Add(_d);                                                 // handed to a method
+        _e = new Debouncer(TimeSpan.Zero, () => { });
+        _f = new Debouncer(TimeSpan.Zero, () => { });
+    }
+    protected override void Cleanup()
+    {
+        _b.Dispose();
+        this._c?.Dispose();
+        using (_e) { }
+        ((IDisposable)_f).Dispose();
+    }
+}"));
+        }
+
+        [Fact]
+        public void MVP018_DisposedInAnotherPartOfThePartialClass_NoDiagnostic()
+        {
+            Assert.Empty(Ids(RateUsings + "using System.Windows.Forms;\n" + @"
+public partial class SearchForm : Form
+{
+    private readonly Debouncer _search = RateLimit.Debounce(300, () => { });
+}
+public partial class SearchForm
+{
+    public void Close() => _search.Dispose();
+}"));
+        }
+
+        [Fact]
+        public void MVP018_LocalsArgumentsAndOtherObjects_NoDiagnostic()
+        {
+            Assert.Empty(Ids(RateUsings + @"
+public class Holder { public Debouncer D; }
+public class Work
+{
+    private static Debouncer s_shared = RateLimit.Debounce(300, () => { });   // static: lives with the app
+    public void Run(Holder holder)
+    {
+        var local = RateLimit.Debounce(300, () => { });
+        using (var scoped = new Debouncer(TimeSpan.Zero, () => { })) { }
+        Keep(RateLimit.Throttle(100, () => { }));
+        holder.D = new Debouncer(TimeSpan.Zero, () => { });   // another object's member
+    }
+    private static void Keep(IDisposable d) { }
+}"));
+        }
+
+        [Fact]
+        public void MVP018_UnrelatedDebouncerType_NoDiagnostic()
+        {
+            Assert.Empty(Ids(Usings + @"
+public sealed class Debouncer : IDisposable { public void Dispose() { } }
+public class Work { private Debouncer _d = new Debouncer(); }"));
+        }
     }
 }
