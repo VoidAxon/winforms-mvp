@@ -42,7 +42,7 @@ namespace Kibinago.Samples.WindowClosingDemo
     public class WindowClosingDemoPresenter : WindowPresenterBase<IWindowClosingDemoView>
     {
         private string _baseline;          // The text snapshot used to compute dirty state.
-        private bool IsDirty => View.Text != _baseline;
+        private bool IsDirty => View.Content != _baseline;
 
         protected override void OnViewAttached()
             // Detect user edits so the Save button's CanExecute can refresh.
@@ -51,7 +51,7 @@ namespace Kibinago.Samples.WindowClosingDemo
         protected override void OnInitialize()
         {
             _baseline = "(type something here)";
-            View.Text = _baseline;
+            View.Content = _baseline;
             View.StatusMessage = "Ready. Edit the text, then Save / Cancel / close the window.";
         }
 
@@ -84,7 +84,7 @@ namespace Kibinago.Samples.WindowClosingDemo
 
         private void OnSave()
         {
-            var saved = View.Text;
+            var saved = View.Content;
             _baseline = saved;            // Commit: dirty flag becomes false.
             View.StatusMessage = "Saving and closing…";
             RequestClose(saved, InteractionStatus.Ok);
@@ -92,7 +92,7 @@ namespace Kibinago.Samples.WindowClosingDemo
 
         private void OnCancel()
         {
-            _baseline = View.Text;        // Discard: treat current as committed so the gate does not prompt.
+            _baseline = View.Content;        // Discard: treat current as committed so the gate does not prompt.
             View.StatusMessage = "Cancelled.";
             RequestClose(InteractionStatus.Cancel);
         }

@@ -1,6 +1,5 @@
 using System;
 using System.Windows.Forms;
-using Kibinago.Configuration;
 using Kibinago.Presenters;
 using Kibinago.Samples.CustomizationDemo;
 using Kibinago.Samples.Shell;
@@ -24,7 +23,12 @@ namespace Kibinago.Samples
             var custom = string.Join(" ", args).Trim() == CustomProfileArguments;
 
             // One startup call: framework customization, then services.
-            MvpApplication.Configure(framework: custom ? CustomizationDemoSetup.Configure : (Action<KibinagoBuilder>)null);
+            MvpApplication.Configure(framework: mvp =>
+            {
+                mvp.Busy.UseOverlay();   // ShowBusy also covers the view with an overlay (after mvp.Busy.Delay)
+                if (custom)
+                    CustomizationDemoSetup.Configure(mvp);
+            });
 
             // Maps every view interface in this assembly to its Form, so Navigator can create windows.
             ServiceLocator.Current.Resolve<IViewMappingRegister>()

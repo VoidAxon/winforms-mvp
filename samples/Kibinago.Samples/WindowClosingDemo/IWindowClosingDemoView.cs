@@ -10,7 +10,7 @@ namespace Kibinago.Samples.WindowClosingDemo
     /// Demonstrates the framework's two-direction close pattern with the smallest possible
     /// surface area. The view exposes:
     /// <list type="bullet">
-    ///   <item><description>A <see cref="Text"/> property the user edits.</description></item>
+    ///   <item><description>A <see cref="Content"/> property the user edits.</description></item>
     ///   <item><description>An <see cref="EditChanged"/> event so the Presenter can detect dirty state.</description></item>
     ///   <item><description>A <see cref="StatusMessage"/> setter the Presenter updates with feedback.</description></item>
     /// </list>
@@ -19,11 +19,11 @@ namespace Kibinago.Samples.WindowClosingDemo
     /// </remarks>
     public interface IWindowClosingDemoView : IWindowView
     {
-        string Text { get; set; }
+        string Content { get; set; }
         string StatusMessage { set; }
 
         /// <summary>
-        /// Raised by the View whenever the user edits <see cref="Text"/>. The Presenter uses
+        /// Raised by the View whenever the user edits <see cref="Content"/>. The Presenter uses
         /// this signal to update its dirty-state flag.
         /// </summary>
         event EventHandler EditChanged;

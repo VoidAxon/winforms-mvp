@@ -5,17 +5,24 @@ using System.Windows.Forms;
 using Kibinago.Presenters;
 using Kibinago.Samples.AnchoredMessageDemo;
 using Kibinago.Samples.AsyncDemo;
+using Kibinago.Samples.BindingDemo;
 using Kibinago.Samples.BulkBindingDemo;
+using Kibinago.Samples.BusyDemo;
 using Kibinago.Samples.CascadeDemo;
+using Kibinago.Samples.ChangeTrackingDemo;
 using Kibinago.Samples.CheckBoxDemo;
+using Kibinago.Samples.CompositionDemo;
 using Kibinago.Samples.ComplexInteractionDemo_EventBased;
 using Kibinago.Samples.ComplexInteractionDemo_ServiceBased;
 using Kibinago.Samples.CustomizationDemo;
 using Kibinago.Samples.DebounceThrottleDemo;
 using Kibinago.Samples.EmailDemo;
 using Kibinago.Samples.EmailDemo.Services;
+using Kibinago.Samples.FirstErrorDemo;
 using Kibinago.Samples.LegacyPopupDemo;
+using Kibinago.Samples.ListDemo;
 using Kibinago.Samples.MasterDetailDemo;
+using Kibinago.Samples.MdiDemo;
 using Kibinago.Samples.MessageBoxDemo;
 using Kibinago.Samples.MVPComparisonDemo;
 using Kibinago.Samples.NavigatorDemo;
@@ -38,6 +45,14 @@ namespace Kibinago.Samples.Shell
         private static readonly Dictionary<string, Func<Control>> Embedded = new Dictionary<string, Func<Control>>
         {
             [DemoIds.ToDo] = () => new ToDoDemoControl(),
+            [DemoIds.Busy] = () => new BusyDemoControl(),
+            [DemoIds.Sort] = () => new SortDemoControl(),
+            [DemoIds.Move] = () => new MoveDemoControl(),
+            [DemoIds.Contacts] = () => new ContactsDemoControl(),
+            [DemoIds.Reservation] = () => new ReservationDemoControl(),
+            [DemoIds.FirstError] = () => new IntakeControl(),
+            [DemoIds.ProfileEdit] = () => new ProfileEditControl(),
+            [DemoIds.Outpatient] = () => new OutpatientControl(),
         };
 
         // The window of each demo that opens from its tab (owner = this main window).
@@ -55,6 +70,7 @@ namespace Kibinago.Samples.Shell
             [DemoIds.DebounceThrottle] = owner => new DebounceThrottleDemoForm().Show(owner),
             [DemoIds.Navigator] = owner => ShowConnected(owner, new NavigatorDemoForm(), v => new NavigatorDemoPresenter().Connect(v)),
             [DemoIds.WindowClosing] = owner => ShowConnected(owner, new WindowClosingDemoForm(), v => new WindowClosingDemoPresenter().Connect(v)),
+            [DemoIds.Mdi] = owner => ShowConnected(owner, new MdiHostForm(), v => new MdiHostPresenter().Connect(v)),
             [DemoIds.LegacyPopup] = owner => ShowConnected(owner, new LegacyPopupDemoForm(), v => new LegacyPopupDemoPresenter().Connect(v)),
             [DemoIds.MessageBox] = owner => new MessageBoxDemoForm().Show(owner),
             [DemoIds.Toast] = owner => new ToastDemoForm().Show(owner),

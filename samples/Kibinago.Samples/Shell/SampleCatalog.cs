@@ -1,4 +1,10 @@
 using System.Collections.Generic;
+using Kibinago.Samples.BindingDemo;
+using Kibinago.Samples.BusyDemo;
+using Kibinago.Samples.ChangeTrackingDemo;
+using Kibinago.Samples.CompositionDemo;
+using Kibinago.Samples.FirstErrorDemo;
+using Kibinago.Samples.ListDemo;
 using Kibinago.Samples.ToDoDemo;
 
 namespace Kibinago.Samples.Shell
@@ -14,14 +20,23 @@ namespace Kibinago.Samples.Shell
         public const string ExplicitEvent = "explicit-event";
         public const string ExplicitParameters = "explicit-parameters";
         public const string Async = "async";
+        public const string Busy = "busy";
         public const string DebounceThrottle = "debounce-throttle";
         public const string Navigator = "navigator";
         public const string WindowClosing = "window-closing";
         public const string LegacyPopup = "legacy-popup";
+        public const string Mdi = "mdi";
         public const string MessageBox = "messagebox";
         public const string Toast = "toast";
         public const string AnchoredMessage = "anchored-message";
         public const string Validation = "validation";
+        public const string FirstError = "first-error";
+        public const string Outpatient = "outpatient";
+        public const string ProfileEdit = "profile-edit";
+        public const string Sort = "sort";
+        public const string Move = "move";
+        public const string Contacts = "contacts";
+        public const string Reservation = "reservation";
         public const string MasterDetail = "master-detail";
         public const string Cascade = "cascade";
         public const string ServiceBased = "service-based";
@@ -96,6 +111,8 @@ namespace Kibinago.Samples.Shell
             new SampleCategory("async", "非同期・処理中", "async の処理、間引き",
                 "async の処理は Dispatcher.Register(キー, async ct => ...) で登録します。実行中はボタンが無効になり、" +
                 "画面を閉じるとトークン (Lifetime) がキャンセルされます。\r\n" +
+                "時間のかかる処理の間は using (ShowBusy(\"…\")) { … }: ウィンドウが待ちカーソルになり入力を受け付けません " +
+                "(このサンプルは Program.cs の mvp.Busy.UseOverlay() でオーバーレイも出します)。タブの中のデモなので、メイン画面全体が処理中になります。\r\n" +
                 "Debouncer / Throttler は連続するイベント (入力・スクロール) を間引きます。",
                 new[]
                 {
@@ -105,6 +122,10 @@ namespace Kibinago.Samples.Shell
                 },
                 new[]
                 {
+                    SampleDemo.Embedded(DemoIds.Busy, "処理中 (ShowBusy)",
+                        "同期処理・await・ワーカースレッドからの ShowBusy。",
+                        (a, v) => a.Attach(new BusyDemoPresenter(), (IBusyDemoView)v),
+                        "BusyDemo/BusyDemoPresenter.cs", "BusyDemo/IBusyDemoView.cs", "BusyDemo/BusyDemoControl.cs", "Program.cs"),
                     SampleDemo.Window(DemoIds.Async, "非同期の処理",
                         "実行中の自動無効化、キャンセル、進捗。",
                         "AsyncDemo/AsyncDemoPresenter.cs", "AsyncDemo/IAsyncDemoView.cs", "AsyncDemo/AsyncDemoForm.cs"),
@@ -116,6 +137,7 @@ namespace Kibinago.Samples.Shell
             new SampleCategory("windows", "ウィンドウ", "開く・結果・閉じる",
                 "ウィンドウは Presenter から Navigator で開きます (モーダルは結果を返し、モードレスはキーで 1 つに)。\r\n" +
                 "閉じるかどうかは Presenter の CanClose / CanCloseAsync が決めます。✕ でも Alt+F4 でも RequestClose でも同じ門を通ります。\r\n" +
+                "置き場所を自分で決めるコンテナ (MDI、ドッキングのペイン、タブ) には PrepareWindow: 表示以外はすべて済ませた View を返します。\r\n" +
                 "ここのデモはウィンドウそのものの機能なので、ボタンで別ウィンドウを開きます。",
                 new[]
                 {
@@ -132,6 +154,10 @@ namespace Kibinago.Samples.Shell
                     SampleDemo.Window(DemoIds.WindowClosing, "閉じる確認",
                         "未保存の変更があるときの「保存しますか」。CanClose / CanCloseAsync。",
                         "WindowClosingDemo/WindowClosingDemoPresenter.cs", "WindowClosingDemo/IWindowClosingDemoView.cs", "WindowClosingDemo/WindowClosingDemoForm.cs"),
+                    SampleDemo.Window(DemoIds.Mdi, "PrepareWindow と MDI",
+                        "Navigator で用意だけしたウィンドウを MDI の子として表示。子の ShowBusy はその子だけを処理中にします。",
+                        "MdiDemo/MdiHostPresenter.cs", "MdiDemo/IMdiHostView.cs", "MdiDemo/MdiHostForm.cs",
+                        "MdiDemo/DocumentPresenter.cs", "MdiDemo/IDocumentView.cs", "MdiDemo/DocumentForm.cs"),
                     SampleDemo.Window(DemoIds.LegacyPopup, "MVP でない Form を開く",
                         "既存の Form を意味のある View メソッドから開き、InteractionResult で返します。",
                         "LegacyPopupDemo/LegacyPopupDemoPresenter.cs", "LegacyPopupDemo/ILegacyPopupDemoView.cs", "LegacyPopupDemo/LegacyPopupDemoForm.cs", "LegacyPopupDemo/LegacyCustomerForm.cs"),
@@ -160,18 +186,72 @@ namespace Kibinago.Samples.Shell
 
             new SampleCategory("validation", "入力検証", "DataAnnotations、エラー表示",
                 "Presenter の Validation に、モデルの DataAnnotations と Presenter のルールをまとめます。\r\n" +
-                "エラーは、フィールドを離れた後か、送信を試みた後にだけ表示します。",
+                "エラーは、フィールドを離れた後か、送信を試みた後にだけ表示します。\r\n" +
+                "表示は 2 通り: メッセージだけ (送信に失敗したら最初のエラーを出して、その欄へフォーカス。WinForms の業務画面でよくある形) と、" +
+                "メッセージ + 欄の横のアイコン (View が IValidatableView を実装)。エラーの順番はモデルのプロパティの宣言順です。\r\n" +
+                "送信ボタンはエラーがあっても無効にしません (まだ触っていない欄のエラーを見せるため)。",
                 new[] { new WikiLink("入力検証", "HowTo-Validate-Form-Input") },
                 new[]
                 {
-                    SampleDemo.Window(DemoIds.Validation, "入力検証",
+                    SampleDemo.Embedded(DemoIds.FirstError, "最初のエラーへ (FirstError)",
+                        "メッセージだけの形: 送信に失敗したら最初のエラーを出し、その欄へフォーカス。",
+                        (a, v) => a.Attach(new IntakePresenter(), (IIntakeView)v),
+                        "FirstErrorDemo/IntakePresenter.cs", "FirstErrorDemo/IntakeModel.cs", "FirstErrorDemo/IIntakeView.cs", "FirstErrorDemo/IntakeControl.cs"),
+                    SampleDemo.Window(DemoIds.Validation, "入力検証 (アイコン付き)",
                         "DataAnnotations、ErrorProvider、送信時にまとめて表示。",
                         "ValidationDemo/ValidationDemoPresenter.cs", "ValidationDemo/RegistrationModel.cs", "ValidationDemo/IValidationDemoView.cs", "ValidationDemo/ValidationDemoForm.cs"),
                 }),
 
+            new SampleCategory("binding", "バインド", "モデルとコントロールの双方向",
+                "Presenter が入力モデル (INotifyPropertyChanged、NotifyingObject) を持ち、View がコントロールをそれにバインドします。\r\n" +
+                "Presenter はモデルを読み書きするだけで、コントロールには触りません。View 側は 1 コントロール 1 行: textBox.Bind(model, x => x.Name)。\r\n" +
+                "式はコンパイラーが確認します (名前の変更に追従、型違いはビルドエラー)。日付の null はチェックボックス、ラジオボタンは BindRadioGroup。",
+                new[] { new WikiLink("データバインド", "Reference-Data-Binding") },
+                new[]
+                {
+                    SampleDemo.Embedded(DemoIds.Outpatient, "双方向バインド",
+                        "入力するとモデルが変わり、Presenter がモデルを変えるとコントロールが変わります。",
+                        (a, v) => a.Attach(new OutpatientPresenter(), (IOutpatientView)v),
+                        "BindingDemo/OutpatientPresenter.cs", "BindingDemo/IOutpatientView.cs", "BindingDemo/OutpatientControl.cs", "BindingDemo/OutpatientInput.cs"),
+                }),
+
+            new SampleCategory("tracking", "変更追跡", "未保存の変更があるか",
+                "TrackChanges(model) はモデルのスナップショットを取り、IsChanged で内容を比べます (値を元に戻せば「変更なし」)。\r\n" +
+                "検出だけの部品です: 元に戻す機能やイベントはありません。保存したら AcceptChanges()、元に戻すときは読み直して新しく追跡します。\r\n" +
+                "使い方は 2 通り: 1 つのオブジェクトをその場で編集する (このデモ) か、毎回 View から新しいモデルを作って IsChangedWith(model) で比べるか。\r\n" +
+                "画面ごとに無視するメンバーは .Ignore(x => x.UpdatedAt)。ウィンドウでは同じ IsChanged を CanClose の「保存しますか」に使います (ウィンドウ → 閉じる確認)。",
+                new[] { new WikiLink("ChangeTracker", "Reference-ChangeTracker") },
+                new[]
+                {
+                    SampleDemo.Embedded(DemoIds.ProfileEdit, "変更の検出",
+                        "編集すると「未保存の変更」、元の値に戻すと消えます。UpdatedAt は無視。",
+                        (a, v) => a.Attach(new ProfileEditPresenter(), (IProfileEditView)v),
+                        "ChangeTrackingDemo/ProfileEditPresenter.cs", "ChangeTrackingDemo/IProfileEditView.cs", "ChangeTrackingDemo/ProfileEditControl.cs", "ChangeTrackingDemo/PatientProfile.cs"),
+                }),
+
+            new SampleCategory("list", "一覧", "並べ替え、行の移動",
+                "オブジェクトの一覧にバインドしたグリッドは、SortableBindingList<T> なら見出しのクリックで並びます " +
+                "(安定ソート、型が混在しても落ちない、ReplaceAll で並べ替えを保ったまま読み直し)。\r\n" +
+                "一覧は Presenter が持ち、View はグリッドを 1 回バインドするだけです。業務の既定の並び (ApplySort) と絞り込み (ReplaceAll + LINQ) は Presenter に書きます。\r\n" +
+                "上へ・下へ・最上へ・最下へは rows.MoveUp(row) など。SortableBindingList なら現在行が動かした行についていきます。",
+                new[] { new WikiLink("データバインド (一覧・グリッド)", "Reference-Data-Binding") },
+                new[]
+                {
+                    SampleDemo.Embedded(DemoIds.Sort, "並べ替え",
+                        "見出しクリック、Shift+クリックで複数列、病棟で絞り込み、KeepSorted。",
+                        (a, v) => a.Attach(new SortDemoPresenter(), (ISortDemoView)v),
+                        "ListDemo/SortDemoPresenter.cs", "ListDemo/ISortDemoView.cs", "ListDemo/SortDemoControl.cs", "ListDemo/PatientRow.cs"),
+                    SampleDemo.Embedded(DemoIds.Move, "行の移動",
+                        "上へ・下へ・最上へ・最下へ。変わった表示順だけを保存します。",
+                        (a, v) => a.Attach(new MoveDemoPresenter(), (IMoveDemoView)v),
+                        "ListDemo/MoveDemoPresenter.cs", "ListDemo/IMoveDemoView.cs", "ListDemo/MoveDemoControl.cs", "ListDemo/PhraseRow.cs"),
+                }),
+
             new SampleCategory("composition", "画面の組み立て", "マスター/詳細、連動する選択",
                 "1 つの画面を複数の Presenter で組み立てます。親 View のインターフェイスが子 View のインターフェイスを公開し、" +
-                "親 Presenter が AttachChild で子 Presenter をつなぎます。",
+                "親 Presenter が AttachChild で子 Presenter をつなぎます (子は親のサービスを使い、親と一緒に破棄されます)。\r\n" +
+                "行やタブのように実行中に増減するパネルは、AttachChild の戻り値 (ハンドル) を子 View ごとに持ち、外すときはハンドルを破棄してから View がコントロールを外します。\r\n" +
+                "「選択」は Selection<T> で共有し、上の選択が変わったら下を読み直す連動は Cascade.Bind (親が 2 つなら Cascade.Combine) です。",
                 new[]
                 {
                     new WikiLink("マスター/詳細", "HowTo-Implement-Master-Detail"),
@@ -179,6 +259,15 @@ namespace Kibinago.Samples.Shell
                 },
                 new[]
                 {
+                    SampleDemo.Embedded(DemoIds.Contacts, "動的なパネル (AttachChild)",
+                        "連絡先の行を追加・削除。行ごとに子 Presenter が付き、削除でハンドルを破棄します。",
+                        (a, v) => a.Attach(new ContactsDemoPresenter(), (IContactsDemoView)v),
+                        "CompositionDemo/ContactsDemoPresenter.cs", "CompositionDemo/IContactsDemoView.cs", "CompositionDemo/ContactsDemoControl.cs",
+                        "CompositionDemo/ContactRowPresenter.cs", "CompositionDemo/IContactRowView.cs", "CompositionDemo/ContactRowControl.cs", "CompositionDemo/ContactRow.cs"),
+                    SampleDemo.Embedded(DemoIds.Reservation, "3 段の連動 (Cascade.Combine)",
+                        "診療科 → 医師、医師 + 曜日 → 予約枠。上を変えると下が空になり読み直されます。",
+                        (a, v) => a.Attach(new ReservationDemoPresenter(), (IReservationDemoView)v),
+                        "CompositionDemo/ReservationDemoPresenter.cs", "CompositionDemo/IReservationDemoView.cs", "CompositionDemo/ReservationDemoControl.cs", "CompositionDemo/ReservationModels.cs"),
                     SampleDemo.Window(DemoIds.MasterDetail, "マスター/詳細",
                         "顧客を選ぶと注文が切り替わります。",
                         "MasterDetailDemo/MasterDetailPresenter.cs", "MasterDetailDemo/IMasterDetailView.cs", "MasterDetailDemo/MasterDetailForm.cs"),
@@ -237,6 +326,27 @@ namespace Kibinago.Samples.Shell
                         "会社のダイアログ、ブランドのトースト、変更追跡の比較方法。",
                         "CustomizationDemo/CustomizationDemoSetup.cs", "CustomizationDemo/CompanyStyleDialogBackend.cs",
                         "CustomizationDemo/CustomizationDemoPresenter.cs", "CustomizationDemo/CustomizationDemoForm.cs", "Program.cs"),
+                }),
+
+            new SampleCategory("testing", "テスト・ツール", "Presenter のテスト、アナライザー、テンプレート",
+                "Presenter は Form なしでテストできます: モックの View を作り、PresenterTestHost.Start(services, presenter, view) で本物の初期化を走らせ、" +
+                "ボタンの代わりに view.Binder.Dispatch(アクション) で操作します (Kibinago.Testing パッケージ)。\r\n" +
+                "TestServices.CreateFakes() はフレームワークのサービスをすべて偽物にします (fakes.Messages.Calls で出したメッセージを確認、確認ダイアログの答えも指定できます)。\r\n" +
+                "テストのために Presenter の公開範囲を広げることはしません。\r\n\r\n" +
+                "アナライザー (Kibinago.Core に同梱、すべて警告): MVP001/002 名前、MVP003/004/014 Presenter と View インターフェイスに WinForms の型を入れない、" +
+                "MVP006/007/008/013/016 公開範囲とインターフェイス、MVP017 EventAggregator の購読を捨てない、MVP018 Debouncer / Throttler を破棄する。\r\n\r\n" +
+                "テンプレート: dotnet new kibinago (アプリ)、mvp-window (--edit で編集ダイアログ)、mvp-control、kibinago-tests。",
+                new[]
+                {
+                    new WikiLink("Presenter のテスト", "HowTo-Test-A-Presenter"),
+                    new WikiLink("設計ルールとアナライザー", "Design-Rules"),
+                    new WikiLink("テンプレート", "HowTo-Use-Templates"),
+                },
+                new SampleDemo[0],
+                new[]
+                {
+                    "Tests/ToDoDemoPresenterTests.cs", "Tests/MockToDoView.cs", "Tests/MoveDemoPresenterTests.cs",
+                    "Tests/IntakePresenterTests.cs", "Tests/ReservationDemoPresenterTests.cs", "Tests/ContactsDemoPresenterTests.cs",
                 }),
 
             new SampleCategory("app", "総合アプリ", "メールアプリ",

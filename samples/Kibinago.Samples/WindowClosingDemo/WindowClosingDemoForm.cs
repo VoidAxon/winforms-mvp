@@ -39,9 +39,9 @@ namespace Kibinago.Samples.WindowClosingDemo
 
         // ─── IWindowClosingDemoView ──────────────────────────────────────────────────
 
-        // 'new' is intentional: this Text property is the View-contract text (textbox
-        // content), distinct from Form.Text (window title).
-        public new string Text
+        // The edited text (not Form.Text, the window title).
+        [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+        public string Content
         {
             get => _textBox.Text;
             set => _textBox.Text = value ?? string.Empty;
