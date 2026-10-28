@@ -294,17 +294,17 @@ namespace Kibinago.Services
         }
 
         // With a message: the ring at the top, the text under it; as wide as the text needs, between the
-        // square's size and MaxTextWidth (and the view).
+        // minimum box width and MaxTextWidth, never wider than the view.
         private Rectangle TextBounds(BusyLayoutContext context)
         {
             var s = context.Scale;
             var margin = Margin(s);
             var padX = PadX(s);
-            var room = context.ViewSize.Width - 16 * s - 2 * margin - 2 * padX;
-            var textWidth = Math.Min(MaxTextWidth * s, room);
-            if (textWidth < 40 * s) return Rectangle.Empty;   // no room for it
+            var room = context.ViewSize.Width - 16 * s - 2 * margin;   // the widest box the view takes
+            var textWidth = Math.Min(MaxTextWidth * s, room - 2 * padX);
+            if (textWidth < 40 * s) return Rectangle.Empty;   // no room for it (so the box is never narrower than the text)
             var text = context.MeasureText(context.Message, textWidth, TextLines, Color.White);
-            var width = Math.Max(Math.Max(Size, MinTextBoxWidth) * s, text.Width + 2 * padX);
+            var width = Math.Min(Math.Max(Math.Max(Size, MinTextBoxWidth) * s, text.Width + 2 * padX), room);   // the minimum width gives way in a narrow view
             var height = PadY(s) + TextRingSize(s) + Gap(s) + text.Height + PadY(s);   // the same room above and below
             if (height > context.ViewSize.Height - 16 * s) return Rectangle.Empty;
             var outerWidth = (int)Math.Ceiling(width + 2 * margin);

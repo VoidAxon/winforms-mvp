@@ -493,6 +493,15 @@ namespace Kibinago.Samples.Tests.Services
             Assert.True(longText.Height < text.Height + 2 * lineHeight);   // two lines at most
 
             Assert.Equal(Rectangle.Empty, new HudBusyRenderer().GetIndicatorBounds(new BusyLayoutContext(new Size(60, 400), 1f, SystemFonts.DefaultFont, "集計中…")));
+
+            // A view narrower than the minimum box: the box shrinks to fit inside it, or is left out; never wider.
+            for (var w = 0; w <= 200; w += 5)
+            {
+                var narrow = renderer.GetIndicatorBounds(new BusyLayoutContext(new Size(w, 400), 1f, SystemFonts.DefaultFont, "集計中…"));
+                if (narrow.IsEmpty) continue;
+                Assert.True(narrow.X >= 0 && narrow.Right <= w, $"view {w}: {narrow}");
+            }
+            Assert.Equal(Rectangle.Empty, renderer.GetIndicatorBounds(new BusyLayoutContext(Size.Empty, 1f, SystemFonts.DefaultFont, "集計中…")));
         }
 
         [Fact]
