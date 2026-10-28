@@ -427,6 +427,7 @@ namespace Kibinago.Services
             /// <summary>Takes over the own values of a window inside this one that ended first.</summary>
             public void Adopt(WindowState inner)
             {
+                if (inner.HadWaitCursor && !inner._inherited) AddOwn(new[] { inner.Window });   // the window's own value too
                 if (inner._ownWaitCursors == null) return;
                 (_ownWaitCursors ?? (_ownWaitCursors = new List<Control>())).AddRange(inner._ownWaitCursors);
                 inner._ownWaitCursors = null;

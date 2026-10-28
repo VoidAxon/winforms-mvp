@@ -146,6 +146,26 @@ namespace Kibinago.Samples.Tests.Services
         }
 
         [Fact]
+        public void AnMdiChildsOwnWaitCursor_ReturnsAfterItsParent_EndsLast()
+        {
+            using (var parent = new ViewForm { IsMdiContainer = true })
+            {
+                var child = new ViewForm(createHandle: false) { MdiParent = parent, UseWaitCursor = true };   // the app's own setting
+                child.CreateControl();
+                var indicator = new WinFormsBusyIndicator();
+                var inner = indicator.Begin(child, null);    // child first
+                var outer = indicator.Begin(parent, null);
+
+                inner.Dispose();                             // the child ends first …
+                outer.Dispose();                             // … the parent's end sets the subtree, then restores the child's own
+
+                Assert.True(child.UseWaitCursor);
+                Assert.False(parent.UseWaitCursor);
+                AssertNothingBusy();
+            }
+        }
+
+        [Fact]
         public void BusyParentAndMdiChild_EndingInEitherOrder_LeaveNoWaitCursor()
         {
             using (var parent = new ViewForm { IsMdiContainer = true })
