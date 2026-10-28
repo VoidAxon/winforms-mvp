@@ -182,4 +182,41 @@ namespace Kibinago.Samples.Tests.Services
             Assert.Equal(MessageDialogIcon.Warning, backend.Requests[0].Icon);
         }
     }
+
+    public class AnchoredMessageBoxHookTests
+    {
+        [Fact]
+        public void ABoxShownWhileAnotherIsOpen_RemovesOnlyItsOwnHook()
+        {
+            var outer = new AnchoredMessageBox.HookSession(new Point(10, 10));
+            var inner = new AnchoredMessageBox.HookSession(new Point(200, 200));   // shown from the first one's modal loop
+            Assert.True(outer.IsInstalled);
+            Assert.True(inner.IsInstalled);
+
+            Assert.True(inner.Uninstall());
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+
+            Assert.True(outer.IsInstalled);      // still the first box's, its delegate still referenced
+            Assert.True(outer.Uninstall());      // removed by its own call: no hook left behind
+            Assert.False(outer.Uninstall());     // once
+        }
+
+        [Fact]
+        public void HooksOnTwoUiThreads_AreIndependent()
+        {
+            var here = new AnchoredMessageBox.HookSession(new Point(10, 10));
+            var removedThere = false;
+            var thread = new System.Threading.Thread(() =>
+            {
+                var there = new AnchoredMessageBox.HookSession(new Point(50, 50));
+                removedThere = there.IsInstalled && there.Uninstall();
+            });
+            thread.Start();
+            thread.Join();
+
+            Assert.True(removedThere);
+            Assert.True(here.Uninstall());
+        }
+    }
 }
