@@ -16,6 +16,7 @@ using Kibinago.Samples.CustomizationDemo;
 using Kibinago.Samples.DebounceThrottleDemo;
 using Kibinago.Samples.EmailDemo;
 using Kibinago.Samples.EmailDemo.Services;
+using Kibinago.Samples.FirstErrorDemo;
 using Kibinago.Samples.LegacyPopupDemo;
 using Kibinago.Samples.ListDemo;
 using Kibinago.Samples.MasterDetailDemo;
@@ -46,6 +47,7 @@ namespace Kibinago.Samples.Shell
             [DemoIds.Move] = () => new MoveDemoControl(),
             [DemoIds.Contacts] = () => new ContactsDemoControl(),
             [DemoIds.Reservation] = () => new ReservationDemoControl(),
+            [DemoIds.FirstError] = () => new IntakeControl(),
         };
 
         // The window of each demo that opens from its tab (owner = this main window).

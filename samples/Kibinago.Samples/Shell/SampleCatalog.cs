@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Kibinago.Samples.BusyDemo;
 using Kibinago.Samples.CompositionDemo;
+using Kibinago.Samples.FirstErrorDemo;
 using Kibinago.Samples.ListDemo;
 using Kibinago.Samples.ToDoDemo;
 
@@ -26,6 +27,7 @@ namespace Kibinago.Samples.Shell
         public const string Toast = "toast";
         public const string AnchoredMessage = "anchored-message";
         public const string Validation = "validation";
+        public const string FirstError = "first-error";
         public const string Sort = "sort";
         public const string Move = "move";
         public const string Contacts = "contacts";
@@ -174,11 +176,18 @@ namespace Kibinago.Samples.Shell
 
             new SampleCategory("validation", "入力検証", "DataAnnotations、エラー表示",
                 "Presenter の Validation に、モデルの DataAnnotations と Presenter のルールをまとめます。\r\n" +
-                "エラーは、フィールドを離れた後か、送信を試みた後にだけ表示します。",
+                "エラーは、フィールドを離れた後か、送信を試みた後にだけ表示します。\r\n" +
+                "表示は 2 通り: メッセージだけ (送信に失敗したら最初のエラーを出して、その欄へフォーカス。WinForms の業務画面でよくある形) と、" +
+                "メッセージ + 欄の横のアイコン (View が IValidatableView を実装)。エラーの順番はモデルのプロパティの宣言順です。\r\n" +
+                "送信ボタンはエラーがあっても無効にしません (まだ触っていない欄のエラーを見せるため)。",
                 new[] { new WikiLink("入力検証", "HowTo-Validate-Form-Input") },
                 new[]
                 {
-                    SampleDemo.Window(DemoIds.Validation, "入力検証",
+                    SampleDemo.Embedded(DemoIds.FirstError, "最初のエラーへ (FirstError)",
+                        "メッセージだけの形: 送信に失敗したら最初のエラーを出し、その欄へフォーカス。",
+                        (a, v) => a.Attach(new IntakePresenter(), (IIntakeView)v),
+                        "FirstErrorDemo/IntakePresenter.cs", "FirstErrorDemo/IntakeModel.cs", "FirstErrorDemo/IIntakeView.cs", "FirstErrorDemo/IntakeControl.cs"),
+                    SampleDemo.Window(DemoIds.Validation, "入力検証 (アイコン付き)",
                         "DataAnnotations、ErrorProvider、送信時にまとめて表示。",
                         "ValidationDemo/ValidationDemoPresenter.cs", "ValidationDemo/RegistrationModel.cs", "ValidationDemo/IValidationDemoView.cs", "ValidationDemo/ValidationDemoForm.cs"),
                 }),
