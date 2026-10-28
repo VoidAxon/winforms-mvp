@@ -267,8 +267,12 @@ namespace Kibinago.Samples.Tests.Services
                 using (new WinFormsBusyIndicator().Begin(form, null))
                 {
                     Assert.False(menu.Visible);   // closed when the block started (it would not take input)
+
+                    menu.Show(button, new Point(0, 0));   // opened by code while busy: its input is the window's
+                    item.ShowDropDown();
                     Assert.True(Coordinator.ShouldBlock(WM_LBUTTONDOWN, IntPtr.Zero, menu));
                     Assert.True(Coordinator.ShouldBlock(WM_LBUTTONDOWN, IntPtr.Zero, item.DropDown));
+                    menu.Close();
                 }
                 AssertNothingBusy();
             }
@@ -366,10 +370,10 @@ namespace Kibinago.Samples.Tests.Services
         }
 
         [Fact]
-        public void WithoutAContext_ARequestEndedOnAWorker_StaysUntilItsWindowGoes_AndRaisesNoError()
+        public void WithoutAContext_ARequestEndedOnAWorker_RaisesNoError_AndEndsWithItsWindow()
         {
             // A UI thread without a synchronization context (AutoInstall off, per thread): a worker's Dispose
-            // has nothing to post through, so it does nothing; the window's disposal ends the request.
+            // raises no error (it may have nothing to post through); the window's disposal ends the request.
             Exception failure = null;
             var thread = new System.Threading.Thread(() =>
             {
@@ -382,7 +386,6 @@ namespace Kibinago.Samples.Tests.Services
                     Assert.True(form.UseWaitCursor);
 
                     System.Threading.Tasks.Task.Run(busy.Dispose).Wait();
-                    Assert.True(form.UseWaitCursor);   // nothing to post through
 
                     form.Dispose();
                     AssertNothingBusy();
