@@ -15,7 +15,7 @@ namespace Kibinago.Testing
         private readonly Action<object, InteractionStatus> _deliver;
         private readonly Action<FakeWindow> _release;
 
-        internal FakeWindow(object presenter, object parameters, bool hasParameters, object key, IWindowView owner,
+        internal FakeWindow(object presenter, object parameters, bool hasParameters, object key, IViewBase owner,
             Action<object, InteractionStatus> deliver, Action<FakeWindow> release)
         {
             Presenter = presenter;
@@ -41,7 +41,7 @@ namespace Kibinago.Testing
         public object Key { get; }
 
         /// <summary>The owner passed, or null.</summary>
-        public IWindowView Owner { get; }
+        public IViewBase Owner { get; }
 
         /// <summary>The stand-in view returned to the caller (stable: activations return the same one).</summary>
         public IWindowView View { get; }
