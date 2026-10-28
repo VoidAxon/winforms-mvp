@@ -31,9 +31,10 @@ namespace Kibinago.Samples.MdiDemo
 
         private void Open(int number)
         {
-            // key: one window per document number. An open one is returned as it is (not activated).
+            // key: one window per document number in THIS host (keys are app-wide, scoped by presenter type
+            // only, so the host is part of the key). An open one is returned as it is (not activated).
             var document = Navigator.For(new DocumentPresenter()).WithParam(number)
-                .PrepareWindow(key: number);
+                .PrepareWindow(key: (this, number));
             if (document == null)
                 return;   // the opening was cancelled
             View.ShowDocument(document);
