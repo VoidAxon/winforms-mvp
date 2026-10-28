@@ -268,7 +268,10 @@ namespace Kibinago.Services
         public int Size { get; set; } = 72;
 
         /// <summary>The widest a message may be at 96 dpi (default 240); longer text wraps to a second line, then ends with "…".</summary>
-        public int MaxTextWidth { get; set; } = 240;
+        public int MaxTextWidth { get; set; } = 280;
+
+        /// <summary>The colour of the message (default a dark grey, as Windows' secondary text).</summary>
+        public Color TextColor { get; set; } = Color.FromArgb(68, 68, 68);
 
         private const int TextLines = 2;
 
@@ -296,13 +299,13 @@ namespace Kibinago.Services
         {
             var s = context.Scale;
             var margin = Margin(s);
-            var pad = Pad(s);
-            var room = context.ViewSize.Width - 16 * s - 2 * margin - 2 * pad;
+            var padX = PadX(s);
+            var room = context.ViewSize.Width - 16 * s - 2 * margin - 2 * padX;
             var textWidth = Math.Min(MaxTextWidth * s, room);
             if (textWidth < 40 * s) return Rectangle.Empty;   // no room for it
             var text = context.MeasureText(context.Message, textWidth, TextLines, Color.White);
-            var width = Math.Max(Size * s, text.Width + 2 * pad);
-            var height = pad + RingSize(s) + Gap(s) + text.Height + pad;
+            var width = Math.Max(Math.Max(Size, MinTextBoxWidth) * s, text.Width + 2 * padX);
+            var height = PadY(s) + TextRingSize(s) + Gap(s) + text.Height + PadY(s);   // the same room above and below
             if (height > context.ViewSize.Height - 16 * s) return Rectangle.Empty;
             var outerWidth = (int)Math.Ceiling(width + 2 * margin);
             var outerHeight = (int)Math.Ceiling(height + 2 * margin);
@@ -330,8 +333,8 @@ namespace Kibinago.Services
             using (var path = Rounded(box, radius))
                 g.FillPath(fill, path);
 
-            var ring = hasText ? RingSize(s) : box.Width * 0.44f;
-            var ringTop = hasText ? box.Y + Pad(s) : box.Y + (box.Height - ring) / 2;
+            var ring = hasText ? TextRingSize(s) : box.Width * 0.44f;
+            var ringTop = hasText ? box.Y + PadY(s) : box.Y + (box.Height - ring) / 2;
             var ringBox = new RectangleF(box.X + (box.Width - ring) / 2, ringTop, ring, ring);
             var (start, sweep) = Arc(context.Elapsed.TotalMilliseconds);
             using (var pen = new Pen(context.Accent, Math.Max(2f, ring * 0.12f)) { StartCap = LineCap.Round, EndCap = LineCap.Round })
@@ -340,18 +343,24 @@ namespace Kibinago.Services
             if (hasText)
             {
                 var top = ringBox.Bottom + Gap(s);
-                var textBox = new RectangleF(box.X + Pad(s), top, box.Width - 2 * Pad(s), box.Bottom - Pad(s) - top + 1);
-                context.DrawText(context.Message, textBox, Color.FromArgb(32, 32, 32), TextLines, background: Color.White);   // on the white box: label-quality text
+                var textBox = new RectangleF(box.X + PadX(s), top, box.Width - 2 * PadX(s), box.Bottom - PadY(s) - top + 1);
+                context.DrawText(context.Message, textBox, TextColor, TextLines, background: Color.White);   // on the white box: label-quality text
             }
         }
 
         private static float Margin(float scale) => 8 * scale;   // room for the shadow
 
-        private float RingSize(float scale) => Size * scale * 0.44f;   // the ring of the plain square
+        // With a message (at 96 dpi): a slightly larger ring, a box at least MinTextBoxWidth wide, and room
+        // around them: PadX at the sides, PadY above the ring and below the text, Gap between the two.
+        private const int MinTextBoxWidth = 120;
 
-        private static float Pad(float scale) => 14 * scale;   // inside the box, around the ring and text
+        private float TextRingSize(float scale) => Size * scale * 0.5f;
 
-        private static float Gap(float scale) => 10 * scale;   // between the ring and the text
+        private static float PadX(float scale) => 20 * scale;
+
+        private static float PadY(float scale) => 16 * scale;
+
+        private static float Gap(float scale) => 12 * scale;
 
         // The head runs ahead while the arc grows (0.8 s), then the tail catches up while it shrinks (0.8 s);
         // the ring turns once every 1.3 s.

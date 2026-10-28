@@ -487,7 +487,8 @@ namespace Kibinago.Samples.Tests.Services
             Assert.True(text.Height > plain.Height);   // the text under the ring
 
             var longText = Bounds(new string('長', 400));
-            Assert.True(longText.Width <= renderer.MaxTextWidth + 2 * 14 + 2 * 8 + 1);   // capped: text + padding + shadow margin
+            Assert.True(longText.Width <= renderer.MaxTextWidth + 2 * 20 + 2 * 8 + 1);   // capped: text + side padding + shadow margin
+            Assert.True(text.Width >= 120 + 2 * 8);   // a short message still gets a box at least 120 px wide
             var lineHeight = SystemFonts.DefaultFont.GetHeight(96);
             Assert.True(longText.Height < text.Height + 2 * lineHeight);   // two lines at most
 
