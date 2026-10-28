@@ -13,12 +13,12 @@ namespace Kibinago.Samples.ValidationDemo
     /// Submit / Validate All. Errors not tied to a field appear on the Submit button. The form has
     /// no validation logic and no per-field error code.
     /// </summary>
-    public partial class ValidationDemoForm : Form, IValidationDemoView
+    public partial class ValidationDemoControl : UserControl, IValidationDemoView
     {
         private ControlErrorDisplay _errors;
         private ViewActionBinder _binder;
 
-        public ValidationDemoForm()
+        public ValidationDemoControl()
         {
             InitializeComponent();
             InitializeValidationDisplay();

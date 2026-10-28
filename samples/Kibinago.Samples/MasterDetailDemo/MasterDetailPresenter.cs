@@ -10,7 +10,7 @@ namespace Kibinago.Samples.MasterDetailDemo
     /// Presenter for Master-Detail pattern demonstration.
     /// Shows how to coordinate parent-child data relationships.
     /// </summary>
-    public class MasterDetailPresenter : WindowPresenterBase<IMasterDetailView>
+    public class MasterDetailPresenter : ControlPresenterBase<IMasterDetailView>
     {
         private List<CustomerModel> _customers;
         private Dictionary<int, List<OrderModel>> _ordersByCustomer;

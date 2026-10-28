@@ -16,9 +16,9 @@ namespace Kibinago.Samples.MessageBoxDemo
     /// automatically, so the dialog is always fully visible.
     /// </para>
     /// </summary>
-    public partial class MessageBoxDemoForm : Form
+    public partial class MessageBoxDemoControl : UserControl
     {
-        public MessageBoxDemoForm()
+        public MessageBoxDemoControl()
         {
             InitializeComponent();
         }

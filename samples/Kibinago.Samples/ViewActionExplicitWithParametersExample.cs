@@ -57,7 +57,7 @@ namespace Kibinago.Samples
     /// View interface using explicit pattern with mixed parameter types.
     /// Single ActionRequest event handles both parameterized and non-parameterized actions.
     /// </summary>
-    public interface IMixedParametersDemoView : IWindowView
+    public interface IMixedParametersDemoView : IActionableView
     {
         // Data properties
         string CurrentDocument { get; set; }
@@ -78,7 +78,7 @@ namespace Kibinago.Samples
 
     #region View Implementation
 
-    public partial class MixedParametersDemoForm : Form, IMixedParametersDemoView
+    public partial class MixedParametersDemoControl : UserControl, IMixedParametersDemoView
     {
         private ViewActionBinder _binder;
 
@@ -89,7 +89,7 @@ namespace Kibinago.Samples
         // Single ActionRequest event (handles both types)
         public event EventHandler<ActionRequestEventArgs> ActionRequest;
 
-        public MixedParametersDemoForm()
+        public MixedParametersDemoControl()
         {
             InitializeComponent();
             InitializeActionBindings();
@@ -161,7 +161,7 @@ namespace Kibinago.Samples
 
     #region Presenter
 
-    public class MixedParametersDemoPresenter : WindowPresenterBase<IMixedParametersDemoView>
+    public class MixedParametersDemoPresenter : ControlPresenterBase<IMixedParametersDemoView>
     {
         private readonly IMessageService _messageService;
 

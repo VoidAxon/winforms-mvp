@@ -10,7 +10,7 @@ namespace Kibinago.Samples.ValidationDemo
     /// presenter's <c>Validation</c> state. The view decides how (ErrorProvider) and when (after
     /// the user leaves a field, or everything after Submit) errors are shown.
     /// </summary>
-    public interface IValidationDemoView : IWindowView, IValidatableView
+    public interface IValidationDemoView : IActionableView, IValidatableView
     {
         string UserName { get; set; }
         string Email { get; set; }

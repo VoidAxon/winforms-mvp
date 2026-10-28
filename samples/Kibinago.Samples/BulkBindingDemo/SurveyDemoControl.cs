@@ -16,11 +16,11 @@ namespace Kibinago.Samples.BulkBindingDemo
     /// 2. AddRange with dictionary (alternative syntax)
     /// 3. AddByTagFromContainer (recommended for many controls in same container)
     /// </summary>
-    public partial class SurveyDemoForm : Form, ISurveyView
+    public partial class SurveyDemoControl : UserControl, ISurveyView
     {
         private ViewActionBinder _viewActionBinder;
 
-        public SurveyDemoForm()
+        public SurveyDemoControl()
         {
             InitializeComponent();
             InitializeActionBindings();

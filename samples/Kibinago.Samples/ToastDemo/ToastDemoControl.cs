@@ -16,11 +16,11 @@ namespace Kibinago.Samples.ToastDemo
     /// fire toasts to watch them stack, evict (5-toast cap), and truncate long text with an ellipsis.
     /// </para>
     /// </summary>
-    public partial class ToastDemoForm : Form
+    public partial class ToastDemoControl : UserControl
     {
         private readonly IWinFormsToastService _toasts = ServiceLocator.Current.ResolveRequired<IWinFormsToastService>();
 
-        public ToastDemoForm()
+        public ToastDemoControl()
         {
             InitializeComponent();
         }

@@ -44,7 +44,7 @@ namespace Kibinago.Samples.ValueBindingDemo
     /// View contract — only behavior, no UI controls (MVP rule 2). The Presenter
     /// receives control values purely through typed action payloads.
     /// </summary>
-    public interface IValueBindingView : IWindowView
+    public interface IValueBindingView : IActionableView
     {
         void AddLog(string message);
     }
@@ -53,12 +53,12 @@ namespace Kibinago.Samples.ValueBindingDemo
 
     #region View Implementation
 
-    public partial class ValueBindingForm : Form, IValueBindingView
+    public partial class ValueBindingControl : UserControl, IValueBindingView
     {
         private ViewActionBinder _binder;
         public IViewActionBinder ActionBinder => _binder;
 
-        public ValueBindingForm()
+        public ValueBindingControl()
         {
             InitializeComponent();
             InitializeActionBindings();
@@ -90,7 +90,7 @@ namespace Kibinago.Samples.ValueBindingDemo
 
     #region Presenter
 
-    public class ValueBindingPresenter : WindowPresenterBase<IValueBindingView>
+    public class ValueBindingPresenter : ControlPresenterBase<IValueBindingView>
     {
         protected override void OnViewAttached()
         {

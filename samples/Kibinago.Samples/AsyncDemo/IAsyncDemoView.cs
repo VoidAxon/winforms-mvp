@@ -9,7 +9,7 @@ namespace Kibinago.Samples.AsyncDemo
     /// Demonstrates async/await patterns in MVP presenters.
     /// Shows progress tracking, cancellation, and error handling.
     /// </summary>
-    public interface IAsyncDemoView : IWindowView
+    public interface IAsyncDemoView : IActionableView
     {
         /// <summary>
         /// Gets or sets the operation status message.

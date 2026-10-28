@@ -8,11 +8,11 @@ using Kibinago.ViewActions;
 
 namespace Kibinago.Samples.MasterDetailDemo
 {
-    public partial class MasterDetailForm : Form, IMasterDetailView
+    public partial class MasterDetailControl : UserControl, IMasterDetailView
     {
         private ViewActionBinder _binder;
 
-        public MasterDetailForm()
+        public MasterDetailControl()
         {
             InitializeComponent();
             InitializeActionBindings();

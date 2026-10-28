@@ -16,7 +16,7 @@ namespace Kibinago.Samples.DebounceThrottleDemo
     /// exact same code would work under WPF (where the captured context is a
     /// DispatcherSynchronizationContext instead).
     /// </remarks>
-    public sealed partial class DebounceThrottleDemoForm : Form
+    public sealed partial class DebounceThrottleDemoControl : UserControl
     {
         private readonly Debouncer _searchDebouncer;
         private readonly Throttler _sliderThrottler;
@@ -26,7 +26,7 @@ namespace Kibinago.Samples.DebounceThrottleDemo
         private int _rawSliderEvents;
         private int _throttledUpdates;
 
-        public DebounceThrottleDemoForm()
+        public DebounceThrottleDemoControl()
         {
             InitializeComponent();
 
@@ -52,14 +52,18 @@ namespace Kibinago.Samples.DebounceThrottleDemo
             _throttledLabel.Text = "Throttled updates: " + _throttledUpdates;
         }
 
-        protected override void OnFormClosed(FormClosedEventArgs e)
+        protected override void Dispose(bool disposing)
         {
-            // This demo has no pending state worth keeping, so we just dispose. If you needed the
-            // last pending invocation to run on close (e.g. a deferred save), you would call
-            // _searchDebouncer.Flush() on the UI thread *before* Dispose(); Dispose alone discards it.
-            _searchDebouncer.Dispose();
-            _sliderThrottler.Dispose();
-            base.OnFormClosed(e);
+            // Released with the control (here: when its tab's category is left). This demo has no pending
+            // state worth keeping, so we just dispose. If you needed the last pending invocation to run
+            // (e.g. a deferred save), you would call _searchDebouncer.Flush() on the UI thread *before*
+            // Dispose(); Dispose alone discards it.
+            if (disposing)
+            {
+                _searchDebouncer.Dispose();
+                _sliderThrottler.Dispose();
+            }
+            base.Dispose(disposing);
         }
     }
 }

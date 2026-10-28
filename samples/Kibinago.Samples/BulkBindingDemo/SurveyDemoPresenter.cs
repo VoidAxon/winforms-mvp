@@ -37,7 +37,7 @@ namespace Kibinago.Samples.BulkBindingDemo
     /// Presenter for Survey demo.
     /// Shows how bulk binding simplifies handling many RadioButtons.
     /// </summary>
-    public class SurveyDemoPresenter : WindowPresenterBase<ISurveyView>
+    public class SurveyDemoPresenter : ControlPresenterBase<ISurveyView>
     {
         private int _q1Answer = -1;  // -1 = not answered, 0-4 = answer index
         private int _q2Answer = -1;

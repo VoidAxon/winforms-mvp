@@ -9,11 +9,11 @@ using Kibinago.ViewActions;
 
 namespace Kibinago.Samples.AsyncDemo
 {
-    public partial class AsyncDemoForm : Form, IAsyncDemoView
+    public partial class AsyncDemoControl : UserControl, IAsyncDemoView
     {
         private ViewActionBinder _binder;
 
-        public AsyncDemoForm()
+        public AsyncDemoControl()
         {
             InitializeComponent();
             InitializeActionBindings();
