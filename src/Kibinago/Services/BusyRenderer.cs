@@ -22,8 +22,8 @@ namespace Kibinago.Services
 
         /// <summary>
         /// The font of the overlay's text (<see cref="BusyLayoutContext.Font"/> / <see cref="BusyPaintContext.Font"/>,
-        /// used by <see cref="BusyPaintContext.DrawText"/>); <c>null</c> (default) for Windows' UI font — the one
-        /// its dialogs use (<see cref="SystemFonts.MessageBoxFont"/>; Yu Gothic UI on Japanese Windows 10 / 11),
+        /// used by <see cref="BusyPaintContext.DrawText"/>); <c>null</c> (default) for Windows' UI font at 12 pt —
+        /// the family its dialogs use (<see cref="SystemFonts.MessageBoxFont"/>; Yu Gothic UI on Japanese Windows 10 / 11),
         /// not the view's (a .NET Framework form's default is MS UI Gothic). Given in
         /// points it scales with the view's DPI. Caller-owned: referenced, never copied or disposed — keep it
         /// alive while the application runs.

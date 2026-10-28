@@ -83,7 +83,7 @@ MvpApplication.Configure(framework: mvp =>
 });
 ```
 
-- 既定 (`mvp.Busy.Font` なし) の文字は Windows のダイアログと同じ UI フォント (`SystemFonts.MessageBoxFont`。日本語の Windows 10 / 11 では Yu Gothic UI) です。View のフォントではありません (.NET Framework のフォームの既定は MS UI Gothic)。
+- 既定 (`mvp.Busy.Font` なし) の文字は Windows のダイアログと同じ UI フォント (`SystemFonts.MessageBoxFont` の書体。日本語の Windows 10 / 11 では Yu Gothic UI) の 12pt です。View のフォントではありません (.NET Framework のフォームの既定は MS UI Gothic)。
 - `mvp.Busy.Font` はオーバーレイの文字 (`ShowBusy("…")`) に使われ、自作の `BusyRenderer` にも `context.Font` として渡ります。ポイントで指定すれば高 DPI でも大きさが合います。渡した Font はアプリのものです: フレームワークは参照するだけで、コピーも破棄もしません (アプリの実行中は破棄しないでください)。
 
 - 既定の見た目 (`HudBusyRenderer`) のリングは Windows 11 の ProgressRing と同じ動きです。

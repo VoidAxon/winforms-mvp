@@ -545,7 +545,7 @@ namespace Kibinago.Samples.Tests.Services
                     using (var ui = SystemFonts.MessageBoxFont)
                     {
                         Assert.Equal(ui.Name, plain.LayoutFont.Name);    // Windows' UI font, not the view's Tahoma
-                        Assert.Equal(ui.Size, plain.LayoutFont.Size);
+                        Assert.Equal(12f, plain.LayoutFont.SizeInPoints);
                     }
                 }
                 AssertNothingBusy();

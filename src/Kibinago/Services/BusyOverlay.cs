@@ -233,7 +233,16 @@ namespace Kibinago.Services
 
         // The view's client area on screen clipped by every container (scrolled-away or MDI-clipped parts are
         // not covered); empty while the overlay must not show.
-        private Font Font => _font ?? (_systemFont ?? (_systemFont = SystemFonts.MessageBoxFont)) ?? _view.Font;
+        private Font Font => _font ?? (_systemFont ?? (_systemFont = DefaultFont())) ?? _view.Font;
+
+        internal const float DefaultFontSize = 12f;
+
+        // Windows' UI font (the one its dialogs use) at DefaultFontSize points.
+        internal static Font DefaultFont()
+        {
+            using (var ui = SystemFonts.MessageBoxFont)
+                return ui == null ? null : new Font(ui.FontFamily, DefaultFontSize, ui.Style);
+        }
 
         private Rectangle VisibleScreenBounds()
         {
