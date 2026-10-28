@@ -631,6 +631,7 @@ public class Listener { public Listener(Bus bus) { bus.Subscribe<string>(s => { 
                 {
                     "MVP018:RateLimit.Debounce(300, Search)",
                     "MVP018:new Throttler(TimeSpan.FromMilliseconds(100), Preview)",
+                    "MVP018:RateLimit.Debounce(300, Search)",
                 },
                 IdsWithText(RateUsings + @"
 public interface ISearchView : IWindowView { }
@@ -643,6 +644,8 @@ public class SearchPresenter : WindowPresenterBase<ISearchView>
         _search = RateLimit.Debounce(300, Search);
         _preview = new Throttler(TimeSpan.FromMilliseconds(100), Preview);
     }
+    private void Later() => _later ??= RateLimit.Debounce(300, Search);   // lazy
+    private Debouncer _later;
     private void Search() { }
     private void Preview() { }
 }"));
@@ -667,7 +670,7 @@ public class SearchForm : Form
 public interface ISearchView : IWindowView { }
 public class SearchPresenter : WindowPresenterBase<ISearchView>
 {
-    private Debouncer _a, _c, _d, _e, _f;
+    private Debouncer _a, _c, _d, _e, _f, _g, _h;
     private Throttler _b;
     public SearchPresenter()
     {
@@ -678,6 +681,8 @@ public class SearchPresenter : WindowPresenterBase<ISearchView>
         Disposables.Add(_d);                                                 // handed to a method
         _e = new Debouncer(TimeSpan.Zero, () => { });
         _f = new Debouncer(TimeSpan.Zero, () => { });
+        _g ??= new Debouncer(TimeSpan.Zero, () => { });
+        _h = new Debouncer(TimeSpan.Zero, () => { });
     }
     protected override void Cleanup()
     {
@@ -685,6 +690,8 @@ public class SearchPresenter : WindowPresenterBase<ISearchView>
         this._c?.Dispose();
         using (_e) { }
         ((IDisposable)_f).Dispose();
+        using (var g = _g) { }
+        using var h = _h;
     }
 }"));
         }

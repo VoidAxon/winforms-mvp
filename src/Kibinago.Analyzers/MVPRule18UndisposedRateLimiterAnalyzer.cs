@@ -1,5 +1,5 @@
+using System.Collections.Concurrent;
 using System.Collections.Immutable;
-using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -26,11 +26,34 @@ namespace Kibinago.Analyzers
         {
             context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
             context.EnableConcurrentExecution();
-            context.RegisterSyntaxNodeAction(AnalyzeCreation,
-                SyntaxKind.ObjectCreationExpression, SyntaxKind.ImplicitObjectCreationExpression, SyntaxKind.InvocationExpression);
+            // Per class (all partial parts): collect the creations stored in its members and the
+            // members it disposes, then report the creations whose member is never disposed.
+            context.RegisterSymbolStartAction(start =>
+            {
+                var type = (INamedTypeSymbol)start.Symbol;
+                if (type.TypeKind != TypeKind.Class && type.TypeKind != TypeKind.Struct)
+                    return;
+
+                var created = new ConcurrentBag<(ISymbol Member, Location Location, string TypeName)>();
+                var disposed = new ConcurrentDictionary<ISymbol, bool>(SymbolEqualityComparer.Default);
+
+                start.RegisterSyntaxNodeAction(c => CollectCreation(c, type, created),
+                    SyntaxKind.ObjectCreationExpression, SyntaxKind.ImplicitObjectCreationExpression, SyntaxKind.InvocationExpression);
+                start.RegisterSyntaxNodeAction(c => CollectDisposal(c, disposed), SyntaxKind.IdentifierName);
+                start.RegisterSymbolEndAction(end =>
+                {
+                    foreach (var (member, location, typeName) in created)
+                    {
+                        if (!disposed.ContainsKey(member))
+                            end.ReportDiagnostic(Diagnostic.Create(
+                                DiagnosticDescriptors.MVPRule18UndisposedRateLimiter, location, member.Name, typeName));
+                    }
+                });
+            }, SymbolKind.NamedType);
         }
 
-        private static void AnalyzeCreation(SyntaxNodeAnalysisContext context)
+        private static void CollectCreation(SyntaxNodeAnalysisContext context, INamedTypeSymbol type,
+            ConcurrentBag<(ISymbol, Location, string)> created)
         {
             var creation = (ExpressionSyntax)context.Node;
             var model = context.SemanticModel;
@@ -45,27 +68,32 @@ namespace Kibinago.Analyzers
 
             ISymbol member = null;
             if (outer.Parent is AssignmentExpressionSyntax assignment && assignment.Right == outer &&
-                assignment.IsKind(SyntaxKind.SimpleAssignmentExpression))
+                (assignment.IsKind(SyntaxKind.SimpleAssignmentExpression) || assignment.IsKind(SyntaxKind.CoalesceAssignmentExpression)))
                 member = model.GetSymbolInfo(assignment.Left, context.CancellationToken).Symbol;
             else if (outer.Parent is EqualsValueClauseSyntax equals &&
                      (equals.Parent is VariableDeclaratorSyntax || equals.Parent is PropertyDeclarationSyntax))
                 member = model.GetDeclaredSymbol(equals.Parent, context.CancellationToken);
 
-            if (!(member is IFieldSymbol || member is IPropertySymbol) || member.IsStatic)
+            if (!(member is IFieldSymbol || member is IPropertySymbol) || member.IsStatic ||
+                !SymbolEqualityComparer.Default.Equals(member.ContainingType, type))
                 return;
-            var type = member.ContainingType;
-            var enclosing = model.GetEnclosingSymbol(creation.SpanStart, context.CancellationToken);
-            var containing = enclosing as INamedTypeSymbol ?? enclosing?.ContainingType;
-            if (type == null || !SymbolEqualityComparer.Default.Equals(type, containing) || type.Locations.All(l => !l.IsInSource))
+            created.Add((member.OriginalDefinition, creation.GetLocation(), typeName));
+        }
+
+        // member.Dispose(), member?.Dispose(), member.DisposeWith(...), using (member),
+        // using var x = member, or member passed to a method.
+        private static void CollectDisposal(SyntaxNodeAnalysisContext context, ConcurrentDictionary<ISymbol, bool> disposed)
+        {
+            var name = (IdentifierNameSyntax)context.Node;
+            ExpressionSyntax use = name;
+            if (use.Parent is MemberAccessExpressionSyntax access && access.Name == use)
+                use = access;   // this._d
+            if (!IsDisposingUse(use))
                 return;
 
-            if (IsDisposedInType(member, type, context))
-                return;
-
-            context.ReportDiagnostic(Diagnostic.Create(
-                DiagnosticDescriptors.MVPRule18UndisposedRateLimiter,
-                creation.GetLocation(),
-                member.Name, typeName));
+            var symbol = context.SemanticModel.GetSymbolInfo(name, context.CancellationToken).Symbol;
+            if (symbol is IFieldSymbol || symbol is IPropertySymbol)
+                disposed.TryAdd(symbol.OriginalDefinition, true);
         }
 
         // "Debouncer" / "Throttler" when the node creates one (new, or a RateLimit factory), else null.
@@ -90,33 +118,6 @@ namespace Kibinago.Analyzers
             return type.ContainingNamespace?.ToDisplayString() == CommonNamespace ? type.Name : null;
         }
 
-        // Anywhere in the class (all partial parts): member.Dispose(), member?.Dispose(),
-        // member.DisposeWith(...), using (member), or member passed to a method.
-        private static bool IsDisposedInType(ISymbol member, INamedTypeSymbol type, SyntaxNodeAnalysisContext context)
-        {
-            foreach (var reference in type.DeclaringSyntaxReferences)
-            {
-                var root = reference.GetSyntax(context.CancellationToken);
-                SemanticModel model = null;
-                foreach (var name in root.DescendantNodes().OfType<IdentifierNameSyntax>())
-                {
-                    if (name.Identifier.ValueText != member.Name)
-                        continue;
-                    ExpressionSyntax use = name;
-                    if (use.Parent is MemberAccessExpressionSyntax access && access.Name == use)
-                        use = access;   // this._d
-                    if (!IsDisposingUse(use))
-                        continue;
-
-                    model = model ?? context.Compilation.GetSemanticModel(root.SyntaxTree);
-                    if (SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(name, context.CancellationToken).Symbol, member))
-                        return true;
-                }
-            }
-
-            return false;
-        }
-
         private static bool IsDisposingUse(ExpressionSyntax use)
         {
             while (use.Parent is ParenthesizedExpressionSyntax || use.Parent is CastExpressionSyntax)
@@ -134,6 +135,11 @@ namespace Kibinago.Analyzers
                     return true;
                 case UsingStatementSyntax usingStatement:
                     return usingStatement.Expression == use;
+                case EqualsValueClauseSyntax equals:
+                    // using (var x = member) { } / using var x = member;
+                    var declaration = equals.Parent?.Parent as VariableDeclarationSyntax;
+                    return declaration?.Parent is UsingStatementSyntax ||
+                           (declaration?.Parent is LocalDeclarationStatementSyntax local && local.UsingKeyword.IsKind(SyntaxKind.UsingKeyword));
                 default:
                     return false;
             }
