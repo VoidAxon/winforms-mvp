@@ -69,7 +69,7 @@ namespace Kibinago.Samples.Shell
                     DemoSelected?.Invoke(this, demoId);
             };
 
-            _sourceFileList = new ListBox { Dock = DockStyle.Left, Width = 300, IntegralHeight = false, BorderStyle = BorderStyle.None };
+            _sourceFileList = new ListBox { Dock = DockStyle.Left, Width = 260, IntegralHeight = false, BorderStyle = BorderStyle.None };
             _sourceFileList.SelectedIndexChanged += (s, e) => ShowSelectedSource();
             _sourceText = new SourceViewer { Dock = DockStyle.Fill };
 
@@ -181,8 +181,9 @@ namespace Kibinago.Samples.Shell
         public void ShowSource(IReadOnlyList<string> sourceFiles)
         {
             _sourceFileList.Items.Clear();
+            var names = sourceFiles.GroupBy(System.IO.Path.GetFileName).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
             foreach (var file in sourceFiles)
-                _sourceFileList.Items.Add(file);
+                _sourceFileList.Items.Add(new SourceFile(file, withFolder: names.Contains(System.IO.Path.GetFileName(file))));
             if (_sourceFileList.Items.Count > 0)
                 _sourceFileList.SelectedIndex = 0;
             else
@@ -193,8 +194,25 @@ namespace Kibinago.Samples.Shell
 
         private void ShowSelectedSource()
         {
-            var path = _sourceFileList.SelectedItem as string;
+            var path = (_sourceFileList.SelectedItem as SourceFile)?.Path;
             _sourceText.ShowText(path == null ? "" : (SampleSources.Read(path) ?? $"// {path} は埋め込まれていません。"));
+        }
+
+        // A file in the コード tab's list: shown by its name (the class), plus its folder when two files share
+        // a name; opened by its path.
+        private sealed class SourceFile
+        {
+            private readonly string _text;
+
+            public SourceFile(string path, bool withFolder)
+            {
+                Path = path;
+                var name = System.IO.Path.GetFileName(path);
+                _text = withFolder ? $"{name}  ({System.IO.Path.GetFileName(System.IO.Path.GetDirectoryName(path))})" : name;
+            }
+
+            public string Path { get; }
+            public override string ToString() => _text;
         }
 
         private TabPage CreateExplanationPage(SampleCategory category)

@@ -1,4 +1,5 @@
 using System.Drawing;
+using System.Text.RegularExpressions;
 using System.Windows.Forms;
 using ScintillaNET;
 
@@ -6,7 +7,8 @@ namespace Kibinago.Samples.Shell
 {
     /// <summary>
     /// Read-only C# viewer for the コード tab: Scintilla (Scintilla5.NET) with the C/C++ lexer, C# keywords
-    /// and Visual Studio's light colors, line numbers.
+    /// and Visual Studio's light colors, line numbers. A view's layout code (InitializeComponent and the
+    /// like) starts folded, so the MVP part reads first; the ⊞ in the margin opens it.
     /// </summary>
     public sealed class SourceViewer : Scintilla
     {
@@ -26,6 +28,11 @@ namespace Kibinago.Samples.Shell
             "ViewAction ViewActionBinder IViewActionBinder IViewBase IActionableView IWindowView " +
             "PresenterBase WindowPresenterBase ControlPresenterBase InteractionResult InteractionStatus " +
             "IMessageService IToastService IWindowNavigator IEventAggregator ChangeTracker ValidationState MvpApplication ServiceLocator";
+
+        // Methods that only build the UI: folded when a file is shown.
+        private static readonly Regex LayoutMethod = new Regex(
+            @"^\s*(private|protected|public|internal)\s+(override\s+)?void\s+(InitializeComponent|SetupUI|LayoutControls|InitializeChildControls|Create[A-Z]\w*)\s*\(",
+            RegexOptions.Compiled);
 
         public SourceViewer()
         {
@@ -67,6 +74,30 @@ namespace Kibinago.Samples.Shell
             Margins[0].Type = MarginType.Number;
             Margins[0].Width = 48;
 
+            // Folding: a ⊞ / ⊟ margin, click to open or close.
+            SetProperty("fold", "1");
+            SetProperty("fold.compact", "0");
+            Margins[2].Type = MarginType.Symbol;
+            Margins[2].Mask = Marker.MaskFolders;
+            Margins[2].Sensitive = true;
+            Margins[2].Width = 16;
+            SetFoldMarginColor(true, Color.White);
+            Markers[Marker.Folder].Symbol = MarkerSymbol.BoxPlus;
+            Markers[Marker.FolderOpen].Symbol = MarkerSymbol.BoxMinus;
+            Markers[Marker.FolderEnd].Symbol = MarkerSymbol.BoxPlusConnected;
+            Markers[Marker.FolderMidTail].Symbol = MarkerSymbol.TCorner;
+            Markers[Marker.FolderOpenMid].Symbol = MarkerSymbol.BoxMinusConnected;
+            Markers[Marker.FolderSub].Symbol = MarkerSymbol.VLine;
+            Markers[Marker.FolderTail].Symbol = MarkerSymbol.LCorner;
+            for (var i = Marker.FolderEnd; i <= Marker.FolderOpen; i++)
+            {
+                Markers[i].SetForeColor(Color.White);
+                Markers[i].SetBackColor(Color.Gray);
+            }
+            AutomaticFold = AutomaticFold.Show | AutomaticFold.Click | AutomaticFold.Change;
+            FoldDisplayTextSetStyle(FoldDisplayText.Boxed);
+            Styles[Style.FoldDisplayText].ForeColor = Color.Gray;
+
             ReadOnly = true;
         }
 
@@ -77,7 +108,27 @@ namespace Kibinago.Samples.Shell
             Text = text ?? "";
             ReadOnly = true;
             EmptyUndoBuffer();
+            FoldLayoutMethods();
             GotoPosition(0);
+        }
+
+        // Folds each layout method at its opening brace (the line after the signature in this code base).
+        private void FoldLayoutMethods()
+        {
+            Colorize(0, -1);   // fold levels come from the lexer
+            for (var i = 0; i < Lines.Count; i++)
+            {
+                if (!LayoutMethod.IsMatch(Lines[i].Text))
+                    continue;
+                for (var j = i; j < Lines.Count && j <= i + 2; j++)
+                {
+                    if ((Lines[j].FoldLevelFlags & FoldLevelFlags.Header) == 0)
+                        continue;
+                    Lines[j].FoldLine(FoldAction.Contract);
+                    Lines[j].ToggleFoldShowText(" … UI の組み立て (左の ⊞ で開く) ");
+                    break;
+                }
+            }
         }
     }
 }
