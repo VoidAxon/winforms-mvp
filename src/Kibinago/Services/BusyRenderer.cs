@@ -1,7 +1,9 @@
 using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
 using System.Drawing.Text;
+using System.Windows.Forms;
 
 namespace Kibinago.Services
 {
@@ -18,7 +20,17 @@ namespace Kibinago.Services
         /// </summary>
         public int Delay { get; set; } = 150;
 
-        internal BusyOptions Copy() => new BusyOptions { Delay = Delay };
+        /// <summary>
+        /// The font of the overlay's text (<see cref="BusyLayoutContext.Font"/> / <see cref="BusyPaintContext.Font"/>,
+        /// used by <see cref="BusyPaintContext.DrawText"/>); <c>null</c> (default) for Windows' UI font at 12 pt —
+        /// the family its dialogs use (<see cref="SystemFonts.MessageBoxFont"/>; Yu Gothic UI on Japanese Windows 10 / 11),
+        /// not the view's (a .NET Framework form's default is MS UI Gothic). Given in
+        /// points it scales with the view's DPI. Caller-owned: referenced, never copied or disposed — keep it
+        /// alive while the application runs.
+        /// </summary>
+        public Font Font { get; set; }
+
+        internal BusyOptions Copy() => new BusyOptions { Delay = Delay, Font = Font };
 
         internal void Validate()
         {
@@ -69,7 +81,7 @@ namespace Kibinago.Services
         /// <summary>DPI scale of the view (1.0 at 96 dpi): multiply pixel sizes by it.</summary>
         public float Scale { get; }
 
-        /// <summary>The view's font.</summary>
+        /// <summary>The font to write with: <see cref="BusyOptions.Font"/> (<c>mvp.Busy.Font</c>), or Windows' UI font.</summary>
         public Font Font { get; }
 
         /// <summary>The text given to <c>ShowBusy</c>, or <c>null</c>.</summary>
@@ -82,20 +94,32 @@ namespace Kibinago.Services
         /// <param name="text">The text; an empty size when it is empty.</param>
         /// <param name="width">The widest the text may be, in pixels.</param>
         /// <param name="maxLines">The most lines shown.</param>
+        /// <param name="background">The same opaque background as given to <see cref="BusyPaintContext.DrawText"/>
+        /// (it measures the way that text is drawn); <c>null</c> for text on a transparent surface.</param>
         /// <returns>The text's width (at most <paramref name="width"/>) and height, in pixels.</returns>
-        public SizeF MeasureText(string text, float width, int maxLines = 2)
+        public SizeF MeasureText(string text, float width, int maxLines = 2, Color? background = null)
         {
             if (string.IsNullOrEmpty(text) || width <= 0) return SizeF.Empty;
+            var lines = Math.Max(1, maxLines);
+            if (BusyText.IsOpaque(background))
+            {
+                using (var font = BusyText.PixelFont(Font, Scale))
+                {
+                    var lineHeight = BusyText.LineHeight(font);
+                    var size = TextRenderer.MeasureText(text, font, new Size((int)width, int.MaxValue), BusyText.Flags(lines, StringAlignment.Near));
+                    return new SizeF(Math.Min(width, size.Width), Math.Min(size.Height, lineHeight * lines));
+                }
+            }
             using (var bitmap = new Bitmap(1, 1))
             {
                 bitmap.SetResolution(96 * Scale, 96 * Scale);
                 using (var g = Graphics.FromImage(bitmap))
-                using (var format = BusyPaintContext.TextFormat(maxLines))
+                using (var format = BusyPaintContext.TextFormat(lines))
                 {
                     g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
                     var lineHeight = Font.GetHeight(g);
-                    var size = g.MeasureString(text, Font, new SizeF(width, lineHeight * Math.Max(1, maxLines) + 1), format);
-                    return new SizeF(Math.Min(width, size.Width), Math.Min(size.Height, lineHeight * Math.Max(1, maxLines) + 1));
+                    var size = g.MeasureString(text, Font, new SizeF(width, lineHeight * lines + 1), format);
+                    return new SizeF(Math.Min(width, size.Width), Math.Min(size.Height, lineHeight * lines + 1));
                 }
             }
         }
@@ -121,7 +145,7 @@ namespace Kibinago.Services
         /// <summary>DPI scale of the view (1.0 at 96 dpi).</summary>
         public float Scale { get; }
 
-        /// <summary>The view's font.</summary>
+        /// <summary>The font to write with: <see cref="BusyOptions.Font"/> (<c>mvp.Busy.Font</c>), or Windows' UI font.</summary>
         public Font Font { get; }
 
         /// <summary>The text given to <c>ShowBusy</c>, or <c>null</c>.</summary>
@@ -131,17 +155,27 @@ namespace Kibinago.Services
         public Color Accent => SystemColors.Highlight;
 
         /// <summary>
-        /// Draws text without breaking the surface's transparency (GDI text — <c>TextRenderer</c> — would):
-        /// wrapped inside <paramref name="box"/>, at most <paramref name="maxLines"/> lines, the rest ended with "…".
+        /// Draws text wrapped inside <paramref name="box"/>, at most <paramref name="maxLines"/> lines, the rest
+        /// ended with "…". Over an opaque area, pass its color as <paramref name="background"/>: the text is then
+        /// drawn as labels are (GDI, ClearType) on that color. Without it the text is drawn with grayscale
+        /// anti-aliasing, which keeps the surface's transparency (GDI text — <c>TextRenderer</c> — drawn
+        /// straight onto it would break it).
         /// </summary>
         /// <param name="text">The text; nothing is drawn when it is empty.</param>
         /// <param name="box">Where the text goes.</param>
         /// <param name="color">The text colour.</param>
         /// <param name="maxLines">The most lines shown.</param>
         /// <param name="alignment">The horizontal alignment.</param>
-        public void DrawText(string text, RectangleF box, Color color, int maxLines = 2, StringAlignment alignment = StringAlignment.Center)
+        /// <param name="background">The opaque colour under <paramref name="box"/> (e.g. a filled box), for
+        /// label-quality text; <c>null</c> (or a translucent colour) for text over transparent or translucent pixels.</param>
+        public void DrawText(string text, RectangleF box, Color color, int maxLines = 2, StringAlignment alignment = StringAlignment.Center, Color? background = null)
         {
             if (string.IsNullOrEmpty(text) || box.Width <= 0 || box.Height <= 0) return;
+            if (BusyText.IsOpaque(background))
+            {
+                DrawGdiText(text, box, color, maxLines, alignment, background.Value);
+                return;
+            }
             var lineHeight = Font.GetHeight(Graphics);
             var lines = Math.Max(1, Math.Min(maxLines, (int)(box.Height / lineHeight)));
             var clipped = new RectangleF(box.X, box.Y, box.Width, lines * lineHeight + 1);
@@ -156,11 +190,58 @@ namespace Kibinago.Services
             }
         }
 
+        // GDI text on an opaque bitmap of the background colour, copied 1:1 (24-bit: GDI does not touch alpha
+        // there, and the copy is fully opaque).
+        private void DrawGdiText(string text, RectangleF box, Color color, int maxLines, StringAlignment alignment, Color background)
+        {
+            using (var font = BusyText.PixelFont(Font, Scale))
+            {
+                var lineHeight = BusyText.LineHeight(font);
+                var lines = Math.Max(1, Math.Min(maxLines, (int)(box.Height / lineHeight)));
+                var width = (int)Math.Floor(box.Width);
+                var height = Math.Min((int)Math.Ceiling(box.Height), lines * lineHeight);
+                if (width <= 0 || height <= 0) return;
+                using (var bitmap = new Bitmap(width, height, PixelFormat.Format24bppRgb))
+                {
+                    using (var g = Graphics.FromImage(bitmap))
+                    {
+                        g.Clear(background);
+                        TextRenderer.DrawText(g, text, font, new Rectangle(0, 0, width, height), color, background, BusyText.Flags(lines, alignment));
+                    }
+                    var at = new Rectangle((int)Math.Round(box.X), (int)Math.Round(box.Y), width, height);
+                    Graphics.DrawImage(bitmap, at, 0, 0, width, height, GraphicsUnit.Pixel);
+                }
+            }
+        }
+
         internal static StringFormat TextFormat(int lines)
         {
             var format = new StringFormat { LineAlignment = StringAlignment.Near, Trimming = StringTrimming.EllipsisCharacter };
             if (lines <= 1) format.FormatFlags |= StringFormatFlags.NoWrap;
             return format;
+        }
+    }
+
+    // GDI text helpers shared by measuring and drawing, so both agree.
+    internal static class BusyText
+    {
+        public static bool IsOpaque(Color? background) => background.HasValue && background.Value.A == 255;
+
+        // GDI sizes a point font by the screen's DPI; a pixel font at the view's DPI matches the overlay's scale.
+        public static Font PixelFont(Font font, float scale) =>
+            new Font(font.FontFamily, font.SizeInPoints * 96f * scale / 72f, font.Style, GraphicsUnit.Pixel);
+
+        public static int LineHeight(Font font) =>
+            TextRenderer.MeasureText("あ", font, new Size(int.MaxValue, int.MaxValue), TextFormatFlags.NoPadding).Height;
+
+        public static TextFormatFlags Flags(int lines, StringAlignment alignment)
+        {
+            var flags = TextFormatFlags.NoPrefix | TextFormatFlags.NoPadding;
+            flags |= lines <= 1 ? TextFormatFlags.SingleLine | TextFormatFlags.EndEllipsis
+                                : TextFormatFlags.WordBreak | TextFormatFlags.TextBoxControl | TextFormatFlags.EndEllipsis;
+            if (alignment == StringAlignment.Center) flags |= TextFormatFlags.HorizontalCenter;
+            else if (alignment == StringAlignment.Far) flags |= TextFormatFlags.Right;
+            return flags;
         }
     }
 
@@ -187,7 +268,10 @@ namespace Kibinago.Services
         public int Size { get; set; } = 72;
 
         /// <summary>The widest a message may be at 96 dpi (default 240); longer text wraps to a second line, then ends with "…".</summary>
-        public int MaxTextWidth { get; set; } = 240;
+        public int MaxTextWidth { get; set; } = 280;
+
+        /// <summary>The colour of the message (default a dark grey, as Windows' secondary text).</summary>
+        public Color TextColor { get; set; } = Color.FromArgb(68, 68, 68);
 
         private const int TextLines = 2;
 
@@ -210,18 +294,18 @@ namespace Kibinago.Services
         }
 
         // With a message: the ring at the top, the text under it; as wide as the text needs, between the
-        // square's size and MaxTextWidth (and the view).
+        // minimum box width and MaxTextWidth, never wider than the view.
         private Rectangle TextBounds(BusyLayoutContext context)
         {
             var s = context.Scale;
             var margin = Margin(s);
-            var pad = Pad(s);
-            var room = context.ViewSize.Width - 16 * s - 2 * margin - 2 * pad;
-            var textWidth = Math.Min(MaxTextWidth * s, room);
-            if (textWidth < 40 * s) return Rectangle.Empty;   // no room for it
-            var text = context.MeasureText(context.Message, textWidth, TextLines);
-            var width = Math.Max(Size * s, text.Width + 2 * pad);
-            var height = pad + RingSize(s) + Gap(s) + text.Height + pad;
+            var padX = PadX(s);
+            var room = context.ViewSize.Width - 16 * s - 2 * margin;   // the widest box the view takes
+            var textWidth = Math.Min(MaxTextWidth * s, room - 2 * padX);
+            if (textWidth < 40 * s) return Rectangle.Empty;   // no room for it (so the box is never narrower than the text)
+            var text = context.MeasureText(context.Message, textWidth, TextLines, Color.White);
+            var width = Math.Min(Math.Max(Math.Max(Size, MinTextBoxWidth) * s, text.Width + 2 * padX), room);   // the minimum width gives way in a narrow view
+            var height = PadY(s) + TextRingSize(s) + Gap(s) + text.Height + PadY(s);   // the same room above and below
             if (height > context.ViewSize.Height - 16 * s) return Rectangle.Empty;
             var outerWidth = (int)Math.Ceiling(width + 2 * margin);
             var outerHeight = (int)Math.Ceiling(height + 2 * margin);
@@ -249,8 +333,8 @@ namespace Kibinago.Services
             using (var path = Rounded(box, radius))
                 g.FillPath(fill, path);
 
-            var ring = hasText ? RingSize(s) : box.Width * 0.44f;
-            var ringTop = hasText ? box.Y + Pad(s) : box.Y + (box.Height - ring) / 2;
+            var ring = hasText ? TextRingSize(s) : box.Width * 0.44f;
+            var ringTop = hasText ? box.Y + PadY(s) : box.Y + (box.Height - ring) / 2;
             var ringBox = new RectangleF(box.X + (box.Width - ring) / 2, ringTop, ring, ring);
             var (start, sweep) = Arc(context.Elapsed.TotalMilliseconds);
             using (var pen = new Pen(context.Accent, Math.Max(2f, ring * 0.12f)) { StartCap = LineCap.Round, EndCap = LineCap.Round })
@@ -259,18 +343,24 @@ namespace Kibinago.Services
             if (hasText)
             {
                 var top = ringBox.Bottom + Gap(s);
-                var textBox = new RectangleF(box.X + Pad(s), top, box.Width - 2 * Pad(s), box.Bottom - Pad(s) - top + 1);
-                context.DrawText(context.Message, textBox, Color.FromArgb(32, 32, 32), TextLines);
+                var textBox = new RectangleF(box.X + PadX(s), top, box.Width - 2 * PadX(s), box.Bottom - PadY(s) - top + 1);
+                context.DrawText(context.Message, textBox, TextColor, TextLines, background: Color.White);   // on the white box: label-quality text
             }
         }
 
         private static float Margin(float scale) => 8 * scale;   // room for the shadow
 
-        private float RingSize(float scale) => Size * scale * 0.44f;   // the ring of the plain square
+        // With a message (at 96 dpi): a slightly larger ring, a box at least MinTextBoxWidth wide, and room
+        // around them: PadX at the sides, PadY above the ring and below the text, Gap between the two.
+        private const int MinTextBoxWidth = 120;
 
-        private static float Pad(float scale) => 14 * scale;   // inside the box, around the ring and text
+        private float TextRingSize(float scale) => Size * scale * 0.5f;
 
-        private static float Gap(float scale) => 10 * scale;   // between the ring and the text
+        private static float PadX(float scale) => 20 * scale;
+
+        private static float PadY(float scale) => 16 * scale;
+
+        private static float Gap(float scale) => 12 * scale;
 
         // The head runs ahead while the arc grows (0.8 s), then the tail catches up while it shrinks (0.8 s);
         // the ring turns once every 1.3 s.

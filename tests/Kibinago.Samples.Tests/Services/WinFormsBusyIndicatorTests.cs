@@ -23,6 +23,20 @@ namespace Kibinago.Samples.Tests.Services
 
         private sealed class ViewPanel : UserControl, IViewBase { }
 
+        private sealed class FontRecordingRenderer : BusyRenderer
+        {
+            public Font LayoutFont { get; private set; }
+            public Font PaintFont { get; private set; }
+
+            public override Rectangle GetIndicatorBounds(BusyLayoutContext context)
+            {
+                LayoutFont = context.Font;
+                return new Rectangle(0, 0, 20, 20);
+            }
+
+            public override void PaintIndicator(BusyPaintContext context) => PaintFont = context.Font;
+        }
+
         private sealed class ThrowingRenderer : BusyRenderer
         {
             public override Rectangle GetIndicatorBounds(BusyLayoutContext context) => throw new InvalidOperationException("renderer bug");
@@ -440,6 +454,25 @@ namespace Kibinago.Samples.Tests.Services
         }
 
         [Fact]
+        public void TextOnAnOpaqueBackground_IsOpaque_AndTextOnATransparentSurfaceKeepsItsTransparency()
+        {
+            using (var bitmap = new Bitmap(200, 40, System.Drawing.Imaging.PixelFormat.Format32bppPArgb))
+            using (var g = Graphics.FromImage(bitmap))
+            {
+                var context = new BusyPaintContext(g, new Rectangle(0, 0, 200, 40), TimeSpan.Zero, 1f, SystemFonts.DefaultFont, null);
+
+                g.Clear(Color.Transparent);
+                context.DrawText("検索中", new RectangleF(0, 0, 200, 40), Color.Black, 1, StringAlignment.Near, Color.White);
+                Assert.Equal(255, bitmap.GetPixel(150, 5).A);   // the label-quality path fills its box with the background
+                Assert.Equal(Color.White.ToArgb(), bitmap.GetPixel(150, 5).ToArgb());
+
+                g.Clear(Color.Transparent);
+                context.DrawText("検索中", new RectangleF(0, 0, 200, 40), Color.Black, 1, StringAlignment.Near);
+                Assert.Equal(0, bitmap.GetPixel(150, 5).A);     // grayscale path: untouched pixels stay transparent
+            }
+        }
+
+        [Fact]
         public void TheBuiltInLook_WidensForAMessage_UpToItsMaxTextWidth()
         {
             var renderer = new HudBusyRenderer();
@@ -454,11 +487,21 @@ namespace Kibinago.Samples.Tests.Services
             Assert.True(text.Height > plain.Height);   // the text under the ring
 
             var longText = Bounds(new string('長', 400));
-            Assert.True(longText.Width <= renderer.MaxTextWidth + 2 * 14 + 2 * 8 + 1);   // capped: text + padding + shadow margin
+            Assert.True(longText.Width <= renderer.MaxTextWidth + 2 * 20 + 2 * 8 + 1);   // capped: text + side padding + shadow margin
+            Assert.True(text.Width >= 120 + 2 * 8);   // a short message still gets a box at least 120 px wide
             var lineHeight = SystemFonts.DefaultFont.GetHeight(96);
             Assert.True(longText.Height < text.Height + 2 * lineHeight);   // two lines at most
 
             Assert.Equal(Rectangle.Empty, new HudBusyRenderer().GetIndicatorBounds(new BusyLayoutContext(new Size(60, 400), 1f, SystemFonts.DefaultFont, "集計中…")));
+
+            // A view narrower than the minimum box: the box shrinks to fit inside it, or is left out; never wider.
+            for (var w = 0; w <= 200; w += 5)
+            {
+                var narrow = renderer.GetIndicatorBounds(new BusyLayoutContext(new Size(w, 400), 1f, SystemFonts.DefaultFont, "集計中…"));
+                if (narrow.IsEmpty) continue;
+                Assert.True(narrow.X >= 0 && narrow.Right <= w, $"view {w}: {narrow}");
+            }
+            Assert.Equal(Rectangle.Empty, renderer.GetIndicatorBounds(new BusyLayoutContext(Size.Empty, 1f, SystemFonts.DefaultFont, "集計中…")));
         }
 
         [Fact]
@@ -485,6 +528,35 @@ namespace Kibinago.Samples.Tests.Services
                     Assert.False(filter.ShouldBlock(WM_MOUSEMOVE, IntPtr.Zero, button));
                     Assert.False(filter.ShouldBlock(WM_LBUTTONDOWN, IntPtr.Zero, other));
                     Assert.False(filter.ShouldBlock(WM_LBUTTONDOWN, IntPtr.Zero, null));      // a MessageBox, an overlay
+                }
+                AssertNothingBusy();
+            }
+        }
+
+        [Fact]
+        public void TheOverlay_WritesWithTheConfiguredFont_OrWindowsUiFont()
+        {
+            using (var font = new Font("Arial", 12f))
+            using (var form = new ViewForm { ShowInTaskbar = false, StartPosition = FormStartPosition.Manual, Location = new Point(-2000, -2000), Font = new Font("Tahoma", 9f) })
+            {
+                form.Show();
+                var configured = new FontRecordingRenderer();
+                using (new WinFormsBusyIndicator(new BusyOptions { Delay = 0, Font = font }, configured).Begin(form, null))
+                {
+                    Application.DoEvents();
+                    Assert.Same(font, configured.LayoutFont);
+                    Assert.Same(font, configured.PaintFont);
+                }
+
+                var plain = new FontRecordingRenderer();
+                using (new WinFormsBusyIndicator(new BusyOptions { Delay = 0 }, plain).Begin(form, null))
+                {
+                    Application.DoEvents();
+                    using (var ui = SystemFonts.MessageBoxFont)
+                    {
+                        Assert.Equal(ui.Name, plain.LayoutFont.Name);    // Windows' UI font, not the view's Tahoma
+                        Assert.Equal(12f, plain.LayoutFont.SizeInPoints);
+                    }
                 }
                 AssertNothingBusy();
             }

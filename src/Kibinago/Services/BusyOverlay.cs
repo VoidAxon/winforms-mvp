@@ -20,6 +20,8 @@ namespace Kibinago.Services
         private readonly Control _view;
         private readonly BusyRenderer _renderer;
         private readonly ILogger _logger;
+        private readonly Font _font;   // mvp.Busy.Font (caller-owned); null: Windows' UI font
+        private Font _systemFont;      // Windows' UI font, created when first needed and disposed with the overlay
         private readonly Stopwatch _clock = new Stopwatch();
         private readonly List<Control> _tracked = new List<Control>();
         private Timer _delay;
@@ -35,9 +37,9 @@ namespace Kibinago.Services
         private bool _failed;
         private bool _disposed;
 
-        public BusyOverlay(Control view, BusyRenderer renderer, int delay, string message, ILogger logger)
+        public BusyOverlay(Control view, BusyRenderer renderer, int delay, Font font, string message, ILogger logger)
         {
-            _view = view; _renderer = renderer; _message = message; _logger = logger;
+            _view = view; _renderer = renderer; _font = font; _message = message; _logger = logger;
             Track();
             if (delay <= 0) Start();
             else
@@ -167,7 +169,7 @@ namespace Kibinago.Services
 
                 if (_layoutDirty)
                 {
-                    _indicatorBounds = _renderer.GetIndicatorBounds(new BusyLayoutContext(viewScreen.Size, scale, _view.Font, _message));
+                    _indicatorBounds = _renderer.GetIndicatorBounds(new BusyLayoutContext(viewScreen.Size, scale, Font, _message));
                 }
 
                 // The backdrop is painted only when the layout changed (move, resize, message, shown again).
@@ -176,7 +178,7 @@ namespace Kibinago.Services
                     var g = _backdrop.Begin(visible.Size, _view.DeviceDpi);
                     g.TranslateTransform(viewScreen.Left - visible.Left, viewScreen.Top - visible.Top);
                     var state = g.Save();
-                    _renderer.PaintBackdrop(new BusyPaintContext(g, new Rectangle(Point.Empty, viewScreen.Size), elapsed, scale, _view.Font, _message));
+                    _renderer.PaintBackdrop(new BusyPaintContext(g, new Rectangle(Point.Empty, viewScreen.Size), elapsed, scale, Font, _message));
                     g.Restore(state);
                     _backdrop.Present(visible.Location);
                 }
@@ -193,7 +195,7 @@ namespace Kibinago.Services
                 var ig = _indicator.Begin(shown.Size, _view.DeviceDpi);
                 ig.TranslateTransform(indicatorScreen.Left - shown.Left, indicatorScreen.Top - shown.Top);
                 var saved = ig.Save();
-                _renderer.PaintIndicator(new BusyPaintContext(ig, new Rectangle(Point.Empty, indicatorScreen.Size), elapsed, scale, _view.Font, _message));
+                _renderer.PaintIndicator(new BusyPaintContext(ig, new Rectangle(Point.Empty, indicatorScreen.Size), elapsed, scale, Font, _message));
                 ig.Restore(saved);
                 _indicator.Present(shown.Location);
                 _indicator.PlaceAbove(_backdrop);
@@ -231,6 +233,17 @@ namespace Kibinago.Services
 
         // The view's client area on screen clipped by every container (scrolled-away or MDI-clipped parts are
         // not covered); empty while the overlay must not show.
+        private Font Font => _font ?? (_systemFont ?? (_systemFont = DefaultFont())) ?? _view.Font;
+
+        internal const float DefaultFontSize = 12f;
+
+        // Windows' UI font (the one its dialogs use) at DefaultFontSize points.
+        internal static Font DefaultFont()
+        {
+            using (var ui = SystemFonts.MessageBoxFont)
+                return ui == null ? null : new Font(ui.FontFamily, DefaultFontSize, ui.Style);
+        }
+
         private Rectangle VisibleScreenBounds()
         {
             if (!_owner.IsHandleCreated || !_view.IsHandleCreated || !_view.Visible) return Rectangle.Empty;
@@ -282,6 +295,8 @@ namespace Kibinago.Services
             }
             if (_mdiParent != null) _mdiParent.MdiChildActivate -= OnLayoutChanged;
             ClosePopups();
+            _systemFont?.Dispose();
+            _systemFont = null;
         }
     }
 }

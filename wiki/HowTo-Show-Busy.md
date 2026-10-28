@@ -79,11 +79,15 @@ MvpApplication.Configure(framework: mvp =>
 {
     mvp.Busy.UseOverlay();     // 既定の見た目: View を白く薄め、中央の白い角丸四角にリング
     mvp.Busy.Delay = 150;      // オーバーレイは 150ms 後から (短い処理でちらつかない)。既定 150
+    mvp.Busy.Font = new Font("Meiryo UI", 9.75f);   // 文字のフォント。既定 (null) は Windows の UI フォント
 });
 ```
 
+- 既定 (`mvp.Busy.Font` なし) の文字は Windows のダイアログと同じ UI フォント (`SystemFonts.MessageBoxFont` の書体。日本語の Windows 10 / 11 では Yu Gothic UI) の 12pt です。View のフォントではありません (.NET Framework のフォームの既定は MS UI Gothic)。
+- `mvp.Busy.Font` はオーバーレイの文字 (`ShowBusy("…")`) に使われ、自作の `BusyRenderer` にも `context.Font` として渡ります。ポイントで指定すれば高 DPI でも大きさが合います。渡した Font はアプリのものです: フレームワークは参照するだけで、コピーも破棄もしません (アプリの実行中は破棄しないでください)。
+
 - 既定の見た目 (`HudBusyRenderer`) のリングは Windows 11 の ProgressRing と同じ動きです。
-- `ShowBusy()` (文字なし) では四角とリングだけ。`ShowBusy("集計中…")` のように文字を渡すと、四角が横に広がり、リングの下に文字が出ます。幅は `MaxTextWidth` (既定 240px) まで、2 行まで、残りは「…」で切ります (長い文字を渡されても画面を崩しません)。
+- `ShowBusy()` (文字なし) では四角とリングだけ。`ShowBusy("集計中…")` のように文字を渡すと、四角が横に広がり、リングの下に文字が出ます。幅は `MaxTextWidth` (既定 280px) まで、2 行まで、残りは「…」で切ります (長い文字を渡されても画面を崩しません)。文字の色は `TextColor` (既定は濃い灰色)。
 - オーバーレイを使わない既定 (待ちカーソルだけ) では、文字はどこにも出ません。
 - 背景の色と濃さは `Backdrop` で変えられます (色のアルファが濃さ。既定は白、115/255)。完全な透明 (`Color.Transparent`) にすると背景を出さず、中央の四角だけになります (View 全体を覆うウィンドウも作りません)。
 
@@ -130,7 +134,7 @@ public sealed class StatusRenderer : BusyRenderer
 ```
 
 - 透明度 (アルファ) は 1 ピクセルごとに効きます。半透明の色は下の View を透かします。
-- 文字は `context.DrawText` で描きます (GDI の `TextRenderer` は透明度を壊します)。長い文字は行数で切って「…」。大きさを決めるには `GetIndicatorBounds` で `context.MeasureText(text, width, maxLines)` (同じ折り返しで測る)。
+- 文字は `context.DrawText` で描きます (GDI の `TextRenderer` を直接使うと透明度を壊します)。不透明に塗った上 (四角の中など) に書くときは、その色を `background:` に渡すと、ラベルと同じ GDI・ClearType の文字になります (既定の四角はそうしています)。渡さないと、透明・半透明の上でも書けるグレースケールのアンチエイリアスです。大きさを測る `MeasureText` にも同じ `background` を渡します。長い文字は行数で切って「…」。大きさを決めるには `GetIndicatorBounds` で `context.MeasureText(text, width, maxLines)` (同じ折り返しで測る)。
 - アニメーションは `Elapsed` (表示してからの時間) から計算します。タイマーが遅れても速度が変わりません。
 - `ShowBusy("集計中…")` の文字は `Message` で受け取れます。入れ子では、終わっていない中で最後の文字が使われます。
 - 描画中の例外はログに記録され、そのオーバーレイは消えます (Busy 自体 — カーソルと入力のブロック — は続きます)。

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
 using Kibinago.Logging;
@@ -36,13 +37,13 @@ namespace Kibinago.Services
 
         // ---- begin / end ----
 
-        public Request Begin(Control view, string message, BusyRenderer overlay, int delay, ILogger logger)
+        public Request Begin(Control view, string message, BusyRenderer overlay, int delay, Font font, ILogger logger)
         {
             var request = new Request(view, WindowOf(view), message);
             AcquireWindow(request);
             try
             {
-                AcquireView(request, overlay, delay, logger);
+                AcquireView(request, overlay, delay, font, logger);
             }
             catch
             {
@@ -111,7 +112,7 @@ namespace Kibinago.Services
             Unblock(state.Window, immediate);
         }
 
-        private void AcquireView(Request request, BusyRenderer overlay, int delay, ILogger logger)
+        private void AcquireView(Request request, BusyRenderer overlay, int delay, Font font, ILogger logger)
         {
             var view = request.View;
             if (!_views.TryGetValue(view, out var state))
@@ -124,7 +125,7 @@ namespace Kibinago.Services
             {
                 if (overlay != null)
                 {
-                    try { state.Overlay = new BusyOverlay(view, overlay, delay, request.Message, logger); }
+                    try { state.Overlay = new BusyOverlay(view, overlay, delay, font, request.Message, logger); }
                     catch (Exception ex)
                     {
                         logger?.LogError(ex, "The busy overlay could not be created; the view is busy without it");

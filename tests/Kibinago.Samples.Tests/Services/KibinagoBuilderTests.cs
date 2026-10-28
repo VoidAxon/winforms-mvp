@@ -258,15 +258,18 @@ namespace Kibinago.Samples.Tests.Services
             finally { ServiceLocator.Reset(); }
 
             var renderer = new HudBusyRenderer();
+            using (var font = new System.Drawing.Font("Arial", 10f))
             try
             {
                 var configured = MvpApplication.Configure(framework: mvp =>
                 {
                     mvp.Busy.Delay = 300;
+                    mvp.Busy.Font = font;
                     mvp.Busy.UseOverlay(renderer);
                 });
                 Assert.Same(renderer, configured.GetService(typeof(BusyRenderer)));
                 Assert.Equal(300, ((BusyOptions)configured.GetService(typeof(BusyOptions))).Delay);
+                Assert.Same(font, ((BusyOptions)configured.GetService(typeof(BusyOptions))).Font);   // referenced, not copied
             }
             finally { ServiceLocator.Reset(); }
         }
