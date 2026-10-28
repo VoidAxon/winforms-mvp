@@ -454,6 +454,25 @@ namespace Kibinago.Samples.Tests.Services
         }
 
         [Fact]
+        public void TextOnAnOpaqueBackground_IsOpaque_AndTextOnATransparentSurfaceKeepsItsTransparency()
+        {
+            using (var bitmap = new Bitmap(200, 40, System.Drawing.Imaging.PixelFormat.Format32bppPArgb))
+            using (var g = Graphics.FromImage(bitmap))
+            {
+                var context = new BusyPaintContext(g, new Rectangle(0, 0, 200, 40), TimeSpan.Zero, 1f, SystemFonts.DefaultFont, null);
+
+                g.Clear(Color.Transparent);
+                context.DrawText("検索中", new RectangleF(0, 0, 200, 40), Color.Black, 1, StringAlignment.Near, Color.White);
+                Assert.Equal(255, bitmap.GetPixel(150, 5).A);   // the label-quality path fills its box with the background
+                Assert.Equal(Color.White.ToArgb(), bitmap.GetPixel(150, 5).ToArgb());
+
+                g.Clear(Color.Transparent);
+                context.DrawText("検索中", new RectangleF(0, 0, 200, 40), Color.Black, 1, StringAlignment.Near);
+                Assert.Equal(0, bitmap.GetPixel(150, 5).A);     // grayscale path: untouched pixels stay transparent
+            }
+        }
+
+        [Fact]
         public void TheBuiltInLook_WidensForAMessage_UpToItsMaxTextWidth()
         {
             var renderer = new HudBusyRenderer();

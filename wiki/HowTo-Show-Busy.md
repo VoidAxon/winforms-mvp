@@ -133,7 +133,7 @@ public sealed class StatusRenderer : BusyRenderer
 ```
 
 - 透明度 (アルファ) は 1 ピクセルごとに効きます。半透明の色は下の View を透かします。
-- 文字は `context.DrawText` で描きます (GDI の `TextRenderer` は透明度を壊します)。長い文字は行数で切って「…」。大きさを決めるには `GetIndicatorBounds` で `context.MeasureText(text, width, maxLines)` (同じ折り返しで測る)。
+- 文字は `context.DrawText` で描きます (GDI の `TextRenderer` を直接使うと透明度を壊します)。不透明に塗った上 (四角の中など) に書くときは、その色を `background:` に渡すと、ラベルと同じ GDI・ClearType の文字になります (既定の四角はそうしています)。渡さないと、透明・半透明の上でも書けるグレースケールのアンチエイリアスです。大きさを測る `MeasureText` にも同じ `background` を渡します。長い文字は行数で切って「…」。大きさを決めるには `GetIndicatorBounds` で `context.MeasureText(text, width, maxLines)` (同じ折り返しで測る)。
 - アニメーションは `Elapsed` (表示してからの時間) から計算します。タイマーが遅れても速度が変わりません。
 - `ShowBusy("集計中…")` の文字は `Message` で受け取れます。入れ子では、終わっていない中で最後の文字が使われます。
 - 描画中の例外はログに記録され、そのオーバーレイは消えます (Busy 自体 — カーソルと入力のブロック — は続きます)。
