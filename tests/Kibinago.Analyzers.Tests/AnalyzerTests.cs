@@ -670,7 +670,7 @@ public class SearchForm : Form
 public interface ISearchView : IWindowView { }
 public class SearchPresenter : WindowPresenterBase<ISearchView>
 {
-    private Debouncer _a, _c, _d, _e, _f, _g, _h;
+    private Debouncer _a, _c, _d, _e, _f, _g, _h, _i;
     private Throttler _b;
     public SearchPresenter()
     {
@@ -683,6 +683,7 @@ public class SearchPresenter : WindowPresenterBase<ISearchView>
         _f = new Debouncer(TimeSpan.Zero, () => { });
         _g ??= new Debouncer(TimeSpan.Zero, () => { });
         _h = new Debouncer(TimeSpan.Zero, () => { });
+        _i = new Debouncer(TimeSpan.Zero, () => { });
     }
     protected override void Cleanup()
     {
@@ -692,6 +693,9 @@ public class SearchPresenter : WindowPresenterBase<ISearchView>
         ((IDisposable)_f).Dispose();
         using (var g = _g) { }
         using var h = _h;
+#nullable enable
+        _i!.Dispose();
+#nullable restore
     }
 }"));
         }

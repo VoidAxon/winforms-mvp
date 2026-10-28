@@ -128,7 +128,8 @@ namespace Kibinago.Analyzers
 
         private static bool IsDisposingUse(ExpressionSyntax use)
         {
-            while (use.Parent is ParenthesizedExpressionSyntax || use.Parent is CastExpressionSyntax)
+            while (use.Parent is ParenthesizedExpressionSyntax || use.Parent is CastExpressionSyntax ||
+                   use.Parent.IsKind(SyntaxKind.SuppressNullableWarningExpression))   // _d!.Dispose()
                 use = (ExpressionSyntax)use.Parent;
 
             switch (use.Parent)
