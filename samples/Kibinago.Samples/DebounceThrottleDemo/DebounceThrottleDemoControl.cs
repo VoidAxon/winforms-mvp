@@ -2,6 +2,7 @@ using System;
 using System.Drawing;
 using System.Windows.Forms;
 using Kibinago.Common;
+using Kibinago.Views;
 
 namespace Kibinago.Samples.DebounceThrottleDemo
 {
@@ -16,7 +17,7 @@ namespace Kibinago.Samples.DebounceThrottleDemo
     /// exact same code would work under WPF (where the captured context is a
     /// DispatcherSynchronizationContext instead).
     /// </remarks>
-    public sealed partial class DebounceThrottleDemoControl : UserControl
+    public sealed partial class DebounceThrottleDemoControl : UserControl, IViewBase   // a view-only demo: no presenter, but a view the shell can host
     {
         private readonly Debouncer _searchDebouncer;
         private readonly Throttler _sliderThrottler;

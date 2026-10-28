@@ -1,9 +1,11 @@
+using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
 using Kibinago.Presenters;
 using Kibinago.Samples.Shell;
 using Kibinago.Samples.ToDoDemo;
+using Kibinago.Views;
 using Xunit;
 
 namespace Kibinago.Samples.Tests.Shell
@@ -49,6 +51,44 @@ namespace Kibinago.Samples.Tests.Shell
                 Assert.True(todo.IsDisposed);   // leaving the category released the demo and its control
                 Assert.Equal(0, sidebar.SelectedIndex);
 
+                shell.Close();
+            }
+        }
+
+        [Fact]
+        public void EveryEmbeddedDemo_StartsInItsTab_AndIsReleasedWithItsCategory()
+        {
+            using (var shell = new ShellForm())
+            {
+                shell.WindowState = FormWindowState.Normal;
+                shell.StartPosition = FormStartPosition.Manual;
+                shell.Location = new Point(-3000, -3000);
+                shell.ShowInTaskbar = false;
+                new ShellPresenter(SampleCatalog.Create()).Connect(shell);
+                shell.Show();
+                var tabs = shell.Controls.OfType<Panel>().SelectMany(p => p.Controls.OfType<TabControl>()).Single();
+
+                var opened = 0;
+                foreach (var category in SampleCatalog.Create())
+                {
+                    shell.SelectCategory(category.Id);
+                    var controls = new List<Control>();
+                    foreach (var demo in category.Demos.Where(d => d.Kind == DemoKind.Embedded))
+                    {
+                        var tab = tabs.TabPages.Cast<TabPage>().Single(p => (string)p.Tag == demo.Id);
+                        tabs.SelectedTab = tab;   // creates the control and attaches its presenter
+                        Application.DoEvents();
+                        var control = Assert.Single(tab.Controls.Cast<Control>());
+                        Assert.IsAssignableFrom<IViewBase>(control);
+                        controls.Add(control);
+                        opened++;
+                    }
+
+                    shell.SelectCategory(category.Id == "intro" ? "viewaction" : "intro");   // leave the category
+                    Assert.All(controls, c => Assert.True(c.IsDisposed, c.GetType().Name + " was not released"));
+                }
+
+                Assert.True(opened >= 20, $"only {opened} embedded demos");
                 shell.Close();
             }
         }

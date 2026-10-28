@@ -2,6 +2,7 @@ using System;
 using System.Drawing;
 using System.Windows.Forms;
 using Kibinago.Services;
+using Kibinago.Views;
 
 namespace Kibinago.Samples.MessageBoxDemo
 {
@@ -16,7 +17,7 @@ namespace Kibinago.Samples.MessageBoxDemo
     /// automatically, so the dialog is always fully visible.
     /// </para>
     /// </summary>
-    public partial class MessageBoxDemoControl : UserControl
+    public partial class MessageBoxDemoControl : UserControl, IViewBase   // a view-only demo: no presenter, but a view the shell can host
     {
         public MessageBoxDemoControl()
         {
