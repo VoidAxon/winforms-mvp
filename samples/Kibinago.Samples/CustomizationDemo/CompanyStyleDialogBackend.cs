@@ -8,6 +8,10 @@ namespace Kibinago.Samples.CustomizationDemo
     /// A company-styled message box. Implementing <see cref="IMessageDialogBackend"/> — one method —
     /// is all it takes to restyle every message box in the application.
     /// </summary>
+    /// <remarks>
+    /// Built on a Form, so while it is open it is in Application.OpenForms (the default native
+    /// MessageBox is not): code that walks OpenForms should skip it by its type.
+    /// </remarks>
     public sealed class CompanyStyleDialogBackend : IMessageDialogBackend
     {
         public MessageDialogResult Show(MessageDialogRequest request)

@@ -11,7 +11,7 @@ namespace Kibinago.Samples.AnchoredMessageDemo
     /// semantic view method (<c>View.ConfirmDelete()</c>, <c>View.ShowRowTouched()</c>) whose
     /// implementation picks the anchor. No coordinates or WinForms types here.
     /// </summary>
-    public class AnchoredMessageDemoPresenter : WindowPresenterBase<IAnchoredMessageDemoView>
+    public class AnchoredMessageDemoPresenter : ControlPresenterBase<IAnchoredMessageDemoView>
     {
         protected override void RegisterViewActions()
         {

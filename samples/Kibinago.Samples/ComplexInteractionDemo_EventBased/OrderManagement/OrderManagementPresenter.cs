@@ -26,7 +26,7 @@ namespace Kibinago.Samples.ComplexInteractionDemo_EventBased.OrderManagement
     /// Main presenter for Order Management using Event Aggregator pattern.
     /// Subscribes to all messages for status updates and coordinates high-level actions.
     /// </summary>
-    public class OrderManagementPresenter : WindowPresenterBase<IOrderManagementView>
+    public class OrderManagementPresenter : ControlPresenterBase<IOrderManagementView>
     {
         private readonly IEventAggregator _eventAggregator;
         private readonly List<Product> _availableProducts;
@@ -50,6 +50,10 @@ namespace Kibinago.Samples.ComplexInteractionDemo_EventBased.OrderManagement
 
         protected override void OnInitialize()
         {
+            // The panels: each gets the SAME event aggregator — they communicate only by messages.
+            AttachChild(new ProductSelector.ProductSelectorPresenter(_eventAggregator), View.ProductSelector, _availableProducts);
+            AttachChild(new OrderSummary.OrderSummaryPresenter(_eventAggregator), View.OrderSummary);
+
             // Subscribe to all relevant messages for status updates
             _productAddedSubscription = _eventAggregator.Subscribe<ProductAddedMessage>(OnProductAddedMessage);
             _orderItemRemovedSubscription = _eventAggregator.Subscribe<OrderItemRemovedMessage>(OnOrderItemRemovedMessage);
@@ -64,14 +68,6 @@ namespace Kibinago.Samples.ComplexInteractionDemo_EventBased.OrderManagement
         {
             Dispatcher.Register(OrderManagementActions.ClearOrder, OnClearOrder);
             Dispatcher.Register(OrderManagementActions.SaveOrder, OnSaveOrder);
-        }
-
-        /// <summary>
-        /// Gets the available products for the system.
-        /// </summary>
-        public List<Product> GetAvailableProducts()
-        {
-            return _availableProducts;
         }
 
         private void OnProductAddedMessage(ProductAddedMessage message)

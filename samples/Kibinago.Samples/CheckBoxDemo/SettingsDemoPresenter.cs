@@ -36,7 +36,7 @@ namespace Kibinago.Samples.CheckBoxDemo
     /// 5. State-driven updates via RaiseCanExecuteChanged()
     /// 6. ZERO knowledge of UI controls (CheckBox, RadioButton, etc.)
     /// </summary>
-    public class SettingsDemoPresenter : WindowPresenterBase<ISettingsView>
+    public class SettingsDemoPresenter : ControlPresenterBase<ISettingsView>
     {
         // No constructor needed - Platform services are automatically available
 

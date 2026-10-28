@@ -61,7 +61,7 @@ namespace Kibinago.Samples
     /// Exposes ActionRequest event for explicit ViewAction routing to Presenter.
     /// Action availability is pushed by the Presenter through semantic members (CanDelete).
     /// </summary>
-    public interface IExplicitEventDemoView : IWindowView
+    public interface IExplicitEventDemoView : IActionableView
     {
         // Data properties
         string ItemName { get; set; }
@@ -90,7 +90,7 @@ namespace Kibinago.Samples
 
     #region View Implementation
 
-    public partial class ExplicitEventDemoForm : Form, IExplicitEventDemoView
+    public partial class ExplicitEventDemoControl : UserControl, IExplicitEventDemoView
     {
         private ViewActionBinder _binder;
 
@@ -103,7 +103,7 @@ namespace Kibinago.Samples
 
         public event EventHandler SelectionChanged;
 
-        public ExplicitEventDemoForm()
+        public ExplicitEventDemoControl()
         {
             InitializeComponent();
             InitializeActionBindings();
@@ -174,7 +174,7 @@ namespace Kibinago.Samples
 
     #region Presenter
 
-    public class ExplicitEventDemoPresenter : WindowPresenterBase<IExplicitEventDemoView>
+    public class ExplicitEventDemoPresenter : ControlPresenterBase<IExplicitEventDemoView>
     {
         private readonly IMessageService _messageService;
         private string[] _items = new[] { "Item 1", "Item 2", "Item 3" };
@@ -301,7 +301,7 @@ namespace Kibinago.Samples
      * EXPLICIT PATTERN (mainly for migrating legacy Forms):
      * -----------------------------------------------------
      * // View Interface
-     * public interface IMyView : IWindowView
+     * public interface IMyView : IActionableView
      * {
      *     event EventHandler<ActionRequestEventArgs> ActionRequest;
      *     bool CanDelete { set; }              // semantic availability, set by the Presenter

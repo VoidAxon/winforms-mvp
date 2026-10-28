@@ -3,6 +3,7 @@ using System.Drawing;
 using System.Windows.Forms;
 using Kibinago.Common;
 using Kibinago.Services;
+using Kibinago.Views;
 
 namespace Kibinago.Samples.ToastDemo
 {
@@ -16,11 +17,11 @@ namespace Kibinago.Samples.ToastDemo
     /// fire toasts to watch them stack, evict (5-toast cap), and truncate long text with an ellipsis.
     /// </para>
     /// </summary>
-    public partial class ToastDemoForm : Form
+    public partial class ToastDemoControl : UserControl, IViewBase   // a view-only demo: no presenter, but a view the shell can host
     {
         private readonly IWinFormsToastService _toasts = ServiceLocator.Current.ResolveRequired<IWinFormsToastService>();
 
-        public ToastDemoForm()
+        public ToastDemoControl()
         {
             InitializeComponent();
         }

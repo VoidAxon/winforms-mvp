@@ -9,7 +9,7 @@ namespace Kibinago.Samples.MasterDetailDemo
     /// Master-Detail pattern view - shows a list of customers with order details.
     /// Demonstrates parent-child data relationships and coordinated UI updates.
     /// </summary>
-    public interface IMasterDetailView : IWindowView
+    public interface IMasterDetailView : IActionableView
     {
         /// <summary>
         /// Gets or sets the list of customers (Master data).

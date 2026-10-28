@@ -17,21 +17,13 @@ namespace Kibinago.Samples.ComplexInteractionDemo_ServiceBased.ProductSelector
     /// - NO ProductSelected event for parent coordination needed
     /// - Completely decoupled from OrderSummaryPresenter and OrderManagementPresenter
     /// </summary>
-    public class ProductSelectorPresenter : ControlPresenterBase<IProductSelectorView>
+    public class ProductSelectorPresenter : ControlPresenterBase<IProductSelectorView, IList<Product>>
     {
         private readonly IOrderManagementService _orderService;
 
         public ProductSelectorPresenter(IOrderManagementService orderService)
         {
             _orderService = orderService ?? throw new ArgumentNullException(nameof(orderService));
-        }
-
-        /// <summary>
-        /// Initializes the presenter with available products.
-        /// </summary>
-        public void LoadProducts(IList<Product> products)
-        {
-            View.Products = products ?? new List<Product>();
         }
 
         protected override void RegisterViewActions()
@@ -60,9 +52,10 @@ namespace Kibinago.Samples.ComplexInteractionDemo_ServiceBased.ProductSelector
             View.SelectionChanged += (s, e) => { }; // No-op for compatibility
         }
 
-        protected override void OnInitialize()
+        // The products come from the parent presenter (TParam), not from a public method.
+        protected override void OnInitialize(IList<Product> products)
         {
-            // Initialize default quantity
+            View.Products = products ?? new List<Product>();
             View.Quantity = 1;
         }
 

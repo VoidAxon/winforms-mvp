@@ -82,6 +82,13 @@ namespace Kibinago.Samples.Shell
             Func<IDemoAttacher, IViewBase, IDisposable> attach, params string[] sourceFiles) =>
             new SampleDemo(id, title, description, DemoKind.Embedded, attach ?? throw new ArgumentNullException(nameof(attach)), sourceFiles);
 
+        /// <summary>
+        /// A demo that runs in the tab with no presenter: what it shows is a view concern (positioning,
+        /// painting, UI timing), so the control is the whole demo.
+        /// </summary>
+        public static SampleDemo ViewOnly(string id, string title, string description, params string[] sourceFiles) =>
+            new SampleDemo(id, title, description, DemoKind.Embedded, (a, v) => NoPresenter.Instance, sourceFiles);
+
         /// <summary>A demo that opens its own window from a button in the tab.</summary>
         public static SampleDemo Window(string id, string title, string description, params string[] sourceFiles) =>
             new SampleDemo(id, title, description, DemoKind.Window, null, sourceFiles);
@@ -102,5 +109,12 @@ namespace Kibinago.Samples.Shell
     public interface IDemoAttacher
     {
         IDisposable Attach<TView>(ControlPresenterBase<TView> presenter, TView view) where TView : IViewBase;
+    }
+
+    // The "handle" of a view-only demo: nothing to release.
+    internal sealed class NoPresenter : IDisposable
+    {
+        public static readonly NoPresenter Instance = new NoPresenter();
+        public void Dispose() { }
     }
 }

@@ -1,6 +1,6 @@
 namespace Kibinago.Samples.ComplexInteractionDemo.OrderManagement
 {
-    partial class OrderManagementForm
+    partial class OrderManagementControl
     {
         private System.ComponentModel.IContainer components = null;
 
@@ -17,6 +17,9 @@ namespace Kibinago.Samples.ComplexInteractionDemo.OrderManagement
 
         private void InitializeComponent()
         {
+            // The panels are docked: below this size the tab scrolls instead of hiding their buttons.
+            this.AutoScroll = true;
+            this.AutoScrollMinSize = new System.Drawing.Size(800, 620);   // room for the panels' full layouts
             this.panelTop = new System.Windows.Forms.Panel();
             this.lblTitle = new System.Windows.Forms.Label();
             this.panelBottom = new System.Windows.Forms.Panel();
@@ -144,19 +147,14 @@ namespace Kibinago.Samples.ComplexInteractionDemo.OrderManagement
             this.btnSaveOrder.Text = "Save Order";
             this.btnSaveOrder.UseVisualStyleBackColor = true;
             //
-            // OrderManagementForm
+            // OrderManagementControl
             //
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
-            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(900, 600);
             this.Controls.Add(this.panelMain);
             this.Controls.Add(this.panelActions);
             this.Controls.Add(this.panelBottom);
             this.Controls.Add(this.panelTop);
-            this.MinimumSize = new System.Drawing.Size(800, 600);
-            this.Name = "OrderManagementForm";
-            this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            this.Text = "Order Management System - Complex Interaction Demo";
+            this.Name = "OrderManagementControl";
             this.panelTop.ResumeLayout(false);
             this.panelTop.PerformLayout();
             this.panelBottom.ResumeLayout(false);

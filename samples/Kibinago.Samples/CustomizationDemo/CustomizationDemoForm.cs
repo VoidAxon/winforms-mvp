@@ -16,6 +16,7 @@ namespace Kibinago.Samples.CustomizationDemo
             _binder.Add(CustomizationDemoActions.Confirm, _confirmButton);
             _binder.Add(CustomizationDemoActions.Toast, _toastButton);
             _binder.Add(CustomizationDemoActions.CheckChanges, _checkButton);
+            _binder.Add(CustomizationDemoActions.Busy, _busyButton);
         }
 
         public IViewActionBinder ActionBinder => _binder;

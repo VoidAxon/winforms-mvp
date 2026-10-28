@@ -17,7 +17,7 @@ namespace Kibinago.Samples.CheckBoxDemo
     /// - CanExecute controlling Enabled state
     /// - Proper MVP separation (no UI types in interface)
     /// </summary>
-    public partial class SettingsDemoForm : Form, ISettingsView
+    public partial class SettingsDemoControl : UserControl, ISettingsView
     {
         // ViewActionBinder is internal to the Form
         private ViewActionBinder _viewActionBinder;
@@ -25,7 +25,7 @@ namespace Kibinago.Samples.CheckBoxDemo
         // State
         private bool _hasSettings;
 
-        public SettingsDemoForm()
+        public SettingsDemoControl()
         {
             InitializeComponent();
             InitializeActionBindings();

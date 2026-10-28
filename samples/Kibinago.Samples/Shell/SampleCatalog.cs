@@ -1,4 +1,19 @@
 using System.Collections.Generic;
+using Kibinago.Samples.AnchoredMessageDemo;
+using Kibinago.Samples.AsyncDemo;
+using Kibinago.Samples.BulkBindingDemo;
+using Kibinago.Samples.CascadeDemo;
+using Kibinago.Samples.CheckBoxDemo;
+using Kibinago.Samples.MasterDetailDemo;
+using Kibinago.Samples.ValidationDemo;
+using Kibinago.Samples.ValueBindingDemo;
+using Kibinago.Events;
+using Kibinago.Samples.ComplexInteractionDemo.Models;
+using Kibinago.Samples.ComplexInteractionDemo.OrderManagement;
+using Kibinago.Samples.ComplexInteractionDemo.Services;
+using Kibinago.Services;
+using EventBasedOrders = Kibinago.Samples.ComplexInteractionDemo_EventBased.OrderManagement.OrderManagementPresenter;
+using ServiceBasedOrders = Kibinago.Samples.ComplexInteractionDemo_ServiceBased.OrderManagement.OrderManagementPresenter;
 using Kibinago.Samples.BindingDemo;
 using Kibinago.Samples.BusyDemo;
 using Kibinago.Samples.ChangeTrackingDemo;
@@ -91,20 +106,25 @@ namespace Kibinago.Samples.Shell
                         "CanExecute と、状態が変わったときの RaiseCanExecuteChanged。",
                         (a, v) => a.Attach(new ToDoDemoPresenter(), (IToDoView)v),
                         "ToDoDemo/ToDoDemoPresenter.cs", "ToDoDemo/IToDoView.cs", "ToDoDemo/ToDoDemoControl.cs"),
-                    SampleDemo.Window(DemoIds.CheckBox, "CheckBox / RadioButton",
+                    SampleDemo.Embedded(DemoIds.CheckBox, "CheckBox / RadioButton",
                         "CheckedChanged をアクションにする設定画面。",
-                        "CheckBoxDemo/SettingsDemoPresenter.cs", "CheckBoxDemo/ISettingsView.cs", "CheckBoxDemo/SettingsDemoForm.cs"),
-                    SampleDemo.Window(DemoIds.BulkBinding, "一括バインド",
+                        (a, v) => a.Attach(new SettingsDemoPresenter(), (ISettingsView)v),
+                        "CheckBoxDemo/SettingsDemoPresenter.cs", "CheckBoxDemo/ISettingsView.cs", "CheckBoxDemo/SettingsDemoControl.cs"),
+                    SampleDemo.Embedded(DemoIds.BulkBinding, "一括バインド",
                         "AddRange / AddByTag で多数のラジオボタンをまとめて対応づけます。",
-                        "BulkBindingDemo/SurveyDemoPresenter.cs", "BulkBindingDemo/ISurveyView.cs", "BulkBindingDemo/SurveyDemoForm.cs"),
-                    SampleDemo.Window(DemoIds.ValueBinding, "値をペイロードに",
+                        (a, v) => a.Attach(new SurveyDemoPresenter(), (ISurveyView)v),
+                        "BulkBindingDemo/SurveyDemoPresenter.cs", "BulkBindingDemo/ISurveyView.cs", "BulkBindingDemo/SurveyDemoControl.cs"),
+                    SampleDemo.Embedded(DemoIds.ValueBinding, "値をペイロードに",
                         "Add(control, c => 値) で CheckBox・NumericUpDown・日付の値をそのまま処理に渡します。",
+                        (a, v) => a.Attach(new ValueBindingPresenter(), (IValueBindingView)v),
                         "ValueBindingDemo/ValueBindingDemo.cs"),
-                    SampleDemo.Window(DemoIds.ExplicitEvent, "明示イベント方式",
+                    SampleDemo.Embedded(DemoIds.ExplicitEvent, "明示イベント方式",
                         "ActionBinder => null、View.ActionRequest。古い Form を移行するときの書き方。",
+                        (a, v) => a.Attach(new ExplicitEventDemoPresenter(ServiceLocator.Current.Resolve<IMessageService>()), (IExplicitEventDemoView)v),
                         "ViewActionExplicitEventExample.cs"),
-                    SampleDemo.Window(DemoIds.ExplicitParameters, "明示イベント + パラメーター",
+                    SampleDemo.Embedded(DemoIds.ExplicitParameters, "明示イベント + パラメーター",
                         "値のバインドを ActionRequest で受け取ります。",
+                        (a, v) => a.Attach(new MixedParametersDemoPresenter(ServiceLocator.Current.Resolve<IMessageService>()), (IMixedParametersDemoView)v),
                         "ViewActionExplicitWithParametersExample.cs"),
                 }),
 
@@ -126,12 +146,13 @@ namespace Kibinago.Samples.Shell
                         "同期処理・await・ワーカースレッドからの ShowBusy。",
                         (a, v) => a.Attach(new BusyDemoPresenter(), (IBusyDemoView)v),
                         "BusyDemo/BusyDemoPresenter.cs", "BusyDemo/IBusyDemoView.cs", "BusyDemo/BusyDemoControl.cs", "Program.cs"),
-                    SampleDemo.Window(DemoIds.Async, "非同期の処理",
+                    SampleDemo.Embedded(DemoIds.Async, "非同期の処理",
                         "実行中の自動無効化、キャンセル、進捗。",
-                        "AsyncDemo/AsyncDemoPresenter.cs", "AsyncDemo/IAsyncDemoView.cs", "AsyncDemo/AsyncDemoForm.cs"),
-                    SampleDemo.Window(DemoIds.DebounceThrottle, "Debounce / Throttle",
+                        (a, v) => a.Attach(new AsyncDemoPresenter(), (IAsyncDemoView)v),
+                        "AsyncDemo/AsyncDemoPresenter.cs", "AsyncDemo/IAsyncDemoView.cs", "AsyncDemo/AsyncDemoControl.cs"),
+                    SampleDemo.ViewOnly(DemoIds.DebounceThrottle, "Debounce / Throttle",
                         "生のイベント回数と、間引いた後の回数を比べます。",
-                        "DebounceThrottleDemo/DebounceThrottleDemoForm.cs"),
+                        "DebounceThrottleDemo/DebounceThrottleDemoControl.cs"),
                 }),
 
             new SampleCategory("windows", "ウィンドウ", "開く・結果・閉じる",
@@ -173,15 +194,16 @@ namespace Kibinago.Samples.Shell
                 },
                 new[]
                 {
-                    SampleDemo.Window(DemoIds.MessageBox, "メッセージボックスの位置",
+                    SampleDemo.ViewOnly(DemoIds.MessageBox, "メッセージボックスの位置",
                         "標準の MessageBox を指定した位置に出します。",
-                        "MessageBoxDemo/MessageBoxDemoForm.cs"),
-                    SampleDemo.Window(DemoIds.Toast, "トースト",
+                        "MessageBoxDemo/MessageBoxDemoControl.cs"),
+                    SampleDemo.ViewOnly(DemoIds.Toast, "トースト",
                         "種類・位置・スタイル・自作の描画。OpenForms に出ない層付きポップアップ。",
-                        "ToastDemo/ToastDemoForm.cs"),
-                    SampleDemo.Window(DemoIds.AnchoredMessage, "アンカー表示",
+                        "ToastDemo/ToastDemoControl.cs"),
+                    SampleDemo.Embedded(DemoIds.AnchoredMessage, "アンカー表示",
                         "既定は隅のトースト、位置が大事なときは意味のある View メソッドで。",
-                        "AnchoredMessageDemo/AnchoredMessageDemoPresenter.cs", "AnchoredMessageDemo/IAnchoredMessageDemoView.cs", "AnchoredMessageDemo/AnchoredMessageDemoForm.cs"),
+                        (a, v) => a.Attach(new AnchoredMessageDemoPresenter(), (IAnchoredMessageDemoView)v),
+                        "AnchoredMessageDemo/AnchoredMessageDemoPresenter.cs", "AnchoredMessageDemo/IAnchoredMessageDemoView.cs", "AnchoredMessageDemo/AnchoredMessageDemoControl.cs"),
                 }),
 
             new SampleCategory("validation", "入力検証", "DataAnnotations、エラー表示",
@@ -197,9 +219,10 @@ namespace Kibinago.Samples.Shell
                         "メッセージだけの形: 送信に失敗したら最初のエラーを出し、その欄へフォーカス。",
                         (a, v) => a.Attach(new IntakePresenter(), (IIntakeView)v),
                         "FirstErrorDemo/IntakePresenter.cs", "FirstErrorDemo/IntakeModel.cs", "FirstErrorDemo/IIntakeView.cs", "FirstErrorDemo/IntakeControl.cs"),
-                    SampleDemo.Window(DemoIds.Validation, "入力検証 (アイコン付き)",
+                    SampleDemo.Embedded(DemoIds.Validation, "入力検証 (アイコン付き)",
                         "DataAnnotations、ErrorProvider、送信時にまとめて表示。",
-                        "ValidationDemo/ValidationDemoPresenter.cs", "ValidationDemo/RegistrationModel.cs", "ValidationDemo/IValidationDemoView.cs", "ValidationDemo/ValidationDemoForm.cs"),
+                        (a, v) => a.Attach(new ValidationDemoPresenter(), (IValidationDemoView)v),
+                        "ValidationDemo/ValidationDemoPresenter.cs", "ValidationDemo/RegistrationModel.cs", "ValidationDemo/IValidationDemoView.cs", "ValidationDemo/ValidationDemoControl.cs"),
                 }),
 
             new SampleCategory("binding", "バインド", "モデルとコントロールの双方向",
@@ -268,12 +291,15 @@ namespace Kibinago.Samples.Shell
                         "診療科 → 医師、医師 + 曜日 → 予約枠。上を変えると下が空になり読み直されます。",
                         (a, v) => a.Attach(new ReservationDemoPresenter(), (IReservationDemoView)v),
                         "CompositionDemo/ReservationDemoPresenter.cs", "CompositionDemo/IReservationDemoView.cs", "CompositionDemo/ReservationDemoControl.cs", "CompositionDemo/ReservationModels.cs"),
-                    SampleDemo.Window(DemoIds.MasterDetail, "マスター/詳細",
+                    SampleDemo.Embedded(DemoIds.MasterDetail, "マスター/詳細",
                         "顧客を選ぶと注文が切り替わります。",
-                        "MasterDetailDemo/MasterDetailPresenter.cs", "MasterDetailDemo/IMasterDetailView.cs", "MasterDetailDemo/MasterDetailForm.cs"),
-                    SampleDemo.Window(DemoIds.Cascade, "連動する選択 (N 段)",
-                        "Selection と Cascade.Bind で、上の選択が変わると下を読み直します。",
-                        "CascadeDemo/CascadePresenters.cs", "CascadeDemo/CascadeModels.cs", "CascadeDemo/CascadeForm.cs", "CascadeDemo/SelectListView.cs"),
+                        (a, v) => a.Attach(new MasterDetailPresenter(), (IMasterDetailView)v),
+                        "MasterDetailDemo/MasterDetailPresenter.cs", "MasterDetailDemo/IMasterDetailView.cs", "MasterDetailDemo/MasterDetailControl.cs"),
+                    SampleDemo.Embedded(DemoIds.Cascade, "連動する選択 (N 段)",
+                        "Selection と Cascade.Bind。親 Presenter が 3 つのリストの子 Presenter を AttachChild でつなぎます。",
+                        (a, v) => a.Attach(new CascadeDemoPresenter(), (ICascadeDemoView)v),
+                        "CascadeDemo/CascadeDemoPresenter.cs", "CascadeDemo/CascadePresenters.cs", "CascadeDemo/ICascadeDemoView.cs",
+                        "CascadeDemo/CascadeDemoControl.cs", "CascadeDemo/SelectListView.cs", "CascadeDemo/CascadeModels.cs"),
                 }),
 
             new SampleCategory("communication", "Presenter 間の連携", "共有サービス、EventAggregator",
@@ -287,15 +313,16 @@ namespace Kibinago.Samples.Shell
                 },
                 new[]
                 {
-                    SampleDemo.Window(DemoIds.ServiceBased, "共有サービス",
+                    SampleDemo.Embedded(DemoIds.ServiceBased, "共有サービス",
                         "すべての Presenter が同じサービスに依存し、サービスのイベントで更新します。",
-                        "ComplexInteractionDemo_ServiceBased/Program.cs",
-                        "ComplexInteractionDemo_ServiceBased/OrderManagement/OrderManagementPresenter.cs",
+                        (a, v) => a.Attach(new ServiceBasedOrders(new OrderManagementService(), SampleProducts.All()), (IOrderManagementView)v),
+                        "ComplexInteractionDemo_ServiceBased/OrderManagement/OrderManagementPresenter.cs", "ComplexInteractionDemo/OrderManagement/IOrderManagementView.cs",
                         "ComplexInteractionDemo_ServiceBased/OrderSummary/OrderSummaryPresenter.cs",
                         "ComplexInteractionDemo_ServiceBased/ProductSelector/ProductSelectorPresenter.cs"),
-                    SampleDemo.Window(DemoIds.EventBased, "EventAggregator",
+                    SampleDemo.Embedded(DemoIds.EventBased, "EventAggregator",
                         "メッセージの発行・購読で、お互いを知らない Presenter が連携します。",
-                        "ComplexInteractionDemo_EventBased/ComplexInteractionDemoEventBasedProgram.cs",
+                        (a, v) => a.Attach(new EventBasedOrders(ServiceLocator.Current.ResolveRequired<IEventAggregator>(), SampleProducts.All()), (IOrderManagementView)v),
+                        "ComplexInteractionDemo_EventBased/OrderManagement/OrderManagementPresenter.cs", "ComplexInteractionDemo/OrderManagement/IOrderManagementView.cs",
                         "ComplexInteractionDemo_EventBased/OrderSummary/OrderSummaryPresenter.cs",
                         "ComplexInteractionDemo_EventBased/ProductSelector/ProductSelectorPresenter.cs",
                         "ComplexInteractionDemo_EventBased/Messages/ProductAddedMessage.cs"),
@@ -318,12 +345,12 @@ namespace Kibinago.Samples.Shell
             new SampleCategory(CustomizeCategoryId, "カスタマイズ", "ダイアログ・トーストを差し替える",
                 "設定は起動時の 1 か所だけです (mvp.Messages.UseDialogs、mvp.Toasts.UseRenderer など)。\r\n" +
                 "動いているアプリの設定は変えないので、このデモはカスタム設定で別のプロセスとして起動します " +
-                "(Kibinago.Samples.exe --profile custom)。そちらでは、すべてのメッセージボックスとトーストが差し替わります。",
+                "(Kibinago.Samples.exe --profile custom)。そちらでは、すべてのメッセージボックス・トースト・処理中の表示が差し替わります。",
                 new[] { new WikiLink("フレームワークのカスタマイズ", "HowTo-Customize-Framework") },
                 new[]
                 {
                     SampleDemo.Window(DemoIds.Customization, "カスタム設定",
-                        "会社のダイアログ、ブランドのトースト、変更追跡の比較方法。",
+                        "会社のダイアログ、ブランドのトースト、処理中の表示 (色・フォント)、変更追跡の比較方法。",
                         "CustomizationDemo/CustomizationDemoSetup.cs", "CustomizationDemo/CompanyStyleDialogBackend.cs",
                         "CustomizationDemo/CustomizationDemoPresenter.cs", "CustomizationDemo/CustomizationDemoForm.cs", "Program.cs"),
                 }),

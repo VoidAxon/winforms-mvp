@@ -20,11 +20,11 @@ namespace Kibinago.Samples.AnchoredMessageDemo
     ///   presenter; the semantic method is the presenter's entry)
     /// - No WinForms types or coordinates in the presenter
     /// </summary>
-    public partial class AnchoredMessageDemoForm : Form, IAnchoredMessageDemoView
+    public partial class AnchoredMessageDemoControl : UserControl, IAnchoredMessageDemoView
     {
         private ViewActionBinder _viewActionBinder;
 
-        public AnchoredMessageDemoForm()
+        public AnchoredMessageDemoControl()
         {
             InitializeComponent();
             InitializeActionBindings();

@@ -23,7 +23,7 @@ namespace Kibinago.Samples.AsyncDemo
     /// <c>_isBusy</c> flag exists only because a running operation must also disable the OTHER
     /// start buttons and enable Cancel — no manual <c>RaiseCanExecuteChanged()</c> is needed.
     /// </remarks>
-    public class AsyncDemoPresenter : WindowPresenterBase<IAsyncDemoView>
+    public class AsyncDemoPresenter : ControlPresenterBase<IAsyncDemoView>
     {
         // Linked with the handler's token: the Cancel button cancels it, and so does closing the window.
         private CancellationTokenSource _cancellationTokenSource;

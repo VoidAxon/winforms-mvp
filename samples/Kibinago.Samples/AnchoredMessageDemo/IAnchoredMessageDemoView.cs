@@ -23,7 +23,7 @@ namespace Kibinago.Samples.AnchoredMessageDemo
     /// anchor (using the <c>AnchoredToast</c> / <c>AnchoredMessageBox</c> view-layer utilities).
     /// The presenter never sees a coordinate.
     /// </summary>
-    public interface IAnchoredMessageDemoView : IWindowView
+    public interface IAnchoredMessageDemoView : IActionableView
     {
         /// <summary>The item name being edited (data property — no TextBox exposed).</summary>
         string ItemName { get; }

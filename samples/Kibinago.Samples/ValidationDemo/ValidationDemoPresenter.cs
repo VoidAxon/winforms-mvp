@@ -17,7 +17,7 @@ namespace Kibinago.Samples.ValidationDemo
     ///   <c>Validation.SetError</c> / <c>ClearError</c> and are shown the same way.
     /// The presenter never touches controls or error widgets.
     /// </summary>
-    public class ValidationDemoPresenter : WindowPresenterBase<IValidationDemoView>
+    public class ValidationDemoPresenter : ControlPresenterBase<IValidationDemoView>
     {
         private static readonly string[] ReservedUserNames = { "admin", "administrator", "root", "system" };
 

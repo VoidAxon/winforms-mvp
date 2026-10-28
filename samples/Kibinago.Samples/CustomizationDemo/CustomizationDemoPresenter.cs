@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using Kibinago.Common;
 using Kibinago.Presenters;
 using Kibinago.Services;
@@ -6,7 +7,7 @@ namespace Kibinago.Samples.CustomizationDemo
 {
     /// <summary>
     /// Plain presenter code — no customization lives here. The dialogs, toasts and change
-    /// detection it triggers look and behave as configured in <see cref="CustomizationDemoSetup"/>.
+    /// detection and busy overlay it triggers look and behave as configured in <see cref="CustomizationDemoSetup"/>.
     /// </summary>
     public class CustomizationDemoPresenter : WindowPresenterBase<ICustomizationDemoView>
     {
@@ -24,6 +25,11 @@ namespace Kibinago.Samples.CustomizationDemo
             Dispatcher.Register(CustomizationDemoActions.Confirm, OnConfirm);
             Dispatcher.Register(CustomizationDemoActions.Toast, () => Toasts.Show("Branded toast, 4.5 s by default", ToastType.Success));
             Dispatcher.Register(CustomizationDemoActions.CheckChanges, OnCheckChanges);
+            Dispatcher.Register(CustomizationDemoActions.Busy, async ct =>
+            {
+                using (ShowBusy("Processing — with the company's overlay"))
+                    await Task.Delay(3000, ct);
+            });
         }
 
         protected override void OnInitialize()

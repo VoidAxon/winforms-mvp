@@ -12,7 +12,7 @@ namespace Kibinago.Samples.ComplexInteractionDemo_EventBased.ProductSelector
     /// Presenter for product selection using Event Aggregator pattern.
     /// Publishes ProductAddedMessage when a product is added to the order.
     /// </summary>
-    public class ProductSelectorPresenter : ControlPresenterBase<IProductSelectorView>
+    public class ProductSelectorPresenter : ControlPresenterBase<IProductSelectorView, List<Product>>
     {
         private readonly IEventAggregator _eventAggregator;
         private List<Product> _availableProducts;
@@ -41,16 +41,8 @@ namespace Kibinago.Samples.ComplexInteractionDemo_EventBased.ProductSelector
             View.ProductAdded += OnProductAdded;
         }
 
-        protected override void OnInitialize()
-        {
-            // Initialize with empty product list
-            _availableProducts = new List<Product>();
-        }
-
-        /// <summary>
-        /// Sets the available products for selection.
-        /// </summary>
-        public void SetAvailableProducts(List<Product> products)
+        // The products come from the parent presenter (TParam), not from a public method.
+        protected override void OnInitialize(List<Product> products)
         {
             _availableProducts = products ?? new List<Product>();
             View.Products = _availableProducts;
