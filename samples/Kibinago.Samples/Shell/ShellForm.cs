@@ -21,7 +21,7 @@ namespace Kibinago.Samples.Shell
         private readonly ListBox _categoryList;
         private readonly TabControl _tabs;
         private readonly ListBox _sourceFileList;
-        private readonly TextBox _sourceText;
+        private readonly SourceViewer _sourceText;
         private readonly Dictionary<string, Control> _demoViews = new Dictionary<string, Control>();
         private IReadOnlyList<SampleCategory> _categories = Array.Empty<SampleCategory>();
         private bool _showingCategory;
@@ -71,17 +71,7 @@ namespace Kibinago.Samples.Shell
 
             _sourceFileList = new ListBox { Dock = DockStyle.Left, Width = 300, IntegralHeight = false, BorderStyle = BorderStyle.None };
             _sourceFileList.SelectedIndexChanged += (s, e) => ShowSelectedSource();
-            _sourceText = new TextBox
-            {
-                Dock = DockStyle.Fill,
-                Multiline = true,
-                ReadOnly = true,
-                WordWrap = false,
-                ScrollBars = ScrollBars.Both,
-                Font = new Font("Consolas", 10f),
-                BackColor = Color.White,
-                BorderStyle = BorderStyle.None,
-            };
+            _sourceText = new SourceViewer { Dock = DockStyle.Fill };
 
             var right = new Panel { Dock = DockStyle.Fill };
             right.Controls.Add(_tabs);
@@ -196,7 +186,7 @@ namespace Kibinago.Samples.Shell
             if (_sourceFileList.Items.Count > 0)
                 _sourceFileList.SelectedIndex = 0;
             else
-                _sourceText.Text = "";
+                _sourceText.ShowText("");
         }
 
         #endregion
@@ -204,7 +194,7 @@ namespace Kibinago.Samples.Shell
         private void ShowSelectedSource()
         {
             var path = _sourceFileList.SelectedItem as string;
-            _sourceText.Text = path == null ? "" : (SampleSources.Read(path) ?? $"// {path} は埋め込まれていません。");
+            _sourceText.ShowText(path == null ? "" : (SampleSources.Read(path) ?? $"// {path} は埋め込まれていません。"));
         }
 
         private TabPage CreateExplanationPage(SampleCategory category)
