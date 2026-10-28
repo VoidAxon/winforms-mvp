@@ -604,7 +604,7 @@ _rows.ListChanged += (s, e) => BeginInvoke((MethodInvoker)ShowGlyphs);   // Rese
 
 private void OnHeaderClick(object sender, DataGridViewCellMouseEventArgs e)
 {
-    if (e.Button != MouseButtons.Left) return;
+    if (e.Button != MouseButtons.Left || e.ColumnIndex < 0) return;   // -1: 左上の角
     var column = TypeDescriptor.GetProperties(typeof(PatientRow))[grid.Columns[e.ColumnIndex].DataPropertyName];
     var keys = _rows.SortDescriptions.Cast<ListSortDescription>().ToList();
     var index = keys.FindIndex(k => k.PropertyDescriptor.Name == column.Name);

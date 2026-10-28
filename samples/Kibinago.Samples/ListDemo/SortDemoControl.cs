@@ -70,7 +70,7 @@ namespace Kibinago.Samples.ListDemo
         // Telerik and ag-Grid do). The list takes several columns as they are; nothing else is needed.
         private void OnHeaderClick(object sender, DataGridViewCellMouseEventArgs e)
         {
-            if (e.Button != MouseButtons.Left || _rows == null) return;
+            if (e.Button != MouseButtons.Left || e.ColumnIndex < 0 || _rows == null) return;   // -1: the top-left corner
             var column = TypeDescriptor.GetProperties(typeof(PatientRow))[_grid.Columns[e.ColumnIndex].DataPropertyName];
             var keys = _rows.SortDescriptions.Cast<ListSortDescription>().ToList();
             var index = keys.FindIndex(k => k.PropertyDescriptor.Name == column.Name);
