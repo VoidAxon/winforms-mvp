@@ -6,6 +6,7 @@ using Kibinago.Presenters;
 using Kibinago.Samples.AnchoredMessageDemo;
 using Kibinago.Samples.AsyncDemo;
 using Kibinago.Samples.BulkBindingDemo;
+using Kibinago.Samples.BusyDemo;
 using Kibinago.Samples.CascadeDemo;
 using Kibinago.Samples.CheckBoxDemo;
 using Kibinago.Samples.ComplexInteractionDemo_EventBased;
@@ -38,6 +39,7 @@ namespace Kibinago.Samples.Shell
         private static readonly Dictionary<string, Func<Control>> Embedded = new Dictionary<string, Func<Control>>
         {
             [DemoIds.ToDo] = () => new ToDoDemoControl(),
+            [DemoIds.Busy] = () => new BusyDemoControl(),
         };
 
         // The window of each demo that opens from its tab (owner = this main window).

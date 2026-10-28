@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Kibinago.Samples.BusyDemo;
 using Kibinago.Samples.ToDoDemo;
 
 namespace Kibinago.Samples.Shell
@@ -14,6 +15,7 @@ namespace Kibinago.Samples.Shell
         public const string ExplicitEvent = "explicit-event";
         public const string ExplicitParameters = "explicit-parameters";
         public const string Async = "async";
+        public const string Busy = "busy";
         public const string DebounceThrottle = "debounce-throttle";
         public const string Navigator = "navigator";
         public const string WindowClosing = "window-closing";
@@ -96,6 +98,8 @@ namespace Kibinago.Samples.Shell
             new SampleCategory("async", "非同期・処理中", "async の処理、間引き",
                 "async の処理は Dispatcher.Register(キー, async ct => ...) で登録します。実行中はボタンが無効になり、" +
                 "画面を閉じるとトークン (Lifetime) がキャンセルされます。\r\n" +
+                "時間のかかる処理の間は using (ShowBusy(\"…\")) { … }: ウィンドウが待ちカーソルになり入力を受け付けません " +
+                "(このサンプルは Program.cs の mvp.Busy.UseOverlay() でオーバーレイも出します)。タブの中のデモなので、メイン画面全体が処理中になります。\r\n" +
                 "Debouncer / Throttler は連続するイベント (入力・スクロール) を間引きます。",
                 new[]
                 {
@@ -105,6 +109,10 @@ namespace Kibinago.Samples.Shell
                 },
                 new[]
                 {
+                    SampleDemo.Embedded(DemoIds.Busy, "処理中 (ShowBusy)",
+                        "同期処理・await・ワーカースレッドからの ShowBusy。",
+                        (a, v) => a.Attach(new BusyDemoPresenter(), (IBusyDemoView)v),
+                        "BusyDemo/BusyDemoPresenter.cs", "BusyDemo/IBusyDemoView.cs", "BusyDemo/BusyDemoControl.cs", "Program.cs"),
                     SampleDemo.Window(DemoIds.Async, "非同期の処理",
                         "実行中の自動無効化、キャンセル、進捗。",
                         "AsyncDemo/AsyncDemoPresenter.cs", "AsyncDemo/IAsyncDemoView.cs", "AsyncDemo/AsyncDemoForm.cs"),
