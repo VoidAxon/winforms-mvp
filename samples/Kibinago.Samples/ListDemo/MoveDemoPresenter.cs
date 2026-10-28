@@ -27,10 +27,10 @@ namespace Kibinago.Samples.ListDemo
 
         protected override void RegisterViewActions()
         {
-            Dispatcher.Register(MoveDemoActions.MoveUp, () => Move(_rows.MoveUp), canExecute: () => Index() > 0);
-            Dispatcher.Register(MoveDemoActions.MoveDown, () => Move(_rows.MoveDown), canExecute: () => Index() >= 0 && Index() < _rows.Count - 1);
-            Dispatcher.Register(MoveDemoActions.MoveToTop, () => Move(_rows.MoveToTop), canExecute: () => Index() > 0);
-            Dispatcher.Register(MoveDemoActions.MoveToBottom, () => Move(_rows.MoveToBottom), canExecute: () => Index() >= 0 && Index() < _rows.Count - 1);
+            Dispatcher.Register(MoveDemoActions.MoveUp, () => Move(row => _rows.MoveUp(row)), canExecute: () => Index() > 0);
+            Dispatcher.Register(MoveDemoActions.MoveDown, () => Move(row => _rows.MoveDown(row)), canExecute: () => Index() >= 0 && Index() < _rows.Count - 1);
+            Dispatcher.Register(MoveDemoActions.MoveToTop, () => Move(row => _rows.MoveToTop(row)), canExecute: () => Index() > 0);
+            Dispatcher.Register(MoveDemoActions.MoveToBottom, () => Move(row => _rows.MoveToBottom(row)), canExecute: () => Index() >= 0 && Index() < _rows.Count - 1);
         }
 
         protected override void OnInitialize()
@@ -48,6 +48,8 @@ namespace Kibinago.Samples.ListDemo
             return -1;
         }
 
+        // move: one of the ListMoveExtensions on the list (MoveUp / MoveDown / MoveToTop / MoveToBottom),
+        // false when the row did not move.
         private void Move(Func<PhraseRow, bool> move)
         {
             var row = _rows.FirstOrDefault(r => r.Id == View.CurrentId);
