@@ -13,7 +13,7 @@
 | 言語 | 不問（コンパイル済み DLL を参照するため。利用側プロジェクトの C# バージョンに制約なし） |
 | IDE | Visual Studio / JetBrains Rider / VS Code (`net10.0-windows` には .NET 10 SDK が必要) |
 | OS | 実行は Windows。ビルドと Presenter のテストは Linux / macOS でも可 (テンプレートが `EnableWindowsTargeting` を設定済み) |
-| 知識 | C# と WinForms の基本 |
+| 知識 | C# と WinForms の基本 (MVVM / WPF の知識は不要) |
 
 ---
 
