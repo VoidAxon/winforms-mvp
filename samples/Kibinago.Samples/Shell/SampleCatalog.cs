@@ -132,7 +132,8 @@ namespace Kibinago.Samples.Shell
                         "ViewActionExplicitWithParametersExample.cs"),
                     SampleDemo.Embedded(DemoIds.ActionLog, "操作ログ",
                         "起動時の mvp.Actions.Observe(log) で、アプリ中のすべてのアクションの実行 (キー・ペイロード・Presenter・時間・結果) が届きます。ハンドラーはログを知りません。",
-                        (a, v) => a.Attach(new ActionLogDemoPresenter(ServiceLocator.Current.Resolve<SampleActionLog>()), (IActionLogDemoView)v),
+                        // Program.cs registers the log; started without it (the shell tests), the demo shows an empty one.
+                        (a, v) => a.Attach(new ActionLogDemoPresenter(ServiceLocator.Current.Resolve<SampleActionLog>() ?? new SampleActionLog()), (IActionLogDemoView)v),
                         "ActionLogDemo/SampleActionLog.cs", "ActionLogDemo/ActionLogDemoPresenter.cs", "ActionLogDemo/IActionLogDemoView.cs",
                         "ActionLogDemo/ActionLogDemoControl.cs", "Program.cs"),
                 },
