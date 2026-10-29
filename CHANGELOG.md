@@ -8,6 +8,8 @@
 
 ## [Unreleased]
 
+## [1.0.0-preview.15] - 2026-10-29
+
 ### Changed (変更)
 
 - **View インターフェイスを役割と能力に整理 (破壊的変更)** — View は役割を 1 つ選びます: ウィンドウは `IWindowView`、パネル (UserControl) は新しい **`IControlView`**。どちらも **`IActionBindable`** (`ActionBinder`。ViewAction を使わない View は `null`) を含みます。コントロールの横に検証エラーを出す View は **`IValidationErrorBindable`** (`ValidationErrors`) を足します。`IViewBase` は **`IView`** に改名 (共通のルート。アプリは直接実装しない)、`IActionableView` と `IValidatableView` は削除。
