@@ -12,7 +12,9 @@
 - `MessageBox.Show()` やダイアログ呼び出しが UI と密結合していて、モックできない
 - 画面遷移・ウィンドウのクローズ処理・dirty 判定が場当たり的で、再利用も検証も難しい
 
-WPF 風のコマンドバインドとサービス抽象 (`IMessageService` / `IDialogProvider` …) でこれらを解きほぐします。コアライブラリ (`Kibinago.Core`, `netstandard2.0`) は **WinForms 非参照** で、外部依存は `System.ComponentModel.Annotations` (DataAnnotations) のみ — Presenter のコードはコンパイル時点で WinForms 型に触れられません。WinForms 実装 (`Kibinago`) は .NET Framework 4.7.2 以降と .NET 10 (Windows) をターゲットにします。
+**MVVM や WPF の知識は要りません。** フォームのイベントハンドラーを書いたことがあれば始められます。
+
+コマンドバインドとサービス抽象 (`IMessageService` / `IDialogProvider` …) でこれらを解きほぐします。コアライブラリ (`Kibinago.Core`, `netstandard2.0`) は **WinForms 非参照** で、外部依存は `System.ComponentModel.Annotations` (DataAnnotations) のみ — Presenter のコードはコンパイル時点で WinForms 型に触れられません。WinForms 実装 (`Kibinago`) は .NET Framework 4.7.2 以降と .NET 10 (Windows) をターゲットにします。
 
 > **ドキュメントは [GitHub Wiki](https://github.com/VoidAxon/winforms-mvp/wiki) を参照してください。**
 > 本 README はプロジェクトの入口です。詳細な使い方・設計指針・サンプル解説は Wiki に集約されています。
@@ -21,7 +23,7 @@ WPF 風のコマンドバインドとサービス抽象 (`IMessageService` / `ID
 
 ## 主な特徴
 
-- 🎮 **ViewAction システム** — WPF の `ICommand` 相当を WinForms に。型安全なアクションキー、宣言的バインド、`CanExecute` による自動 Enabled 制御
+- 🎮 **ViewAction システム** — ボタンなどの操作を Presenter のハンドラーへ (WPF の `ICommand` に近い仕組み)。型安全なアクションキー、宣言的バインド、`CanExecute` による自動 Enabled 制御
 - ⏳ **async/await 対応** — `async Task` のアクションハンドラ (実行中は自動で無効化、失敗はログ)、ウィンドウを止めない `OnInitializeAsync`、閉じる前に保存を待てる `CanCloseAsync`、ウィンドウを閉じるとキャンセルされる `Lifetime` トークン
 - 🏗️ **クリーンな MVP 分離** — Presenter は WinForms 型を一切知らない。View インターフェイスにも `Button` / `TextBox` を露出させない
 - 🪟 **ウィンドウナビゲーション** — Modal / 非 Modal、パラメータ付き、Fluent API、基底 `RequestClose` による結果返却

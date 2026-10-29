@@ -31,7 +31,7 @@
 
 ### Documentation (ドキュメント)
 
-- wiki: 「なぜ WinForms では MVVM ではなく MVP か」([MVP パターンとは](wiki/Concept-MVP-Pattern.md)) — .NET 8 以降の WinForms と CommunityToolkit.Mvvm でも MVVM は書けることを認めたうえで、閉じる確認・結果の受け渡し・テストの入口などのアダプターを Kibinago が最初から用意していること、同じ編集画面の比較、MVVM を選ぶべき場合。
+- wiki: 「なぜ WinForms では MVVM ではなく MVP か」([MVP パターンとは](wiki/Concept-MVP-Pattern.md)) — .NET 8 以降の WinForms と CommunityToolkit.Mvvm でも MVVM は書けることを認めたうえで、閉じる確認・結果の受け渡し・テストの入口などのアダプターを Kibinago が最初から用意していること、同じ編集画面の比較、MVVM を選ぶ目安。README と Getting Started に「MVVM / WPF の知識は不要」を明記。
 
 ## [1.0.0-preview.15] - 2026-10-29
 

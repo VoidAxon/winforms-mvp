@@ -174,16 +174,16 @@ Passive View 寄りに書くことも可能で、必要に応じて `View.SetXxx
 
 | 必要なもの | Kibinago での形 |
 |---|---|
-| 閉じる前の確認 | Navigator または `Connect` で接続したウィンドウでは、Presenter の `CanClose` / `CanCloseAsync` の 1 か所。✕・Alt+F4・親ウィンドウが閉じる・`RequestClose` のどれも同じゲートを通る。シャットダウン / タスクマネージャーは問い合わせずに許可する。非同期の答えを待つ間の再度の ✕ は抑え、許可したら親ウィンドウや `Application.Exit` による終了を続ける。Form に閉じる処理は書かない ([ウィンドウクローズモデル](Concept-Window-Closing-Model)) |
+| 閉じる前の確認 | Navigator または `Connect` で接続したウィンドウでは、Presenter の `CanClose` / `CanCloseAsync` の 1 か所。表示中のウィンドウなら、✕・Alt+F4・親ウィンドウが閉じる・`RequestClose` のどれも同じゲートを通る (初期化中の `RequestClose` はゲートを通らず表示を中止し、直接 `Dispose` されたときは確認しない)。シャットダウン / タスクマネージャーは問い合わせずに許可する。非同期の答えを待つ間の再度の ✕ は抑え、許可したら親ウィンドウや `Application.Exit` による終了を続ける。Form に閉じる処理は書かない ([ウィンドウクローズモデル](Concept-Window-Closing-Model)) |
 | 操作と有効状態 | `Dispatcher.Register(key, handler, canExecute)`。ボタン経由でも直接ディスパッチしても、Dispatcher が実行前に `canExecute` を確認する。非同期ハンドラーの実行中は自動で無効になり、二度押しは無視される |
 | 画面遷移と結果 | `Navigator.For(presenter).WithParam(x).ShowAsModal<T>()` が `InteractionResult<T>` を返す。モードレスのウィンドウは `key` で 1 レコード 1 ウィンドウにできる (Presenter の型ごと) ([WindowNavigator](Reference-WindowNavigator)) |
 | ライフタイム | `Lifetime` (ウィンドウが閉じるとキャンセルを通知する。処理側もトークンを受け取って応じる必要がある)、`ShowBusy()`、`SubscribeViewEvent` / `Disposables` の自動解除 |
 | テスト | `PresenterTestHost` と、メッセージ / ダイアログ / ナビゲーターの偽物 (`TestServices.CreateFakes()`) |
 | 既存 Form の移行 | `presenter.Connect(form)` で 1 画面ずつ ([既存 WinForms からの移行](HowTo-Migrate-From-Legacy-WinForms)) |
-| .NET Framework | `net472` と `net10.0-windows` で同じ API。WinForms 標準の `Command` は .NET 8 以降のみで、.NET Framework にはない |
+| .NET Framework | `net472` と `net10.0-windows` で同じ API。WinForms 標準の `Command` は .NET 7 でプレビュー、.NET 8 で正式になったもので、.NET Framework にはない |
 | ルールの強制 | Roslyn アナライザーが Presenter からの WinForms 型の参照などをコンパイル時に検出 |
 
-その代わり、Kibinago にも費用があります。画面ごとの View インターフェイス、Presenter の基底クラスとライフサイクルの約束事、View の登録、そしてこのフレームワークへの依存です。なお、Presenter の `public` が「コンストラクターだけ」というのは **業務の入口** の話で、`Dispose` などのライフサイクル用メンバーは `public` です。
+その代わり、Kibinago にも導入・保守のコストがあります。画面ごとの View インターフェイス、Presenter の基底クラスとライフサイクルの約束事、View の登録、そしてこのフレームワークへの依存です。なお、Presenter の `public` が「コンストラクターだけ」というのは **業務の入口** の話で、`Dispose` などのライフサイクル用メンバーは `public` です。
 
 ### 同じ入口でテストする
 
@@ -195,10 +195,11 @@ await vm.SaveCommand.ExecuteAsync(null);                 // CanSave() が false 
 
 // Kibinago (view はテスト用の偽 View。ActionBinder に CapturingActionBinder を返す)
 await view.Binder.DispatchAsync(StandardActions.Save);   // canExecute が false なら何も起きない
+Assert.Equal(0, repository.SaveCount);                   // 偽リポジトリ: 保存されていない
 Assert.False(host.CloseRequested);
 ```
 
-MVVM でも、呼ぶ前に `CanExecute` を確認するヘルパーを書けば揃えられます。違いは **何もしなかったときの既定の経路** がどちらか、です。
+MVVM でも、呼ぶ前に `CanExecute` を確認するヘルパーを書けば揃えられます。違いは、**ヘルパーを用意せずに呼んだ場合の挙動** です。
 
 ### 同じ編集画面で比べる
 
@@ -230,10 +231,17 @@ public partial class CustomerEditViewModel : ObservableObject
     [RelayCommand]
     private async Task SaveAsync(CancellationToken ct)
     {
-        var customer = new Customer { Id = _id, Name = Name };
-        await _repository.SaveAsync(customer, ct);
-        _savedName = customer.Name;                  // 保存した内容を基準にする (保存中の入力は未保存のまま)
-        CloseRequested?.Invoke(this, EventArgs.Empty);
+        try
+        {
+            var customer = new Customer { Id = _id, Name = Name };
+            await _repository.SaveAsync(customer, ct);
+            _savedName = customer.Name;              // 保存した内容を基準にする (保存中の入力は未保存のまま)
+            CloseRequested?.Invoke(this, EventArgs.Empty);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            // ウィンドウが閉じた: 何もしない (捕まえないと UI スレッドへ再スローされる)
+        }
     }
 
     // View 側のアダプター (FormClosing) から呼ばれる入口
@@ -268,7 +276,7 @@ public partial class CustomerEditForm : Form
     protected override void OnFormClosed(FormClosedEventArgs e)
     {
         _vm.CloseRequested -= OnCloseRequested;
-        _vm.SaveCommand.Cancel();                    // 実行中の保存を止める
+        _vm.SaveCommand.Cancel();                    // 実行中の保存にキャンセルを通知する
         base.OnFormClosed(e);
     }
 }
@@ -308,7 +316,7 @@ public sealed class CustomerEditPresenter : WindowPresenterBase<ICustomerEditVie
 
     private Customer ReadModel() => new Customer { Id = _id, Name = View.CustomerName };
 
-    private async Task SaveAsync(CancellationToken ct)    // ct はウィンドウが閉じるとキャンセルされる
+    private async Task SaveAsync(CancellationToken ct)    // 閉じるとキャンセルされる。その例外はフレームワークが黙って扱う
     {
         var customer = ReadModel();
         await _repository.SaveAsync(customer, ct);
@@ -316,7 +324,7 @@ public sealed class CustomerEditPresenter : WindowPresenterBase<ICustomerEditVie
         RequestClose(customer, InteractionStatus.Ok);       // 呼び出し側は InteractionResult<Customer> で受け取る
     }
 
-    // ✕ / Alt+F4 / 親ウィンドウ / RequestClose のすべてがここを通る
+    // 表示中なら ✕ / Alt+F4 / 親ウィンドウ / RequestClose がここを通る
     protected override bool CanClose(CloseReason reason)
         => !_tracker.IsChangedWith(ReadModel()) || Messages.ConfirmYesNo("変更を破棄して閉じますか?");
 }
@@ -342,15 +350,15 @@ Form に閉じる処理はありません。結果の受け渡し、親ウィン
 
 逆に MVVM の方が素直なのは値のバインドです。Kibinago では、上のように View の項目をプロパティで公開する書き方のほかに、入力モデルを View がバインドする書き方もあります。項目が多い画面ではそちらを使います ([入力項目の多い編集画面を作る](HowTo-Build-Large-Edit-Screen))。
 
-### MVVM を選ぶべき場合
+### MVVM を選ぶ目安
 
-次のような場合は、MVVM の方が合っています。
+次のような場合は、WinForms + CommunityToolkit.Mvvm を選ぶ理由があります。
 
 - **観測可能な状態を表示することが中心の画面** (監視画面、ダッシュボードなど)。閉じる前の確認や結果の受け渡しが少なく、バインドだけで大半が済む
 - **編集中の状態を、UI から独立した観測可能な ViewModel として持ちたい** (WPF / WinUI / .NET MAUI と共有する場合も)。Kibinago の標準ホストは WinForms 向けで、他の UI 基盤へ移すには View の実装とホストの対応が必要
 - **すでに MVVM でうまく回っているプロジェクト**。上の共通部品をチームで持っているなら、この比較だけで移行を勧めることはしません
 
-Kibinago が向いているのは、入力・確認・保存・閉じるを繰り返す業務画面が多く、.NET Framework の既存 Form を少しずつ整理していきたい、MVVM の作法を持ち込みたくないチームです。
+Kibinago が向いているのは、入力・確認・保存・閉じるを繰り返す業務画面が多く、ウィンドウのライフサイクルと結果の受け渡しを既製の共通基盤に任せたいチームです。.NET Framework の既存 Form を 1 画面ずつ整理していく場合にも使えます。**MVVM や WPF の知識は要りません。** View インターフェイス、Presenter、イベントという、フォームのイベントハンドラーを書いてきた人になじみのある部品だけで書けます。
 
 ---
 
