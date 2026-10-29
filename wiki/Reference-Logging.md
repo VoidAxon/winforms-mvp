@@ -353,5 +353,5 @@ public void OnSave_ShouldLogSuccess()
 - [Dependency Injection](Reference-DependencyInjection) — Logging を含む DI コンテナ統合
 - [HowTo: Presenter をテストする](HowTo-Test-A-Presenter) — テスト時のサイレント化・キャプチャパターン
 - サンプル:
-  - [`samples/Kibinago.Samples/LoggingDemoExample.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/samples/Kibinago.Samples/LoggingDemoExample.cs) — 基本デモ
+  - [`samples/Kibinago.Samples/LoggingDemo/`](https://github.com/VoidAxon/winforms-mvp/tree/master/samples/Kibinago.Samples/LoggingDemo) — 基本デモ (サンプルの「カスタマイズ」→「ロギング」。`Program.cs` の `mvp.Logging.Use(new DebugLoggerFactory())`)
   - [`samples/MultiProjectDemo.Shell/Logging/`](https://github.com/VoidAxon/winforms-mvp/tree/master/samples/MultiProjectDemo.Shell/Logging) — M.E.L. アダプタの実装例

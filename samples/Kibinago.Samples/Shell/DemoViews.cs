@@ -20,6 +20,7 @@ using Kibinago.Samples.EmailDemo.Services;
 using Kibinago.Samples.FirstErrorDemo;
 using Kibinago.Samples.LegacyPopupDemo;
 using Kibinago.Samples.ListDemo;
+using Kibinago.Samples.LoggingDemo;
 using Kibinago.Samples.MasterDetailDemo;
 using Kibinago.Samples.MdiDemo;
 using Kibinago.Samples.MessageBoxDemo;
@@ -67,6 +68,7 @@ namespace Kibinago.Samples.Shell
             [DemoIds.ServiceBased] = () => new OrderManagementControl(),
             [DemoIds.EventBased] = () => new OrderManagementControl(),   // the same view, another set of presenters
             [DemoIds.Outpatient] = () => new OutpatientControl(),
+            [DemoIds.Logging] = () => new LoggingDemoControl(),
         };
 
         // The window of each demo that opens from its tab (owner = this main window).

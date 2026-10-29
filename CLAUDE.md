@@ -362,6 +362,8 @@ Use for cross-presenter/cross-module events. Do **not** use for parent-child coo
 │   └── Kibinago.Analyzers/             Roslyn analyzers (in the .sln, build-only — bundled into Kibinago.Core package)
 ├── templates/  Kibinago.Templates.csproj + content/{app,window,control,tests} (dotnet new template package; content folders are template sources, not compiled)
 ├── samples/    Sample/demo apps (Kibinago.Samples, MultiProjectDemo.*)
+│               Kibinago.Samples: a maximized shell — categories on the left, 説明 / demo / コード tabs (Shell/SampleCatalog.cs);
+│               demos are UserControls + child presenters, window-centric ones open their Form; views keep layout in .Designer.cs
 ├── tests/      Kibinago.Samples.Tests (xUnit, net48), Kibinago.Analyzers.Tests (xUnit, net10.0), templates/verify-templates.sh
 ├── docs/  wiki/  tools/
 └── Kibinago.sln

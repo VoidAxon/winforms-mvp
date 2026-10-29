@@ -10,7 +10,7 @@
 - **表示** — View が `IValidationErrorBindable` を実装して `IValidationErrorDisplay ValidationErrors` を公開。Form では `ErrorProviderDisplay` でフィールド名をコントロールに対応付ける。接続はフレームワークが自動で行う
 - **タイミング** — フィールドのエラーは、ユーザーがそのコントロールを離れた (フォーカスが外れた) 後、または送信 (`Validation.Check(model)`) の後に表示される
 
-完全な実装例は [`samples/Kibinago.Samples/ValidationDemo/`](https://github.com/VoidAxon/winforms-mvp/tree/master/samples/Kibinago.Samples/ValidationDemo) (`RegistrationModel` / `ValidationDemoPresenter` / `ValidationDemoForm`) です。
+完全な実装例は [`samples/Kibinago.Samples/ValidationDemo/`](https://github.com/VoidAxon/winforms-mvp/tree/master/samples/Kibinago.Samples/ValidationDemo) (`RegistrationModel` / `ValidationDemoPresenter` / `ValidationDemoControl`) です。サンプルの「入力検証」で動かせます。
 
 ---
 
@@ -631,4 +631,4 @@ public void ValidationState_GroupsErrorsByField()
 - [HowTo: エラーを扱う](HowTo-Handle-Errors) — 検証以外のエラー処理
 - [入力項目の多い編集画面を作る](HowTo-Build-Large-Edit-Screen) — バインドした入力モデルの検証と、登録失敗時のメッセージ・フォーカス
 - サンプル:
-  - [`samples/Kibinago.Samples/ValidationDemo/`](https://github.com/VoidAxon/winforms-mvp/tree/master/samples/Kibinago.Samples/ValidationDemo) — `RegistrationModel` (DataAnnotations + `[CustomValidation]`)、`ValidationDemoPresenter` (`Validate` / `Check` / `Reset` / `SetError`)、`ValidationDemoForm` (`ErrorProviderDisplay`) の完全実装
+  - [`samples/Kibinago.Samples/ValidationDemo/`](https://github.com/VoidAxon/winforms-mvp/tree/master/samples/Kibinago.Samples/ValidationDemo) — `RegistrationModel` (DataAnnotations + `[CustomValidation]`)、`ValidationDemoPresenter` (`Validate` / `Check` / `Reset` / `SetError`)、`ValidationDemoControl` (`ErrorProviderDisplay`) の完全実装

@@ -19,6 +19,7 @@ using Kibinago.Samples.BusyDemo;
 using Kibinago.Samples.ChangeTrackingDemo;
 using Kibinago.Samples.CompositionDemo;
 using Kibinago.Samples.FirstErrorDemo;
+using Kibinago.Samples.LoggingDemo;
 using Kibinago.Samples.ListDemo;
 using Kibinago.Samples.ToDoDemo;
 
@@ -57,6 +58,7 @@ namespace Kibinago.Samples.Shell
         public const string ServiceBased = "service-based";
         public const string EventBased = "event-based";
         public const string Customization = "customization";
+        public const string Logging = "logging";
         public const string Email = "email";
     }
 
@@ -126,7 +128,9 @@ namespace Kibinago.Samples.Shell
                         "値のバインドを ActionRequest で受け取ります。",
                         (a, v) => a.Attach(new MixedParametersDemoPresenter(ServiceLocator.Current.Resolve<IMessageService>()), (IMixedParametersDemoView)v),
                         "ViewActionExplicitWithParametersExample.cs"),
-                }),
+                },
+                // Code-only examples (the category's コード tab): further binder and dispatcher patterns.
+                new[] { "ViewActionExample.cs", "ViewActionWithParametersExample.cs", "ViewActionStateChangedExample.cs", "ViewActionMiddlewareExample.cs", "ActionRequestExample.cs" }),
 
             new SampleCategory("async", "非同期・処理中", "async の処理、間引き",
                 "async の処理は Dispatcher.Register(キー, async ct => ...) で登録します。実行中はボタンが無効になり、" +
@@ -346,13 +350,17 @@ namespace Kibinago.Samples.Shell
                 "設定は起動時の 1 か所だけです (mvp.Messages.UseDialogs、mvp.Toasts.UseRenderer など)。\r\n" +
                 "動いているアプリの設定は変えないので、このデモはカスタム設定で別のプロセスとして起動します " +
                 "(Kibinago.Samples.exe --profile custom)。そちらでは、すべてのメッセージボックス・トースト・処理中の表示が差し替わります。",
-                new[] { new WikiLink("フレームワークのカスタマイズ", "HowTo-Customize-Framework") },
+                new[] { new WikiLink("フレームワークのカスタマイズ", "HowTo-Customize-Framework"), new WikiLink("ロギング", "Reference-Logging") },
                 new[]
                 {
                     SampleDemo.Window(DemoIds.Customization, "カスタム設定",
                         "会社のダイアログ、ブランドのトースト、処理中の表示 (色・フォント)、変更追跡の比較方法。",
                         "CustomizationDemo/CustomizationDemoSetup.cs", "CustomizationDemo/CompanyStyleDialogBackend.cs",
                         "CustomizationDemo/CustomizationDemoPresenter.cs", "CustomizationDemo/CustomizationDemoForm.cs", "Program.cs"),
+                    SampleDemo.Embedded(DemoIds.Logging, "ロギング",
+                        "Presenter の Logger (レベル、{Name} の置き換え、例外)。このサンプルは mvp.Logging.Use(new DebugLoggerFactory()) で、デバッガーの出力に書きます。",
+                        (a, v) => a.Attach(new LoggingDemoPresenter(), (ILoggingDemoView)v),
+                        "LoggingDemo/LoggingDemoPresenter.cs", "LoggingDemo/ILoggingDemoView.cs", "LoggingDemo/LoggingDemoControl.cs", "Program.cs"),
                 }),
 
             new SampleCategory("testing", "テスト・ツール", "Presenter のテスト、アナライザー、テンプレート",
