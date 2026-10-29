@@ -8,6 +8,8 @@
 
 ## [Unreleased]
 
+## [1.0.0-preview.16] - 2026-10-29
+
 ### Changed (変更)
 
 - **ViewAction のミドルウェアを廃止し、全体で 1 つの `IActionObserver` に (破壊的変更)** — `Dispatcher.Use(...)`、`IDispatchMiddleware`、`DispatchContext`、`IDispatcherConfigurer` / `ActionDispatcherConfigurer`、`mvp.Actions.Configure(...)`、`ViewActionDispatcher.ActionExecuted` (と `ActionExecutedEventArgs`) を削除。ミドルウェアは処理を止める・例外を握りつぶすこともでき、ハンドラーの動きが登録順で変わるのに、使われ方は記録と計測だけだった。エラーの表示は `Application.ThreadException`、権限による無効化は `canExecute` で書ける。
