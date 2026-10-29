@@ -206,6 +206,44 @@ namespace Kibinago.Samples.Tests.ViewActions
             Assert.Equal("handler", ex.Message);
         }
 
+        private sealed class ThrowingLogger : ILogger
+        {
+            public bool IsEnabled(LogLevel level) => true;
+            public void Log(LogLevel level, Exception exception, string message, params object[] args)
+                => throw new InvalidOperationException("logger");
+        }
+
+        [Fact]
+        public async Task ThrowingLogger_AsyncFailure_ReEnablesTheAction_ReportsIt_AndPropagatesTheHandlersException()
+        {
+            var observer = new RecordingActionObserver();
+            var dispatcher = new ViewActionDispatcher { Observer = observer, Logger = new ThrowingLogger() };
+            var gate = new TaskCompletionSource<bool>();
+            dispatcher.Register(Save, async () => { await gate.Task; throw new InvalidOperationException("handler"); });
+
+            var running = dispatcher.DispatchAsync(Save);
+            gate.SetResult(true);
+
+            var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => running);
+            Assert.Equal("handler", ex.Message);
+            Assert.True(dispatcher.CanDispatch(Save));
+            Assert.Equal(ActionOutcome.Failed, Assert.Single(observer.Executions).Outcome);
+        }
+
+        [Fact]
+        public void ThrowingLogger_AsyncHandlerFailingSynchronously_ReEnablesTheAction()
+        {
+            var dispatcher = new ViewActionDispatcher { Logger = new ThrowingLogger() };
+            dispatcher.Register(Save, () => (Task)Throw());
+
+            var ex = Assert.Throws<InvalidOperationException>(() => dispatcher.Dispatch(Save));
+
+            Assert.Equal("handler", ex.Message);
+            Assert.True(dispatcher.CanDispatch(Save));
+        }
+
+        private static Task Throw() => throw new InvalidOperationException("handler");
+
         [Fact]
         public async Task ObserverReplacedWhileRunning_TheOneInPlaceAtTheStartIsTold()
         {

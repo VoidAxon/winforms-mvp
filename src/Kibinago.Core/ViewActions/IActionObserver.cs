@@ -13,7 +13,9 @@ namespace Kibinago.ViewActions
     /// task ends — also after the presenter was disposed. Keep it quick and passive: write to a queue
     /// rather than a database, and do not dispatch actions from it.</para>
     /// <para>An exception thrown by the observer is logged and ignored; it never changes the handler's
-    /// outcome. The payload is the handler's own object: copy what you keep, and leave out personal data
+    /// outcome, and that execution is simply not recorded. If the record must not be lost (an audit log),
+    /// handle the failure of your own writing inside the observer (buffer and retry, fall back to a local
+    /// file). The payload is the handler's own object: copy what you keep, and leave out personal data
     /// the log must not hold.</para>
     /// </remarks>
     public interface IActionObserver

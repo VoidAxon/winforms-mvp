@@ -467,7 +467,7 @@ namespace Kibinago.ViewActions
             {
                 pending = null;
                 failure = null;
-                _logger.LogDebug("ViewActionDispatcher: {ActionKey} was cancelled because its owner was disposed", run.Action);
+                LogDuringRun(l => l.LogDebug("ViewActionDispatcher: {ActionKey} was cancelled because its owner was disposed", run.Action));
                 return false;
             }
             catch (Exception ex)
@@ -481,11 +481,26 @@ namespace Kibinago.ViewActions
 
         private void LogHandlerFailure(ViewAction actionKey, Exception ex)
         {
-            _logger.LogError(
+            LogDuringRun(l => l.LogError(
                 ex,
                 "ViewActionDispatcher: handler for {ActionKey} threw {ExceptionType}",
                 actionKey,
-                ex.GetType().Name);
+                ex.GetType().Name));
+        }
+
+        /// <summary>
+        /// Logs while a run is ending. A throwing logger must not skip the clean-up (the action would stay
+        /// disabled) or replace the handler's exception, which is what propagates: its own failure is ignored.
+        /// </summary>
+        private void LogDuringRun(Action<ILogger> log)
+        {
+            try
+            {
+                log(_logger);
+            }
+            catch
+            {
+            }
         }
 
         /// <summary>
@@ -543,9 +558,9 @@ namespace Kibinago.ViewActions
 
             if (completed.IsCanceled)
             {
-                _logger.LogDebug(Lifetime.IsCancellationRequested
+                LogDuringRun(l => l.LogDebug(Lifetime.IsCancellationRequested
                     ? "ViewActionDispatcher: {ActionKey} was cancelled because its owner was disposed"
-                    : "ViewActionDispatcher: {ActionKey} was cancelled", run.Action);
+                    : "ViewActionDispatcher: {ActionKey} was cancelled", run.Action));
                 End(run, ActionOutcome.Canceled, null);
                 return null;
             }
@@ -555,7 +570,7 @@ namespace Kibinago.ViewActions
                 : completed.Exception;
             if (error is OperationCanceledException && Lifetime.IsCancellationRequested)
             {
-                _logger.LogDebug("ViewActionDispatcher: {ActionKey} was cancelled because its owner was disposed", run.Action);
+                LogDuringRun(l => l.LogDebug("ViewActionDispatcher: {ActionKey} was cancelled because its owner was disposed", run.Action));
                 End(run, ActionOutcome.Canceled, null);
                 return null;
             }
