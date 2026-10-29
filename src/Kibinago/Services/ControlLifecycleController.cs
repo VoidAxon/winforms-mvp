@@ -27,7 +27,7 @@ namespace Kibinago.Services
         private readonly IDisposable _presenter;
         private bool _controlDisposed;
 
-        internal ControlLifecycleController(IViewBase view, IDisposable presenter)
+        internal ControlLifecycleController(IView view, IDisposable presenter)
         {
             if (view == null) throw new ArgumentNullException(nameof(view));
             if (presenter == null) throw new ArgumentNullException(nameof(presenter));
@@ -52,10 +52,10 @@ namespace Kibinago.Services
 
         internal void WireControlEvents()
         {
-            var subscription = ControlDisposalObserver.Instance.ObserveDisposal((IViewBase)_control, OnDisposed);
+            var subscription = ControlDisposalObserver.Instance.ObserveDisposal((IView)_control, OnDisposed);
             // Released with the presenter, so a presenter disposed first leaves no handler on the control.
             ((IPresenterResourceOwner)_presenter).OwnUntilDisposed(subscription);
-            ((IPresenterResourceOwner)_presenter).OwnUntilDisposed(ViewOwnership.Claim((IViewBase)_control, _presenter));
+            ((IPresenterResourceOwner)_presenter).OwnUntilDisposed(ViewOwnership.Claim((IView)_control, _presenter));
         }
 
         /// <summary>Throws when the control was disposed while the presenter was being connected (the

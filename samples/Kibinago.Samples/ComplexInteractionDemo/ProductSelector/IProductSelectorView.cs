@@ -9,7 +9,7 @@ namespace Kibinago.Samples.ComplexInteractionDemo.ProductSelector
     /// <summary>
     /// View interface for product selection control
     /// </summary>
-    public interface IProductSelectorView : IActionableView
+    public interface IProductSelectorView : IControlView
     {
         /// <summary>
         /// Gets or sets the list of available products

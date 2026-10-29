@@ -86,15 +86,23 @@ namespace Kibinago.Common
 
 namespace Kibinago.Views
 {
-    public interface IViewBase { }
-    public interface IWindowView : IViewBase { }
+    public interface IView { }
+    public interface IActionBindable { Kibinago.ViewActions.IViewActionBinder ActionBinder { get; } }
+    public interface IValidationErrorBindable { object ValidationErrors { get; } }
+    public interface IWindowView : IView, IActionBindable { }
+    public interface IControlView : IView, IActionBindable { }
+}
+
+namespace Kibinago.ViewActions
+{
+    public interface IViewActionBinder { }
 }
 
 namespace Kibinago.Presenters
 {
     using Kibinago.Views;
 
-    public abstract class PresenterBase<TView> where TView : IViewBase
+    public abstract class PresenterBase<TView> where TView : IView
     {
         protected TView View { get; private set; }
         protected Kibinago.Common.CompositeDisposable Disposables { get; } = new Kibinago.Common.CompositeDisposable();
@@ -102,7 +110,7 @@ namespace Kibinago.Presenters
     }
 
     public abstract class WindowPresenterBase<TView> : PresenterBase<TView> where TView : IWindowView { }
-    public abstract class ControlPresenterBase<TView> : PresenterBase<TView> where TView : IViewBase { }
+    public abstract class ControlPresenterBase<TView> : PresenterBase<TView> where TView : IControlView { }
 }
 ";
 

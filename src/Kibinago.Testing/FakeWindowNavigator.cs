@@ -10,7 +10,7 @@ namespace Kibinago.Testing
     /// <summary>What a modal responder receives (see <see cref="FakeWindowNavigator.RespondTo{TPresenter, TResult}"/>).</summary>
     public sealed class ModalRequest<TPresenter>
     {
-        internal ModalRequest(TPresenter presenter, object parameters, bool hasParameters, IViewBase owner)
+        internal ModalRequest(TPresenter presenter, object parameters, bool hasParameters, IView owner)
         {
             Presenter = presenter;
             Parameters = parameters;
@@ -28,14 +28,14 @@ namespace Kibinago.Testing
         public bool HasParameters { get; }
 
         /// <summary>The owner passed, or null.</summary>
-        public IViewBase Owner { get; }
+        public IView Owner { get; }
     }
 
     /// <summary>One recorded navigator request.</summary>
     public sealed class NavigationCall
     {
         internal NavigationCall(object presenter, bool modal, object parameters, bool hasParameters,
-            Type resultType, IViewBase owner, object key, bool activated, bool prepared = false)
+            Type resultType, IView owner, object key, bool activated, bool prepared = false)
         {
             Prepared = prepared;
             Presenter = presenter;
@@ -68,7 +68,7 @@ namespace Kibinago.Testing
         public Type ResultType { get; }
 
         /// <summary>The owner passed, or null.</summary>
-        public IViewBase Owner { get; }
+        public IView Owner { get; }
 
         /// <summary>The key from the caller's key selector (non-modal), or null.</summary>
         public object Key { get; }
@@ -193,13 +193,13 @@ namespace Kibinago.Testing
         #region IWindowNavigator
 
         /// <inheritdoc />
-        public virtual IWindowView ShowWindow<TPresenter, TResult>(TPresenter presenter, IViewBase owner = null,
+        public virtual IWindowView ShowWindow<TPresenter, TResult>(TPresenter presenter, IView owner = null,
             object key = null, Action<InteractionResult<TResult>> onClosed = null)
             where TPresenter : IWindowPresenter, IInitializable
             => ShowModelessCore(presenter, null, false, true, owner, key, onClosed);
 
         /// <inheritdoc />
-        public virtual IWindowView ShowWindow<TPresenter>(TPresenter presenter, IViewBase owner = null,
+        public virtual IWindowView ShowWindow<TPresenter>(TPresenter presenter, IView owner = null,
             object key = null)
             where TPresenter : IWindowPresenter, IInitializable
             => ShowModelessCore<TPresenter, object>(presenter, null, false, false, owner, key, null);
@@ -227,36 +227,36 @@ namespace Kibinago.Testing
             => PrepareWindowCore<TPresenter, object>(presenter, parameters, true, false, key, null);
 
         /// <inheritdoc />
-        public virtual InteractionResult ShowWindowAsModal<TPresenter>(TPresenter presenter, IViewBase owner = null)
+        public virtual InteractionResult ShowWindowAsModal<TPresenter>(TPresenter presenter, IView owner = null)
             where TPresenter : IWindowPresenter, IInitializable
             => ShowModalCore<object>(presenter, null, false, false, owner);
 
         /// <inheritdoc />
-        public virtual InteractionResult<TResult> ShowWindowAsModal<TPresenter, TResult>(TPresenter presenter, IViewBase owner = null)
+        public virtual InteractionResult<TResult> ShowWindowAsModal<TPresenter, TResult>(TPresenter presenter, IView owner = null)
             where TPresenter : IWindowPresenter, IInitializable
             => ShowModalCore<TResult>(presenter, null, false, true, owner);
 
         /// <inheritdoc />
         public virtual IWindowView ShowWindow<TPresenter, TParam, TResult>(TPresenter presenter, TParam parameters,
-            IViewBase owner = null, object key = null, Action<InteractionResult<TResult>> onClosed = null)
+            IView owner = null, object key = null, Action<InteractionResult<TResult>> onClosed = null)
             where TPresenter : IWindowPresenter, IInitializable<TParam>
             => ShowModelessCore(presenter, parameters, true, true, owner, key, onClosed);
 
         /// <inheritdoc />
         public virtual IWindowView ShowWindow<TPresenter, TParam>(TPresenter presenter, TParam parameters,
-            IViewBase owner = null, object key = null)
+            IView owner = null, object key = null)
             where TPresenter : IWindowPresenter, IInitializable<TParam>
             => ShowModelessCore<TPresenter, object>(presenter, parameters, true, false, owner, key, null);
 
         /// <inheritdoc />
         public virtual InteractionResult ShowWindowAsModal<TPresenter, TParam>(TPresenter presenter, TParam parameters,
-            IViewBase owner = null)
+            IView owner = null)
             where TPresenter : IWindowPresenter, IInitializable<TParam>
             => ShowModalCore<object>(presenter, parameters, true, false, owner);
 
         /// <inheritdoc />
         public virtual InteractionResult<TResult> ShowWindowAsModal<TPresenter, TParam, TResult>(TPresenter presenter,
-            TParam parameters, IViewBase owner = null)
+            TParam parameters, IView owner = null)
             where TPresenter : IWindowPresenter, IInitializable<TParam>
             => ShowModalCore<TResult>(presenter, parameters, true, true, owner);
 
@@ -267,13 +267,13 @@ namespace Kibinago.Testing
         /// without a result type (they pass <c>object</c>).
         /// </summary>
         protected virtual InteractionResult<TResult> ShowModalCore<TResult>(IPresenter presenter, object parameters,
-            bool hasParameters, bool hasResult, IViewBase owner)
+            bool hasParameters, bool hasResult, IView owner)
         {
             if (presenter == null) throw new ArgumentNullException(nameof(presenter));
             try
             {
                 Validate(presenter);
-                Func<IPresenter, object, bool, IViewBase, Answer> responder;
+                Func<IPresenter, object, bool, IView, Answer> responder;
                 bool cancelUnscripted;
                 lock (_gate)
                 {
@@ -307,7 +307,7 @@ namespace Kibinago.Testing
         /// overloads without a result type.
         /// </summary>
         protected virtual IWindowView ShowModelessCore<TPresenter, TResult>(TPresenter presenter, object parameters,
-            bool hasParameters, bool hasResult, IViewBase owner, object key,
+            bool hasParameters, bool hasResult, IView owner, object key,
             Action<InteractionResult<TResult>> onClosed)
             where TPresenter : IPresenter
             => ModelessCore(presenter, parameters, hasParameters, hasResult, owner, key, onClosed, prepared: false);
@@ -323,7 +323,7 @@ namespace Kibinago.Testing
             => ModelessCore(presenter, parameters, hasParameters, hasResult, null, key, onClosed, prepared: true);
 
         private IWindowView ModelessCore<TPresenter, TResult>(TPresenter presenter, object parameters,
-            bool hasParameters, bool hasResult, IViewBase owner, object key,
+            bool hasParameters, bool hasResult, IView owner, object key,
             Action<InteractionResult<TResult>> onClosed, bool prepared)
             where TPresenter : IPresenter
         {
@@ -386,12 +386,12 @@ namespace Kibinago.Testing
                     "derive from WindowPresenterBase / WindowPresenterBaseCore (no close participant).");
         }
 
-        private void AddResponder(Type presenterType, Func<IPresenter, object, bool, IViewBase, Answer> respond)
+        private void AddResponder(Type presenterType, Func<IPresenter, object, bool, IView, Answer> respond)
         {
             lock (_gate) _responders.Add(new Responder(presenterType, respond));
         }
 
-        private Func<IPresenter, object, bool, IViewBase, Answer> FindResponder(Type presenterType)
+        private Func<IPresenter, object, bool, IView, Answer> FindResponder(Type presenterType)
         {
             for (int i = _responders.Count - 1; i >= 0; i--)
                 if (_responders[i].PresenterType.IsAssignableFrom(presenterType)) return _responders[i].Respond;
@@ -414,14 +414,14 @@ namespace Kibinago.Testing
 
         private sealed class Responder
         {
-            public Responder(Type presenterType, Func<IPresenter, object, bool, IViewBase, Answer> respond)
+            public Responder(Type presenterType, Func<IPresenter, object, bool, IView, Answer> respond)
             {
                 PresenterType = presenterType;
                 Respond = respond;
             }
 
             public Type PresenterType { get; }
-            public Func<IPresenter, object, bool, IViewBase, Answer> Respond { get; }
+            public Func<IPresenter, object, bool, IView, Answer> Respond { get; }
         }
 
         private sealed class Answer

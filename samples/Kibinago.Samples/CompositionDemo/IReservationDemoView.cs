@@ -6,7 +6,7 @@ using Kibinago.Views;
 namespace Kibinago.Samples.CompositionDemo
 {
     /// <summary>診療科, 医師, 曜日 and 予約枠 lists, and a log of what was reloaded.</summary>
-    public interface IReservationDemoView : IViewBase
+    public interface IReservationDemoView : IControlView
     {
         IReadOnlyList<Department> Departments { set; }
         IReadOnlyList<Doctor> Doctors { set; }

@@ -3,7 +3,7 @@ using Kibinago.Views;
 
 namespace Kibinago.Samples.BindingDemo
 {
-    public interface IOutpatientView : IActionableView
+    public interface IOutpatientView : IControlView
     {
         /// <summary>Binds the controls to the model (two-way), with the departments for the combo.</summary>
         void Bind(OutpatientInput input, IReadOnlyList<DepartmentItem> departments);

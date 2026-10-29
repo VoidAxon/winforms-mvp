@@ -49,7 +49,7 @@ namespace Kibinago.Services
         /// This method auto-registers types that meet the following conditions:
         /// <list type="bullet">
         /// <item>Inherits from Form</item>
-        /// <item>Implements IWindowView or IViewBase</item>
+        /// <item>Implements IWindowView or IView</item>
         /// <item>Has a public parameterless constructor</item>
         /// <item>Is not an abstract class</item>
         /// </list>
@@ -103,12 +103,12 @@ namespace Kibinago.Services
                     continue;
                 }
 
-                // Search for interfaces that implement IWindowView or IViewBase
+                // Search for interfaces that implement IWindowView or IView
                 var viewInterface = formType.GetInterfaces()
                     .FirstOrDefault(i =>
                         i != typeof(IWindowView) &&
-                        i != typeof(IViewBase) &&
-                        (typeof(IWindowView).IsAssignableFrom(i) || typeof(IViewBase).IsAssignableFrom(i)));
+                        i != typeof(IView) &&
+                        (typeof(IWindowView).IsAssignableFrom(i) || typeof(IView).IsAssignableFrom(i)));
 
                 if (viewInterface != null)
                 {
@@ -196,8 +196,8 @@ namespace Kibinago.Services
                 var viewInterface = formType.GetInterfaces()
                     .FirstOrDefault(i =>
                         i != typeof(IWindowView) &&
-                        i != typeof(IViewBase) &&
-                        (typeof(IWindowView).IsAssignableFrom(i) || typeof(IViewBase).IsAssignableFrom(i)));
+                        i != typeof(IView) &&
+                        (typeof(IWindowView).IsAssignableFrom(i) || typeof(IView).IsAssignableFrom(i)));
 
                 if (viewInterface != null)
                 {

@@ -20,7 +20,7 @@ namespace Kibinago.Samples.Tests
         private const BindingFlags Instance = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
 
         [Theory]
-        [InlineData(typeof(PresenterBase<IViewBase>))]
+        [InlineData(typeof(PresenterBase<IView>))]
         [InlineData(typeof(WindowPresenterBaseCore<IWindowView>))]
         public void InternalPresenterBases_CannotBeDerivedFromByApplications(Type type)
         {
@@ -33,9 +33,29 @@ namespace Kibinago.Samples.Tests
         [Fact]
         public void SetView_IsNotAvailableToApplicationPresenters()
         {
-            var setView = typeof(PresenterBase<IViewBase>).GetMethod("SetView", Instance);
+            var setView = typeof(PresenterBase<IView>).GetMethod("SetView", Instance);
 
             Assert.True(setView.IsFamilyAndAssembly);
+        }
+
+        [Fact]
+        public void TheViewRoles_AreAWindowOrAControl_WithAnActionBinder()
+        {
+            var views = typeof(IView).Assembly.GetExportedTypes()
+                .Where(t => t.IsInterface && t.Namespace == "Kibinago.Views").Select(t => t.Name).OrderBy(n => n);
+            Assert.Equal(new[] { "IActionBindable", "IControlView", "IValidationErrorBindable", "IView", "IWindowView" }, views);
+
+            Assert.Empty(typeof(IView).GetMembers());
+            Assert.Equal(new[] { typeof(IView), typeof(IActionBindable) }, typeof(IWindowView).GetInterfaces().OrderBy(t => t.Name == "IView" ? 0 : 1));
+            Assert.Equal(new[] { typeof(IView), typeof(IActionBindable) }, typeof(IControlView).GetInterfaces().OrderBy(t => t.Name == "IView" ? 0 : 1));
+            // Capabilities are not views.
+            Assert.Empty(typeof(IActionBindable).GetInterfaces());
+            Assert.Empty(typeof(IValidationErrorBindable).GetInterfaces());
+
+            // Each presenter base takes its role.
+            Assert.Equal(typeof(IWindowView), typeof(WindowPresenterBase<>).GetGenericArguments()[0].GetGenericParameterConstraints().Single());
+            Assert.Equal(typeof(IControlView), typeof(ControlPresenterBase<>).GetGenericArguments()[0].GetGenericParameterConstraints().Single());
+            Assert.Equal(typeof(IControlView), typeof(ControlPresenterBase<,>).GetGenericArguments()[0].GetGenericParameterConstraints().Single());
         }
 
         [Fact]
@@ -57,7 +77,7 @@ namespace Kibinago.Samples.Tests
         }
 
         [Theory]
-        [InlineData(typeof(PresenterBase<IViewBase>))]   // Kibinago.Core
+        [InlineData(typeof(PresenterBase<IView>))]   // Kibinago.Core
         [InlineData(typeof(ViewActionBinder))]           // Kibinago
         public void PublicTypes_LiveInTheDocumentedNamespaces(Type anyTypeOfAssembly)
         {

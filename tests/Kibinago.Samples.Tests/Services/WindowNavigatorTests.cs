@@ -36,8 +36,8 @@ namespace Kibinago.Samples.Tests.Services
             protected override void Cleanup() => Disposed = true;
         }
 
-        /// <summary>An <see cref="IViewBase"/> that is NOT an <see cref="ITestNavView"/>.</summary>
-        private sealed class WrongView : IViewBase { }
+        /// <summary>An <see cref="IView"/> that is NOT an <see cref="ITestNavView"/>.</summary>
+        private sealed class WrongView : IView { }
 
         /// <summary>Parameterized presenter (exercises the <c>TParam</c> overloads).</summary>
         private sealed class TestNavPresenterWithParam : WindowPresenterBase<ITestNavView, int>
@@ -141,7 +141,7 @@ namespace Kibinago.Samples.Tests.Services
             ((IViewAttachable)presenter).AttachView(new NotAFormView());
 
             Assert.True(presenter.ViewWasAttached,
-                "AttachView(IViewBase) should cast to TView and route through SetView/OnViewAttached.");
+                "AttachView(IView) should cast to TView and route through SetView/OnViewAttached.");
         }
 
         [Fact]

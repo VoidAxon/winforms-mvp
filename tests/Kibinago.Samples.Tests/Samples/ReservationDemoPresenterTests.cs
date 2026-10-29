@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Kibinago.Common;
+using Kibinago.ViewActions;
 using Kibinago.Samples.CompositionDemo;
 using Kibinago.Testing;
 using Xunit;
@@ -12,6 +13,7 @@ namespace Kibinago.Samples.Tests.Samples
     {
         private sealed class MockReservationView : IReservationDemoView
         {
+            public IViewActionBinder ActionBinder => null;
             public IReadOnlyList<Department> DepartmentList = Array.Empty<Department>();
             public IReadOnlyList<Doctor> DoctorList = Array.Empty<Doctor>();
             public IReadOnlyList<SelectableItem<DayOfWeek>> DayList = Array.Empty<SelectableItem<DayOfWeek>>();

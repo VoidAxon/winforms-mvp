@@ -9,7 +9,7 @@ namespace Kibinago.Samples.Tests.Presenters
 {
     public class PresenterDisposablesTests
     {
-        private sealed class TestPresenter : PresenterBase<IViewBase>
+        private sealed class TestPresenter : PresenterBase<IView>
         {
             public readonly List<string> Log = new List<string>();
 

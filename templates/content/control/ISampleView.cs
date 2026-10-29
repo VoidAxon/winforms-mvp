@@ -3,7 +3,7 @@ using Kibinago.Views;
 namespace MvpNamespace
 {
     /// <summary>What the control shows: data, state and events only, never controls.</summary>
-    public interface ISampleView : IActionableView
+    public interface ISampleView : IControlView
     {
         string Summary { set; }
     }

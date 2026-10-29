@@ -132,7 +132,7 @@ namespace Kibinago.Samples.Tests.Presenters
             public Action DuringBegin { get; set; }
             public bool Ended { get; private set; }
 
-            public IDisposable Begin(IViewBase view, string message)
+            public IDisposable Begin(IView view, string message)
             {
                 DuringBegin?.Invoke();
                 return Disposable.Create(() => Ended = true);

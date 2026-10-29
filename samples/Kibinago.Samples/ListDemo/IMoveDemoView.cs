@@ -5,7 +5,7 @@ using Kibinago.Views;
 namespace Kibinago.Samples.ListDemo
 {
     /// <summary>A list of phrases in display order, with 上へ / 下へ / 最上へ / 最下へ.</summary>
-    public interface IMoveDemoView : IActionableView
+    public interface IMoveDemoView : IControlView
     {
         void SetRows(SortableBindingList<PhraseRow> rows);
 

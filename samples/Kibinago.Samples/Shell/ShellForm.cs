@@ -111,14 +111,14 @@ namespace Kibinago.Samples.Shell
             }
         }
 
-        public IViewBase CreateDemoView(string demoId)
+        public IView CreateDemoView(string demoId)
         {
             var page = _tabs.TabPages.Cast<TabPage>().First(p => (string)p.Tag == demoId);
             var control = DemoViews.Create(demoId);
             control.Dock = DockStyle.Fill;
             page.Controls.Add(control);
             _demoViews[demoId] = control;
-            return (IViewBase)control;
+            return (IView)control;
         }
 
         public void RemoveDemoView(string demoId)

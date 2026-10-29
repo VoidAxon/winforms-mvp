@@ -4,7 +4,7 @@ using Kibinago.Views;
 
 namespace Kibinago.Samples.ChangeTrackingDemo
 {
-    public interface IProfileEditView : IActionableView
+    public interface IProfileEditView : IControlView
     {
         string PatientName { get; set; }
         string BloodType { get; set; }

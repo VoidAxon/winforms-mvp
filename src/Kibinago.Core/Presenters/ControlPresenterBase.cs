@@ -17,12 +17,12 @@ namespace Kibinago.Presenters
     /// constructor chain has completed — it removes the constructor-ordering trap where
     /// <c>OnInitialize</c> could observe not-yet-assigned derived fields.
     /// </remarks>
-    /// <typeparam name="TView">The view interface type, must implement IViewBase</typeparam>
+    /// <typeparam name="TView">The view interface type, must implement IView</typeparam>
     public abstract class ControlPresenterBase<TView> :
         PresenterBase<TView>,
         IViewAttacher<TView>,
         IInitializable
-        where TView : IViewBase
+        where TView : IControlView
     {
         /// <summary>
         /// Creates the presenter. Derived constructors take only the presenter's own dependencies; the

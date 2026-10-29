@@ -40,8 +40,8 @@ using Kibinago.Presenters;
         public void MVP001_InterfaceDerivingLookalikeIViewBase_NoDiagnostic()
         {
             Assert.Empty(Ids(@"
-namespace Other { public interface IViewBase { } }
-public interface IOrderEditor : Other.IViewBase { }"));
+namespace Other { public interface IView { } }
+public interface IOrderEditor : Other.IView { }"));
         }
 
         // ------------------------------------------------------------------ MVP002
@@ -69,8 +69,8 @@ public class OrderPresenter : AppPresenter<IOrderView> { }"));
         {
             // A shared base of several presenters is named like the framework's own bases.
             Assert.Empty(Ids(Usings + @"
-public interface IItemView : IViewBase { }
-public abstract class ItemPresenterBase<T> : ControlPresenterBase<T> where T : IViewBase { }
+public interface IItemView : IControlView { }
+public abstract class ItemPresenterBase<T> : ControlPresenterBase<T> where T : IControlView { }
 public class TextItemPresenter : ItemPresenterBase<IItemView> { }"));
         }
 
@@ -269,7 +269,7 @@ public class PricingPresenter { public int Total() => 0; }"));
             Assert.Equal(new[] { "MVP007:_form", "MVP007:_forms" },
                 IdsWithText(UiUsings + @"
 public interface IOrderView : IWindowView { }
-public class OrderForm : Form, IOrderView { }
+public class OrderForm : Form, IOrderView { public Kibinago.ViewActions.IViewActionBinder ActionBinder => null; }
 public class OrderPresenter : WindowPresenterBase<IOrderView>
 {
     private OrderForm _form;
@@ -283,7 +283,7 @@ public class OrderPresenter : WindowPresenterBase<IOrderView>
             Assert.Equal(new[] { "MVP007:OrderPresenter" },
                 IdsWithText(UiUsings + @"
 public interface IOrderView : IWindowView { }
-public class OrderForm : Form, IOrderView { }
+public class OrderForm : Form, IOrderView { public Kibinago.ViewActions.IViewActionBinder ActionBinder => null; }
 public class OrderPresenter : WindowPresenterBase<OrderForm> { }"));
         }
 
@@ -304,7 +304,7 @@ public class OrderPresenter : WindowPresenterBase<IOrderView>
         {
             Assert.Empty(Ids(Usings + @"
 public interface IOrderView : IWindowView { }
-public class FakeOrderView : IOrderView { }
+public class FakeOrderView : IOrderView { public Kibinago.ViewActions.IViewActionBinder ActionBinder => null; }
 public class OrderPresenter : WindowPresenterBase<FakeOrderView>
 {
     private FakeOrderView _fake;
@@ -321,6 +321,7 @@ public class OrderPresenter : WindowPresenterBase<FakeOrderView>
 public interface IOrderView : IWindowView { void ShowTotal(decimal total); }
 public class OrderForm : Form, IOrderView
 {
+    public Kibinago.ViewActions.IViewActionBinder ActionBinder => null;
     public void ShowTotal(decimal total) { }
     public void Refresh() { }
 }"));
@@ -331,7 +332,7 @@ public class OrderForm : Form, IOrderView
         {
             Assert.Equal(new[] { "MVP008:Highlight" },
                 IdsWithText(UiUsings + @"
-public interface IOrderPanelView : IViewBase { void ShowTotal(decimal total); }
+public interface IOrderPanelView : IView { void ShowTotal(decimal total); }
 public class OrderPanel : UserControl, IOrderPanelView
 {
     public void ShowTotal(decimal total) { }
@@ -347,6 +348,7 @@ public class OrderPanel : UserControl, IOrderPanelView
 public interface IOrderView : IWindowView { void ShowTotal(decimal total); }
 public class FakeOrderView : IOrderView
 {
+    public Kibinago.ViewActions.IViewActionBinder ActionBinder => null;
     public void ShowTotal(decimal total) { }
     public void RaiseInputChanged() { }
 }"));
@@ -404,7 +406,7 @@ public class OrderPresenter : WindowPresenterBase<IOrderView>
             Assert.Equal(new[] { "MVP004:ChildForm" },
                 IdsWithText(UiUsings + @"
 public interface IChildView : IWindowView { }
-public class ChildForm : Form, IChildView { }
+public class ChildForm : Form, IChildView { public Kibinago.ViewActions.IViewActionBinder ActionBinder => null; }
 public interface IOrderView : IWindowView { IChildView Child { get; } ChildForm ChildForm { get; } }"));
         }
 
@@ -510,6 +512,7 @@ public class OrderPresenter : WindowPresenterBase<IOrderView>
 public interface IOrderView : IWindowView { void ConfirmDelete(); }
 public class OrderForm : Form, IOrderView
 {
+    public Kibinago.ViewActions.IViewActionBinder ActionBinder => null;
     public void ConfirmDelete() { MessageBox.Show(""Delete?""); }
 }"));
         }

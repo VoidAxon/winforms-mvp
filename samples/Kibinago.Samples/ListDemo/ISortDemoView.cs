@@ -6,7 +6,7 @@ using Kibinago.Views;
 namespace Kibinago.Samples.ListDemo
 {
     /// <summary>A grid of patients that sorts by its headers, a ward filter and the sort options.</summary>
-    public interface ISortDemoView : IActionableView
+    public interface ISortDemoView : IControlView
     {
         /// <summary>The list the grid binds to (given once; the presenter keeps changing its contents).</summary>
         void SetRows(SortableBindingList<PatientRow> rows);

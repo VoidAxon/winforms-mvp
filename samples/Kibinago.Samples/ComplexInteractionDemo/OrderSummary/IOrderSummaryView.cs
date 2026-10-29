@@ -9,7 +9,7 @@ namespace Kibinago.Samples.ComplexInteractionDemo.OrderSummary
     /// <summary>
     /// View interface for order summary control
     /// </summary>
-    public interface IOrderSummaryView : IActionableView
+    public interface IOrderSummaryView : IControlView
     {
         /// <summary>
         /// Gets or sets the list of order items

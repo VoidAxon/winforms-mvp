@@ -13,7 +13,7 @@ namespace Kibinago.Samples.CheckBoxDemo
     /// - Only data properties (bool for checked state)
     /// - Behavior methods for UI updates
     /// </summary>
-    public interface ISettingsView : IActionableView
+    public interface ISettingsView : IControlView
     {
         // ========================================
         // Data Properties (no UI types!)

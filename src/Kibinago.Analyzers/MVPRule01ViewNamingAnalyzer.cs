@@ -31,7 +31,7 @@ namespace Kibinago.Analyzers
             if (!interfaceName.StartsWith("I"))
                 return;
 
-            // Check if this interface inherits from IViewBase or IWindowView
+            // Check if this interface inherits from IView or IWindowView
             if (!InheritsFromViewBase(context, interfaceDeclaration))
                 return;
 
@@ -52,7 +52,7 @@ namespace Kibinago.Analyzers
             if (interfaceDeclaration.BaseList == null)
                 return false;
 
-            // Semantic check: derives (transitively) from Kibinago.Views.IViewBase,
+            // Semantic check: derives (transitively) from Kibinago.Views.IView,
             // matched by namespace + name rather than bare name.
             var interfaceSymbol = context.SemanticModel.GetDeclaredSymbol(interfaceDeclaration);
             return MvpSymbols.IsViewInterface(interfaceSymbol);

@@ -16,7 +16,7 @@ namespace Kibinago.Samples.Tests.Services
     {
         #region Test Doubles
 
-        public interface ITestView : IViewBase
+        public interface ITestView : IView
         {
             string Marker { get; }
         }
@@ -36,7 +36,7 @@ namespace Kibinago.Samples.Tests.Services
             public string Marker { get; set; } = "provider";
         }
 
-        public interface IUnregisteredView : IViewBase { }
+        public interface IUnregisteredView : IView { }
 
         /// <summary>
         /// Minimal in-memory <see cref="IServiceProvider"/> for tests. The .NET BCL

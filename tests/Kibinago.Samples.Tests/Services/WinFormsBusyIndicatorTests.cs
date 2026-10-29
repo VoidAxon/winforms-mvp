@@ -14,7 +14,7 @@ namespace Kibinago.Samples.Tests.Services
     [Collection("OpenForms")]   // counts Application.OpenForms: not alongside other tests that show forms
     public class WinFormsBusyIndicatorTests
     {
-        private sealed class ViewForm : Form, IViewBase
+        private sealed class ViewForm : Form, IView
         {
             public ViewForm(bool createHandle = true)
             {
@@ -22,7 +22,7 @@ namespace Kibinago.Samples.Tests.Services
             }
         }
 
-        private sealed class ViewPanel : UserControl, IViewBase { }
+        private sealed class ViewPanel : UserControl, IView { }
 
         private sealed class FontRecordingRenderer : BusyRenderer
         {

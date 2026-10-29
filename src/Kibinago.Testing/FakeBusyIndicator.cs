@@ -12,14 +12,14 @@ namespace Kibinago.Testing
     {
         private int _ended;
 
-        internal BusyCall(IViewBase view, string message)
+        internal BusyCall(IView view, string message)
         {
             View = view;
             Message = message;
         }
 
         /// <summary>The busy view.</summary>
-        public IViewBase View { get; }
+        public IView View { get; }
 
         /// <summary>The message as passed (<c>null</c> when none).</summary>
         public string Message { get; }
@@ -60,13 +60,13 @@ namespace Kibinago.Testing
         /// <summary>Whether a request on <paramref name="view"/> is still open.</summary>
         /// <param name="view">The view.</param>
         /// <returns><c>true</c> while it is busy.</returns>
-        public bool IsBusyFor(IViewBase view)
+        public bool IsBusyFor(IView view)
         {
             lock (_gate) return _calls.Any(c => !c.Ended && ReferenceEquals(c.View, view));
         }
 
         /// <inheritdoc />
-        public IDisposable Begin(IViewBase view, string message)
+        public IDisposable Begin(IView view, string message)
         {
             var call = new BusyCall(view, message);
             lock (_gate) _calls.Add(call);

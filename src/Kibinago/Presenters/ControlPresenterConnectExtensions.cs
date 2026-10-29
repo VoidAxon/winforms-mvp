@@ -22,7 +22,7 @@ namespace Kibinago.Presenters
         /// Connects a no-param control presenter to its view: attach + initialize + teardown wiring.
         /// </summary>
         public static void Connect<TView>(this ControlPresenterBase<TView> presenter, TView view)
-            where TView : IViewBase
+            where TView : IControlView
         {
             if (presenter == null) throw new ArgumentNullException(nameof(presenter));
 
@@ -40,7 +40,7 @@ namespace Kibinago.Presenters
         /// </summary>
         public static void Connect<TView, TParam>(this ControlPresenterBase<TView, TParam> presenter,
             TView view, TParam param)
-            where TView : IViewBase
+            where TView : IControlView
         {
             if (presenter == null) throw new ArgumentNullException(nameof(presenter));
 

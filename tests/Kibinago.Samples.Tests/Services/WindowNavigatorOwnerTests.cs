@@ -20,7 +20,7 @@ namespace Kibinago.Samples.Tests.Services
     {
         public interface IOwnedView : IWindowView { }
 
-        public interface IPanelView : IViewBase { }
+        public interface IPanelView : IView { }
 
         private sealed class OwnedForm : Form, IOwnedView
         {
@@ -54,7 +54,7 @@ namespace Kibinago.Samples.Tests.Services
             return form;
         }
 
-        private static Form Open(IViewBase owner)
+        private static Form Open(IView owner)
         {
             var window = (Form)Navigator().ShowWindow(new OwnedPresenter(), owner: owner);
             Assert.NotNull(window);

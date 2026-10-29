@@ -70,7 +70,7 @@ namespace Kibinago.Analyzers
             if (methodSymbol.ExplicitInterfaceImplementations.Any())
                 return;
 
-            // Check if method is defined in any View interface (IViewBase itself or a derived interface)
+            // Check if method is defined in any View interface (IView itself or a derived interface)
             var isInInterface = classSymbol.AllInterfaces
                 .Where(i => MvpSymbols.IsViewBase(i) || MvpSymbols.IsViewInterface(i))
                 .SelectMany(i => i.GetMembers().OfType<IMethodSymbol>())

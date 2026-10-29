@@ -36,7 +36,7 @@ namespace Kibinago.Testing
         /// <summary>Attaches <paramref name="view"/> to a parameterless presenter and initializes it.</summary>
         public static PresenterTestHost Start<TPresenter, TView>(TPresenter presenter, TView view)
             where TPresenter : IPresenter, IViewAttacher<TView>, IInitializable
-            where TView : IViewBase
+            where TView : IView
         {
             var host = Attach(presenter, view);
             Run(presenter, presenter.Initialize);
@@ -47,7 +47,7 @@ namespace Kibinago.Testing
         /// <summary>Attaches <paramref name="view"/> to a parameterized presenter and initializes it with <paramref name="parameters"/>.</summary>
         public static PresenterTestHost Start<TPresenter, TView, TParam>(TPresenter presenter, TView view, TParam parameters)
             where TPresenter : IPresenter, IViewAttacher<TView>, IInitializable<TParam>
-            where TView : IViewBase
+            where TView : IView
         {
             var host = Attach(presenter, view);
             Run(presenter, () => presenter.Initialize(parameters));
@@ -68,7 +68,7 @@ namespace Kibinago.Testing
         /// constructor).</exception>
         public static PresenterTestHost Start<TPresenter, TView>(IServiceProvider services, TPresenter presenter, TView view)
             where TPresenter : IPresenter, IViewAttacher<TView>, IInitializable
-            where TView : IViewBase
+            where TView : IView
         {
             BindServices(services, presenter, view);
             return Start(presenter, view);
@@ -78,7 +78,7 @@ namespace Kibinago.Testing
         /// <see cref="Start{TPresenter, TView}(IServiceProvider, TPresenter, TView)"/>.</summary>
         public static PresenterTestHost Start<TPresenter, TView, TParam>(IServiceProvider services, TPresenter presenter, TView view, TParam parameters)
             where TPresenter : IPresenter, IViewAttacher<TView>, IInitializable<TParam>
-            where TView : IViewBase
+            where TView : IView
         {
             BindServices(services, presenter, view);
             return Start(presenter, view, parameters);
@@ -105,7 +105,7 @@ namespace Kibinago.Testing
 
         private static PresenterTestHost Attach<TPresenter, TView>(TPresenter presenter, TView view)
             where TPresenter : IPresenter, IViewAttacher<TView>
-            where TView : IViewBase
+            where TView : IView
         {
             if (presenter == null) throw new ArgumentNullException(nameof(presenter));
             if (view == null) throw new ArgumentNullException(nameof(view));

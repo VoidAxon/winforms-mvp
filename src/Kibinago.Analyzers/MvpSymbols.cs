@@ -13,7 +13,7 @@ namespace Kibinago.Analyzers
         private const string PresentersNamespace = "Kibinago.Presenters";
         private const string PresenterBaseMetadataName = "PresenterBase`1";
         private const string ViewsNamespace = "Kibinago.Views";
-        private const string ViewBaseName = "IViewBase";
+        private const string ViewBaseName = "IView";
         private const string WinFormsNamespace = "System.Windows.Forms";
 
         /// <summary>
@@ -49,13 +49,13 @@ namespace Kibinago.Analyzers
             return null;
         }
 
-        /// <summary>Kibinago.Views.IViewBase itself.</summary>
+        /// <summary>Kibinago.Views.IView itself.</summary>
         public static bool IsViewBase(INamedTypeSymbol type) =>
             type != null && type.TypeKind == TypeKind.Interface &&
             type.MetadataName == ViewBaseName && IsInNamespace(type, ViewsNamespace);
 
         /// <summary>
-        /// A view interface is an interface deriving (transitively) from Kibinago.Views.IViewBase.
+        /// A view interface is an interface deriving (transitively) from Kibinago.Views.IView.
         /// </summary>
         public static bool IsViewInterface(INamedTypeSymbol type)
         {

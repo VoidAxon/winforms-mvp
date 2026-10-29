@@ -12,6 +12,7 @@ namespace Kibinago.Samples.Tests.Samples
     {
         private sealed class MockRowView : IContactRowView
         {
+            public IViewActionBinder ActionBinder => null;
             public string ContactName { get; set; }
             public string Relation { get; set; }
             public string Phone { get; set; }

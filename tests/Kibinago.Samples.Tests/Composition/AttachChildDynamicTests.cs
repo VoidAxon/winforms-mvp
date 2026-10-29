@@ -24,7 +24,7 @@ namespace Kibinago.Samples.Tests.Composition
             public static readonly ViewAction Slow = ViewAction.Create("Line.Slow");
         }
 
-        public interface ILineView : IActionableView { }
+        public interface ILineView : IControlView { }
 
         public sealed class FakeLineView : ILineView
         {

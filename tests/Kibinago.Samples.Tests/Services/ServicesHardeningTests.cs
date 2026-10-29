@@ -27,7 +27,7 @@ namespace Kibinago.Samples.Tests.Services
             public void Dispose() => Disposed = true;
         }
 
-        public interface IScopeView : IViewBase { }
+        public interface IScopeView : IControlView { }
 
         public sealed class ScopedPresenter : ControlPresenterBase<IScopeView>
         {

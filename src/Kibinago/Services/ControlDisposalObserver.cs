@@ -24,13 +24,13 @@ namespace Kibinago.Services
 
         private const string ControlTypeName = "System.Windows.Forms.Control";
 
-        public IDisposable ObserveDisposal(IViewBase view, Action onDisposed)
+        public IDisposable ObserveDisposal(IView view, Action onDisposed)
         {
             if (onDisposed == null) throw new ArgumentNullException(nameof(onDisposed));
             return IsControl(view) ? ObserveControl(view, onDisposed) : Disposable.Create(() => { });
         }
 
-        public bool IsDisposed(IViewBase view) => IsControl(view) && IsControlDisposed(view);
+        public bool IsDisposed(IView view) => IsControl(view) && IsControlDisposed(view);
 
         private static bool IsControl(object view)
         {

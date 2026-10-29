@@ -37,7 +37,7 @@ namespace Kibinago.Services
         /// <c>null</c> when the presenter cancelled the opening.</returns>
         IWindowView ShowWindow<TPresenter, TResult>(
             TPresenter presenter,
-            IViewBase owner = null,
+            IView owner = null,
             object key = null,
             Action<InteractionResult<TResult>> onClosed = null)
             where TPresenter : IWindowPresenter, IInitializable;
@@ -52,7 +52,7 @@ namespace Kibinago.Services
         /// <c>null</c> when the presenter cancelled the opening.</returns>
         IWindowView ShowWindow<TPresenter>(
             TPresenter presenter,
-            IViewBase owner = null,
+            IView owner = null,
             object key = null)
             where TPresenter : IWindowPresenter, IInitializable;
 
@@ -135,7 +135,7 @@ namespace Kibinago.Services
         /// <returns>How the window was closed (the status the presenter passed to <c>RequestClose</c>, or <see cref="InteractionStatus.Cancel"/>).</returns>
         InteractionResult ShowWindowAsModal<TPresenter>(
             TPresenter presenter,
-            IViewBase owner = null)
+            IView owner = null)
             where TPresenter : IWindowPresenter, IInitializable;
 
         /// <summary>Shows the presenter's window modally and returns its result when it closes.</summary>
@@ -147,7 +147,7 @@ namespace Kibinago.Services
         /// when the window was closed without one.</returns>
         InteractionResult<TResult> ShowWindowAsModal<TPresenter, TResult>(
             TPresenter presenter,
-            IViewBase owner = null)
+            IView owner = null)
             where TPresenter : IWindowPresenter, IInitializable;
 
         // ==================================================
@@ -170,7 +170,7 @@ namespace Kibinago.Services
         IWindowView ShowWindow<TPresenter, TParam, TResult>(
             TPresenter presenter,
             TParam parameters,
-            IViewBase owner = null,
+            IView owner = null,
             object key = null,
             Action<InteractionResult<TResult>> onClosed = null)
             where TPresenter : IWindowPresenter, IInitializable<TParam>;
@@ -188,7 +188,7 @@ namespace Kibinago.Services
         IWindowView ShowWindow<TPresenter, TParam>(
             TPresenter presenter,
             TParam parameters,
-            IViewBase owner = null,
+            IView owner = null,
             object key = null)
             where TPresenter : IWindowPresenter, IInitializable<TParam>;
 
@@ -206,7 +206,7 @@ namespace Kibinago.Services
         InteractionResult ShowWindowAsModal<TPresenter, TParam>(
             TPresenter presenter,
             TParam parameters,
-            IViewBase owner = null)
+            IView owner = null)
             where TPresenter : IWindowPresenter, IInitializable<TParam>;
 
         /// <summary>Shows the presenter's window modally and returns its result when it closes.</summary>
@@ -221,7 +221,7 @@ namespace Kibinago.Services
         InteractionResult<TResult> ShowWindowAsModal<TPresenter, TParam, TResult>(
             TPresenter presenter,
             TParam parameters,
-            IViewBase owner = null)
+            IView owner = null)
             where TPresenter : IWindowPresenter, IInitializable<TParam>;
     }
 }

@@ -89,7 +89,7 @@ namespace Kibinago.Samples.Shell
 
             public Attacher(ShellPresenter owner) => _owner = owner;
 
-            public IDisposable Attach<TView>(ControlPresenterBase<TView> presenter, TView view) where TView : IViewBase
+            public IDisposable Attach<TView>(ControlPresenterBase<TView> presenter, TView view) where TView : IControlView
                 => _owner.AttachChild(presenter, view);
         }
     }

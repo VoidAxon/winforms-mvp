@@ -22,7 +22,7 @@ namespace Kibinago.Samples.Tests.Testing
             public int Age { get; set; }
         }
 
-        public interface IInputView : IWindowView, IValidatableView
+        public interface IInputView : IWindowView, IValidationErrorBindable
         {
             string InputName { get; set; }
             int Age { get; set; }

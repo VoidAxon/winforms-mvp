@@ -45,7 +45,7 @@ namespace Kibinago.Analyzers
 
             var interfaceName = interfaceDeclaration.Identifier.Text;
 
-            // Only analyze View interfaces (semantic: derives from Kibinago.Views.IViewBase)
+            // Only analyze View interfaces (semantic: derives from Kibinago.Views.IView)
             if (!MvpSymbols.IsViewInterface(context.SemanticModel.GetDeclaredSymbol(interfaceDeclaration, context.CancellationToken)))
                 return;
 

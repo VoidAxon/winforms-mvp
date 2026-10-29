@@ -132,7 +132,7 @@ namespace Kibinago.Samples.Tests.Common
             }
         }
 
-        public interface ICustomerView : IWindowView, IValidatableView
+        public interface ICustomerView : IWindowView, IValidationErrorBindable
         {
             string Name { get; set; }
         }

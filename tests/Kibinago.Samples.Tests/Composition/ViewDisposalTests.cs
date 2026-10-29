@@ -6,7 +6,7 @@ namespace Kibinago.Samples.Tests.Composition
 {
     public class ViewDisposalTests
     {
-        private sealed class PlainView : IViewBase { }
+        private sealed class PlainView : IView { }
 
         [Fact]
         public void NonControlView_IsNeverDisposed_AndObservingIsHarmless()
