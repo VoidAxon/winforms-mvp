@@ -28,7 +28,7 @@ namespace Kibinago.Samples.Tests.Composition
         public static readonly ViewAction Fill = ViewAction.Create("Panel.Fill");
     }
 
-    public interface INamePanelView : IView, IControlView
+    public interface INamePanelView : IControlView
     {
         string Shown { set; }
     }

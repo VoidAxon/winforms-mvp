@@ -34,6 +34,10 @@ namespace Kibinago.Services
             if (!(view is Control control))
                 throw new ArgumentException(
                     "Control hosting requires a Control-backed view.", nameof(view));
+            if (view is Form)
+                throw new ArgumentException(
+                    view.GetType().Name + " is a Form: a window is connected to a window presenter or opened with " +
+                    "Navigator. A control presenter hosts a UserControl.", nameof(view));
             // A presenter that is already attached (or owned by a parent) is rejected before anything is
             // wired, so the failure path cannot dispose it and break its current owner.
             if (presenter is IViewAttachable attachable && (attachable.IsViewAttached || attachable.IsInitialized))

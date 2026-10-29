@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.CodeAnalysis;
@@ -32,10 +33,14 @@ namespace Kibinago.Analyzers
         {
             context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
             context.EnableConcurrentExecution();
-            context.RegisterSyntaxNodeAction(AnalyzeMethodDeclaration, SyntaxKind.MethodDeclaration);
+            context.RegisterCompilationStartAction(start =>
+            {
+                var contractBases = new System.Lazy<ISet<INamedTypeSymbol>>(() => MvpSymbols.ContractBaseInterfaces(start.Compilation));
+                start.RegisterSyntaxNodeAction(c => AnalyzeMethodDeclaration(c, contractBases), SyntaxKind.MethodDeclaration);
+            });
         }
 
-        private void AnalyzeMethodDeclaration(SyntaxNodeAnalysisContext context)
+        private void AnalyzeMethodDeclaration(SyntaxNodeAnalysisContext context, System.Lazy<ISet<INamedTypeSymbol>> contractBases)
         {
             var methodDeclaration = (MethodDeclarationSyntax)context.Node;
 
@@ -46,7 +51,9 @@ namespace Kibinago.Analyzers
             var interfaceName = interfaceDeclaration.Identifier.Text;
 
             // Only analyze View interfaces (semantic: derives from Kibinago.Views.IView)
-            if (!MvpSymbols.IsViewInterface(context.SemanticModel.GetDeclaredSymbol(interfaceDeclaration, context.CancellationToken)))
+            var interfaceSymbol = context.SemanticModel.GetDeclaredSymbol(interfaceDeclaration, context.CancellationToken);
+            if (!MvpSymbols.IsViewInterface(interfaceSymbol) &&
+                !(interfaceSymbol != null && contractBases.Value.Contains(interfaceSymbol.OriginalDefinition)))
                 return;
 
             var methodName = methodDeclaration.Identifier.Text;

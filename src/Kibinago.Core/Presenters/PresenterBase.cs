@@ -239,6 +239,7 @@ namespace Kibinago.Presenters
         {
             if (view == null)
                 throw new ArgumentNullException(nameof(view));
+            RejectBothRoles(view);
             if (View != null)
                 throw new InvalidOperationException(
                     GetType().Name + " already has a view attached. A presenter is attached to exactly one view.");
@@ -279,6 +280,15 @@ namespace Kibinago.Presenters
                 }
                 return _validation;
             }
+        }
+
+        // A view has one role; the compiler cannot stop a type from implementing both (MVP019 warns).
+        private static void RejectBothRoles(IView view)
+        {
+            if (view is IWindowView && view is IControlView)
+                throw new InvalidOperationException(
+                    view.GetType().Name + " is both a window view (IWindowView) and a control view (IControlView). " +
+                    "A view is one or the other: split the shared members into an interface both derive from.");
         }
 
         // Runs when the view is attached and when Validation is first used, whichever is later.
@@ -636,6 +646,11 @@ namespace Kibinago.Presenters
         {
             if (child == null) throw new ArgumentNullException(nameof(child));
             if (view == null) throw new ArgumentNullException(nameof(view));
+            RejectBothRoles(view);
+            if (ViewDisposal.Observer.IsWindow(view))
+                throw new ArgumentException(
+                    view.GetType().Name + " is a Form: a window is opened with Navigator (or connected to a window " +
+                    "presenter), not attached as a child. A child view is a UserControl.", nameof(view));
             if (_isDisposed) throw new ObjectDisposedException(GetType().Name);
             if (View == null)
                 throw new InvalidOperationException(

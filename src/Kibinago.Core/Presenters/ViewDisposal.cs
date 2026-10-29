@@ -17,6 +17,9 @@ namespace Kibinago.Presenters
 
         /// <summary>True when the view is disposed or being disposed.</summary>
         bool IsDisposed(IView view);
+
+        /// <summary>True when the view is a window (a Form), which a control presenter cannot host.</summary>
+        bool IsWindow(IView view);
     }
 
     internal static class ViewDisposal
@@ -39,6 +42,7 @@ namespace Kibinago.Presenters
             public static readonly NoOpObserver Instance = new NoOpObserver();
             public IDisposable ObserveDisposal(IView view, Action onDisposed) => Disposable.Create(() => { });
             public bool IsDisposed(IView view) => false;
+            public bool IsWindow(IView view) => false;
         }
     }
 

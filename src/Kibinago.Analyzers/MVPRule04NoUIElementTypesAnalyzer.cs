@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.CodeAnalysis;
@@ -23,11 +24,16 @@ namespace Kibinago.Analyzers
         {
             context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
             context.EnableConcurrentExecution();
-            context.RegisterSymbolAction(AnalyzeMember,
-                SymbolKind.Field, SymbolKind.Property, SymbolKind.Event, SymbolKind.Method);
+            context.RegisterCompilationStartAction(start =>
+            {
+                // Interfaces a view contract inherits besides views (computed once, on first need).
+                var contractBases = new System.Lazy<ISet<INamedTypeSymbol>>(() => MvpSymbols.ContractBaseInterfaces(start.Compilation));
+                start.RegisterSymbolAction(c => AnalyzeMember(c, contractBases),
+                    SymbolKind.Field, SymbolKind.Property, SymbolKind.Event, SymbolKind.Method);
+            });
         }
 
-        private void AnalyzeMember(SymbolAnalysisContext context)
+        private void AnalyzeMember(SymbolAnalysisContext context, System.Lazy<ISet<INamedTypeSymbol>> contractBases)
         {
             var member = context.Symbol;
             if (member.IsImplicitlyDeclared)
@@ -40,7 +46,8 @@ namespace Kibinago.Analyzers
 
             var containingType = member.ContainingType;
             string memberKind;
-            if (MvpSymbols.IsViewInterface(containingType))
+            if (MvpSymbols.IsViewInterface(containingType) ||
+                (containingType?.TypeKind == TypeKind.Interface && contractBases.Value.Contains(containingType.OriginalDefinition)))
                 memberKind = "Interface";
             else if (MvpSymbols.IsPresenter(containingType))
                 memberKind = "Presenter";

@@ -23,6 +23,7 @@ namespace Kibinago.Services
         internal static readonly ControlDisposalObserver Instance = new ControlDisposalObserver();
 
         private const string ControlTypeName = "System.Windows.Forms.Control";
+        private const string FormTypeName = "System.Windows.Forms.Form";
 
         public IDisposable ObserveDisposal(IView view, Action onDisposed)
         {
@@ -32,10 +33,14 @@ namespace Kibinago.Services
 
         public bool IsDisposed(IView view) => IsControl(view) && IsControlDisposed(view);
 
-        private static bool IsControl(object view)
+        public bool IsWindow(IView view) => Derives(view, FormTypeName);
+
+        private static bool IsControl(object view) => Derives(view, ControlTypeName);
+
+        private static bool Derives(object view, string typeName)
         {
             for (var type = view?.GetType(); type != null; type = type.BaseType)
-                if (type.FullName == ControlTypeName) return true;
+                if (type.FullName == typeName) return true;
             return false;
         }
 

@@ -175,6 +175,77 @@ namespace Kibinago.Analyzers
             return ns != null && (ns == WinFormsNamespace || ns.StartsWith(WinFormsNamespace + "."));
         }
 
+        /// <summary>Kibinago.Views.IWindowView itself.</summary>
+        public static bool IsWindowRole(INamedTypeSymbol type) =>
+            type != null && type.TypeKind == TypeKind.Interface && type.MetadataName == "IWindowView" && IsInNamespace(type, ViewsNamespace);
+
+        /// <summary>Kibinago.Views.IControlView itself.</summary>
+        public static bool IsControlRole(INamedTypeSymbol type) =>
+            type != null && type.TypeKind == TypeKind.Interface && type.MetadataName == "IControlView" && IsInNamespace(type, ViewsNamespace);
+
+        /// <summary>
+        /// The interfaces of a view contract that are the application's own but not views themselves: what
+        /// the view interfaces of this compilation inherit besides the framework's interfaces
+        /// (the roles and capabilities in Kibinago.*), e.g. <c>IOrderView : IWindowView, ICustomerFields</c>
+        /// → ICustomerFields. Their members belong to the view contract, so the view rules check them too.
+        /// </summary>
+        public static ISet<INamedTypeSymbol> ContractBaseInterfaces(Compilation compilation)
+        {
+            var bases = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+            foreach (var type in AllTypes(compilation.Assembly.GlobalNamespace))
+            {
+                if (!IsViewInterface(type))
+                    continue;
+                foreach (var inherited in type.AllInterfaces)
+                {
+                    if (!IsViewInterface(inherited) && !IsFramework(inherited))
+                        bases.Add(inherited.OriginalDefinition);
+                }
+            }
+            return bases;
+        }
+
+        /// <summary>
+        /// Every interface of a class's view contract: the view interfaces it implements and all they inherit
+        /// (capabilities, the application's own base interfaces).
+        /// </summary>
+        public static IEnumerable<INamedTypeSymbol> ContractInterfaces(INamedTypeSymbol type)
+        {
+            var seen = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+            foreach (var view in type.AllInterfaces)
+            {
+                if (!IsViewInterface(view))
+                    continue;
+                if (seen.Add(view)) yield return view;
+                foreach (var inherited in view.AllInterfaces)
+                    if (seen.Add(inherited)) yield return inherited;
+            }
+        }
+
+        private static IEnumerable<INamedTypeSymbol> AllTypes(INamespaceSymbol ns)
+        {
+            foreach (var type in ns.GetTypeMembers())
+                foreach (var t in WithNested(type))
+                    yield return t;
+            foreach (var child in ns.GetNamespaceMembers())
+                foreach (var t in AllTypes(child))
+                    yield return t;
+        }
+
+        private static IEnumerable<INamedTypeSymbol> WithNested(INamedTypeSymbol type)
+        {
+            yield return type;
+            foreach (var nested in type.GetTypeMembers())
+                foreach (var t in WithNested(nested))
+                    yield return t;
+        }
+
+        private static bool IsFramework(ISymbol symbol)
+        {
+            var ns = symbol.ContainingNamespace?.ToDisplayString() ?? "";
+            return ns == "Kibinago" || ns.StartsWith("Kibinago.", System.StringComparison.Ordinal);
+        }
+
         private static bool IsInNamespace(ISymbol symbol, string ns) =>
             symbol.ContainingNamespace?.ToDisplayString() == ns;
     }

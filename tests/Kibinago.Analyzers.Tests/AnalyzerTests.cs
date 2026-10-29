@@ -785,5 +785,67 @@ public class Work
     public void Close(Work other) => other._search.Dispose();       // disposes other's, not this one
 }"));
         }
+
+        // ------------------------------------------------------------------ view contracts (base interfaces)
+
+        [Fact]
+        public void ViewRules_CheckTheApplicationsOwnBaseInterfacesOfAView()
+        {
+            // ICustomerFields is not a view, but IOrderView inherits it: its members are the view contract.
+            var ids = IdsWithText(UiUsings + @"
+public interface ICustomerFields { TextBox NameBox { get; } void FocusTextBox(); }
+public interface IOrderView : IWindowView, ICustomerFields { }");
+            Assert.Contains("MVP004:NameBox", ids);
+            Assert.Contains("MVP013:FocusTextBox", ids);
+        }
+
+        [Fact]
+        public void AnInterfaceNoViewInherits_IsNotCheckedAsAView()
+        {
+            Assert.Empty(Ids(UiUsings + @"
+public interface IFormFactory { Form Create(); }"));
+        }
+
+        [Fact]
+        public void MVP008_AMethodOfAViewsBaseInterface_IsInTheContract()
+        {
+            Assert.Empty(Ids(UiUsings + @"
+public interface IRefreshable { void ShowTotal(decimal total); }
+public interface IOrderView : IWindowView, IRefreshable { }
+public class OrderForm : Form, IOrderView
+{
+    public Kibinago.ViewActions.IViewActionBinder ActionBinder => null;
+    public void ShowTotal(decimal total) { }
+}"));
+        }
+
+        // ------------------------------------------------------------------ MVP019
+
+        [Fact]
+        public void MVP019_AViewInterfaceOfBothRoles_Reports_WhereTheRolesMeet()
+        {
+            Assert.Equal(new[] { "MVP019:IBothView" }, IdsWithText(Usings + @"
+public interface IBothView : IWindowView, IControlView { }
+public interface IMoreView : IBothView { }
+public class BothMock : IMoreView { public Kibinago.ViewActions.IViewActionBinder ActionBinder => null; }"));
+        }
+
+        [Fact]
+        public void MVP019_AClassCombiningTheRoles_Reports()
+        {
+            Assert.Equal(new[] { "MVP019:Both" }, IdsWithText(Usings + @"
+public interface IOrderView : IWindowView { }
+public interface IPanelView : IControlView { }
+public class Both : IOrderView, IPanelView { public Kibinago.ViewActions.IViewActionBinder ActionBinder => null; }"));
+        }
+
+        [Fact]
+        public void MVP019_OneRoleWithCapabilities_NoDiagnostic()
+        {
+            Assert.Empty(Ids(Usings + @"
+public interface IShared { string Name { get; } }
+public interface IOrderView : IWindowView, IShared, IValidationErrorBindable { }
+public interface IPanelView : IControlView, IShared { }"));
+        }
     }
 }

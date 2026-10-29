@@ -70,9 +70,9 @@ namespace Kibinago.Analyzers
             if (methodSymbol.ExplicitInterfaceImplementations.Any())
                 return;
 
-            // Check if method is defined in any View interface (IView itself or a derived interface)
-            var isInInterface = classSymbol.AllInterfaces
-                .Where(i => MvpSymbols.IsViewBase(i) || MvpSymbols.IsViewInterface(i))
+            // Check if the method belongs to the view contract: the view interfaces and everything they
+            // inherit (the application's own base interfaces included).
+            var isInInterface = MvpSymbols.ContractInterfaces(classSymbol)
                 .SelectMany(i => i.GetMembers().OfType<IMethodSymbol>())
                 .Any(m => m.Name == methodName && SignaturesMatch(m, methodSymbol));
 
