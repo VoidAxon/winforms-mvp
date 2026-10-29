@@ -11,7 +11,7 @@ namespace Kibinago.Testing
     /// <remarks>
     /// The framework calls <c>View.ActionBinder?.Bind(dispatcher)</c> right after
     /// <c>RegisterViewActions</c>. A mock view exposes an instance of this class, and the test
-    /// drives the presenter through its real entry point, so <c>canExecute</c> and middleware run
+    /// drives the presenter through its real entry point, so <c>canExecute</c> and the action observer run
     /// as in production:
     /// <code>
     /// public sealed class MockOrderView : IOrderView

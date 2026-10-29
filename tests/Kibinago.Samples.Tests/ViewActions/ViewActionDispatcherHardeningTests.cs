@@ -42,21 +42,19 @@ namespace Kibinago.Samples.Tests.ViewActions
         // ----- Handler exceptions are logged, then propagate -----
 
         [Fact]
-        public void Dispatch_HandlerThrows_LogsErrorSuppressesActionExecutedAndPropagates()
+        public void Dispatch_HandlerThrows_LogsErrorReportsFailedAndPropagates()
         {
-            var dispatcher = new ViewActionDispatcher();
+            var observer = new Kibinago.Testing.RecordingActionObserver();
+            var dispatcher = new ViewActionDispatcher { Observer = observer };
             var logger = new CapturingLogger();
             dispatcher.Logger = logger;
 
             dispatcher.Register(TestAction, () => throw new InvalidOperationException("boom"));
 
-            bool actionExecutedRaised = false;
-            dispatcher.ActionExecuted += (s, k) => actionExecutedRaised = true;
-
             var ex = Record.Exception(() => dispatcher.Dispatch(TestAction));
 
             Assert.IsType<InvalidOperationException>(ex);
-            Assert.False(actionExecutedRaised);
+            Assert.Equal(ActionOutcome.Failed, Assert.Single(observer.Executions).Outcome);
             Assert.Single(logger.Entries);
             Assert.Equal(LogLevel.Error, logger.Entries[0].Level);
             Assert.IsType<InvalidOperationException>(logger.Entries[0].Exception);
@@ -213,20 +211,18 @@ namespace Kibinago.Samples.Tests.ViewActions
             Assert.Equal(LogLevel.Debug, logger.Entries[0].Level);
         }
 
-        // ----- ActionExecuted suppression on failure -----
+        // ----- A rejected dispatch is not an execution -----
 
         [Fact]
-        public void Dispatch_PayloadMismatch_DoesNotRaiseActionExecuted()
+        public void Dispatch_PayloadMismatch_IsNotReported()
         {
-            var dispatcher = new ViewActionDispatcher();
+            var observer = new Kibinago.Testing.RecordingActionObserver();
+            var dispatcher = new ViewActionDispatcher { Observer = observer };
             dispatcher.Register<string>(TestAction, _ => { });
-
-            bool raised = false;
-            dispatcher.ActionExecuted += (s, k) => raised = true;
 
             dispatcher.Dispatch(TestAction, payload: 42);
 
-            Assert.False(raised);
+            Assert.Empty(observer.Executions);
         }
     }
 }

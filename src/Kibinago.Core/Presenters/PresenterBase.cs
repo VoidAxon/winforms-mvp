@@ -246,13 +246,8 @@ namespace Kibinago.Presenters
 
             View = view;
 
-            // Configure the dispatcher BEFORE OnViewAttached / RegisterViewActions so that:
-            //  - Global middleware (from IDispatcherConfigurer) is registered first,
-            //    ending up outermost in the pipeline.
-            //  - Any local middleware that user code adds inside RegisterViewActions appends
-            //    to the end of the list, ending up innermost.
-            //  - The Logger is wired so subsequent dispatch failures during user code can be
-            //    reported through the presenter's logger.
+            // Configure the dispatcher BEFORE OnViewAttached / RegisterViewActions so the logger,
+            // validation mode and observer are in place for every dispatch user code can cause.
             EnsureDispatcherConfigured();
             ConnectValidation();
 
@@ -431,31 +426,20 @@ namespace Kibinago.Presenters
         }
 
         /// <summary>
-        /// One-shot configuration of the underlying dispatcher: wires the logger and applies
-        /// the optional global <see cref="Kibinago.ViewActions.IDispatcherConfigurer"/>. Called
-        /// from <see cref="SetView"/> so global middleware is in place before user code in
-        /// <c>RegisterViewActions</c> registers local middleware or action handlers.
+        /// One-shot configuration of the underlying dispatcher from the presenter's services: its logger,
+        /// the application's <see cref="Kibinago.ViewActions.ActionDispatcherOptions"/> (validation mode) and
+        /// <see cref="Kibinago.ViewActions.IActionObserver"/>, and this presenter's type for the observer.
+        /// Called from <see cref="SetView"/>, before <c>RegisterViewActions</c>.
         /// </summary>
-        /// <remarks>
-        /// Order matters and is part of the contract:
-        ///  <list type="number">
-        ///   <item>Wire the logger first so any global middleware that itself logs during
-        ///         configuration sees a non-null logger.</item>
-        ///   <item>Apply global middleware (<c>IDispatcherConfigurer.Configure</c>) so it ends
-        ///         up outermost in the pipeline.</item>
-        ///   <item>Mark initialized <b>before</b> calling user callbacks, so reentrant
-        ///         access from inside a configure callback doesn't loop.</item>
-        /// </list>
-        /// Local middleware that user code adds inside <c>RegisterViewActions</c> runs after
-        /// this returns, so it appends to the end of the list and ends up innermost — wrapped
-        /// by global middleware. See <see cref="ViewActionDispatcher"/>.
-        /// </remarks>
         private void EnsureDispatcherConfigured()
         {
             if (_dispatcherInitialized) return;
-            _dispatcherInitialized = true;  // set BEFORE invoking callback (re-entrancy guard)
+            _dispatcherInitialized = true;  // set first: resolving services must not re-enter
             _dispatcher.Logger = Logger;
-            Services.Resolve<Kibinago.ViewActions.IDispatcherConfigurer>()?.Configure(_dispatcher);
+            _dispatcher.OwnerType = GetType();
+            var options = Services.Resolve<Kibinago.ViewActions.ActionDispatcherOptions>();
+            if (options != null) _dispatcher.ValidationMode = options.ValidationMode;
+            _dispatcher.Observer = Services.Resolve<Kibinago.ViewActions.IActionObserver>();
         }
 
         /// <summary>

@@ -37,5 +37,8 @@ namespace Kibinago.Testing
 
         /// <summary>The busy indicator fake (<c>ShowBusy</c>): which requests began and ended.</summary>
         public FakeBusyIndicator Busy { get; } = new FakeBusyIndicator();
+
+        /// <summary>Records every action handler that ran (registered as the <see cref="Kibinago.ViewActions.IActionObserver"/>).</summary>
+        public RecordingActionObserver Actions { get; } = new RecordingActionObserver();
     }
 }

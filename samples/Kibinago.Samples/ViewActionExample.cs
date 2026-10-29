@@ -159,7 +159,7 @@ namespace Kibinago.Samples
             // TWO PATTERNS FOR UI STATE UPDATES:
             //
             // 1. ACTION-DRIVEN (automatic):
-            //    When actions execute, UI automatically updates via ActionExecuted event.
+            //    When an action finishes, the dispatcher re-evaluates CanExecute and the bound controls update.
             //    No code needed - this example uses this pattern.
             //
             // 2. STATE-DRIVEN (manual trigger):

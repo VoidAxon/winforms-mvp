@@ -34,9 +34,9 @@ namespace Kibinago.Samples.Tests.Services
         }
 
         [Fact]
-        public void Default_HasNoDispatcherConfigurer()
+        public void Default_HasNoActionObserver()
         {
-            Assert.Null(ServiceLocator.Current.Resolve<IDispatcherConfigurer>());
+            Assert.Null(ServiceLocator.Current.Resolve<IActionObserver>());
         }
 
         [Fact]

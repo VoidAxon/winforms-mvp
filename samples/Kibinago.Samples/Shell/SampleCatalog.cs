@@ -20,6 +20,7 @@ using Kibinago.Samples.ChangeTrackingDemo;
 using Kibinago.Samples.CompositionDemo;
 using Kibinago.Samples.FirstErrorDemo;
 using Kibinago.Samples.LoggingDemo;
+using Kibinago.Samples.ActionLogDemo;
 using Kibinago.Samples.ListDemo;
 using Kibinago.Samples.ToDoDemo;
 
@@ -35,6 +36,7 @@ namespace Kibinago.Samples.Shell
         public const string ValueBinding = "value-binding";
         public const string ExplicitEvent = "explicit-event";
         public const string ExplicitParameters = "explicit-parameters";
+        public const string ActionLog = "action-log";
         public const string Async = "async";
         public const string Busy = "busy";
         public const string DebounceThrottle = "debounce-throttle";
@@ -128,9 +130,14 @@ namespace Kibinago.Samples.Shell
                         "値のバインドを ActionRequest で受け取ります。",
                         (a, v) => a.Attach(new MixedParametersDemoPresenter(ServiceLocator.Current.Resolve<IMessageService>()), (IMixedParametersDemoView)v),
                         "ViewActionExplicitWithParametersExample.cs"),
+                    SampleDemo.Embedded(DemoIds.ActionLog, "操作ログ",
+                        "起動時の mvp.Actions.Observe(log) で、アプリ中のすべてのアクションの実行 (キー・ペイロード・Presenter・時間・結果) が届きます。ハンドラーはログを知りません。",
+                        (a, v) => a.Attach(new ActionLogDemoPresenter(ServiceLocator.Current.Resolve<SampleActionLog>()), (IActionLogDemoView)v),
+                        "ActionLogDemo/SampleActionLog.cs", "ActionLogDemo/ActionLogDemoPresenter.cs", "ActionLogDemo/IActionLogDemoView.cs",
+                        "ActionLogDemo/ActionLogDemoControl.cs", "Program.cs"),
                 },
                 // Code-only examples (the category's コード tab): further binder and dispatcher patterns.
-                new[] { "ViewActionExample.cs", "ViewActionWithParametersExample.cs", "ViewActionStateChangedExample.cs", "ViewActionMiddlewareExample.cs", "ActionRequestExample.cs" }),
+                new[] { "ViewActionExample.cs", "ViewActionWithParametersExample.cs", "ViewActionStateChangedExample.cs", "ActionRequestExample.cs" }),
 
             new SampleCategory("async", "非同期・処理中", "async の処理、間引き",
                 "async の処理は Dispatcher.Register(キー, async ct => ...) で登録します。実行中はボタンが無効になり、" +

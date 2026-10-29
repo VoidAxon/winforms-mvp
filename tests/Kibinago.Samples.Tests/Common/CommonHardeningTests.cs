@@ -59,29 +59,25 @@ namespace Kibinago.Samples.Tests.Common
         }
 
         [Fact]
-        public void HandlerThrows_OuterMiddlewareSeesExceptionWhileUnwinding()
+        public void HandlerThrows_ObserverIsToldAfterTheRefresh()
         {
-            var dispatcher = new ViewActionDispatcher();
-            dispatcher.Register(Save, () => throw new InvalidOperationException("boom"));
-            Exception seenInFinally = null;
-            bool executedInFinally = true;
-            dispatcher.Use(async (ctx, next) =>
-            {
-                try { await next(ctx); }
-                finally
-                {
-                    seenInFinally = ctx.Exception;
-                    executedInFinally = ctx.HandlerExecuted;
-                }
-            });
             int refreshes = 0;
+            int refreshesSeenByObserver = -1;
+            var observer = new DelegateObserver(e => refreshesSeenByObserver = refreshes);
+            var dispatcher = new ViewActionDispatcher { Observer = observer };
+            dispatcher.Register(Save, () => throw new InvalidOperationException("boom"));
             dispatcher.CanExecuteChanged += (s, e) => refreshes++;
 
             Assert.Throws<InvalidOperationException>(() => dispatcher.Dispatch(Save));
 
-            Assert.IsType<InvalidOperationException>(seenInFinally);
-            Assert.False(executedInFinally);
-            Assert.Equal(1, refreshes);
+            Assert.Equal(1, refreshesSeenByObserver);   // controls were re-enabled before the report
+        }
+
+        private sealed class DelegateObserver : IActionObserver
+        {
+            private readonly Action<ActionExecution> _onExecuted;
+            public DelegateObserver(Action<ActionExecution> onExecuted) => _onExecuted = onExecuted;
+            public void OnExecuted(ActionExecution execution) => _onExecuted(execution);
         }
 
         #endregion

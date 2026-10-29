@@ -114,7 +114,7 @@ namespace Kibinago.Samples.ToDoDemo
 
         // These handlers demonstrate ACTION-DRIVEN automatic updates.
         // After each action completes, UI state automatically refreshes
-        // because the dispatcher triggers ActionExecuted event.
+        // because the dispatcher raises CanExecuteChanged when a handler finishes.
         // NO manual UpdateCanExecuteStates() or RaiseCanExecuteChanged() needed!
 
         private void OnAddTask()
@@ -136,7 +136,7 @@ namespace Kibinago.Samples.ToDoDemo
 
             // UI state automatically updates here!
             // - Save action will become available (HasPendingChanges = true)
-            // No manual code needed - ActionExecuted event handles it
+            // No manual code needed - the dispatcher refreshes CanExecute after the handler
         }
 
         private void OnRemoveTask()
@@ -153,7 +153,7 @@ namespace Kibinago.Samples.ToDoDemo
             // UI state automatically updates here!
             // - Delete/Complete actions may become unavailable (if no selection after delete)
             // - Save action will become available (HasPendingChanges = true)
-            // No manual code needed - ActionExecuted event handles it
+            // No manual code needed - the dispatcher refreshes CanExecute after the handler
         }
 
         private void OnCompleteTask()
@@ -163,7 +163,7 @@ namespace Kibinago.Samples.ToDoDemo
 
             // UI state automatically updates here!
             // - Save action will become available (HasPendingChanges = true)
-            // No manual code needed - ActionExecuted event handles it
+            // No manual code needed - the dispatcher refreshes CanExecute after the handler
         }
 
         private void OnSaveAll()
@@ -175,7 +175,7 @@ namespace Kibinago.Samples.ToDoDemo
 
             // UI state automatically updates here!
             // - Save action will become unavailable (HasPendingChanges = false)
-            // No manual code needed - ActionExecuted event handles it
+            // No manual code needed - the dispatcher refreshes CanExecute after the handler
         }
 
         #endregion

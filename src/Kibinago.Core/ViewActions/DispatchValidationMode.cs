@@ -8,13 +8,13 @@ namespace Kibinago.ViewActions
     /// <remarks>
     /// <para>
     /// This setting only affects those two precondition failures. It does <b>not</b> change how
-    /// handler or <c>CanExecute</c> exceptions are handled (those are always caught and logged so
-    /// one faulty handler cannot crash the UI), and it does <b>not</b> turn a disabled action
+    /// handler exceptions are handled (logged, then propagated like an event handler's) or
+    /// <c>CanExecute</c> exceptions (logged, the action treated as disabled), and it does <b>not</b> turn a disabled action
     /// (<c>CanExecute</c> returning <c>false</c>) into an error.
     /// </para>
     /// <para>
-    /// The intended use is to enable <see cref="Strict"/> in Debug builds (via
-    /// <see cref="Kibinago.ViewActions.IDispatcherConfigurer"/>) so that a forgotten <c>Register</c> call or a
+    /// The intended use is to enable <see cref="Strict"/> in Debug builds (<c>mvp.Actions.StrictValidation()</c>,
+    /// i.e. <see cref="ActionDispatcherOptions.ValidationMode"/>) so that a forgotten <c>Register</c> call or a
     /// mistyped <see cref="ViewAction"/> key surfaces loudly the first time it is dispatched,
     /// instead of silently doing nothing. Production builds keep the default <see cref="Lenient"/>
     /// behaviour (graceful degradation: log and ignore).
