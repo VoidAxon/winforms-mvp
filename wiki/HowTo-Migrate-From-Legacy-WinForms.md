@@ -7,6 +7,7 @@
 
 ## 目次
 
+- [移行で得られるもの — 業務ロジックにテストが書ける](#移行で得られるもの--業務ロジックにテストが書ける)
 - [移行の全体戦略](#移行の全体戦略)
 - [Step 1: 準備 — フレームワーク参照とサービス構成](#step-1-準備--フレームワーク参照とサービス構成)
 - [Step 2: 最初の画面を移行する](#step-2-最初の画面を移行する)
@@ -21,10 +22,100 @@
 
 ---
 
+## 移行で得られるもの — 業務ロジックにテストが書ける
+
+従来の WinForms で一番困るのは、業務ロジックにテストが書けないことです。
+
+### Before — テストが書けない
+
+```csharp
+public partial class CustomerEditForm : Form
+{
+    private void btnSave_Click(object sender, EventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(txtName.Text))
+        {
+            MessageBox.Show("名前を入力してください。");
+            return;
+        }
+        using (var db = new SqlConnection(ConnectionString)) { /* INSERT / UPDATE */ }
+        MessageBox.Show("保存しました。");
+        DialogResult = DialogResult.OK;
+    }
+}
+```
+
+「名前が空なら保存しない」を確かめるだけでも、Form を作り、誰かが MessageBox を閉じ、本物の DB につなぐ必要があります。テストは書けず、確認は画面を手で操作するしかありません。
+
+### After — Presenter とテスト
+
+```csharp
+public interface ICustomerEditView : IWindowView
+{
+    string CustomerName { get; set; }
+}
+
+public sealed class CustomerEditPresenter : WindowPresenterBase<ICustomerEditView>
+{
+    private readonly ICustomerRepository _repository;   // DB アクセスはインターフェイスの向こうへ
+
+    public CustomerEditPresenter(ICustomerRepository repository) => _repository = repository;
+
+    protected override void RegisterViewActions()
+        => Dispatcher.Register(StandardActions.Save, OnSave);
+
+    private void OnSave()
+    {
+        if (string.IsNullOrWhiteSpace(View.CustomerName))
+        {
+            Messages.ShowWarning("名前を入力してください。");
+            return;
+        }
+        _repository.Save(new Customer { Name = View.CustomerName });
+        Messages.ShowInfo("保存しました。");
+        RequestClose(InteractionStatus.Ok);
+    }
+}
+```
+
+```csharp
+[Fact]
+public void 名前が空なら保存しない()
+{
+    var fakes = TestServices.CreateFakes();
+    var repository = new FakeCustomerRepository();
+    var view = new MockCustomerEditView { CustomerName = "" };   // ActionBinder に CapturingActionBinder を返す
+
+    using (var host = PresenterTestHost.Start(fakes.Provider, new CustomerEditPresenter(repository), view))
+    {
+        view.Binder.Dispatch(StandardActions.Save);
+
+        Assert.Empty(repository.Saved);
+        Assert.Equal(MessageKind.Warning, Assert.Single(fakes.Messages.Calls).Kind);
+        Assert.False(host.CloseRequested);
+    }
+}
+```
+
+Form も MessageBox も DB も使わずに、数ミリ秒で終わります。偽 View・偽リポジトリの書き方は [Presenter をテストする](HowTo-Test-A-Presenter) を参照してください。
+
+画面を開く側は、ほとんど変えずに済みます ([Step 2.1](#21-呼び出し側を変えずに接続する--connect))。
+
+```csharp
+var form = new CustomerEditForm();
+new CustomerEditPresenter(new SqlCustomerRepository()).Connect(form, r => { if (r.IsOk) Reload(); });
+form.ShowDialog(this);
+```
+
+Form の残りの部分は従来のままで構いません。壊れると困る操作から 1 つずつ Presenter に移し、そのたびにテストを足していきます。
+
+---
+
 ## 移行の全体戦略
 
 | 戦略 | 説明 |
 |------|----|
+| **テストしたい画面から** | ロジックが多く不具合の多い画面の、保存・削除など壊れると困る操作から Presenter に移し、テストを付ける |
 | **小さい画面から** | About ダイアログ・設定画面等の小さい画面で MVP の感覚を掴む |
 | **新規機能だけ MVP** | 既存画面はそのまま、新規追加は MVP で書く |
 | **段階的にリファクタ** | 移行コストが大きい画面は後回し。優先度を付ける |
@@ -75,7 +166,29 @@ internal static class Program
 
 ## Step 2: 最初の画面を移行する
 
-最初の移行は **シンプルなダイアログ** が最適。例: About ダイアログ。
+### 2.1 呼び出し側を変えずに接続する — `Connect`
+
+移行の途中では、画面を開く側もまだ従来のコード (`new XxxForm().ShowDialog()`) であることがほとんどです。そのときは呼び出し側で Form を作ったまま、`Connect` で Presenter をつなぎます。Form の表示 (`Show` / `ShowDialog` / `Application.Run`) は呼び出し側のままです。
+
+```csharp
+// Before
+using (var form = new CustomerEditForm(customer))
+{
+    if (form.ShowDialog(this) == DialogResult.OK) Reload();
+}
+
+// After: 顧客を受け取る Presenter (WindowPresenterBase<ICustomerEditView, Customer>) をつなぐ。
+//        結果は onClosed で受け取る (Form は閉じたときに破棄される)
+var form = new CustomerEditForm();
+new CustomerEditPresenter(repository).Connect(form, customer, r => { if (r.IsOk) Reload(); });
+form.ShowDialog(this);
+```
+
+`Connect` は View の接続・初期化・閉じる処理の配線をまとめて行います。パラメーターなし / あり、結果なし / あり (`Connect<TView, TResult>`、`Connect<TView, TParam, TResult>`) の形があります。開く側も Presenter になったら、2.2 の `Navigator` に切り替えます。
+
+### 2.2 小さなダイアログを移行して `Navigator` で開く
+
+MVP の書き方に慣れるには、**シンプルなダイアログ** が最適です。例: About ダイアログ。
 
 ### Before — 従来コード
 
@@ -193,7 +306,7 @@ public class MyPresenter : WindowPresenterBase<IMyView>
 }
 ```
 
-### After — Constructor Injection (テスタブル)
+### After — Constructor Injection
 
 ```csharp
 public class MyPresenter : WindowPresenterBase<IMyView>
@@ -220,7 +333,7 @@ public class MyPresenter : WindowPresenterBase<IMyView>
 }
 ```
 
-詳しい DI パターンの選び方は [Dependency Injection](Reference-DependencyInjection) 参照。
+どちらの書き方もテストできます。`Messages` などのフレームワークのサービスは、テストで `PresenterTestHost.Start(fakes.Provider, ...)` に渡した偽物 (`TestServices.CreateFakes()`) に置き換わります ([Presenter をテストする](HowTo-Test-A-Presenter))。詳しい DI パターンの選び方は [Dependency Injection](Reference-DependencyInjection) 参照。
 
 ---
 
@@ -529,13 +642,13 @@ public class LegacyForm : Form { /* ... */ }
 すべての画面が以下を満たせば移行完了です。
 
 - ☐ すべての Form が `IWindowView` を継承するインターフェイスを実装
-- ☐ すべての Form 起動が `WindowNavigator` 経由
+- ☐ すべての Form 起動が `WindowNavigator` 経由、または呼び出し側で作った Form に `Connect`
 - ☐ Presenter 内に `MessageBox.Show()` / `new OpenFileDialog()` 等の WinForms 直接呼び出しがゼロ
 - ☐ Presenter 内に `using System.Windows.Forms;` ディレクティブがゼロ (View 実装にだけ存在)
 - ☐ `ILegacyFormService` のような移行用ブリッジを削除
-- ☐ 単体テストが各 Presenter に対して書かれている
+- ☐ 各 Presenter に、少なくとも保存・削除など壊れると困る操作のテストがある
 
-最後の項目はベストエフォートでもよいですが、最初の 5 つは必須です。
+最初の 5 つは必須です。最後の項目は完了の条件にはしませんが、移行で得られる一番大きなものです。
 
 ---
 
