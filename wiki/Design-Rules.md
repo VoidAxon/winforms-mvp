@@ -28,7 +28,7 @@
 public interface IUserEditorView : IWindowView { ... }
 public class UserEditorForm : Form, IUserEditorView { ... }
 
-public interface ISearchPanelView : IViewBase { ... }
+public interface ISearchPanelView : IControlView { ... }
 public class SearchPanelControl : UserControl, ISearchPanelView { ... }
 
 // ❌ Bad
@@ -538,8 +538,9 @@ public class GoodPresenter : WindowPresenterBase<IMyView>
 | `MVP016` | Presenter に public イベントを宣言しない | [Rule 17](#rule-17-presenter-イベントの可視性) |
 | `MVP017` | `IEventAggregator.Subscribe` の戻り値 (購読トークン) を捨てない | [EventAggregator — 購読の生存期間](Reference-EventAggregator#購読の生存期間) |
 | `MVP018` | フィールド / プロパティに入れた `Debouncer` / `Throttler` を破棄する (`.DisposeWith(Disposables)` など) | [レート制限 — ライフサイクルと破棄](Reference-RateLimiting#ライフサイクルと破棄) |
+| `MVP019` | View はウィンドウ (`IWindowView`) かコントロール (`IControlView`) のどちらか。両方を継承しない (共通のメンバーは役割のない別のインターフェイスに) | [用語集 — View インターフェイス](Glossary) |
 
-> Presenter / View インターフェイスの判定は名前ではなく型で行います: Presenter は `Kibinago.Presenters.PresenterBase<T>` の派生クラス、View インターフェイスは `Kibinago.Views.IViewBase` の派生インターフェイス、UI 型は `System.Windows.Forms` 名前空間の型 (およびその派生) です。
+> Presenter / View インターフェイスの判定は名前ではなく型で行います: Presenter は `Kibinago.Presenters.PresenterBase<T>` の派生クラス、View インターフェイスは `Kibinago.Views.IView` (ルート。アプリは `IWindowView` / `IControlView` から定義) の派生インターフェイス、UI 型は `System.Windows.Forms` 名前空間の型 (およびその派生) です。
 
 > 既定の重大度はすべて **Warning** です (フレームワークをインストールしただけでビルドが壊れないように)。チームで厳格化したい場合は `.editorconfig` で個別に `error` へ引き上げられます。
 

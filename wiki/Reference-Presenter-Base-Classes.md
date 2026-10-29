@@ -211,11 +211,11 @@ presenter.Connect(_searchPanel, parameters);   // アタッチ + パラメータ
 
 ```csharp
 protected IDisposable AttachChild<TChildView>(ControlPresenterBase<TChildView> child, TChildView view)
-    where TChildView : IViewBase;
+    where TChildView : IControlView;
 
 protected IDisposable AttachChild<TChildView, TParam>(
     ControlPresenterBase<TChildView, TParam> child, TChildView view, TParam parameters)
-    where TChildView : IViewBase;
+    where TChildView : IControlView;
 ```
 
 - 子にできるのは **コントロール Presenter だけ**。Window Presenter (クローズゲート・結果を持つ) は型制約でコンパイルエラー。
@@ -499,7 +499,7 @@ using (var host = PresenterTestHost.Start(presenter, view))
 | `Navigator` | `IWindowNavigator` | 子ウィンドウの表示 |
 | `Lifetime` | `CancellationToken` | Presenter の破棄 (ウィンドウを閉じる / コントロール破棄) でキャンセルされるトークン |
 | `AttachChild(child, view[, parameters])` | `IDisposable` (メソッド) | 子パネルの Presenter を所有・初期化 ([上記](#子-presenter-を所有する-attachchild)) |
-| `Validation` | `ValidationState` | 検証エラー (フィールド名ごと)。`Validate(model)` / `Check(model)` / `SetError` / `Reset`。View が `IValidatableView` なら `ValidationErrors` に自動接続され、変更のたびに `canExecute` を再評価 ([フォーム入力を検証する](HowTo-Validate-Form-Input)) |
+| `Validation` | `ValidationState` | 検証エラー (フィールド名ごと)。`Validate(model)` / `Check(model)` / `SetError` / `Reset`。View が `IValidationErrorBindable` なら `ValidationErrors` に自動接続され、変更のたびに `canExecute` を再評価 ([フォーム入力を検証する](HowTo-Validate-Form-Input)) |
 
 `Messages` / `Dialogs` / `Logger` / `Navigator` は `ServiceLocator.Current` (`IServiceProvider`) から遅延解決されます。
 DI コンテナと統合する場合の構成方法は [Dependency Injection](Reference-DependencyInjection) を参照してください。

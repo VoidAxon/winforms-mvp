@@ -276,7 +276,7 @@ public class CustomerService : ICustomerService
     }
 }
 
-// ── IView: intent-level, no controls leaked ──
+// ── IXxxView: intent-level, no controls leaked ──
 public interface ICustomerEditView
 {
     string Name { get; set; }
@@ -325,7 +325,7 @@ public class CustomerEditPresenter
 }
 ```
 
-Presenter には SQL も、業務ルールも、WinForms の入力型もありません — それは `IView` とサービス層の間の協調者そのものです。
+Presenter には SQL も、業務ルールも、WinForms の入力型もありません — それは View インターフェイスとサービス層の間の協調者そのものです。
 
 > 上のサンプルは仕組みを示すための最小形です。実フレームワークでは、`Initialize`/`Dispose` での手書き購読を [ViewAction システム](Reference-ViewAction-System) が、`Result` 型を [`InteractionResult<T>`](HowTo-Handle-Errors) が引き受け、購読解除忘れを構造的に防ぎます。
 

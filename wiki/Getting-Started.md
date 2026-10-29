@@ -76,7 +76,7 @@ namespace MyFirstMvpApp
 
 **ポイント**
 
-- `IWindowView` を継承する (Form 用)。UserControl の場合は `IViewBase`。
+- `IWindowView` を継承する (Form 用)。UserControl の場合は `IControlView`。
 - 公開するのは **データと振る舞いだけ**。`Button` や `TextBox` 等の WinForms 型は絶対に露出させない。
 
 ### 2.2 Presenter

@@ -7,7 +7,7 @@
 
 - **ルール** — Model の DataAnnotations (`Validation.Validate(model)` がプロパティ属性・クラスレベル属性・`IValidatableObject` をすべて評価) + Presenter のルール (`Validation.SetError(field, msg)` / `ClearError`。クロスフィールドや DB 照会など)
 - **状態** — 全 Presenter が持つ `protected ValidationState Validation`。フィールド名 (= Model のプロパティ名) ごとの現在のエラー
-- **表示** — View が `IValidatableView` を実装して `IValidationErrorDisplay ValidationErrors` を公開。Form では `ErrorProviderDisplay` でフィールド名をコントロールに対応付ける。接続はフレームワークが自動で行う
+- **表示** — View が `IValidationErrorBindable` を実装して `IValidationErrorDisplay ValidationErrors` を公開。Form では `ErrorProviderDisplay` でフィールド名をコントロールに対応付ける。接続はフレームワークが自動で行う
 - **タイミング** — フィールドのエラーは、ユーザーがそのコントロールを離れた (フォーカスが外れた) 後、または送信 (`Validation.Check(model)`) の後に表示される
 
 完全な実装例は [`samples/Kibinago.Samples/ValidationDemo/`](https://github.com/VoidAxon/winforms-mvp/tree/master/samples/Kibinago.Samples/ValidationDemo) (`RegistrationModel` / `ValidationDemoPresenter` / `ValidationDemoForm`) です。
@@ -18,7 +18,7 @@
 
 - [推奨パターン: Validation + ErrorProviderDisplay](#推奨パターン-validation--errorproviderdisplay)
   - [1. Model にルールを書く](#1-model-にルールを書く)
-  - [2. View インターフェイス: IValidatableView](#2-view-インターフェイス-ivalidatableview)
+  - [2. View インターフェイス: IValidationErrorBindable](#2-view-インターフェイス-ivalidationerrorbindable)
   - [3. Form: ErrorProviderDisplay でフィールドとコントロールを対応付ける](#3-form-errorproviderdisplay-でフィールドとコントロールを対応付ける)
   - [4. Presenter: Validate / Check / Reset](#4-presenter-validate--check--reset)
   - [エラーが表示されるタイミング](#エラーが表示されるタイミング)
@@ -84,12 +84,12 @@ public class RegistrationModel
 
 > 💡 **フィールド名 = Model のプロパティ名。** Presenter の `SetError` でも Form の `Map` でも `nameof(RegistrationModel.UserName)` のように書きます。文字列リテラルは使いません。
 
-### 2. View インターフェイス: IValidatableView
+### 2. View インターフェイス: IValidationErrorBindable
 
-View インターフェイスに `IValidatableView` を追加するだけです。エラー表示用のメソッド (`ShowFieldError` 等) を自前で定義する必要はありません。
+View インターフェイスに `IValidationErrorBindable` を追加するだけです。エラー表示用のメソッド (`ShowFieldError` 等) を自前で定義する必要はありません。
 
 ```csharp
-public interface IRegistrationView : IWindowView, IValidatableView
+public interface IRegistrationView : IWindowView, IValidationErrorBindable
 {
     string UserName { get; set; }
     string Email { get; set; }
@@ -103,7 +103,7 @@ public interface IRegistrationView : IWindowView, IValidatableView
 
 ```csharp
 // Kibinago.Views (Kibinago.Core)
-public interface IValidatableView : IViewBase
+public interface IValidationErrorBindable   // 能力: View ではない。必要な View に足す
 {
     IValidationErrorDisplay ValidationErrors { get; }
 }
@@ -145,7 +145,7 @@ public partial class RegistrationForm : Form, IRegistrationView
 - `ValidationState.FormLevel` にマップしたコントロール (例: 送信ボタン) には、**メンバー名のないエラーとマップされていないフィールドのエラー** が、送信の後に表示されます。
 - 同じフィールドを 2 回 `Map` すると例外です。Form にはフィールドごとのエラー処理コードも検証ロジックも書きません。
 
-接続はフレームワークが行います。View が `IValidatableView` を実装していれば、Presenter の `Validation` の変更はすべて `ValidationErrors` に送られ、同時に全アクションの `canExecute` が再評価されます (`ActionBinder` の自動 Bind と同じ扱い)。
+接続はフレームワークが行います。View が `IValidationErrorBindable` を実装していれば、Presenter の `Validation` の変更はすべて `ValidationErrors` に送られ、同時に全アクションの `canExecute` が再評価されます (`ActionBinder` の自動 Bind と同じ扱い)。
 
 ### 4. Presenter: Validate / Check / Reset
 
@@ -289,7 +289,7 @@ void IRegistrationView.FocusError(string field) => _errors.TryFocusError(field);
 
 | | メッセージだけ | メッセージ + アイコン |
 |---|---|---|
-| View | `IValidatableView` を **実装しない** | `IValidatableView` を実装し、`ErrorProviderDisplay` で項目とコントロールを対応付ける |
+| View | `IValidationErrorBindable` を **実装しない** | `IValidationErrorBindable` を実装し、`ErrorProviderDisplay` で項目とコントロールを対応付ける |
 | 入力中 | 何も表示しない | 離れた項目の横にアイコン |
 | 送信に失敗したとき | 最初のエラーをメッセージで出し、その項目へフォーカス | 同じ + 全項目にアイコン |
 | フォーカスの移し方 | Form が項目名 → コントロールを自分で対応付ける (`switch` など) | `_errors.TryFocusError(field)` |
@@ -563,7 +563,7 @@ public sealed class OrderInput : NotifyingObject
 
 ### Presenter のテスト
 
-モック View で `IValidatableView` を実装し、`Kibinago.Testing` の `FakeValidationErrorDisplay` を返します。Presenter の `Validation` が送ったエラーを記録します (`Errors`、`RevealAll`、`ErrorsFor(field)`、`HasError(field)`、`ShowCount` / `ResetCount`)。アクションは本番と同じ経路 (`view.Binder.Dispatch`) で実行します。
+モック View で `IValidationErrorBindable` を実装し、`Kibinago.Testing` の `FakeValidationErrorDisplay` を返します。Presenter の `Validation` が送ったエラーを記録します (`Errors`、`RevealAll`、`ErrorsFor(field)`、`HasError(field)`、`ShowCount` / `ResetCount`)。アクションは本番と同じ経路 (`view.Binder.Dispatch`) で実行します。
 
 ```csharp
 // MockRegistrationView : IRegistrationView

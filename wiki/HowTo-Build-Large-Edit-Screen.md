@@ -71,7 +71,7 @@ public sealed class CustomerEditInput : NotifyingObject
 View インターフェイスは「モデルを渡す」メンバーと、バインドに向かないものだけです。メソッド名は技術的な操作 (`Bind`、`SetXxxOptions`) ではなく業務の言葉で付けます ([設計ルール 15](Design-Rules#rule-15-ドメイン駆動の命名)):
 
 ```csharp
-public interface ICustomerEditView : IWindowView, IValidatableView
+public interface ICustomerEditView : IWindowView, IValidationErrorBindable
 {
     void ShowCustomer(CustomerEditInput input);         // 編集する顧客を表示 (フォームがコントロールをバインドする)
     void ShowTags(IReadOnlyList<Tag> tags);             // 選択肢

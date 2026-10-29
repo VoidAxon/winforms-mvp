@@ -107,7 +107,7 @@ dotnet new mvp-window -n OrderEdit [--param-type int] [--validation | --edit] [-
 | オプション | 既定値 | 説明 |
 |-----------|-------|------|
 | `--param-type` | (なし) | ウィンドウを開くときのパラメータ型。指定すると `WindowPresenterBase<IOrderEditView, int>` と `OnInitialize(int parameters)` になる。自分の型 (`Customer` など) を指定するときは、その型を **先に** 作っておく (なければ生成直後のビルドが失敗する。名前空間が違えば `using` を足す) |
-| `--validation` | `false` | `OrderEditModel` (DataAnnotations) を追加し、View を `IValidatableView` にして `ErrorProviderDisplay` でエラーをフィールドの横に表示 |
+| `--validation` | `false` | `OrderEditModel` (DataAnnotations) を追加し、View を `IValidationErrorBindable` にして `ErrorProviderDisplay` でエラーをフィールドの横に表示 |
 | `--edit` | `false` | **編集ダイアログ** (下記)。モデルを受け取って開き、保存したモデルを結果として返し、未保存の変更があれば ✕ / Esc / Cancel で「保存しますか？」と聞く。`--validation` を含む。`--param-type` は無視 (パラメータはモデル) |
 | `-ns`, `--namespace` | プロジェクトの `RootNamespace` | 生成ファイルの名前空間。サブフォルダに生成するときに指定する |
 

@@ -140,16 +140,17 @@ DI 管理の依存を持つ子 Presenter を生成するためのファクトリ
 
 `InteractionStatus` enum。`Ok` / `Cancel` / `Error` の値を持つ。`RequestClose(result, status)` や `ICloseSink.Close(result, status)` の引数として使う。
 
-### IViewBase / IActionableView / IWindowView
+### IView / IWindowView / IControlView / IActionBindable / IValidationErrorBindable
 
-View インターフェイスの 3 層の継承構造。
+View インターフェイスは **役割** (ウィンドウかコントロールか) を 1 つ選び、必要なら **能力** を足します。
 
-- **`IViewBase`** — すべての View 共通の **ルート** (空のマーカー)。義務を課さない。アクション生成コントロールを持たない View (静的なスプラッシュ等) はこれを直接実装してよい。
-- **`IActionableView : IViewBase`** — ViewAction システムに参加する View が実装する中間層。`ActionBinder` (`IViewActionBinder`) を 1 つ公開する。
-- **`IWindowView : IActionableView`** — Form (ウィンドウ) 用のマーカー。独自メンバーも WinForms 型も持たない (`Handle` / `IsDisposed` / `Activate` も含まない)。クローズ制御は Presenter の `CanClose(CloseReason)` override / `RequestClose(...)` で行い、ライフサイクル・アクティブ化は具象 Form 側でフレームワークが扱う。モーダルダイアログの `owner` として渡せる (Navigator が実行時に実ウィンドウへ解決する)。
-- **`IValidatableView : IViewBase`** — 検証エラーを表示する View が追加で実装する。`ValidationErrors` (`IValidationErrorDisplay`) を 1 つ公開し、Presenter の `Validation` に自動接続される。Form では通常 `ErrorProviderDisplay` を返す ([フォーム入力を検証する](HowTo-Validate-Form-Input))。
+- **`IWindowView : IView, IActionBindable`** — ウィンドウ (Form) の View。`WindowPresenterBase` が要求し、Navigator が作ります。
+- **`IControlView : IView, IActionBindable`** — パネル (UserControl) の View。`ControlPresenterBase` / `AttachChild` / コントロールの `Connect` が要求します。
+- **`IActionBindable`** — `ActionBinder` (`IViewActionBinder`) を 1 つ公開する能力。2 つの役割に含まれています。ViewAction を使わない View は `ActionBinder => null` を返します (自動バインドしない)。
+- **`IValidationErrorBindable`** — 検証エラーをコントロールの横に出す View が、必要なときに足す能力。`ValidationErrors` (`IValidationErrorDisplay`) を 1 つ公開し、Presenter の `Validation` に自動接続されます。Form では通常 `ErrorProviderDisplay` を返します ([フォーム入力を検証する](HowTo-Validate-Form-Input))。
+- **`IView`** — すべての View の共通のルート (空)。アプリは直接実装せず、どちらかの役割から定義します。View を何でも受け取るフレームワークの API (`PresenterTestHost`、Navigator の `owner` など) が使います。
 
-慣習として、Form 系の View は `IWindowView` を、UserControl 系の View は `IViewBase` (アクションを持つなら `IActionableView`) を起点に定義する。`IViewBase` は「UserControl 専用」ではなく、全 View の共通ルートである点に注意。
+View は**ウィンドウかコントロールのどちらか**です。両方を継承すると MVP019 の警告、実行時にはアタッチ前に例外になります。ウィンドウとパネルで共通のメンバーは、役割を持たない普通のインターフェイスにして、それぞれの View から継承します。
 
 ### IViewMappingRegister
 
