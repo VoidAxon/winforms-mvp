@@ -44,7 +44,7 @@ namespace Kibinago.ViewActions
         /// <summary>How the handler ended.</summary>
         public ActionOutcome Outcome { get; }
 
-        /// <summary>The handler's exception when it failed, or the cancellation exception when one was thrown; otherwise <c>null</c>.</summary>
+        /// <summary>The handler's exception when it <see cref="ActionOutcome.Failed"/> (the same instance that propagates); otherwise <c>null</c>, cancellations included.</summary>
         public Exception Exception { get; }
     }
 

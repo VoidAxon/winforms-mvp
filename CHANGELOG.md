@@ -11,7 +11,7 @@
 ### Changed (変更)
 
 - **ViewAction のミドルウェアを廃止し、全体で 1 つの `IActionObserver` に (破壊的変更)** — `Dispatcher.Use(...)`、`IDispatchMiddleware`、`DispatchContext`、`IDispatcherConfigurer` / `ActionDispatcherConfigurer`、`mvp.Actions.Configure(...)`、`ViewActionDispatcher.ActionExecuted` (と `ActionExecutedEventArgs`) を削除。ミドルウェアは処理を止める・例外を握りつぶすこともでき、ハンドラーの動きが登録順で変わるのに、使われ方は記録と計測だけだった。エラーの表示は `Application.ThreadException`、権限による無効化は `canExecute` で書ける。
-  - 新しい **`IActionObserver`** (`OnExecuted(ActionExecution)`) は、実行されたハンドラーごとに、終わったときに 1 回だけ呼ばれる: `Action`、`Payload`、`PresenterType`、`StartedAt`、`Elapsed`、`IsAsync`、`Outcome` (`Succeeded` = ハンドラーが例外なく終わった / `Failed` / `Canceled`)、`Exception`。呼ばれるのはアクションが再び有効になった後 (Presenter の破棄後に終わった非同期ハンドラーも)。実行されなかったディスパッチ (無効、未登録、ペイロードの型違い、実行中の二度押し) は通知されない。オブザーバーは結果を変えられず、投げた例外はログに出して無視する。
+  - 新しい **`IActionObserver`** (`OnExecuted(ActionExecution)`) は、実行されたハンドラーごとに、終わったときに 1 回だけ呼ばれる: `Action`、`Payload`、`PresenterType`、`StartedAt`、`Elapsed`、`IsAsync`、`Outcome` (`Succeeded` = ハンドラーが例外なく終わった / `Failed` / `Canceled`)、`Exception` (`Failed` のときだけ、外へ伝わるのと同じ例外)。呼ばれるのはアクションが再び有効になった後 (Presenter の破棄後に終わった非同期ハンドラーも)。実行されなかったディスパッチ (無効、未登録、ペイロードの型違い、実行中の二度押し) は通知されない。オブザーバーは結果を変えられず、投げた例外はログに出して無視する。
   - 登録は起動時: `mvp.Actions.Observe(observer)` / `Observe(sp => ...)` (または `IActionObserver` をサービスに直接登録)。Strict 検証は `mvp.Actions.StrictValidation()` のまま (`ActionDispatcherOptions` として登録)。オブザーバーがなければ時刻も読まない。
   - テスト: `RecordingActionObserver` (`Kibinago.Testing`)。`TestServices.CreateFakes()` が登録し、`fakes.Actions.Executions` で実行されたアクションを確認できる。
   - 移行:

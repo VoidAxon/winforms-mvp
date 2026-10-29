@@ -122,7 +122,7 @@ namespace Kibinago.Samples.Tests.ViewActions
         }
 
         [Fact]
-        public async Task CancelledByDisposal_IsCanceled_WithTheCancellation()
+        public async Task CancelledByDisposal_IsCanceled_WithoutAnException()
         {
             var (dispatcher, observer, _) = NewDispatcher();
             using (var lifetime = new CancellationTokenSource())
@@ -139,7 +139,7 @@ namespace Kibinago.Samples.Tests.ViewActions
 
             var execution = Assert.Single(observer.Executions);
             Assert.Equal(ActionOutcome.Canceled, execution.Outcome);
-            Assert.IsAssignableFrom<OperationCanceledException>(execution.Exception);
+            Assert.Null(execution.Exception);
         }
 
         [Fact]

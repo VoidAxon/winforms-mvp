@@ -550,7 +550,7 @@ MvpApplication.Configure(framework: mvp =>
 | `StartedAt` / `Elapsed` | 開始時刻 (UTC) とハンドラの所要時間 (非同期ハンドラは最後の `await` の後まで) |
 | `IsAsync` | 非同期ハンドラか |
 | `Outcome` | `Succeeded` (ハンドラが例外なく終わった) / `Failed` / `Canceled` |
-| `Exception` | `Failed` の例外、Presenter の破棄による `Canceled` の `OperationCanceledException` (それ以外は `null`) |
+| `Exception` | `Failed` のときだけ、ハンドラの例外 (`Application.ThreadException` に伝わるのと同じオブジェクト)。`Succeeded` / `Canceled` は `null` |
 
 - **呼ばれる時点** — アクションが再び有効になり、`CanExecuteChanged` でコントロールの状態が更新された後。UI スレッド (ディスパッチしたスレッド) で呼ばれます。画面を閉じた後に終わった非同期ハンドラも通知されます (`Canceled` または、トークンを見ずに完走すれば `Succeeded`)。
 - **呼ばれないディスパッチ** — 何も実行されなかったもの: `canExecute` が `false`、未登録のキー、ペイロードの型違い、非同期ハンドラの実行中の二度押し、破棄後のディスパッチ。

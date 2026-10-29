@@ -386,12 +386,12 @@ namespace Kibinago.ViewActions
             var delivery = new Delivery(awaitable, SynchronizationContext.Current);
             var run = new Run(actionKey, entry, payload, Observer);
 
-            if (!TryExecuteHandler(run, out var pending, out var failure, out var cancellation))
+            if (!TryExecuteHandler(run, out var pending, out var failure))
             {
                 // Threw synchronously (or was cancelled): the handler may have changed state, so
                 // CanExecute is re-queried.
                 End(run, failure == null ? ActionOutcome.Canceled : ActionOutcome.Failed,
-                    (Exception)cancellation ?? failure?.SourceException);
+                    failure?.SourceException);
                 return failure == null ? Task.CompletedTask : delivery.FailNow(failure);
             }
 
@@ -455,22 +455,18 @@ namespace Kibinago.ViewActions
         /// <param name="run">The run.</param>
         /// <param name="pending">The handler's task (null for a synchronous handler); null when it failed.</param>
         /// <param name="failure">The handler's exception to propagate; null for a cancellation.</param>
-        /// <param name="cancellation">The cancellation exception when the disposal cancelled it.</param>
-        private bool TryExecuteHandler(Run run, out Task pending, out ExceptionDispatchInfo failure,
-            out OperationCanceledException cancellation)
+        private bool TryExecuteHandler(Run run, out Task pending, out ExceptionDispatchInfo failure)
         {
-            cancellation = null;
             try
             {
                 pending = run.Entry.Handler.Execute(run.Payload, Lifetime);
                 failure = null;
                 return true;
             }
-            catch (OperationCanceledException ex) when (Lifetime.IsCancellationRequested)
+            catch (OperationCanceledException) when (Lifetime.IsCancellationRequested)
             {
                 pending = null;
                 failure = null;
-                cancellation = ex;
                 _logger.LogDebug("ViewActionDispatcher: {ActionKey} was cancelled because its owner was disposed", run.Action);
                 return false;
             }
@@ -560,7 +556,7 @@ namespace Kibinago.ViewActions
             if (error is OperationCanceledException && Lifetime.IsCancellationRequested)
             {
                 _logger.LogDebug("ViewActionDispatcher: {ActionKey} was cancelled because its owner was disposed", run.Action);
-                End(run, ActionOutcome.Canceled, error);
+                End(run, ActionOutcome.Canceled, null);
                 return null;
             }
 
