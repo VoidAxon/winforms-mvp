@@ -314,7 +314,7 @@ internal static class Program
 
 ### フレームワークのカスタマイズ (`AddKibinago(viewRegistry, mvp => ...)`)
 
-ダイアログの見た目・トーストの既定値・変更追跡エンジン・ロギング・グローバルミドルウェアなどは、
+ダイアログの見た目・トーストの既定値・変更追跡エンジン・ロギング・アクションのオブザーバーなどは、
 `AddKibinago` の第 3 引数で設定します。`MvpApplication.Configure(framework: ...)` (M.E.DI なし) と
 **同じビルダー (`KibinagoBuilder`)・同じ既定値** です。
 
@@ -572,40 +572,27 @@ internal static class Program
 
 > ⚠️ **`AsFrameworkLoggerFactory()` はフレームワーク同梱のメソッドではありません。** コアパッケージは `Microsoft.Extensions.Logging` に依存しない設計なので、`Kibinago.DependencyInjection` もログ用アダプタを含みません (依存は `Microsoft.Extensions.DependencyInjection.Abstractions` のみ)。M.E.L. の `ILoggerFactory` をフレームワークの `Kibinago.Logging.ILoggerFactory` に橋渡しするには、~30 行のアダプタを自分で書きます (全ターゲットで利用可)。実装例は [`samples/MultiProjectDemo.Shell/Logging/MicrosoftLoggingExtensions.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/samples/MultiProjectDemo.Shell/Logging/MicrosoftLoggingExtensions.cs) と [Logging リファレンス](Reference-Logging) を参照。ログが不要なら `NullLoggerFactory` が自動で使われます。直接登録の代わりに `services.AddKibinago(viewRegistry, mvp => mvp.Logging.Use(loggerFactory.AsFrameworkLoggerFactory()))` と書くこともできます。
 
-### グローバル Dispatcher ミドルウェアの設定 (`IDispatcherConfigurer`)
+### Dispatcher の設定 (`IActionObserver`、Strict 検証)
 
-サービスプロバイダに **`IDispatcherConfigurer`** を登録すると、すべての Presenter の `ViewActionDispatcher` に対して共通のミドルウェアを設定できます。`ActionDispatcherConfigurer` を使うとクラスなしで記述できます。
-
-起動時の設定ブロックでは `mvp.Actions.Configure(...)` が 1 つの `IDispatcherConfigurer` として登録されます (推奨):
+すべての Presenter の `ViewActionDispatcher` に共通の設定は起動時の設定ブロックで指定します。操作ログ・計測のオブザーバー (`IActionObserver`) と、配線ミスを例外にする Strict 検証 (`ActionDispatcherOptions`) です:
 
 ```csharp
 // M.E.DI なし
 MvpApplication.Configure(framework: mvp => mvp.Actions
-    .Configure(d => d.Use(new AuditMiddleware(auditSink, () => CurrentUser.Name)))
+    .Observe(sp => new OperationLog(sp.Resolve<ILoggerFactory>()))
     .StrictValidation());   // Debug ビルドで配線ミスを例外にしたい場合
 
 // M.E.DI
-services.AddKibinago(viewRegistry, mvp => mvp.Actions.Configure(d => d.Use(...)));
+services.AddKibinago(viewRegistry, mvp => mvp.Actions.Observe(sp => new OperationLog(sp.GetRequiredService<ILoggerFactory>())));
 ```
 
-`IDispatcherConfigurer` を直接登録することもできます:
+`IActionObserver` を直接登録することもできます (M.E.DI では `AddKibinago` の前後どちらでも可、直接の登録が優先):
 
 ```csharp
-// M.E.DI なしの場合
-MvpApplication.Configure(services: reg => reg.RegisterInstance<IDispatcherConfigurer>(
-    new ActionDispatcherConfigurer(d => d
-        .Use(new AuditMiddleware(auditSink, () => CurrentUser.Name))
-        .Use(new AuthorizationMiddleware(currentUser))
-        .Use(new ErrorDialogMiddleware(messages, dispatchLogger)))));
-
-// M.E.DI の場合 — AddKibinago の前後どちらでも可
-services.AddSingleton<IDispatcherConfigurer>(
-    new ActionDispatcherConfigurer(d => d.Use(...)));
+services.AddSingleton<IActionObserver, OperationLog>();
 ```
 
-監査ログ・認可チェック・テレメトリ・エラーダイアログ等、**横断的処理を 1 か所に集約** できます。ここで設定したミドルウェアは各 Presenter の Dispatcher に対して **最外層** として適用されるため、Presenter ローカルの `Use(...)` 呼び出しよりも先に走ります。
-
-詳細・実装方法は [ViewAction システム > ミドルウェアパイプライン](Reference-ViewAction-System#ミドルウェアパイプライン) を参照してください。
+各 Presenter の Dispatcher は View のアタッチ時に、その Presenter のスコープからこれらを読みます。オブザーバーの書き方は [ViewAction システム > 操作ログ・計測](Reference-ViewAction-System#操作ログ計測-iactionobserver) を参照してください。
 
 ### DI コンテナなしの起動
 

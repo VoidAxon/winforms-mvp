@@ -66,8 +66,8 @@ Optional: a simple screen can use plain view events instead.
 | Controls created or removed at run time (choices, rows) | `binder.Add(...)` after `Bind` works at once; `binder.Remove(controls)`; disposed controls drop out |
 | A control the binder does not know (grid, list, third-party editor) | `binder.RegisterStrategy<T>((c, h) => c.SomeEvent += (EventHandler)h, ...)` before `Add` (unknown controls are rejected at `Add`); `setEnabled: (c, on) => c.Enabled = on` makes a non-Control component (third-party toolbar command) follow `canExecute` |
 | Share one binder through the app's own base form | [wiki § 基底 Form](wiki/Reference-ViewAction-System.md) (`protected ViewActionBinder Binder` + explicit `IActionBindable.ActionBinder`) |
-| Cross-cutting behavior (audit, timing, error dialogs) — wraps async handlers to their end | `Dispatcher.Use(async (ctx, next) => { ...; await next(ctx); ... })` / `IDispatchMiddleware.InvokeAsync`, `DispatchContext` |
-| Fail fast on wiring mistakes (Debug) | `mvp.Actions.StrictValidation()` / `IDispatcherConfigurer` (`DispatchValidationMode.Strict`) |
+| Operation log / timing of every action in the app (one call per finished run: action, payload, presenter, start, duration, outcome) | `mvp.Actions.Observe(IActionObserver)` → `OnExecuted(ActionExecution)` ([sample](samples/Kibinago.Samples/ActionLogDemo/)) |
+| Fail fast on wiring mistakes (Debug) | `mvp.Actions.StrictValidation()` (`ActionDispatcherOptions`, `DispatchValidationMode.Strict`) |
 | Legacy form migration (event-only) | Explicit pattern: `ActionBinder => null`, `binder.Bind()`, `ActionRequest` + `ActionRequestEventArgs` |
 
 A list's double-click: raise a view event, the presenter calls `Dispatcher.Dispatch(Edit)` (keeps `canExecute`).
@@ -200,7 +200,7 @@ Callbacks run on the creating thread's context; without `onError` a failure reac
 | Messages | `FakeMessageService`: `Calls` (`Kind`, `Text`, `Caption`, `IsConfirmation`); answers `EnqueueYesNo(...)` → `YesNoHandler` → `AnswerUnscripted(yes)`, otherwise `UnscriptedInteractionException` |
 | Dialogs | `FakeDialogProvider`: `EnqueueSaveFile(InteractionResult<string>.Ok(path))`, `SaveFileHandler = o => …`, `CancelUnscripted()`; `Calls` |
 | Child windows | `FakeWindowNavigator`: modal `RespondTo<TPresenter, TResult>(r => InteractionResult<TResult>.Ok(…))` or typed by the parameters `RespondTo<TPresenter, TParam, TResult>(p => …)`, `LastModalParameters<T>()`; non-modal `Windows[i].CloseWithResult(value)` / `Close()` / `CloseWithError(...)`; same key / disposal / result-type rules as `WindowNavigator` |
-| Logs and toasts | `RecordingLoggerFactory.Entries` (`Level`, `Message`, `Exception`), `FakeToastService.Calls` |
+| Logs, toasts and executed actions | `RecordingLoggerFactory.Entries` (`Level`, `Message`, `Exception`), `FakeToastService.Calls`, `RecordingActionObserver.Executions` (`fakes.Actions`) |
 | Validation errors | the mock view returns a `FakeValidationErrorDisplay` as `ValidationErrors` (`IValidationErrorBindable`) → `Errors`, `RevealAll`, `ErrorsFor(field)`, `HasError(field)`, `ShowCount` / `ResetCount` |
 
 Never widen presenter visibility for tests.

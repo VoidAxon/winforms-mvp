@@ -402,7 +402,7 @@ public class MainForm : Form, IMainView
 | 1 ボタン 1 ハンドラの単純構成 | 最小コード | やや冗長 (Action 定義が必要) |
 | 同じアクションを Button + MenuItem 等に同時バインド | 各コントロールで購読・転送 | `_binder.Add(action, c1, c2, ...)` 1 行 |
 | Enabled 自動制御 | 手動 (`button.Enabled = ...`) | 宣言的 (`canExecute: () => ...`) |
-| ディスパッチに横断処理を挟む | ハンドラ毎に書く | Middleware で集約 |
+| 操作ログ・処理時間の計測 | ハンドラ毎に書く | `IActionObserver` で 1 か所に |
 
 **どちらを使えばいいか:** まずは 3 章のイベントベースで始め、上記の必要性が出てきたタイミングで ViewAction に乗り換えてください。フレームワークはどちらも公式サポートします。
 

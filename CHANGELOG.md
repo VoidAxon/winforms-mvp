@@ -8,6 +8,27 @@
 
 ## [Unreleased]
 
+### Changed (変更)
+
+- **ViewAction のミドルウェアを廃止し、全体で 1 つの `IActionObserver` に (破壊的変更)** — `Dispatcher.Use(...)`、`IDispatchMiddleware`、`DispatchContext`、`IDispatcherConfigurer` / `ActionDispatcherConfigurer`、`mvp.Actions.Configure(...)`、`ViewActionDispatcher.ActionExecuted` (と `ActionExecutedEventArgs`) を削除。ミドルウェアは処理を止める・例外を握りつぶすこともでき、ハンドラーの動きが登録順で変わるのに、使われ方は記録と計測だけだった。エラーの表示は `Application.ThreadException`、権限による無効化は `canExecute` で書ける。
+  - 新しい **`IActionObserver`** (`OnExecuted(ActionExecution)`) は、実行されたハンドラーごとに、終わったときに 1 回だけ呼ばれる: `Action`、`Payload`、`PresenterType`、`StartedAt`、`Elapsed`、`IsAsync`、`Outcome` (`Succeeded` = ハンドラーが例外なく終わった / `Failed` / `Canceled`)、`Exception`。呼ばれるのはアクションが再び有効になった後 (Presenter の破棄後に終わった非同期ハンドラーも)。実行されなかったディスパッチ (無効、未登録、ペイロードの型違い、実行中の二度押し) は通知されない。オブザーバーは結果を変えられず、投げた例外はログに出して無視する。
+  - 登録は起動時: `mvp.Actions.Observe(observer)` / `Observe(sp => ...)` (または `IActionObserver` をサービスに直接登録)。Strict 検証は `mvp.Actions.StrictValidation()` のまま (`ActionDispatcherOptions` として登録)。オブザーバーがなければ時刻も読まない。
+  - テスト: `RecordingActionObserver` (`Kibinago.Testing`)。`TestServices.CreateFakes()` が登録し、`fakes.Actions.Executions` で実行されたアクションを確認できる。
+  - 移行:
+
+    | 旧 | 新 |
+    |---|---|
+    | 監査・操作ログ・性能計測のミドルウェア | `IActionObserver` (`mvp.Actions.Observe(...)`) |
+    | エラーダイアログのミドルウェア | `Application.ThreadException` (または、想定したエラーはハンドラーの中で `Messages`) |
+    | 権限チェックのミドルウェア | `canExecute` (ボタンも無効になる) |
+    | `mvp.Actions.Configure(d => d.ValidationMode = ...)` | `mvp.Actions.StrictValidation()` |
+    | `Dispatcher.ActionExecuted` | 状態の変化は `RaiseCanExecuteChanged()`、記録は `IActionObserver` |
+- `ViewActionDispatcher.CanExecuteChanged` は、非同期ハンドラーが始まったとき (無効にする) と、すべてのハンドラーが終わったとき (失敗・キャンセルを含む) に発生する。`ViewActionBinder` は `ActionExecuted` を使わず、これだけで表示を更新する。
+
+### Added (追加)
+
+- サンプル: ViewAction の「操作ログ」デモ — 起動時に登録したオブザーバーが、アプリ中のすべてのアクションの実行を一覧に出す。サンプルは `Application.ThreadException` でハンドラーの例外をメッセージボックスに出す。
+
 ## [1.0.0-preview.15] - 2026-10-29
 
 ### Changed (変更)

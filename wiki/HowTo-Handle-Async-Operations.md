@@ -369,7 +369,7 @@ protected override async Task<bool> CanCloseAsync(CloseReason reason)
 
 | 形式 | 可否 | 理由 |
 |------|----|----|
-| `async Task OnSaveAsync([CancellationToken])` (ViewAction ハンドラ) | ✅ | 実行中の無効化・完了時の `ActionExecuted`・失敗のログ・`DispatchAsync` での待機をフレームワークが提供 |
+| `async Task OnSaveAsync([CancellationToken])` (ViewAction ハンドラ) | ✅ | 実行中の無効化・完了時の再評価とオブザーバーへの通知・失敗のログ・`DispatchAsync` での待機をフレームワークが提供 |
 | `async void OnSave()` (ViewAction ハンドラ) | ❌ | `Action` オーバーロードに束縛され、フレームワークは完了を知らない (実行中も有効、例外はアプリをクラッシュさせ得る、テストで待てない) |
 | `async void OnButtonClick(...)` (View 内の WinForms イベントハンドラ) | △ | WinForms の慣習上やむを得ない場合のみ。必ず try/catch。通常は ViewAction で Presenter に渡す |
 | `async Task DoWorkAsync()` (業務メソッド) | ✅ | 標準 |
@@ -506,7 +506,7 @@ public async Task Opening_LoadsCustomers()
 
 ## 関連ページ
 
-- [ViewAction システム § 非同期アクション](Reference-ViewAction-System#非同期アクション) — 非同期ハンドラの仕様、`DispatchAsync`、ミドルウェアとの関係
+- [ViewAction システム § 非同期アクション](Reference-ViewAction-System#非同期アクション) — 非同期ハンドラの仕様、`DispatchAsync`、オブザーバーへの通知
 - [Presenter 基底クラス](Reference-Presenter-Base-Classes) — `OnInitializeAsync`、`Lifetime`
 - [HowTo: ウィンドウクローズを扱う](HowTo-Handle-Window-Closing) — `CanCloseAsync` (閉じる前の保存)
 - [HowTo: エラー処理戦略](HowTo-Handle-Errors) — async での例外処理

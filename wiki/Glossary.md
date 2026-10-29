@@ -13,6 +13,12 @@
 
 詳細: [ViewAction システム § ActionBinder プロパティパターン](Reference-ViewAction-System#actionbinder-プロパティパターン)
 
+### ActionObserver (`IActionObserver`)
+
+アプリ全体で 1 つ、起動時に `mvp.Actions.Observe(...)` で登録する受け身のオブザーバー。アクションのハンドラが終わるたびに `OnExecuted(ActionExecution)` (キー・ペイロード・Presenter・開始時刻・所要時間・結果) で通知され、操作ログや計測に使う。実行を止めたり例外を握りつぶしたりはできない。
+
+詳細: [ViewAction システム § 操作ログ・計測](Reference-ViewAction-System#操作ログ計測-iactionobserver)
+
 ### ActionKey
 
 `ViewAction` の別名。アクションの不変識別子。画面の Actions クラスでは `ViewActionFactory` から生成する (単発なら `ViewAction.Create("Module.Save")`)。
@@ -163,12 +169,6 @@ View インターフェイスと Form クラスの紐付けを管理するレジ
 `ILogger` と `ILoggerFactory`。`Microsoft.Extensions.Logging` 互換 API を持つ自社抽象。Presenter からは `Logger` プロパティでアクセスする。
 
 詳細: [Logging](Reference-Logging)
-
-### Middleware
-
-`ViewActionDispatcher` のミドルウェアパイプラインで使うコンポーネント。`IDispatchMiddleware` を実装し、`Dispatcher.Use(...)` で登録する。
-
-詳細: [ViewAction システム § ミドルウェアパイプライン](Reference-ViewAction-System#ミドルウェアパイプライン)
 
 ### Mock
 
