@@ -1,5 +1,6 @@
 using System;
 using System.Windows.Forms;
+using Kibinago.Logging;
 using Kibinago.Presenters;
 using Kibinago.Samples.CustomizationDemo;
 using Kibinago.Samples.Shell;
@@ -26,6 +27,7 @@ namespace Kibinago.Samples
             MvpApplication.Configure(framework: mvp =>
             {
                 mvp.Busy.UseOverlay();   // ShowBusy also covers the view with an overlay (after mvp.Busy.Delay)
+                mvp.Logging.Use(new DebugLoggerFactory());   // presenters' Logger writes to the debugger's output
                 if (custom)
                     CustomizationDemoSetup.Configure(mvp);
             });

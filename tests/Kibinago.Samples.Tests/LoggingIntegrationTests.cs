@@ -9,7 +9,7 @@ using Kibinago.Samples.Tests.TestHelpers;
 using Kibinago.Services;
 using Kibinago.Testing;
 using Xunit;
-using static Kibinago.Samples.LoggingDemoExample;
+using Kibinago.Samples.LoggingDemo;
 
 namespace Kibinago.Samples.Tests
 {
