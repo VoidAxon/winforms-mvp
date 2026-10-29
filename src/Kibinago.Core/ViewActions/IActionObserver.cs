@@ -12,6 +12,9 @@ namespace Kibinago.ViewActions
     /// for a WinForms dispatch), after the action is enabled again; for an asynchronous handler, when its
     /// task ends — also after the presenter was disposed. Keep it quick and passive: write to a queue
     /// rather than a database, and do not dispatch actions from it.</para>
+    /// <para>Only what goes through a dispatcher is observed: ViewAction bindings and the explicit
+    /// pattern's <c>ActionRequest</c>, not a view event the presenter handles directly. To log such an
+    /// operation, register its handler and call <c>Dispatcher.Dispatch(key)</c> from the event.</para>
     /// <para>An exception thrown by the observer is logged and ignored; it never changes the handler's
     /// outcome, and that execution is simply not recorded. If the record must not be lost (an audit log),
     /// handle the failure of your own writing inside the observer (buffer and retry, fall back to a local
