@@ -10,7 +10,7 @@
 
 ### Documentation (ドキュメント)
 
-- wiki: [従来の WinForms から移行する](wiki/HowTo-Migrate-From-Legacy-WinForms.md) — 冒頭に「移行で得られるもの — 業務ロジックにテストが書ける」(テストできない `btnSave_Click` と、Presenter + テストの前後比較)。呼び出し側を変えずに `Connect` で 1 画面ずつつなぐ手順 (Step 2.1) を追加。Service Locator の書き方もテストできることを明記、完了チェックリストを `Connect` とテストの位置づけに合わせて修正。
+- wiki: [従来の WinForms から移行する](wiki/HowTo-Migrate-From-Legacy-WinForms.md) — 冒頭に「移行で得られるもの — 業務ロジックにテストが書ける」(テストしにくい `btnSave_Click` と、Presenter + テストの前後比較)。呼び出し側を変えずに `Connect` で 1 画面ずつつなぐ手順 (Step 2.1) を追加。Service Locator の書き方もテストできることを明記、完了チェックリストを `Connect` とテストの位置づけに合わせて修正。
 
 ## [1.0.0-preview.16] - 2026-10-29
 
