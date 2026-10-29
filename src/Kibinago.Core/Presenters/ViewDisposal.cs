@@ -13,10 +13,13 @@ namespace Kibinago.Presenters
     {
         /// <summary>Calls <paramref name="onDisposed"/> once when <paramref name="view"/> is disposed.
         /// Disposing the returned subscription stops observing.</summary>
-        IDisposable ObserveDisposal(IViewBase view, Action onDisposed);
+        IDisposable ObserveDisposal(IView view, Action onDisposed);
 
         /// <summary>True when the view is disposed or being disposed.</summary>
-        bool IsDisposed(IViewBase view);
+        bool IsDisposed(IView view);
+
+        /// <summary>True when the view is a window (a Form), which a control presenter cannot host.</summary>
+        bool IsWindow(IView view);
     }
 
     internal static class ViewDisposal
@@ -37,8 +40,9 @@ namespace Kibinago.Presenters
         private sealed class NoOpObserver : IViewDisposalObserver
         {
             public static readonly NoOpObserver Instance = new NoOpObserver();
-            public IDisposable ObserveDisposal(IViewBase view, Action onDisposed) => Disposable.Create(() => { });
-            public bool IsDisposed(IViewBase view) => false;
+            public IDisposable ObserveDisposal(IView view, Action onDisposed) => Disposable.Create(() => { });
+            public bool IsDisposed(IView view) => false;
+            public bool IsWindow(IView view) => false;
         }
     }
 
@@ -49,14 +53,14 @@ namespace Kibinago.Presenters
     /// </summary>
     internal static class ViewOwnership
     {
-        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<IViewBase, object> Live =
-            new System.Runtime.CompilerServices.ConditionalWeakTable<IViewBase, object>();
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<IView, object> Live =
+            new System.Runtime.CompilerServices.ConditionalWeakTable<IView, object>();
 
-        internal static bool IsClaimed(IViewBase view) => Live.TryGetValue(view, out _);
+        internal static bool IsClaimed(IView view) => Live.TryGetValue(view, out _);
 
         /// <summary>Claims <paramref name="view"/> for <paramref name="owner"/>; the returned subscription
         /// releases it (only if still claimed by that owner).</summary>
-        internal static IDisposable Claim(IViewBase view, object owner)
+        internal static IDisposable Claim(IView view, object owner)
         {
             if (IsClaimed(view))
                 throw new InvalidOperationException(

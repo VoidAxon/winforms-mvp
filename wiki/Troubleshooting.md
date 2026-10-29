@@ -76,7 +76,7 @@ Application.Run();
 3. `XxxForm` の自動スキャン要件:
 
    - `Form` を継承している
-   - `IXxxView` (`IWindowView` / `IViewBase` 由来) を実装している
+   - `IXxxView` (`IWindowView` 由来) を実装している
    - `public` パラメータなしコンストラクタを持つ
    - `abstract` でない
 
@@ -102,7 +102,7 @@ register.Register<IXxxView, XxxForm>(allowOverride: true);
 
 **確認項目**:
 
-1. Form が `IWindowView` / `IViewBase` 由来のインターフェイスを実装しているか
+1. Form が `IWindowView` 由来のインターフェイスを実装しているか
 2. `public` パラメータなしコンストラクタがあるか
 3. `abstract` クラスになっていないか
 4. スキャン対象のアセンブリが正しいか

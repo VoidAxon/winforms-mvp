@@ -79,7 +79,7 @@ namespace Kibinago.Samples.Tests.Shell
                         tabs.SelectedTab = tab;   // creates the control and attaches its presenter
                         Application.DoEvents();
                         var control = Assert.Single(tab.Controls.Cast<Control>());
-                        Assert.IsAssignableFrom<IViewBase>(control);
+                        Assert.IsAssignableFrom<IView>(control);
                         controls.Add(control);
                         opened++;
                     }

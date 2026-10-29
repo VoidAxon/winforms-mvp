@@ -1,6 +1,7 @@
 using System;
 using System.ComponentModel;
 using System.Windows.Forms;
+using Kibinago.ViewActions;
 
 namespace Kibinago.Samples.CompositionDemo
 {
@@ -14,6 +15,10 @@ namespace Kibinago.Samples.CompositionDemo
             _phone.TextChanged += (s, e) => Edited?.Invoke(this, EventArgs.Empty);
             _removeButton.Click += (s, e) => RemoveClicked?.Invoke(this, EventArgs.Empty);
         }
+
+        // No actions: the view raises events instead (IControlView has an ActionBinder; null = none to bind).
+        [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        public IViewActionBinder ActionBinder => null;
 
         [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public string ContactName { get => _name.Text; set => _name.Text = value; }

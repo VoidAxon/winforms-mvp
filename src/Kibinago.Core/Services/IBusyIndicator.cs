@@ -18,7 +18,7 @@ namespace Kibinago.Services
         /// <param name="view">The busy view (a Form or a UserControl in the WinForms implementation).</param>
         /// <param name="message">A short text for overlays that show one, or <c>null</c>. The built-in overlay shows none.</param>
         /// <returns>Ends this request when disposed.</returns>
-        IDisposable Begin(IViewBase view, string message);
+        IDisposable Begin(IView view, string message);
     }
 
     /// <summary>The Core default when no UI implementation is registered: shows nothing.</summary>
@@ -28,7 +28,7 @@ namespace Kibinago.Services
 
         private NullBusyIndicator() { }
 
-        public IDisposable Begin(IViewBase view, string message) => NoOp.Instance;
+        public IDisposable Begin(IView view, string message) => NoOp.Instance;
 
         private sealed class NoOp : IDisposable
         {

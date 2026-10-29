@@ -8,7 +8,7 @@ namespace Kibinago.Presenters
     /// application code does not call it.
     /// </summary>
     /// <typeparam name="TView">The view interface type.</typeparam>
-    public interface IViewAttacher<in TView> where TView : IViewBase
+    public interface IViewAttacher<in TView> where TView : IView
     {
         /// <summary>
         /// Attaches <paramref name="view"/> to the presenter. A presenter takes exactly one view:

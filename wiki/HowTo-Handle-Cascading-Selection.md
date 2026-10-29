@@ -225,7 +225,7 @@ SelectableItem.FromEnum<OrderStatus>();                // enum 全値
 各レベルの View は、選択リストを表す汎用インターフェイス `ISelectListView<T>` です (サンプルの `SelectListControl<T>` が実装)。
 
 ```csharp
-public interface ISelectListView<T> : IViewBase where T : class
+public interface ISelectListView<T> : IControlView where T : class   // ActionBinder => null (イベントで知らせる)
 {
     IList<T> Items { set; }                 // 再読込。後述の契約により SelectionChanged を発火しない
     T Selected { get; }

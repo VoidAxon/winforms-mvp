@@ -86,7 +86,7 @@ public interface IUserEditorView : IWindowView
 }
 ```
 
-`ActionBinder` (`IViewActionBinder`) は `IWindowView` (`IActionableView`) から継承されるので、View インターフェイスに書き直しません。
+`ActionBinder` (`IViewActionBinder`) は `IWindowView` / `IControlView` が継承する `IActionBindable` のメンバーなので、View インターフェイスに書き直しません。ViewAction を使わない View は `ActionBinder => null` を返します。
 
 ### Step 3: Form 内部で `ViewActionBinder` を構成する
 
@@ -122,12 +122,12 @@ public class UserEditorForm : Form, IUserEditorView
 画面ごとに `new ViewActionBinder()` と `ActionBinder` の実装を書くのが煩わしければ、アプリの**既存の基底 Form** に 2 行足します。
 
 ```csharp
-public class AppForm : Form, IActionableView   // アプリが既に持っている基底 Form (PoisonForm 等の派生でもよい)
+public class AppForm : Form, IActionBindable   // アプリが既に持っている基底 Form (PoisonForm 等の派生でもよい)
 {
     // ... 既存のコード ...
 
     protected ViewActionBinder Binder { get; } = new ViewActionBinder();
-    IViewActionBinder IActionableView.ActionBinder => Binder;
+    IViewActionBinder IActionBindable.ActionBinder => Binder;
 }
 
 public partial class UserEditorForm : AppForm, IUserEditorView

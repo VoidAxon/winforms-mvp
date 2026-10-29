@@ -52,7 +52,7 @@ public interface ICustomerOrderView : IWindowView
 
     bool HasSelectedCustomer { get; }
 
-    // ActionBinder は IWindowView (→ IActionableView) から継承するので再宣言しない。
+    // ActionBinder は IWindowView (→ IActionBindable) から継承するので再宣言しない。
     event EventHandler SelectedCustomerChanged;
 }
 ```
@@ -352,7 +352,7 @@ public static class OrderLineActions
     public static readonly ViewAction<int> ChangeQuantity = Factory.Create<int>(nameof(ChangeQuantity));
 }
 
-public interface IOrderLineView : IActionableView
+public interface IOrderLineView : IControlView
 {
     IReadOnlyList<Product> Products { set; }
     int Quantity { set; }

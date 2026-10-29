@@ -18,7 +18,7 @@ namespace Kibinago.Samples.Tests.DependencyInjection
     /// </summary>
     public class PresenterScopeServicesTests
     {
-        public interface IScopeView : IViewBase { }
+        public interface IScopeView : IControlView { }
 
         public sealed class ScopedDependency : IDisposable
         {

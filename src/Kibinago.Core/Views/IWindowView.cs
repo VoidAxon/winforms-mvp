@@ -1,14 +1,12 @@
 namespace Kibinago.Views
 {
     /// <summary>
-    /// Marker for views that represent top-level windows (Forms / dialogs). Carries no members of
-    /// its own and no WinForms types — closing is the Presenter's concern (override
-    /// <c>CanClose(CloseReason)</c> / call <c>RequestClose(...)</c>), and lifecycle/activation are
-    /// handled on the concrete Form by the framework. An <see cref="IWindowView"/> may be passed as
-    /// the <c>owner</c> of a modal dialog opened through <c>IWindowNavigator</c>; the navigator
-    /// resolves it to the underlying window at runtime.
+    /// The view of a window (a Form): what <c>WindowPresenterBase</c> requires and Navigator creates.
+    /// It has an <see cref="IActionBindable.ActionBinder"/> (<c>null</c> when the window uses no
+    /// actions) and nothing else: closing is the presenter's (<c>CanClose</c> / <c>RequestClose</c>).
     /// </summary>
-    public interface IWindowView : IActionableView
+    /// <remarks>A view is a window or a control, never both.</remarks>
+    public interface IWindowView : IView, IActionBindable
     {
     }
 }

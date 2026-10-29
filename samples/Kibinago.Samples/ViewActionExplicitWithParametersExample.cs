@@ -57,7 +57,7 @@ namespace Kibinago.Samples
     /// View interface using explicit pattern with mixed parameter types.
     /// Single ActionRequest event handles both parameterized and non-parameterized actions.
     /// </summary>
-    public interface IMixedParametersDemoView : IActionableView
+    public interface IMixedParametersDemoView : IControlView
     {
         // Data properties
         string CurrentDocument { get; set; }

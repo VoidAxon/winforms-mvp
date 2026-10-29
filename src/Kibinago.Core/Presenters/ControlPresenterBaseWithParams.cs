@@ -13,13 +13,13 @@ namespace Kibinago.Presenters
     /// via <c>AttachView</c> + <c>Initialize(TParam)</c>, driven by the parameterized
     /// <c>Connect</c> overload. No <c>System.Windows.Forms</c> dependency, and no constructor-ordering trap.
     /// </remarks>
-    /// <typeparam name="TView">The view interface type, must implement IViewBase</typeparam>
+    /// <typeparam name="TView">The view interface type, must implement IView</typeparam>
     /// <typeparam name="TParam">The type of initialization parameters</typeparam>
     public abstract class ControlPresenterBase<TView, TParam> :
         PresenterBase<TView>,
         IViewAttacher<TView>,
         IInitializable<TParam>
-        where TView : IViewBase
+        where TView : IControlView
     {
         /// <summary>
         /// Gets the initialization parameters passed to this presenter.

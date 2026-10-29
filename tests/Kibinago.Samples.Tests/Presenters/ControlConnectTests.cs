@@ -1,6 +1,7 @@
 using System;
 using System.Windows.Forms;
 using Kibinago.Presenters;
+using Kibinago.ViewActions;
 using Kibinago.Views;
 using Kibinago.Testing;
 using Xunit;
@@ -24,13 +25,13 @@ namespace Kibinago.Samples.Tests.Presenters
             public string GetValue() => "ready";
         }
 
-        public interface IFakeControlView : IViewBase { }
+        public interface IFakeControlView : IControlView { }
 
         /// <summary>A view that is NOT a Control — used to drive the presenter without a UI handle.</summary>
-        private sealed class NonControlView : IFakeControlView { }
+        private sealed class NonControlView : IFakeControlView { public IViewActionBinder ActionBinder => null; }
 
         /// <summary>A Control-backed view — required by the <c>Connect</c> hosting path.</summary>
-        private sealed class ControlBackedView : UserControl, IFakeControlView { }
+        private sealed class ControlBackedView : UserControl, IFakeControlView { public IViewActionBinder ActionBinder => null; }
 
         /// <summary>
         /// Reproduces the exact shape that crashed: a dependency injected through the constructor

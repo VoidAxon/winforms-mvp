@@ -27,13 +27,17 @@ namespace Kibinago.Services
         private readonly IDisposable _presenter;
         private bool _controlDisposed;
 
-        internal ControlLifecycleController(IViewBase view, IDisposable presenter)
+        internal ControlLifecycleController(IView view, IDisposable presenter)
         {
             if (view == null) throw new ArgumentNullException(nameof(view));
             if (presenter == null) throw new ArgumentNullException(nameof(presenter));
             if (!(view is Control control))
                 throw new ArgumentException(
                     "Control hosting requires a Control-backed view.", nameof(view));
+            if (view is Form)
+                throw new ArgumentException(
+                    view.GetType().Name + " is a Form: a window is connected to a window presenter or opened with " +
+                    "Navigator. A control presenter hosts a UserControl.", nameof(view));
             // A presenter that is already attached (or owned by a parent) is rejected before anything is
             // wired, so the failure path cannot dispose it and break its current owner.
             if (presenter is IViewAttachable attachable && (attachable.IsViewAttached || attachable.IsInitialized))
@@ -52,10 +56,10 @@ namespace Kibinago.Services
 
         internal void WireControlEvents()
         {
-            var subscription = ControlDisposalObserver.Instance.ObserveDisposal((IViewBase)_control, OnDisposed);
+            var subscription = ControlDisposalObserver.Instance.ObserveDisposal((IView)_control, OnDisposed);
             // Released with the presenter, so a presenter disposed first leaves no handler on the control.
             ((IPresenterResourceOwner)_presenter).OwnUntilDisposed(subscription);
-            ((IPresenterResourceOwner)_presenter).OwnUntilDisposed(ViewOwnership.Claim((IViewBase)_control, _presenter));
+            ((IPresenterResourceOwner)_presenter).OwnUntilDisposed(ViewOwnership.Claim((IView)_control, _presenter));
         }
 
         /// <summary>Throws when the control was disposed while the presenter was being connected (the

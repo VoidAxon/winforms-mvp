@@ -8,7 +8,7 @@ namespace Kibinago.Samples.BulkBindingDemo
     /// View interface for survey/questionnaire demo.
     /// Demonstrates bulk binding for many RadioButtons.
     /// </summary>
-    public interface ISurveyView : IActionableView
+    public interface ISurveyView : IControlView
     {
         /// <summary>
         /// Update the status message

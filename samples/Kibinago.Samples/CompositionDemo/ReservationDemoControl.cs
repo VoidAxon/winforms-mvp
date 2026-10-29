@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Windows.Forms;
+using Kibinago.ViewActions;
 using Kibinago.Common;
 
 namespace Kibinago.Samples.CompositionDemo
@@ -18,6 +19,10 @@ namespace Kibinago.Samples.CompositionDemo
             _days.SelectedIndexChanged += (s, e) => Raise(DaySelected);
             _slots.SelectedIndexChanged += (s, e) => Raise(SlotSelected);
         }
+
+        // No actions: the view raises events instead (IControlView has an ActionBinder; null = none to bind).
+        [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        public IViewActionBinder ActionBinder => null;
 
         [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public IReadOnlyList<Department> Departments { set => Fill(_departments, value); }

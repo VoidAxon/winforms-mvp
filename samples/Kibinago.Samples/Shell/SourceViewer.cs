@@ -24,7 +24,7 @@ namespace Kibinago.Samples.Shell
         private const string Types =
             "Action Func Task EventHandler EventArgs IDisposable Exception InvalidOperationException CancellationToken " +
             "IReadOnlyList List Dictionary IEnumerable Form UserControl Control Button Label TextBox ListBox " +
-            "ViewAction ViewActionBinder IViewActionBinder IViewBase IActionableView IWindowView " +
+            "ViewAction ViewActionBinder IViewActionBinder IView IWindowView IControlView IActionBindable IValidationErrorBindable " +
             "PresenterBase WindowPresenterBase ControlPresenterBase InteractionResult InteractionStatus " +
             "IMessageService IToastService IWindowNavigator IEventAggregator ChangeTracker ValidationState MvpApplication ServiceLocator";
 

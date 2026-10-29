@@ -5,10 +5,10 @@ using Kibinago.Views;
 namespace Kibinago.Samples.FirstErrorDemo
 {
     /// <summary>
-    /// "Message only" style: the view does not implement IValidatableView, so nothing is drawn next to
+    /// "Message only" style: the view does not implement IValidationErrorBindable, so nothing is drawn next to
     /// the controls; a failed submit shows the first error and moves the focus there.
     /// </summary>
-    public interface IIntakeView : IActionableView
+    public interface IIntakeView : IControlView
     {
         IntakeModel ReadModel();
 

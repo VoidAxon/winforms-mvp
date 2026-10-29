@@ -22,7 +22,7 @@ namespace Kibinago.Samples.Shell
         /// <summary>
         /// Creates the view of an embedded demo inside its tab and returns it, for its presenter.
         /// </summary>
-        IViewBase CreateDemoView(string demoId);
+        IView CreateDemoView(string demoId);
 
         /// <summary>Disposes and removes the view <see cref="CreateDemoView"/> created for a demo.</summary>
         void RemoveDemoView(string demoId);

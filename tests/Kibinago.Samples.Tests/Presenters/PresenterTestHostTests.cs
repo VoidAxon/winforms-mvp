@@ -381,8 +381,8 @@ namespace Kibinago.Samples.Tests.Presenters
             Assert.True(presenter.Disposed);
         }
 
-        public interface IPanelView : IViewBase { }
-        private sealed class PanelView : IPanelView { }
+        public interface IPanelView : IControlView { }
+        private sealed class PanelView : IPanelView { public IViewActionBinder ActionBinder => null; }
 
         private sealed class PanelPresenter : ControlPresenterBase<IPanelView>
         {

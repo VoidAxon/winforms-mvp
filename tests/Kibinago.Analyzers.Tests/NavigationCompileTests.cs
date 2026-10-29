@@ -20,7 +20,7 @@ using Kibinago.Services;
 using Kibinago.Views;
 
 public interface IEditView : IWindowView { }
-public interface IPanelView : IViewBase { }
+public interface IPanelView : IControlView { }
 public sealed class PlainPresenter : WindowPresenterBase<IEditView> { }
 public sealed class ParamPresenter : WindowPresenterBase<IEditView, int> { protected override void OnInitialize(int id) { } }
 public sealed class PanelPresenter : ControlPresenterBase<IPanelView> { }
@@ -71,16 +71,36 @@ public sealed class PanelPresenter : ControlPresenterBase<IPanelView> { }
             Assert.NotEmpty(Errors(call));
         }
 
-        private static Diagnostic[] Errors(string call)
+        [Theory]
+        // A view interface has one role: a window's view cannot go to a control presenter and back.
+        [InlineData("public sealed class Wrong : ControlPresenterBase<IEditView> { }")]
+        [InlineData("public sealed class Wrong : ControlPresenterBase<IEditView, int> { protected override void OnInitialize(int p) { } }")]
+        [InlineData("public sealed class Wrong : WindowPresenterBase<IPanelView> { }")]
+        [InlineData("public interface IRootOnlyView : IView { } public sealed class Wrong : ControlPresenterBase<IRootOnlyView> { }")]
+        public void AViewOfTheWrongRole_DoesNotCompile(string declaration)
         {
-            var source = Presenters + @"
+            Assert.NotEmpty(Compile(Presenters + declaration));
+        }
+
+        [Fact]
+        public void APlainObjectMock_OfEachRole_Compiles()
+        {
+            Assert.Empty(Compile(Presenters + @"
+public sealed class MockPanel : IPanelView { public Kibinago.ViewActions.IViewActionBinder ActionBinder => null; }
+public sealed class MockEdit : IEditView { public Kibinago.ViewActions.IViewActionBinder ActionBinder => null; }"));
+        }
+
+        private static Diagnostic[] Errors(string call) => Compile(Presenters + @"
 public static class Caller
 {
     public static void Run(IWindowNavigator nav, IWindowView owner)
     {
         " + call + @"
     }
-}";
+}");
+
+        private static Diagnostic[] Compile(string source)
+        {
             var references = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES"))
                 .Split(System.IO.Path.PathSeparator)
                 .Select(p => (MetadataReference)MetadataReference.CreateFromFile(p))

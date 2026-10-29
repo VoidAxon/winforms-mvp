@@ -57,7 +57,7 @@ TestServices.CreateFakes()      → FakeServices (Kibinago.Testing)
 TestServices.Create()           無出力の ILoggerFactory だけを登録した DefaultServiceProvider (自作フェイクだけで組むとき)
 PresenterTestHost               モック View をアタッチして実際の初期化を走らせ、RequestClose をゲートに通して受理されたクローズを記録し、CanClose / CanCloseAsync ゲートを駆動する
 CapturingActionBinder           フレームワークが View に渡す dispatcher を捕捉。テストから Dispatch する入口
-FakeValidationErrorDisplay      IValidatableView のモック View が ValidationErrors として返す。Presenter の Validation が送ったエラーを記録
+FakeValidationErrorDisplay      IValidationErrorBindable のモック View が ValidationErrors として返す。Presenter の Validation が送ったエラーを記録
 Mock<IXxxView>                  View インターフェイス用のモック (テスト側で書く — CapturingActionBinder を公開する)
 業務依存 (IXxxRepository 等)     Presenter のコンストラクタに注入 (テスト側で書く。フレームワークサービスとは別経路)
                                 ファイル・DB・HTTP もここ (フレームワークはこれらのサービスを提供しない)
@@ -336,7 +336,7 @@ window.CloseWithResult(42);                                   // onClosed に Ok
 
 ### 検証エラーを検証する
 
-View が `IValidatableView` を実装している画面では、モック View が `Kibinago.Testing` の `FakeValidationErrorDisplay` を `ValidationErrors` として返します。Presenter の `Validation` が送ったエラーが記録されます。
+View が `IValidationErrorBindable` を実装している画面では、モック View が `Kibinago.Testing` の `FakeValidationErrorDisplay` を `ValidationErrors` として返します。Presenter の `Validation` が送ったエラーが記録されます。
 
 ```csharp
 private sealed class MockCustomerEditView : ICustomerEditView
@@ -344,7 +344,7 @@ private sealed class MockCustomerEditView : ICustomerEditView
     public CapturingActionBinder Binder { get; } = new CapturingActionBinder();
     public IViewActionBinder ActionBinder => Binder;
     public FakeValidationErrorDisplay Errors { get; } = new FakeValidationErrorDisplay();
-    public IValidationErrorDisplay ValidationErrors => Errors;   // IValidatableView
+    public IValidationErrorDisplay ValidationErrors => Errors;   // IValidationErrorBindable
     public string FocusedField { get; private set; }
     public void FocusError(string field) => FocusedField = field;
     // ... 入力値のプロパティ

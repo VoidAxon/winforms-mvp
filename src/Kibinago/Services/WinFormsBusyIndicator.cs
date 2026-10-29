@@ -49,7 +49,7 @@ namespace Kibinago.Services
         }
 
         /// <inheritdoc />
-        public IDisposable Begin(IViewBase view, string message)
+        public IDisposable Begin(IView view, string message)
         {
             if (!(view is Control control) || control.IsDisposed) return new Token(null);
             var token = new Token(this);

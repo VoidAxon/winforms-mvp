@@ -10,6 +10,13 @@
 
 ### Changed (変更)
 
+- **View インターフェイスを役割と能力に整理 (破壊的変更)** — View は役割を 1 つ選びます: ウィンドウは `IWindowView`、パネル (UserControl) は新しい **`IControlView`**。どちらも **`IActionBindable`** (`ActionBinder`。ViewAction を使わない View は `null`) を含みます。コントロールの横に検証エラーを出す View は **`IValidationErrorBindable`** (`ValidationErrors`) を足します。`IViewBase` は **`IView`** に改名 (共通のルート。アプリは直接実装しない)、`IActionableView` と `IValidatableView` は削除。
+  - `ControlPresenterBase` / `AttachChild` / コントロールの `Connect` は `IControlView` を要求するので、ウィンドウの View をコントロールの Presenter に渡すとコンパイルエラー (逆も同じ)。
+  - 両方の役割を持つ型は **MVP019** (警告) と、アタッチ前の実行時例外。コントロールの `Connect` と `AttachChild` は Form を渡されると例外 (ウィンドウは Navigator かウィンドウの Presenter へ)。
+  - 移行: `IViewBase` → `IView` (多くは `IControlView`)、アクションのある UserControl の `IActionableView` → `IControlView`、`IValidatableView` → `IValidationErrorBindable`。アクションのない UserControl の View とモックには `ActionBinder => null` を足す。
+- **View の自動登録 (`RegisterFromAssembly` / `RegisterFromNamespace`)** — `IWindowView` を継承するアプリのインターフェイスのうち最も派生したものを選びます (以前は「最初に見つかったもの」で、`IValidatableView` などを選ぶことがあった)。無関係なウィンドウのインターフェイスを 2 つ以上実装する Form は例外 (明示的に `Register`)、オープンジェネリックの Form は飛ばします。
+- **アナライザー MVP004 / 008 / 013** — View インターフェイスが継承するアプリ自身のインターフェイス (`IOrderView : IWindowView, ICustomerFields`) のメンバーも View の契約として扱います (MVP004 / 013 の見落とし、MVP008 の誤検出をなくす)。
+
 - **Navigator の `owner` は `IViewBase`** (以前は `IWindowView`) — ウィンドウの中のパネルの子 Presenter も `owner: View` で、自分のウィンドウに所属するウィンドウを開けます (オーナーはパネルのあるウィンドウ。WinForms の `Form.Show(owner)` がコントロールの最上位のフォームを使う)。MDI の子ウィンドウやその中のパネルでは MDI の親ウィンドウがオーナーになること (以前から同じ) を wiki に記載。どのウィンドウにもないパネルはオーナーなし、コントロールでない View は `ArgumentException`。`FakeWindowNavigator` と記録 (`Owner`) も `IViewBase`。
 
 ### Added (追加)

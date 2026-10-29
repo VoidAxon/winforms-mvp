@@ -41,8 +41,9 @@ Public surface of a presenter: the constructor only (Rules 16/17, analyzer-enfor
 
 | Need | Use |
 |---|---|
-| Any view (UserControl) / a view with actions / a window | `IViewBase` / `IActionableView` (`ActionBinder`) / `IWindowView` |
-| A view that shows validation errors | `IValidatableView` (`ValidationErrors`) — connected to `Validation` automatically |
+| A window's view / a panel's (UserControl) view | `IWindowView` / `IControlView` — one role per view (MVP019); both have `ActionBinder` (`IActionBindable`, `null` = no actions) |
+| A view that shows validation errors next to its controls | add `IValidationErrorBindable` (`ValidationErrors`) |
+| A view that shows validation errors | `IValidationErrorBindable` (`ValidationErrors`) — connected to `Validation` automatically |
 | View events — no hand-written EventArgs, never a WinForms one (MVP004) | `EventHandler` (presenter reads the view) · `EventHandler<int>` / any business type · a tuple `EventHandler<(int Id, string Column)>` · `EventHandler<ValueChangedEventArgs<T>>` (after a change: `OldValue`, `NewValue`) · `EventHandler<ValueChangingEventArgs<T>>` (before it; the presenter may set `Cancel`) · BCL `EventHandler<CancelEventArgs>` — `Kibinago.Events` · [wiki § Rule 4](wiki/Design-Rules.md) |
 | Open a legacy (non-MVP) popup from a migrated screen | a semantic view method returning `InteractionResult<T>` (`InteractionResult<Customer> EditCustomer(Customer current)`), implemented by the Form; a form shared by many screens: a small relay service · [migration wiki, Step 7](wiki/HowTo-Migrate-From-Legacy-WinForms.md) |
 
@@ -64,7 +65,7 @@ Optional: a simple screen can use plain view events instead.
 | Map controls to keys (WinForms) | `ViewActionBinder.Add(key, controls...)`, `Add(key, control, c => value)`, bulk `AddRange(...)` |
 | Controls created or removed at run time (choices, rows) | `binder.Add(...)` after `Bind` works at once; `binder.Remove(controls)`; disposed controls drop out |
 | A control the binder does not know (grid, list, third-party editor) | `binder.RegisterStrategy<T>((c, h) => c.SomeEvent += (EventHandler)h, ...)` before `Add` (unknown controls are rejected at `Add`); `setEnabled: (c, on) => c.Enabled = on` makes a non-Control component (third-party toolbar command) follow `canExecute` |
-| Share one binder through the app's own base form | [wiki § 基底 Form](wiki/Reference-ViewAction-System.md) (`protected ViewActionBinder Binder` + explicit `IActionableView.ActionBinder`) |
+| Share one binder through the app's own base form | [wiki § 基底 Form](wiki/Reference-ViewAction-System.md) (`protected ViewActionBinder Binder` + explicit `IActionBindable.ActionBinder`) |
 | Cross-cutting behavior (audit, timing, error dialogs) — wraps async handlers to their end | `Dispatcher.Use(async (ctx, next) => { ...; await next(ctx); ... })` / `IDispatchMiddleware.InvokeAsync`, `DispatchContext` |
 | Fail fast on wiring mistakes (Debug) | `mvp.Actions.StrictValidation()` / `IDispatcherConfigurer` (`DispatchValidationMode.Strict`) |
 | Legacy form migration (event-only) | Explicit pattern: `ActionBinder => null`, `binder.Bind()`, `ActionRequest` + `ActionRequestEventArgs` |
@@ -83,7 +84,7 @@ A list's double-click: raise a view event, the presenter calls `Dispatcher.Dispa
 | Ask before closing: ✕ / Alt+F4 / owner closing / RequestClose | `protected override bool CanClose(CloseReason)` / `Task<bool> CanCloseAsync(CloseReason)` |
 | The screen must not open (data gone, no permission) | in `OnInitialize`: `Messages.ShowWarning(why); RequestClose(InteractionStatus.Cancel); return;` (or `RequestClose(why, Error)` for the caller to show): never shown (Navigator does not show it; `Connect` hides and closes it in `Load`); modeless `ShowWindow` returns `null` |
 | Result type | `InteractionResult<T>` (`IsOk`, `IsCancelled`, `IsError`, `Value`, `ErrorMessage`), `InteractionStatus`, `CloseReason` |
-| Map view interfaces to Forms (WinForms) | `IViewMappingRegister`: `RegisterFromAssembly`, `RegisterFromNamespace`, `Register<IView, Form>()`, `Register<IView>(() => new Form(deps))` |
+| Map view interfaces to Forms (WinForms) | `IViewMappingRegister`: `RegisterFromAssembly`, `RegisterFromNamespace`, `Register<IOrderView, OrderForm>()`, `Register<IOrderView>(() => new OrderForm(deps))` |
 | UI module registers its own views | `IViewModuleRegistrar` + `register.RegisterModules(...)` (`Kibinago.Services`) |
 
 System shutdown / Task Manager never reach `CanClose`. Save-on-close: call `RequestClose(result)` inside `CanClose` and return `true`. Save / 破棄 handlers `AcceptChanges()` before `RequestClose`, so the gate does not ask; tests: `await host.WaitForCloseDecisionAsync()` for an async gate.
@@ -142,7 +143,7 @@ Detection only (no undo, no events). The model's own `Equals` is ignored by desi
 | The screen's order of errors | from the model last checked: its properties in declaration order (base class first); move one with `[ValidationOrder(n)]`; all errors: `Validation.ErrorsInOrder()` — no field list in the presenter |
 | Show errors next to controls (WinForms) | `new ErrorProviderDisplay(errorProvider).Map(nameof(Model.Field), control)…`, `TryFocusError(field)`; custom: derive `ControlErrorDisplay` |
 
-Two display styles, both supported: **message only** (the view does not implement `IValidatableView`; the usual WinForms style) or **message + icons**. Keep Submit enabled while there are errors (it reveals unvisited fields).
+Two display styles, both supported: **message only** (the view does not implement `IValidationErrorBindable`; the usual WinForms style) or **message + icons**. Keep Submit enabled while there are errors (it reveals unvisited fields).
 
 ## 9. Binding helpers — WinForms, `Kibinago.Views` · [wiki](wiki/Reference-Data-Binding.md)
 
@@ -200,7 +201,7 @@ Callbacks run on the creating thread's context; without `onError` a failure reac
 | Dialogs | `FakeDialogProvider`: `EnqueueSaveFile(InteractionResult<string>.Ok(path))`, `SaveFileHandler = o => …`, `CancelUnscripted()`; `Calls` |
 | Child windows | `FakeWindowNavigator`: modal `RespondTo<TPresenter, TResult>(r => InteractionResult<TResult>.Ok(…))` or typed by the parameters `RespondTo<TPresenter, TParam, TResult>(p => …)`, `LastModalParameters<T>()`; non-modal `Windows[i].CloseWithResult(value)` / `Close()` / `CloseWithError(...)`; same key / disposal / result-type rules as `WindowNavigator` |
 | Logs and toasts | `RecordingLoggerFactory.Entries` (`Level`, `Message`, `Exception`), `FakeToastService.Calls` |
-| Validation errors | the mock view returns a `FakeValidationErrorDisplay` as `ValidationErrors` (`IValidatableView`) → `Errors`, `RevealAll`, `ErrorsFor(field)`, `HasError(field)`, `ShowCount` / `ResetCount` |
+| Validation errors | the mock view returns a `FakeValidationErrorDisplay` as `ValidationErrors` (`IValidationErrorBindable`) → `Errors`, `RevealAll`, `ErrorsFor(field)`, `HasError(field)`, `ShowCount` / `ResetCount` |
 
 Never widen presenter visibility for tests.
 
@@ -211,7 +212,8 @@ MVP001 view interface ends with `View` · MVP002 presenter ends with `Presenter`
 MVP004 UI types in view interfaces / presenters · MVP006 public presenter methods return void · MVP007 presenter uses a concrete Form ·
 MVP008 public Form / UserControl method not in its view interface (test doubles that are not controls are exempt) · MVP013 UI control names in interface method names ·
 MVP014 presenter references WinForms types · MVP016 presenter declares public events · MVP017 `Subscribe` result discarded ·
-MVP018 a `Debouncer` / `Throttler` stored in a field / property is never disposed.
+MVP018 a `Debouncer` / `Throttler` stored in a field / property is never disposed ·
+MVP019 a view that is both a window (`IWindowView`) and a control (`IControlView`). MVP004 / 008 / 013 also check the application's own base interfaces a view interface inherits.
 With a `ProjectReference`, reference `Kibinago.Analyzers` as an analyzer explicitly (see `samples/`).
 
 **`dotnet new` templates** (`dotnet new install Kibinago.Templates`) · [wiki](wiki/HowTo-Use-Templates.md):

@@ -210,7 +210,7 @@ namespace Kibinago.Samples.Shell
                 "Presenter の Validation に、モデルの DataAnnotations と Presenter のルールをまとめます。\r\n" +
                 "エラーは、フィールドを離れた後か、送信を試みた後にだけ表示します。\r\n" +
                 "表示は 2 通り: メッセージだけ (送信に失敗したら最初のエラーを出して、その欄へフォーカス。WinForms の業務画面でよくある形) と、" +
-                "メッセージ + 欄の横のアイコン (View が IValidatableView を実装)。エラーの順番はモデルのプロパティの宣言順です。\r\n" +
+                "メッセージ + 欄の横のアイコン (View が IValidationErrorBindable を実装)。エラーの順番はモデルのプロパティの宣言順です。\r\n" +
                 "送信ボタンはエラーがあっても無効にしません (まだ触っていない欄のエラーを見せるため)。",
                 new[] { new WikiLink("入力検証", "HowTo-Validate-Form-Input") },
                 new[]

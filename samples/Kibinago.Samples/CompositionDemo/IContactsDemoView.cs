@@ -7,7 +7,7 @@ namespace Kibinago.Samples.CompositionDemo
     /// A list of row panels. The parent view creates and removes the row controls; the parent presenter
     /// attaches a presenter to each (AttachChild). The view never removes a row on its own.
     /// </summary>
-    public interface IContactsDemoView : IActionableView
+    public interface IContactsDemoView : IControlView
     {
         /// <summary>Adds a row control at the end and returns it.</summary>
         IContactRowView AddRow();

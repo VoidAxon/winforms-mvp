@@ -44,7 +44,7 @@ DataGridView (やサードパーティのグリッド) のセルで明細を編�
 ## View インターフェイス
 
 ```csharp
-public interface IOrderLinesView : IWindowView, IValidatableView
+public interface IOrderLinesView : IWindowView, IValidationErrorBindable
 {
     void ShowRows(IReadOnlyList<OrderLineRow> rows);    // 全行を置き換える
     void ShowRow(OrderLineRow row);                     // 1 行を表示し直す (編集中のセルは新しい値を受け取る)

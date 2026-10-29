@@ -133,5 +133,14 @@ namespace Kibinago.Analyzers
             defaultSeverity: DiagnosticSeverity.Warning,
             isEnabledByDefault: true,
             description: "A Debouncer or Throttler owns a timer. One stored in a field or property and never disposed keeps firing after its owner is closed: a pending debounce runs against a disposed view, and the timer keeps the owner alive. Dispose it with the owner: .DisposeWith(Disposables) at the creation in a presenter, or .Dispose() in Cleanup / the Form's Dispose.");
+
+        public static readonly DiagnosticDescriptor MVPRule19OneViewRole = new DiagnosticDescriptor(
+            id: "MVP019",
+            title: "A view is a window or a control, not both",
+            messageFormat: "'{0}' is both a window view (IWindowView) and a control view (IControlView). Give it one role; put shared members in an interface both views derive from.",
+            category: Category,
+            defaultSeverity: DiagnosticSeverity.Warning,
+            isEnabledByDefault: true,
+            description: "WindowPresenterBase requires an IWindowView and ControlPresenterBase / AttachChild an IControlView, so a view interface states its role. A type implementing both could be passed to either kind of presenter, and the framework rejects it at run time. Shared members (a form's fields shown in a window and in a panel) go in a plain interface that the window view and the control view both derive from.");
     }
 }

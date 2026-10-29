@@ -44,7 +44,7 @@ namespace Kibinago.Samples.ValueBindingDemo
     /// View contract — only behavior, no UI controls (MVP rule 2). The Presenter
     /// receives control values purely through typed action payloads.
     /// </summary>
-    public interface IValueBindingView : IActionableView
+    public interface IValueBindingView : IControlView
     {
         void AddLog(string message);
     }

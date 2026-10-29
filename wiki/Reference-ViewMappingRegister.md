@@ -68,7 +68,7 @@ int registered = register.RegisterFromAssembly(Assembly.GetExecutingAssembly());
 var navigator = new WindowNavigator(register);
 ```
 
-`RegisterFromAssembly` は、`IWindowView` または `IViewBase` を継承するインターフェイスを実装する `Form` 派生型をすべて探し出して登録します。
+`RegisterFromAssembly` は、`IWindowView` を継承するアプリのインターフェイスを実装する `Form` 派生型をすべて探し出して登録します。継承の連なり (`IEditView : IBaseView : IWindowView`) を実装していれば最も派生したもの、無関係なウィンドウのインターフェイスを 2 つ以上実装していれば例外です (その Form は明示的に `Register` します)。能力 (`IValidationErrorBindable`) やコントロールの View は選ばれません。
 
 **こんなときに**:
 
@@ -134,7 +134,7 @@ navigator.ShowWindowAsModal(new ComplexDialogPresenter());
 | 条件 | 説明 |
 |------|------|
 | ✅ **`Form` を継承** | `UserControl` 等の他の派生型は対象外 (UserControl は Navigator を使わない) |
-| ✅ **`IWindowView` または `IViewBase` を継承するインターフェイスを実装** | フレームワーク標準のマーカー |
+| ✅ **`IWindowView` を継承するインターフェイスを実装** (1 つ。継承の連なりなら最も派生したもの) | ウィンドウの役割 |
 | ✅ **`public` パラメータなしコンストラクタを持つ** | リフレクションで `Activator.CreateInstance` を呼ぶ |
 | ✅ **`abstract` ではない** | インスタンス化可能 |
 
@@ -345,7 +345,7 @@ register.RegisterFromAssembly(Assembly.GetExecutingAssembly());
 
 **確認項目**:
 
-1. Form が `IWindowView` または `IViewBase` を継承するインターフェイスを実装しているか
+1. Form が `IWindowView` を継承するインターフェイスを実装しているか (`IControlView` の View は登録されません)
 2. `public` パラメータなしコンストラクタがあるか
 3. `abstract` クラスになっていないか
 4. スキャン対象のアセンブリ・名前空間が正しいか

@@ -443,9 +443,9 @@ namespace Kibinago.Samples.Tests.Presenters
             }
         }
 
-        public interface IHardControlView : IViewBase { }
+        public interface IHardControlView : IControlView { }
 
-        private sealed class HardControl : UserControl, IHardControlView { }
+        private sealed class HardControl : UserControl, IHardControlView { public IViewActionBinder ActionBinder => null; }
 
         private sealed class ThrowingControlPresenter : ControlPresenterBase<IHardControlView>
         {

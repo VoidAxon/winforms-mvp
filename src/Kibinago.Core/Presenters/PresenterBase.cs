@@ -17,7 +17,7 @@ namespace Kibinago.Presenters
     /// Base class for all presenters providing common functionality.
     /// This class should not be used directly - use WindowPresenterBase or ControlPresenterBase instead.
     /// </summary>
-    public abstract class PresenterBase<TView> : IPresenter, IViewAttachable, IPresenterResourceOwner, IPresenterServicesBinding, IComposablePresenter where TView : IViewBase
+    public abstract class PresenterBase<TView> : IPresenter, IViewAttachable, IPresenterResourceOwner, IPresenterServicesBinding, IComposablePresenter where TView : IView
     {
         /// <summary>The attached view; <c>null</c> until the view is attached.</summary>
         protected TView View { get; private set; }
@@ -226,11 +226,11 @@ namespace Kibinago.Presenters
         /// </summary>
         void IPresenterResourceOwner.OwnUntilDisposed(IDisposable resource) => Disposables.Add(resource);
 
-        void IViewAttachable.AttachView(IViewBase view) => SetView((TView)view);
+        void IViewAttachable.AttachView(IView view) => SetView((TView)view);
         bool IViewAttachable.IsViewAttached => View != null;
         bool IViewAttachable.IsInitialized => _initialized;
         Task IViewAttachable.InitializationTask => _initializationTask;
-        IViewBase IViewAttachable.AttachedView => View;
+        IView IViewAttachable.AttachedView => View;
 
         /// <summary>
         /// Sets the view for this presenter. Called by the framework's presenter bases.
@@ -239,6 +239,7 @@ namespace Kibinago.Presenters
         {
             if (view == null)
                 throw new ArgumentNullException(nameof(view));
+            RejectBothRoles(view);
             if (View != null)
                 throw new InvalidOperationException(
                     GetType().Name + " already has a view attached. A presenter is attached to exactly one view.");
@@ -264,8 +265,8 @@ namespace Kibinago.Presenters
         /// <summary>
         /// The presenter's validation errors. Fill it with <c>Validation.Validate(model)</c> as the
         /// user edits and <c>Validation.Check(model)</c> on submit; add business rules with
-        /// <c>SetError</c>. When the view implements <see cref="IValidatableView"/>, every change is
-        /// shown through its <see cref="IValidatableView.ValidationErrors"/> and action
+        /// <c>SetError</c>. When the view implements <see cref="IValidationErrorBindable"/>, every change is
+        /// shown through its <see cref="IValidationErrorBindable.ValidationErrors"/> and action
         /// availability (<c>canExecute</c>) is re-evaluated.
         /// </summary>
         protected ValidationState Validation
@@ -281,13 +282,22 @@ namespace Kibinago.Presenters
             }
         }
 
+        // A view has one role; the compiler cannot stop a type from implementing both (MVP019 warns).
+        private static void RejectBothRoles(IView view)
+        {
+            if (view is IWindowView && view is IControlView)
+                throw new InvalidOperationException(
+                    view.GetType().Name + " is both a window view (IWindowView) and a control view (IControlView). " +
+                    "A view is one or the other: split the shared members into an interface both derive from.");
+        }
+
         // Runs when the view is attached and when Validation is first used, whichever is later.
         private void ConnectValidation()
         {
             if (_validationConnected || _validation == null || View == null) return;
             _validationConnected = true;
 
-            var display = (View as IValidatableView)?.ValidationErrors;
+            var display = (View as IValidationErrorBindable)?.ValidationErrors;
             EventHandler onChanged = (s, e) =>
             {
                 display?.ShowErrors(_validation.Errors, _validation.RevealAll);
@@ -312,7 +322,7 @@ namespace Kibinago.Presenters
 
         /// <summary>
         /// The single Initialize sequence behind every presenter base: guard, register actions,
-        /// auto-bind the view's <see cref="IActionableView.ActionBinder"/>, then the user hook.
+        /// auto-bind the view's <see cref="IActionBindable.ActionBinder"/>, then the user hook.
         /// </summary>
         private protected void InitializeCore(Action registerViewActions, Action onInitialize)
         {
@@ -330,11 +340,12 @@ namespace Kibinago.Presenters
             registerViewActions();
             if (_isDisposed) return;
 
-            // Bind after actions are registered. Views outside the ViewAction system simply
-            // don't implement IActionableView.
-            if (View is IActionableView actionable && actionable.ActionBinder != null)
+            // Bind after actions are registered. The binder is read once and that instance is unbound
+            // on dispose; null means the view takes no part in automatic binding.
+            var binder = (View as IActionBindable)?.ActionBinder;
+            if (binder != null)
             {
-                _boundBinder = actionable.ActionBinder;
+                _boundBinder = binder;
                 _boundBinder.Bind(_dispatcher);
             }
             if (_isDisposed) return;
@@ -617,7 +628,7 @@ namespace Kibinago.Presenters
         /// attached, initialized or owned; another child of this presenter uses <paramref name="view"/>;
         /// or the child resolved other framework services in its constructor.</exception>
         protected IDisposable AttachChild<TChildView>(ControlPresenterBase<TChildView> child, TChildView view)
-            where TChildView : IViewBase
+            where TChildView : IControlView
             => AttachChildCore(child, view, () => ((IInitializable)child).Initialize());
 
         /// <summary>
@@ -627,14 +638,19 @@ namespace Kibinago.Presenters
         /// </summary>
         protected IDisposable AttachChild<TChildView, TParam>(
             ControlPresenterBase<TChildView, TParam> child, TChildView view, TParam parameters)
-            where TChildView : IViewBase
+            where TChildView : IControlView
             => AttachChildCore(child, view, () => ((IInitializable<TParam>)child).Initialize(parameters));
 
         private IDisposable AttachChildCore<TChildView>(PresenterBase<TChildView> child, TChildView view, Action initialize)
-            where TChildView : IViewBase
+            where TChildView : IControlView
         {
             if (child == null) throw new ArgumentNullException(nameof(child));
             if (view == null) throw new ArgumentNullException(nameof(view));
+            RejectBothRoles(view);
+            if (ViewDisposal.Observer.IsWindow(view))
+                throw new ArgumentException(
+                    view.GetType().Name + " is a Form: a window is opened with Navigator (or connected to a window " +
+                    "presenter), not attached as a child. A child view is a UserControl.", nameof(view));
             if (_isDisposed) throw new ObjectDisposedException(GetType().Name);
             if (View == null)
                 throw new InvalidOperationException(

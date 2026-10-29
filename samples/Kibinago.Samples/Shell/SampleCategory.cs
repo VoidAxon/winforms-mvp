@@ -63,7 +63,7 @@ namespace Kibinago.Samples.Shell
     public sealed class SampleDemo
     {
         private SampleDemo(string id, string title, string description, DemoKind kind,
-            Func<IDemoAttacher, IViewBase, IDisposable> attach, IReadOnlyList<string> sourceFiles)
+            Func<IDemoAttacher, IView, IDisposable> attach, IReadOnlyList<string> sourceFiles)
         {
             Id = id;
             Title = title;
@@ -79,7 +79,7 @@ namespace Kibinago.Samples.Shell
         /// <c>(a, v) =&gt; a.Attach(new ToDoDemoPresenter(), (IToDoView)v)</c>.
         /// </summary>
         public static SampleDemo Embedded(string id, string title, string description,
-            Func<IDemoAttacher, IViewBase, IDisposable> attach, params string[] sourceFiles) =>
+            Func<IDemoAttacher, IView, IDisposable> attach, params string[] sourceFiles) =>
             new SampleDemo(id, title, description, DemoKind.Embedded, attach ?? throw new ArgumentNullException(nameof(attach)), sourceFiles);
 
         /// <summary>
@@ -99,7 +99,7 @@ namespace Kibinago.Samples.Shell
         public DemoKind Kind { get; }
 
         /// <summary>For <see cref="DemoKind.Embedded"/>: attaches the demo's presenter to its view.</summary>
-        public Func<IDemoAttacher, IViewBase, IDisposable> Attach { get; }
+        public Func<IDemoAttacher, IView, IDisposable> Attach { get; }
 
         /// <summary>Paths relative to the sample project (<c>ToDoDemo/ToDoDemoPresenter.cs</c>).</summary>
         public IReadOnlyList<string> SourceFiles { get; }
@@ -108,7 +108,7 @@ namespace Kibinago.Samples.Shell
     /// <summary>What a catalog entry uses to attach its presenter as a child of the shell's presenter.</summary>
     public interface IDemoAttacher
     {
-        IDisposable Attach<TView>(ControlPresenterBase<TView> presenter, TView view) where TView : IViewBase;
+        IDisposable Attach<TView>(ControlPresenterBase<TView> presenter, TView view) where TView : IControlView;
     }
 
     // The "handle" of a view-only demo: nothing to release.

@@ -17,7 +17,7 @@ namespace Kibinago.Samples.MessageBoxDemo
     /// automatically, so the dialog is always fully visible.
     /// </para>
     /// </summary>
-    public partial class MessageBoxDemoControl : UserControl, IViewBase   // a view-only demo: no presenter, but a view the shell can host
+    public partial class MessageBoxDemoControl : UserControl, IView   // a view-only demo: no presenter, but a view the shell can host
     {
         public MessageBoxDemoControl()
         {

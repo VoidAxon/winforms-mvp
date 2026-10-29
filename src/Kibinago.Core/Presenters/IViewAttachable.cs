@@ -11,13 +11,13 @@ namespace Kibinago.Presenters
     /// <remarks>
     /// Implemented once, explicitly, in <see cref="PresenterBase{TView}"/>, so it does not
     /// appear on the public surface of concrete presenters. The implementation casts the
-    /// incoming <see cref="IViewBase"/> to the presenter's <c>TView</c>; the cast is an
+    /// incoming <see cref="IView"/> to the presenter's <c>TView</c>; the cast is an
     /// internal invariant guaranteed by the view-mapping registry handing back the correct
     /// implementation type.
     /// </remarks>
     internal interface IViewAttachable
     {
-        void AttachView(IViewBase view);
+        void AttachView(IView view);
 
         /// <summary>True once a view has been attached. Lets the <c>Connect</c> extension stay
         /// idempotent without touching the protected <c>View</c> property.</summary>
@@ -27,7 +27,7 @@ namespace Kibinago.Presenters
         bool IsInitialized { get; }
 
         /// <summary>The attached view, or null.</summary>
-        IViewBase AttachedView { get; }
+        IView AttachedView { get; }
 
         /// <summary>Completes when <c>OnInitializeAsync</c> has finished (failures are logged, not faulted).</summary>
         System.Threading.Tasks.Task InitializationTask { get; }

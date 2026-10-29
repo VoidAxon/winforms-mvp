@@ -4,7 +4,7 @@ using Kibinago.Views;
 namespace Kibinago.Samples.CompositionDemo
 {
     /// <summary>One row: name, relation, phone, and an error next to the phone.</summary>
-    public interface IContactRowView : IViewBase
+    public interface IContactRowView : IControlView
     {
         string ContactName { get; set; }
         string Relation { get; set; }

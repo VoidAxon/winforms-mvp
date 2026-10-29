@@ -48,8 +48,10 @@ namespace Kibinago.Services
         /// <para>
         /// This method auto-registers types that meet the following conditions:
         /// <list type="bullet">
-        /// <item>Inherits from Form</item>
-        /// <item>Implements IWindowView or IViewBase</item>
+        /// <item>Inherits from Form (and is not an open generic type)</item>
+        /// <item>Implements an application view interface derived from IWindowView — the most derived one
+        /// when it implements a chain (IEditView : IBaseView : IWindowView registers IEditView); several
+        /// unrelated ones throw (register that Form explicitly)</item>
         /// <item>Has a public parameterless constructor</item>
         /// <item>Is not an abstract class</item>
         /// </list>
@@ -69,8 +71,6 @@ namespace Kibinago.Services
             if (assembly == null)
                 throw new ArgumentNullException(nameof(assembly));
 
-            int registeredCount = 0;
-
             // Get all types in the assembly
             Type[] types;
             try
@@ -83,61 +83,7 @@ namespace Kibinago.Services
                 types = ex.Types.Where(t => t != null).ToArray();
             }
 
-            // Search for classes that inherit from Form
-            var formTypes = types
-                .Where(t => t.IsClass && !t.IsAbstract && typeof(Form).IsAssignableFrom(t))
-                .ToList();
-
-            foreach (var formType in formTypes)
-            {
-                // Check for public parameterless constructor
-                var hasParameterlessConstructor = formType.GetConstructor(
-                    BindingFlags.Public | BindingFlags.Instance,
-                    null,
-                    Type.EmptyTypes,
-                    null) != null;
-
-                if (!hasParameterlessConstructor)
-                {
-                    // Skip if no parameterless constructor (no warning)
-                    continue;
-                }
-
-                // Search for interfaces that implement IWindowView or IViewBase
-                var viewInterface = formType.GetInterfaces()
-                    .FirstOrDefault(i =>
-                        i != typeof(IWindowView) &&
-                        i != typeof(IViewBase) &&
-                        (typeof(IWindowView).IsAssignableFrom(i) || typeof(IViewBase).IsAssignableFrom(i)));
-
-                if (viewInterface != null)
-                {
-                    try
-                    {
-                        // Call Register<TInterface, TImplementation>() via reflection
-                        var registerMethod = typeof(IViewMappingRegister)
-                            .GetMethods()
-                            .First(m => m.Name == "Register" &&
-                                       m.IsGenericMethodDefinition &&
-                                       m.GetGenericArguments().Length == 2)
-                            .MakeGenericMethod(viewInterface, formType);
-
-                        registerMethod.Invoke(register, new object[] { allowOverride });
-                        registeredCount++;
-                    }
-                    catch (TargetInvocationException ex)
-                    {
-                        if (ex.InnerException is InvalidOperationException && !allowOverride)
-                        {
-                            // Skip if already registered (when allowOverride = false)
-                            continue;
-                        }
-                        throw;
-                    }
-                }
-            }
-
-            return registeredCount;
+            return RegisterForms(register, types, allowOverride);
         }
 
         /// <summary>
@@ -161,8 +107,6 @@ namespace Kibinago.Services
             if (string.IsNullOrEmpty(namespacePrefix))
                 throw new ArgumentException("Namespace prefix cannot be null or empty", nameof(namespacePrefix));
 
-            int registeredCount = 0;
-
             Type[] types;
             try
             {
@@ -173,56 +117,60 @@ namespace Kibinago.Services
                 types = ex.Types.Where(t => t != null).ToArray();
             }
 
-            // Filter only Form classes in the specified namespace
-            var formTypes = types
-                .Where(t => t.IsClass &&
-                           !t.IsAbstract &&
-                           typeof(Form).IsAssignableFrom(t) &&
-                           t.Namespace != null &&
-                           t.Namespace.StartsWith(namespacePrefix))
-                .ToList();
+            return RegisterForms(register, types.Where(t => t.Namespace != null && t.Namespace.StartsWith(namespacePrefix)), allowOverride);
+        }
 
-            foreach (var formType in formTypes)
+        // The scan of both entry points: each concrete, non-generic Form with a public parameterless
+        // constructor is registered under its window view interface (see SelectWindowContract).
+        internal static int RegisterForms(IViewMappingRegister register, IEnumerable<Type> types, bool allowOverride)
+        {
+            var registeredCount = 0;
+            var registerMethod = typeof(IViewMappingRegister)
+                .GetMethods()
+                .First(m => m.Name == "Register" && m.IsGenericMethodDefinition && m.GetGenericArguments().Length == 2);
+
+            foreach (var formType in types.Where(t => t.IsClass && !t.IsAbstract && !t.ContainsGenericParameters && typeof(Form).IsAssignableFrom(t)))
             {
-                var hasParameterlessConstructor = formType.GetConstructor(
-                    BindingFlags.Public | BindingFlags.Instance,
-                    null,
-                    Type.EmptyTypes,
-                    null) != null;
+                if (formType.GetConstructor(BindingFlags.Public | BindingFlags.Instance, null, Type.EmptyTypes, null) == null)
+                    continue;   // no parameterless constructor: register it with a factory instead
 
-                if (!hasParameterlessConstructor)
+                var viewInterface = SelectWindowContract(formType);
+                if (viewInterface == null)
                     continue;
 
-                var viewInterface = formType.GetInterfaces()
-                    .FirstOrDefault(i =>
-                        i != typeof(IWindowView) &&
-                        i != typeof(IViewBase) &&
-                        (typeof(IWindowView).IsAssignableFrom(i) || typeof(IViewBase).IsAssignableFrom(i)));
-
-                if (viewInterface != null)
+                try
                 {
-                    try
-                    {
-                        var registerMethod = typeof(IViewMappingRegister)
-                            .GetMethods()
-                            .First(m => m.Name == "Register" &&
-                                       m.IsGenericMethodDefinition &&
-                                       m.GetGenericArguments().Length == 2)
-                            .MakeGenericMethod(viewInterface, formType);
-
-                        registerMethod.Invoke(register, new object[] { allowOverride });
-                        registeredCount++;
-                    }
-                    catch (TargetInvocationException ex)
-                    {
-                        if (ex.InnerException is InvalidOperationException && !allowOverride)
-                            continue;
-                        throw;
-                    }
+                    registerMethod.MakeGenericMethod(viewInterface, formType).Invoke(register, new object[] { allowOverride });
+                    registeredCount++;
+                }
+                catch (TargetInvocationException ex) when (ex.InnerException is InvalidOperationException && !allowOverride)
+                {
+                    // already registered (allowOverride = false): keep the existing mapping
                 }
             }
 
             return registeredCount;
+        }
+
+        /// <summary>
+        /// The application window view interface a Form is registered under: the interfaces it implements
+        /// that derive from <see cref="IWindowView"/> (not IWindowView itself), minus those another one
+        /// derives from. <c>null</c> when there is none (a Form that is not an MVP window).
+        /// </summary>
+        /// <exception cref="InvalidOperationException">Several unrelated window view interfaces remain.</exception>
+        internal static Type SelectWindowContract(Type formType)
+        {
+            var candidates = formType.GetInterfaces()
+                .Where(i => i != typeof(IWindowView) && typeof(IWindowView).IsAssignableFrom(i) && !i.ContainsGenericParameters)
+                .ToList();
+            var mostDerived = candidates.Where(c => !candidates.Any(o => o != c && c.IsAssignableFrom(o))).ToList();
+
+            if (mostDerived.Count > 1)
+                throw new InvalidOperationException(
+                    $"{formType.Name} implements several window view interfaces ({string.Join(", ", mostDerived.Select(i => i.Name).OrderBy(n => n))}). " +
+                    $"Register it explicitly, e.g. Register<{mostDerived[0].Name}, {formType.Name}>(), and exclude it from the scan " +
+                    "(RegisterFromNamespace), or give it one view interface.");
+            return mostDerived.FirstOrDefault();
         }
     }
 }

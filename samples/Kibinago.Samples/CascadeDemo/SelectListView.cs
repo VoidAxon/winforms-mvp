@@ -1,12 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Windows.Forms;
+using Kibinago.ViewActions;
 using Kibinago.Views;
 
 namespace Kibinago.Samples.CascadeDemo
 {
     /// <summary>A list view of <typeparamref name="T"/> with single selection.</summary>
-    public interface ISelectListView<T> : IViewBase where T : class
+    public interface ISelectListView<T> : IControlView where T : class
     {
         /// <summary>Replaces the list. Setting this MUST NOT raise <see cref="SelectionChanged"/>.</summary>
         IList<T> Items { set; }
@@ -57,6 +58,9 @@ namespace Kibinago.Samples.CascadeDemo
         }
 
         public T Selected { get { return _list.SelectedItem as T; } }
+
+        // No actions: the list raises SelectionChanged instead.
+        public IViewActionBinder ActionBinder => null;
 
         public event EventHandler SelectionChanged;
     }

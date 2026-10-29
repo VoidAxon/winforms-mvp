@@ -5,7 +5,7 @@ using Kibinago.Validation;
 namespace Kibinago.Testing
 {
     /// <summary>
-    /// <see cref="IValidationErrorDisplay"/> fake for a test view that implements <c>IValidatableView</c>:
+    /// <see cref="IValidationErrorDisplay"/> fake for a test view that implements <c>IValidationErrorBindable</c>:
     /// records the last errors the presenter's <c>Validation</c> pushed. It keeps every error as received;
     /// which ones a real display would draw (visited fields only until <see cref="RevealAll"/>) is the
     /// display's concern, not the presenter's, so tests assert on the errors themselves.
@@ -13,7 +13,7 @@ namespace Kibinago.Testing
     /// <example>
     /// <code>
     /// public FakeValidationErrorDisplay Errors { get; } = new FakeValidationErrorDisplay();
-    /// public IValidationErrorDisplay ValidationErrors =&gt; Errors;   // IValidatableView
+    /// public IValidationErrorDisplay ValidationErrors =&gt; Errors;   // IValidationErrorBindable
     ///
     /// view.Binder.Dispatch(Actions.Save);
     /// Assert.True(view.Errors.RevealAll);

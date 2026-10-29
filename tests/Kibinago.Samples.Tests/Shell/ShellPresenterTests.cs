@@ -18,10 +18,11 @@ namespace Kibinago.Samples.Tests.Shell
     {
         #region Test doubles
 
-        public interface IPanelView : IViewBase { }
+        public interface IPanelView : IControlView { }
 
         private sealed class PanelView : IPanelView
         {
+            public IViewActionBinder ActionBinder => null;
             public string DemoId;
             public bool Removed;
         }
@@ -68,7 +69,7 @@ namespace Kibinago.Samples.Tests.Shell
             public void SelectCategory(string categoryId) => CategorySelected?.Invoke(this, categoryId);
             public void ShowCategory(SampleCategory category) { Shown = category; _log.Add("show " + category.Id); }
 
-            public IViewBase CreateDemoView(string demoId)
+            public IView CreateDemoView(string demoId)
             {
                 _log.Add("create " + demoId);
                 return _views[demoId] = new PanelView { DemoId = demoId };

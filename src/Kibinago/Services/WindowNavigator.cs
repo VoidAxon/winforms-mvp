@@ -38,24 +38,24 @@ namespace Kibinago.Services
         /// <exception cref="InvalidOperationException">The registered View is not a <see cref="Form"/>,
         /// does not implement <see cref="IWindowView"/>, or the presenter is not a window presenter.
         /// The presenter is disposed before the throw.</exception>
-        public InteractionResult<TResult> ShowWindowAsModal<TPresenter, TResult>(TPresenter presenter, IViewBase owner = null) where TPresenter : IWindowPresenter, IInitializable
+        public InteractionResult<TResult> ShowWindowAsModal<TPresenter, TResult>(TPresenter presenter, IView owner = null) where TPresenter : IWindowPresenter, IInitializable
             => ShowModalCore<TResult>(presenter, owner, () => presenter.Initialize);
 
         /// <inheritdoc />
-        public InteractionResult ShowWindowAsModal<TPresenter>(TPresenter presenter, IViewBase owner = null)
+        public InteractionResult ShowWindowAsModal<TPresenter>(TPresenter presenter, IView owner = null)
         where TPresenter : IWindowPresenter, IInitializable
         {
             // Internally call generic version, using object as placeholder result type
             return ShowWindowAsModal<TPresenter, object>(presenter, owner);
         }
 
-        /// <inheritdoc cref="ShowWindowAsModal{TPresenter, TResult}(TPresenter, IViewBase)"/>
-        public InteractionResult<TResult> ShowWindowAsModal<TPresenter, TParam, TResult>(TPresenter presenter, TParam parameters, IViewBase owner = null)
+        /// <inheritdoc cref="ShowWindowAsModal{TPresenter, TResult}(TPresenter, IView)"/>
+        public InteractionResult<TResult> ShowWindowAsModal<TPresenter, TParam, TResult>(TPresenter presenter, TParam parameters, IView owner = null)
             where TPresenter : IWindowPresenter, IInitializable<TParam>
             => ShowModalCore<TResult>(presenter, owner, () => () => presenter.Initialize(parameters));
 
         /// <inheritdoc />
-        public InteractionResult ShowWindowAsModal<TPresenter, TParam>(TPresenter presenter, TParam parameters, IViewBase owner = null)
+        public InteractionResult ShowWindowAsModal<TPresenter, TParam>(TPresenter presenter, TParam parameters, IView owner = null)
             where TPresenter : IWindowPresenter, IInitializable<TParam>
         {
             // Internally call generic version, using object as placeholder result type
@@ -74,7 +74,7 @@ namespace Kibinago.Services
         /// </summary>
         public IWindowView ShowWindow<TPresenter, TResult>(
             TPresenter presenter,
-            IViewBase owner = null,
+            IView owner = null,
             object key = null,
             Action<InteractionResult<TResult>> onClosed = null
             )
@@ -83,7 +83,7 @@ namespace Kibinago.Services
 
         /// <inheritdoc />
         public IWindowView ShowWindow<TPresenter>(TPresenter presenter,
-        IViewBase owner = null,
+        IView owner = null,
         object key = null) where TPresenter : IWindowPresenter, IInitializable
         {
             return ShowWindow<TPresenter, object>(
@@ -93,11 +93,11 @@ namespace Kibinago.Services
                 onClosed: null);
         }
 
-        /// <inheritdoc cref="ShowWindow{TPresenter, TResult}(TPresenter, IViewBase, object, Action{InteractionResult{TResult}})"/>
+        /// <inheritdoc cref="ShowWindow{TPresenter, TResult}(TPresenter, IView, object, Action{InteractionResult{TResult}})"/>
         public IWindowView ShowWindow<TPresenter, TParam, TResult>(
             TPresenter presenter,
             TParam parameters,
-            IViewBase owner = null,
+            IView owner = null,
             object key = null,
             Action<InteractionResult<TResult>> onClosed = null)
             where TPresenter : IWindowPresenter, IInitializable<TParam>
@@ -107,7 +107,7 @@ namespace Kibinago.Services
         public IWindowView ShowWindow<TPresenter, TParam>(
             TPresenter presenter,
             TParam parameters,
-            IViewBase owner = null,
+            IView owner = null,
             object key = null)
             where TPresenter : IWindowPresenter, IInitializable<TParam>
         {
@@ -160,7 +160,7 @@ namespace Kibinago.Services
         // dispose-on-failure guard of PrepareForm.
 
         private InteractionResult<TResult> ShowModalCore<TResult>(
-            IPresenter presenter, IViewBase owner, Func<Action> initializerFactory)
+            IPresenter presenter, IView owner, Func<Action> initializerFactory)
         {
             InteractionResult<TResult> result = InteractionResult<TResult>.Cancel();
             var form = PrepareForm<TResult>(presenter, owner, initializerFactory,
@@ -183,7 +183,7 @@ namespace Kibinago.Services
         // show: false for PrepareWindow — the caller shows the Form (wired like an adopted Form, so it is still
         // opening until it first becomes visible); an existing keyed window is not activated.
         private IWindowView ModelessCore<TPresenter, TResult>(
-            TPresenter presenter, IViewBase owner, object key,
+            TPresenter presenter, IView owner, object key,
             Action<InteractionResult<TResult>> onClosed, Func<Action> initializerFactory, bool show)
             where TPresenter : IPresenter
         {
@@ -231,7 +231,7 @@ namespace Kibinago.Services
         /// disposed, the key is released, and the exception is rethrown.
         /// </summary>
         private Form PrepareForm<TResult>(
-            IPresenter presenter, IViewBase owner, Func<Action> initializerFactory,
+            IPresenter presenter, IView owner, Func<Action> initializerFactory,
             Action<InteractionResult<TResult>> onClosed, bool disposeForm, object instanceKey,
             out WindowLifecycleController controller, out IWin32Window resolvedOwner, bool adopted = false)
         {
@@ -249,7 +249,7 @@ namespace Kibinago.Services
                 var initialize = initializerFactory();
 
                 form = CreateForm(presenter.ViewInterfaceType);
-                ((IViewAttachable)presenter).AttachView((IViewBase)form);
+                ((IViewAttachable)presenter).AttachView((IView)form);
 
                 controller = new WindowLifecycleController(
                     (IWindowView)form,
@@ -331,7 +331,7 @@ namespace Kibinago.Services
         /// child, the MDI parent; for a control in no window yet, the active window). A view that is not
         /// a WinForms window or control is a misuse and throws.
         /// </summary>
-        private static IWin32Window ResolveOwner(IViewBase owner)
+        private static IWin32Window ResolveOwner(IView owner)
         {
             if (owner == null) return null;
             if (owner is IWin32Window win) return win;

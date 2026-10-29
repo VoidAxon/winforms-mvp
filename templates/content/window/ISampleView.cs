@@ -8,7 +8,7 @@ namespace MvpNamespace
     /// <summary>What the window shows: data, state and events only, never controls.</summary>
     public interface ISampleView : IWindowView
 //#if (HasModel)
-        , IValidatableView
+        , IValidationErrorBindable
 //#endif
     {
         string Title { get; set; }
