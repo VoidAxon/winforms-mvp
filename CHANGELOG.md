@@ -29,6 +29,10 @@
 
 - サンプル: ViewAction の「操作ログ」デモ — 起動時に登録したオブザーバーが、アプリ中のすべてのアクションの実行を一覧に出す。サンプルは `Application.ThreadException` でハンドラーの例外をメッセージボックスに出す。
 
+### Documentation (ドキュメント)
+
+- wiki: 「なぜ WinForms では MVVM ではなく MVP か」([MVP パターンとは](wiki/Concept-MVP-Pattern.md)) — .NET 8 以降の WinForms と CommunityToolkit.Mvvm でも MVVM は書けることを認めたうえで、閉じる確認・結果の受け渡し・テストの入口などのアダプターを Kibinago が最初から用意していること、同じ編集画面の比較、MVVM を選ぶべき場合。
+
 ## [1.0.0-preview.15] - 2026-10-29
 
 ### Changed (変更)
