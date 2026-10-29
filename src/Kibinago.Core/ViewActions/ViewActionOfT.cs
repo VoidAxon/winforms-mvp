@@ -13,7 +13,7 @@ namespace Kibinago.ViewActions
     /// <see cref="ViewActionFactory.Create{T}(string)"/>. There is deliberately no implicit
     /// conversion to <see cref="ViewAction"/>: an untyped overload must not silently accept a typed
     /// key with a payload of another type. Use <see cref="Key"/> where an untyped key is needed
-    /// (middleware, logs, the explicit pattern).
+    /// (the action observer, logs, the explicit pattern).
     /// </remarks>
     /// <typeparam name="T">The payload type.</typeparam>
     public readonly struct ViewAction<T> : IEquatable<ViewAction<T>>
@@ -23,7 +23,7 @@ namespace Kibinago.ViewActions
             Key = key;
         }
 
-        /// <summary>The untyped key (same name); what middleware and the explicit pattern see.</summary>
+        /// <summary>The untyped key (same name); what the action observer and the explicit pattern see.</summary>
         public ViewAction Key { get; }
 
         /// <summary>The action name.</summary>

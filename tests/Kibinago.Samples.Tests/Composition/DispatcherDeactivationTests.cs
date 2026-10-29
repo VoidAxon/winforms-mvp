@@ -68,17 +68,16 @@ namespace Kibinago.Samples.Tests.Composition
         }
 
         [Fact]
-        public void Deactivated_MiddlewareNotInvoked()
+        public void Deactivated_DispatchIsNotReported()
         {
-            var dispatcher = new ViewActionDispatcher();
-            int middleware = 0;
-            dispatcher.Use(async (ctx, next) => { middleware++; await next(ctx); });
+            var observer = new Kibinago.Testing.RecordingActionObserver();
+            var dispatcher = new ViewActionDispatcher { Observer = observer };
             dispatcher.Register(Run, () => { });
             dispatcher.Deactivate();
 
             dispatcher.Dispatch(Run);
 
-            Assert.Equal(0, middleware);
+            Assert.Empty(observer.Executions);
         }
 
         [Fact]
@@ -91,20 +90,20 @@ namespace Kibinago.Samples.Tests.Composition
         }
 
         [Fact]
-        public async Task Deactivated_InFlightAsyncCompletion_RaisesNoActionExecuted()
+        public async Task Deactivated_InFlightAsyncCompletion_IsStillReported()
         {
-            var dispatcher = new ViewActionDispatcher();
+            // The action ran: an operation log records its end even when the window closed meanwhile.
+            var observer = new Kibinago.Testing.RecordingActionObserver();
+            var dispatcher = new ViewActionDispatcher { Observer = observer };
             var gate = new TaskCompletionSource<bool>();
             dispatcher.Register(Run, () => gate.Task);
             var running = dispatcher.DispatchAsync(Run);
-            int executed = 0;
-            dispatcher.ActionExecuted += (s, e) => executed++;
 
             dispatcher.Deactivate();
             gate.SetResult(true);
             await running;
 
-            Assert.Equal(0, executed);
+            Assert.Equal(ActionOutcome.Succeeded, Assert.Single(observer.Executions).Outcome);
         }
     }
 }

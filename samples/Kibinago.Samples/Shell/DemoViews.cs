@@ -21,6 +21,7 @@ using Kibinago.Samples.FirstErrorDemo;
 using Kibinago.Samples.LegacyPopupDemo;
 using Kibinago.Samples.ListDemo;
 using Kibinago.Samples.LoggingDemo;
+using Kibinago.Samples.ActionLogDemo;
 using Kibinago.Samples.MasterDetailDemo;
 using Kibinago.Samples.MdiDemo;
 using Kibinago.Samples.MessageBoxDemo;
@@ -57,6 +58,7 @@ namespace Kibinago.Samples.Shell
             [DemoIds.ValueBinding] = () => new ValueBindingControl(),
             [DemoIds.ExplicitEvent] = () => new ExplicitEventDemoControl(),
             [DemoIds.ExplicitParameters] = () => new MixedParametersDemoControl(),
+            [DemoIds.ActionLog] = () => new ActionLogDemoControl(),
             [DemoIds.Async] = () => new AsyncDemoControl(),
             [DemoIds.DebounceThrottle] = () => new DebounceThrottleDemoControl(),
             [DemoIds.MessageBox] = () => new MessageBoxDemoControl(),

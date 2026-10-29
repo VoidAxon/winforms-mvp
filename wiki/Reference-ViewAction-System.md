@@ -5,7 +5,7 @@ WPF の `ICommand` を WinForms 向けに持ち込んだものと考えるとほ
 
 > **位置づけ**: ViewAction は本フレームワークの **中核機能** です。Presenter が `Button` を一切知らずに済むのは、この仕組みのおかげです。
 >
-> ただし **必須ではありません**。ボタンが数個の単純な画面なら、View インターフェイスに `event EventHandler SaveRequested;` のような意味イベントを置き、Presenter が購読する素の MVP で十分です。ViewAction が効いてくるのは、操作が多くてイベントが増えすぎる画面や、`CanExecute` による Enabled 制御・非同期ハンドラの多重実行防止・ミドルウェアといったフレームワークの支援を使いたい画面です。同じアプリ内で画面ごとに使い分けて構いません。
+> ただし **必須ではありません**。ボタンが数個の単純な画面なら、View インターフェイスに `event EventHandler SaveRequested;` のような意味イベントを置き、Presenter が購読する素の MVP で十分です。ViewAction が効いてくるのは、操作が多くてイベントが増えすぎる画面や、`CanExecute` による Enabled 制御・非同期ハンドラの多重実行防止・操作ログ (オブザーバー) といったフレームワークの支援を使いたい画面です。同じアプリ内で画面ごとに使い分けて構いません。
 
 ---
 
@@ -22,7 +22,7 @@ WPF の `ICommand` を WinForms 向けに持ち込んだものと考えるとほ
 - [一括バインド (AddRange)](#一括バインド-addrange)
 - [対応するコントロール](#対応するコントロール)
 - [Implicit パターン vs Explicit パターン](#implicit-パターン-vs-explicit-パターン)
-- [ミドルウェアパイプライン](#ミドルウェアパイプライン)
+- [操作ログ・計測 (IActionObserver)](#操作ログ計測-iactionobserver)
 - [関連ページ](#関連ページ)
 
 ---
@@ -232,7 +232,7 @@ public interface IViewActionBinder
 **破棄された Presenter の Dispatcher は何も実行しません。** `Unbind` より前、破棄の最初の段階で、Presenter (と [`AttachChild`](Reference-Presenter-Base-Classes#子-presenter-を所有する-attachchild) で所有する子孫すべて) の Dispatcher が停止します:
 
 - `CanDispatch` は常に `false`
-- `Dispatch` / `DispatchAsync` はハンドラもミドルウェアも実行せず、未登録キーやペイロード不一致でも Strict モードの例外を出さない (`DispatchAsync` はそのまま完了したタスクを返す)
+- `Dispatch` / `DispatchAsync` はハンドラを実行せず (オブザーバーにも通知せず)、未登録キーやペイロード不一致でも Strict モードの例外を出さない (`DispatchAsync` はそのまま完了したタスクを返す)
 - `CanExecuteChanged` は発火しない — 破棄前から実行中だった非同期ハンドラが完了したときも、`RaiseCanExecuteChanged()` を呼んでも
 
 そのため、Presenter より長生きするコントロール (取り除いた明細行パネル、閉じ処理中のフォーム) を後からクリックしても、破棄済みの Presenter のハンドラは走りません。
@@ -245,7 +245,7 @@ public interface IViewActionBinder
 
 文字列リテラルを直に渡さず、必ず静的クラスで定数として宣言します。標準的な動詞 (Save / Cancel / Delete / Refresh / Ok / ...) は**フレームワーク同梱の `StandardActions`** をそのまま使えます — 再定義しないでください。自前の静的クラスで宣言するのは **モジュール固有のアクション** だけです。
 
-`StandardActions` のキーも画面のアクションと同じく修飾されています: `StandardActions.Save` のキーは `"Standard.Save"` (`"Standard."` + メンバー名)。そのため同梱のキー同士が重なることはなく (`FileSave` と `Save` は別のアクション)、ログやミドルウェアでもどこのキーか分かります。Presenter ごとに登録するので、2 つの画面が両方 `StandardActions.Save` を使っても衝突しません。
+`StandardActions` のキーも画面のアクションと同じく修飾されています: `StandardActions.Save` のキーは `"Standard.Save"` (`"Standard."` + メンバー名)。そのため同梱のキー同士が重なることはなく (`FileSave` と `Save` は別のアクション)、ログや操作ログでもどこのキーか分かります。Presenter ごとに登録するので、2 つの画面が両方 `StandardActions.Save` を使っても衝突しません。
 
 ```csharp
 using Kibinago.ViewActions;
@@ -309,7 +309,7 @@ Dispatcher.Register(
 | トリガー | 動作 |
 |---------|------|
 | **`OnInitialize` の後・`OnInitializeAsync` の完了時** | 自動 (バインドは `OnInitialize` の前なので、そこで読み込んだデータで改めて再評価) |
-| **任意のアクション実行直後** | 自動 (フレームワークが `ActionExecuted` 後に全 CanExecute を再評価) |
+| **任意のアクションのハンドラが終わった直後** (失敗・キャンセルも) | 自動 (Dispatcher が `CanExecuteChanged` を発生し、全 CanExecute を再評価) |
 | **非同期ハンドラの開始時・終了時** | 自動 (実行中のアクションは `CanDispatch == false`) |
 | **アクション実行を伴わない状態変化** | 手動 (`Dispatcher.RaiseCanExecuteChanged()` を呼ぶ) |
 | **Presenter の破棄後** | 再評価しない (Dispatcher は停止済み — [Unbind](#presenter-の破棄とバインド解除-unbind) 参照) |
@@ -340,7 +340,7 @@ private void OnOpenDocument(string filePath)
 }
 ```
 
-**型不一致は実行時拒否**: `Register<string>` に対して `Dispatch(action, 42)` (int) を呼ぶと、既定 (Lenient) では Dispatcher はハンドラを呼ばずにログだけ出します。これによりミドルウェアパイプラインも走りません (後述の Strict モードでは例外になります)。
+**型不一致は実行時拒否**: `Register<string>` に対して `Dispatch(action, 42)` (int) を呼ぶと、既定 (Lenient) では Dispatcher はハンドラを呼ばずにログだけ出します。オブザーバーにも通知されません (後述の Strict モードでは例外になります)。
 
 ### 型付き ActionKey (`ViewAction<T>`)
 
@@ -366,7 +366,7 @@ view.Binder.Dispatch(DocumentActions.SetZoom, 150);
 
 - **任意** です。従来の `ViewAction` + `Register<T>` はそのまま使え、同じ Dispatcher 内で混在できます。
 - 型付きの API: `ViewAction.Create<T>` / `ViewActionFactory.Create<T>`、Dispatcher の `Register` (`Action<T>` / `Func<T, Task>` / `Func<T, CancellationToken, Task>`)・`Dispatch`・`DispatchAsync`・`CanDispatch`、Binder の `Add(key, control, valueSelector)`。
-- `ViewAction<T>` から `ViewAction` への暗黙変換はありません (型付きキーが型なしのオーバーロードに黙って渡らないように)。型なしの API が必要な場面 (ミドルウェアでのキー比較、`Add(key, controls)` のような値なしバインドなど) では `.Key` を使います。`Name` は `.Key.Name` と同じです。
+- `ViewAction<T>` から `ViewAction` への暗黙変換はありません (型付きキーが型なしのオーバーロードに黙って渡らないように)。型なしの API が必要な場面 (オブザーバーでのキー比較、`Add(key, controls)` のような値なしバインドなど) では `.Key` を使います。`Name` は `.Key.Name` と同じです。
 - 値を取り出さないボタン (`Add(key, button)`) には型なしの `ViewAction` を使います。
 
 ---
@@ -407,13 +407,13 @@ Strict が対象とするのは **設定ミスだけ** です。ハンドラの�
 | `Register` に null ハンドラを渡す | `ArgumentNullException` |
 | 同じコントロールを 2 つのアクションに `Add` する | `InvalidOperationException` (以前は最後の 1 つが黙って残っていた) |
 
-**推奨される使い方**: Debug ビルドでのみ Strict を有効化します。`IDispatcherConfigurer` をサービスプロバイダに登録することで配線できます (全 Dispatch より前に適用されます):
+**推奨される使い方**: Debug ビルドでのみ Strict を有効化します。起動時の設定で指定すると、すべての Presenter の Dispatcher に (View のアタッチ時、全 Dispatch より前に) 適用されます:
 
 ```csharp
 MvpApplication.Configure(framework: mvp =>
 {
 #if DEBUG
-    mvp.Actions.StrictValidation();   // = IDispatcherConfigurer で ValidationMode = Strict
+    mvp.Actions.StrictValidation();   // ActionDispatcherOptions を登録 → ValidationMode = Strict
 #endif
 });
 ```
@@ -432,7 +432,7 @@ MvpApplication.Configure(framework: mvp =>
 private void OnSave()
 {
     SaveDocument();
-    // この直後にフレームワークが Dispatcher.ActionExecuted を発火し、
+    // ハンドラが終わると Dispatcher が CanExecuteChanged を発生し、
     // 全ての CanExecute が再評価される。手動コードは不要。
 }
 ```
@@ -458,7 +458,7 @@ protected override void OnViewAttached()
 |------|---------------|------------------|
 | イベント名 | `CanExecuteChanged` | `CanExecuteChanged` |
 | 手動トリガー | `command.RaiseCanExecuteChanged()` | `dispatcher.RaiseCanExecuteChanged()` |
-| 自動トリガー | なし | `ActionExecuted` イベントで自動 (拡張機能) |
+| 自動トリガー | なし | ハンドラの終了時に自動 (拡張機能) |
 
 ---
 
@@ -499,7 +499,7 @@ private async Task OnRefreshAsync(CancellationToken ct)
 フレームワークが行うこと:
 
 - **実行中はアクションを無効化** — ハンドラの実行中は `CanDispatch` が `false` になり、バインド済みコントロールはグレーアウトします。連打などの重複トリガーは無視されます。開始時と終了時に全 `CanExecute` が再評価されるので、ビジーフラグや手動の `RaiseCanExecuteChanged()` は不要です (他のアクションも同時に止めたいときだけ、`canExecute` が参照するフラグを持ちます — [`samples/Kibinago.Samples/AsyncDemo/AsyncDemoPresenter.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/samples/Kibinago.Samples/AsyncDemo/AsyncDemoPresenter.cs) 参照)。
-- **完了時に `ActionExecuted`** — 同期ハンドラと同じく、ハンドラが正常に終わった時点で発火します。
+- **完了時にオブザーバーへ通知** — [`IActionObserver`](#操作ログ計測-iactionobserver) を登録していれば、同期ハンドラと同じく、ハンドラが終わった時点 (`await` の後まで) で 1 回呼ばれます (`IsAsync == true`、`Elapsed` は非同期処理の全体)。
 - **失敗はログ出力・再有効化のあと再スロー** — 未処理の例外はログに出してアクションを再び有効にし、そのあと通常の WinForms のイベントハンドラと同じように外へ伝わります (`Application.ThreadException` で受けられます)。同期部分の例外は `Dispatch` からそのまま、`await` の後で起きた例外は `Dispatch` を呼んだときの `SynchronizationContext` に投げ直されます (`async void` と同じ)。想定内のエラーはハンドラ内で `try`/`catch` して `Messages` で伝え、想定外のものは `Program.cs` の `Application.ThreadException` で受けます。
 - **破棄時のキャンセルは静か** — トークンは Presenter の `Lifetime` で、Presenter の破棄 (ウィンドウを閉じる) と同時にキャンセルされます。これによる `OperationCanceledException` はエラー扱いされません。ユーザーの「キャンセル」ボタンを実装する場合は `CancellationTokenSource.CreateLinkedTokenSource(ct)` でリンクします。
 
@@ -513,442 +513,64 @@ await Dispatcher.DispatchAsync(CustomerActions.Refresh);
 await view.Binder.DispatchAsync(CustomerActions.Refresh);
 ```
 
-### ミドルウェアとの関係
-
-ミドルウェアは `Task` を返し、`await next(ctx)` は **非同期ハンドラが最後まで終わったとき** に戻ります。そのため計測・監査・エラーダイアログは、非同期処理の全体 (最後の `await` の後まで) を包みます。`await` 後の失敗も `await next(ctx)` から投げられるので、`try`/`catch` で捕捉でき (捕捉すれば処理済み)、`finally` では `ctx.Exception` が見えます。`ctx.CancellationToken` はハンドラに渡されたトークンです。パイプライン全体が終わるまでアクションは無効のままです (ミドルウェアが `next` の前に `await` している間も)。
-
-```csharp
-Dispatcher.Use(async (ctx, next) =>
-{
-    var sw = Stopwatch.StartNew();
-    await next(ctx);   // 非同期ハンドラの完了まで待つ
-    Logger.LogInformation("{Action}: {Ms}ms", ctx.Action, sw.ElapsedMilliseconds);
-});
-```
-
-`next` は必ず `await` してください。`await` しないミドルウェアでも、ハンドラは最後まで追跡されます (完了までアクションは無効)。すでに失敗していたタスクや、ミドルウェアより後に終わったハンドラの失敗は通常どおり伝わりますが、ミドルウェア自身がまだ `await` している間にハンドラが失敗すると、「捕捉して処理した」場合と区別できないため伝わりません。
-
 ---
 
-## 一括バインド (AddRange)
+## 操作ログ・計測 (IActionObserver)
 
-似た UI が大量にある場合 (アンケート用 RadioButton 群等)、`AddRange` で 1 行にまとめられます。
-
-### タプル形式 (推奨)
+アプリ全体の操作ログ (誰が・いつ・どの画面で・何をしたか) や処理時間の計測は、起動時に **`IActionObserver`** を 1 つ登録して書きます。ハンドラも Presenter もログのことを知りません。
 
 ```csharp
-_binder.AddRange(
-    (ThemeActions.Light,         _lightRadio),
-    (ThemeActions.Dark,          _darkRadio),
-    (ThemeActions.Auto,          _autoRadio),
-    (ThemeActions.HighContrast,  _highContrastRadio)
-);
-```
-
-### Dictionary 形式
-
-```csharp
-var mapping = new Dictionary<ViewAction, RadioButton>
-{
-    [QuestionActions.StronglyDisagree] = _radio1,
-    [QuestionActions.Disagree]         = _radio2,
-    [QuestionActions.Neutral]          = _radio3,
-    [QuestionActions.Agree]            = _radio4,
-    [QuestionActions.StronglyAgree]    = _radio5,
-};
-_binder.AddRange(mapping);
-```
-
-**得られるメリット**: 行数が N 行 → 1 行になる、追加・削除の保守が楽、対応関係が一目で分かる。
-
----
-
-## 対応するコントロール
-
-`ViewActionBinder` がサポートするコントロールタイプは以下です。
-
-| コントロール | 購読するイベント | 備考 |
-|-------------|---------------|------|
-| `CheckBox` | `CheckedChanged` | チェック状態が変わるたびにアクション発火 |
-| `RadioButton` | `CheckedChanged` | 同上 |
-| `ButtonBase` | `Click` | 通常のボタン |
-| `ComboBox` | `SelectionChangeCommitted` | ユーザーが選択を確定したときのみ発火 (programmatic な `SelectedIndex` 変更では発火しない) |
-| `NumericUpDown` | `ValueChanged` | 値変更で発火。programmatic な `Value` 代入でも発火 |
-| `DateTimePicker` | `ValueChanged` | 同上 |
-| `MonthCalendar` | `DateChanged` | 同上。`DateRangeEventHandler` を内部でアダプトして購読 |
-| `TextBoxBase` | `TextChanged` | `TextBox` / `RichTextBox` / `MaskedTextBox`。入力のたびに発火し、programmatic な `Text` 代入でも発火 |
-| `ToolStripItem` | `Click` | `ToolStripButton`、`ToolStripMenuItem` 等 |
-| `ToolStripTextBox` / `ToolStripComboBox` | `TextChanged` / `SelectionChangeCommitted` | ツールバーに埋め込んだ入力欄はクリックではない |
-| `Label` / `LinkLabel` / `PictureBox` / `Panel` / `FlowLayoutPanel` / `TableLayoutPanel` | `Click` | クリックが本来の操作であるコントロール (**型が完全一致のときだけ**。派生クラスは対象外) |
-
-**上の表にないコントロールは `Add` の時点で例外になります** (`InvalidOperationException`、例外メッセージに `RegisterStrategy` の書き方)。以前は何でも `Click` にフォールバックしていたため、`TextBox` やサードパーティの入力欄 (`Control` 派生) を登録すると、入力しても何も起きず、エラーにもなりませんでした。`DataGridView`・`ListBox`・`TreeView`・`UserControl`・サードパーティのコントロールなどは、どのイベントで発火させるかを [`RegisterStrategy<T>()`](#カスタムコントロールに対応する) で明示してください (`ToolStripSeparator` は発火するものが無いので常に例外)。1 回の `Add` に複数のコントロールを渡して 1 つでも拒否されたら、何も登録されません。
-
-**注意 (テキスト系)**: `TextChanged` は確定時ではなく 1 文字ごとに発火し、コードからの `Text` 代入でも発火します。Presenter が値を View に書き戻すときは、View 側で「違うときだけ代入」(`if (txt.Text != value) txt.Text = value;`) にしてください (同じ値の再代入でカーソルが先頭に戻る・二重にディスパッチされるのを防ぐ)。重い処理を 1 文字ごとに走らせたくない場合は Presenter 側で `RateLimit.Debounce` を使います。
-
-**重要**: `CheckBox` と `RadioButton` は `Click` ではなく `CheckedChanged` に紐付くため、キーボードや programmatic な変更でも発火します。
-
-**注意 (値系コントロール)**: `NumericUpDown` / `DateTimePicker` / `MonthCalendar` は `ComboBox` のような「確定時のみ」イベントを持たないため、コード上で `Value` / `SelectionStart` を代入したときも発火します。初期化やデータ再設定で意図せず発火させたくない場合は、ガードフラグで抑制してください (`Unbind()` は Presenter の破棄時にフレームワークが呼ぶもので、Dispatcher との接続も外れます。引数なしの `Bind()` はイベントのみのバインドなので、再接続には使えません)。
-
-### コントロールの値をペイロードとして渡す
-
-`Add(action, control, valueSelector)` オーバーロードを使うと、トリガー時にコントロールの現在値を読み取り、そのままアクションのペイロードとして渡せます。View 側に if-else や `ActionRequest` の配線を書く必要はありません。
-
-```csharp
-// View: バインドと同じ場所に「値の取り出し方」を書く
-_binder.Add(SettingsActions.SetMode,  _checkBox, c => c.Checked);         // bool
-_binder.Add(SettingsActions.SetZoom,  _numZoom,  n => (int)n.Value);      // int
-_binder.Add(SettingsActions.PickDate, _calendar, c => c.SelectionStart);  // DateTime
-
-// Presenter: 型付きハンドラを登録するだけ
-Dispatcher.Register<bool>(SettingsActions.SetMode, OnSetMode);
-Dispatcher.Register<int>(SettingsActions.SetZoom, OnSetZoom);
-```
-
-Implicit パターンでは `Dispatcher.Dispatch(key, payload)` に直接流れ、Explicit パターンでは値付きの `ActionRequestEventArgs<T>` が `ActionTriggered` 経由で発行されます。値を指定しない従来の `Add(action, controls)` は引き続きペイロード無しで動作します。
-
-### CanExecute と CheckBox/RadioButton
-
-`CanExecute` が制御するのは **`Enabled` プロパティ** (グレーアウト) であって、`Checked` ではありません。
-
-```csharp
-// ログイン中のときだけチェックを変更可能にする
-Dispatcher.Register(
-    SettingsActions.ToggleAutoSave,
-    OnToggleAutoSave,
-    canExecute: () => _isUserLoggedIn);
-```
-
-### 一覧のダブルクリック (行を開く)
-
-「行のダブルクリック = 編集」は **グリッドを Binder に登録しません**。登録したコントロールの `Enabled` は `canExecute` に従うので、「編集」(選択行があるときだけ実行可) にグリッドを登録すると、未選択の間はグリッドごと無効になり、行を選ぶことすらできなくなります。
-
-View が意味のあるイベントを出し、Presenter がそれを同じアクションとしてディスパッチします。`Dispatch` は `canExecute` を確認するので、ボタンと同じ条件で動きます:
-
-```csharp
-// View インターフェイス
-event EventHandler RecordActivated;
-
-// Form: 見出し行 (RowIndex = -1) のダブルクリックは除く
-private void Grid_CellDoubleClick(object sender, DataGridViewCellEventArgs e)
-{
-    if (e.RowIndex >= 0) RecordActivated?.Invoke(this, EventArgs.Empty);
-}
-
-// Presenter
-protected override void OnViewAttached()
-{
-    SubscribeViewEvent(h => View.RecordActivated += h, h => View.RecordActivated -= h,
-                       () => Dispatcher.Dispatch(RecordListActions.Edit));
-}
-```
-
-`ListBox` / `ListView` の `DoubleClick`、`Enter` キーでの決定も同じ書き方です。
-
-### 後から追加・削除するコントロール (`Bind` 後の `Add` / `Remove`)
-
-`Bind` した後に `Add` したコントロールも、その場で購読され、Dispatcher にバインド済みなら `canExecute` に従って `Enabled` も更新されます。子 View が `OnInitialize` の中で選択肢のボタンを作る、行を追加する、といった場合もそのまま `Add` できます:
-
-```csharp
-// 子 View: 選択肢を表示するたびに作り直す
-void IChoiceView.ShowChoices(IReadOnlyList<Choice> choices)
-{
-    foreach (var old in _radios) { _binder.Remove(old); old.Dispose(); }   // Remove は Dispose でも自動で行われる
-    _radios.Clear();
-    foreach (var choice in choices)
-    {
-        var radio = new RadioButton { Text = choice.Name, Tag = choice.Id };
-        pnlChoices.Controls.Add(radio);
-        _binder.Add(ChoiceActions.Check, radio, r => ((int)r.Tag, r.Checked));   // ViewAction<(int Id, bool Checked)>
-        _radios.Add(radio);
-    }
-}
-```
-
-> ⚠️ `RadioButton` / `CheckBox` は **チェックが外れたときも** `CheckedChanged` で発火します (ラジオボタンを選ぶと、外れた側も発火する。コードで `Checked = false` にしたときも)。ペイロードに `Checked` を含め、Presenter は外れた通知を無視するか (ラジオ) そのまま反映します (チェックリスト):
->
-> ```csharp
-> Dispatcher.Register(ChoiceActions.Check, ((int Id, bool Checked) e) => { if (e.Checked) _input.SelectedChoiceId = e.Id; });
-> ```
->
-> ID だけを渡すと、外れたボタンの ID で「選択」され、コードでの選択解除が取り消されてしまいます。View が選択状態を書き戻すときは、値が違うコントロールだけを変更します。
-
-- `Remove(controls...)`: そのコントロールはアクションを発火しなくなり、`Enabled` の管理も外れます (値はそのまま)。外したコントロールは別のアクションに `Add` し直せます。未登録・削除済みのコントロールは無視されます。
-- **破棄 (`Dispose`) されたコントロールは自動的に外れます** (`Bind` 前・バインド中・`Unbind` 後のいずれでも)。破棄済みのコントロールの `Add` は `ObjectDisposedException`。
-- `Unbind()` 中に `Add` したコントロールは記録だけされ、次の `Bind` で購読されます。
-- **バインドしたボタンの `DialogResult` は `None` に戻ります** (購読するとき: `Bind()` / `Bind(dispatcher)` / `Bind` 後の `Add`。`Unbind` / `Remove` でも元に戻しません)。WinForms はボタンの `DialogResult` を `Click` より先にフォームへ写すため、残っているとハンドラの判断に関係なくモーダルが閉じます。`Form.CancelButton` は自動で `Cancel` を入れるので、`CancelButton` は `Bind` 前に設定します。閉じるのは Presenter の `RequestClose` です ([ウィンドウを閉じる](HowTo-Handle-Window-Closing))。
-- Binder の操作 (`Add` / `Remove` / `RegisterStrategy` / `Bind` / `Unbind`) は UI スレッドで行います。
-
-### カスタムコントロールに対応する
-
-デフォルトに無いコントロール (上の表にないもの) や、別のイベントで発火させたい場合は、**`Add` の前に** `RegisterStrategy<T>()` で登録します。コントロールの実行時の型から基底クラスへたどり、最初に登録が見つかった型の戦略が使われます (登録順には依存しません)。バインド中に登録した戦略は、その後に `Add` したコントロールから使われます。コールバックに渡される `h` は `EventHandler` です (キャスト不要)。オーバーロードは 2 つあり、コントロールのイベントのデリゲート型で使い分けます。
-
-**1. イベントが `EventHandler` 型の場合** (Click / `*Changed` など) — attacher / detacher を渡します。
-
-```csharp
-_binder.RegisterStrategy<TrackBar>(
-    (c, h) => c.ValueChanged += h,
-    (c, h) => c.ValueChanged -= h);
-```
-
-**2. イベントが `EventHandler` 以外のデリゲート型の場合** (`MonthCalendar.DateChanged` の `DateRangeEventHandler`、`TreeView.AfterSelect` の `TreeViewEventHandler` 等) — 購読してから「解除コールバック」を返す `subscribe` オーバーロードを使います。
-
-```csharp
-_binder.RegisterStrategy<TreeView>((c, h) =>
-{
-    TreeViewEventHandler d = (s, e) => h(s, e);
-    c.AfterSelect += d;
-    return () => c.AfterSelect -= d;   // captures the same instance -> clean detach on Unbind
-});
-```
-
-`subscribe` が返すクロージャは購読した実際のデリゲートインスタンスをキャプチャするため、`Unbind()` が正しく解除できます (ラムダで包んだ別インスタンスを `-=` しようとして解除できない、という問題を回避します)。`EventHandler` 版 (1.) は内部でこの `subscribe` 版に橋渡しされています。
-
-**3. 有効 / 無効の反映 (`setEnabled`)** — Binder が `canExecute` に合わせて `Enabled` を切り替えるのは `Control` と `ToolStripItem` だけです。サードパーティのツールバーコマンドのように、どちらでもない `Component` は、どちらのオーバーロードにも最後の引数 `setEnabled` を渡すと、ボタンと同じように灰色になります (渡さなければ Binder はその有効状態に触れません)。`Control` / `ToolStripItem` の型に渡すと、既定の `Enabled` の切り替えを置き換えます (例: 灰色にする代わりに隠す)。
-
-```csharp
-// 例: クリックイベントが独自のデリゲート型で、Enabled を持つツールバーコマンド
-_binder.RegisterStrategy<ToolbarCommand>((c, h) =>
-{
-    ToolbarClickHandler d = (s, e) => h(s, e);
-    c.Click += d;
-    return () => c.Click -= d;
-}, setEnabled: (c, enabled) => c.Enabled = enabled);
-```
-
-実装の詳細は `src/Kibinago/ViewActions/ViewActionBinder.cs` を参照してください。
-
----
-
-## Implicit パターン vs Explicit パターン
-
-ViewAction の使い方には **2 つのパターン** があります。
-
-### Implicit パターン (推奨・ほぼ常にこちら)
-
-フレームワークが `View.ActionBinder.Bind(Dispatcher)` を **自動的に** 呼び、CanExecute による UI 自動更新も働きます。
-コードが最小限で済み、本ページの上半分で示してきたパターンがこれです。
-
-| 観点 | Implicit パターン |
-|------|----------------|
-| 自動 Bind | ✅ あり |
-| 自動 CanExecute 更新 | ✅ あり |
-| コード量 | 最小 |
-| デバッグの見通し | 低い (Magic) |
-| 使いどころ | 通常の CRUD など、ほとんどのケース |
-
-### Explicit パターン
-
-View が `ActionRequest` イベントを明示的に発火し、Presenter が明示的に購読する形です。主に既存 Form の段階的な移行向けで、通常は Implicit パターンを使ってください。
-**ActionBinder プロパティは `null` を返し**、View 自身が `_binder.Bind()` (Dispatcher なし版) を呼びます。
-
-> **ルーティングは呼んだ `Bind` で決まります。** `Bind(dispatcher)` は常に Dispatcher へ派発し、その後で `ActionTriggered` を通知として発火します。`Bind()` は `ActionTriggered` を発火するだけです。`ActionTriggered` を購読しても派発の有無は変わりません (以前は購読者がいると派発をスキップしていたため、ステータスバー表示などの購読だけで全ボタンが無反応になっていました)。Implicit パターンの View で `ActionTriggered` を通知 (ログ・ステータス表示) に使うのは安全です。
-
-```csharp
-// View 側
-public IViewActionBinder ActionBinder => null;  // ← 自動 Bind を抑止
-
-public event EventHandler<ActionRequestEventArgs> ActionRequest;
-
-private void InitializeActionBindings()
-{
-    _binder = new ViewActionBinder();
-    _binder.Add(UserEditorActions.Save, _btnSave);
-    _binder.ActionTriggered += (s, e) => ActionRequest?.Invoke(this, e);
-    _binder.Bind();  // ← Dispatcher なし版 (イベントだけ発行)
-}
-
-// Presenter 側
-protected override void OnViewAttached()
-{
-    View.ActionRequest += OnViewActionTriggered;   // ← 基底クラスのヘルパー
-    Disposable.Create(() => View.ActionRequest -= OnViewActionTriggered).DisposeWith(Disposables);
-
-    // Binder は Dispatcher に接続されていないため、ボタンの有効/無効は自動更新されない。
-    // 可否は意味のある View メンバー経由で伝える (Form 側が Enabled に反映する)。
-    SubscribeViewEvent(h => View.SelectionChanged += h, h => View.SelectionChanged -= h, OnSelectionChanged);
-}
-
-private void OnSelectionChanged() => View.CanDelete = View.HasSelection;
-```
-
-| 観点 | Explicit パターン |
-|------|---------------|
-| イベント購読が見える | ✅ F12 ナビ可能 |
-| ブレークポイント設定 | ✅ できる |
-| 自動 CanExecute 更新 | ❌ コントロールの有効/無効は自動同期されない。`View.CanDelete` のような View メンバーで伝える (`RaiseCanExecuteChanged()` だけでは反映されない) |
-| コード量 | 多い |
-| 使いどころ | 既存 Form の段階的移行・動作を完全に追跡したい場合 |
-
-### `OnViewActionTriggered` ヘルパー
-
-`PresenterBase` には Explicit パターン用のヘルパーがあります。
-
-```csharp
-protected void OnViewActionTriggered(object sender, ActionRequestEventArgs e)
-{
-    DispatchAction(e);
-}
-
-protected void DispatchAction(ActionRequestEventArgs e)
-{
-    if (e == null) return;
-
-    var key = e.ActionKey;
-    object payload = null;
-
-    if (e is IActionRequestEventArgsWithValue valueProvider)
-        payload = valueProvider.GetValue();
-
-    Dispatcher.Dispatch(key, payload);
-}
-```
-
-これにより、Explicit パターンでも `View.ActionRequest += OnViewActionTriggered;` の 1 行で済みます (手動の if-else チェーンは不要)。
-
-### 選び方
-
-ほとんどのアプリケーションは **Implicit パターン** で十分です。Explicit は以下のような状況で:
-
-- アクションルーティングの問題をデバッグする
-- 動作の透明性を最大化したい
-- フレームワークの動作を完全に理解したい (学習目的)
-
----
-
-## ミドルウェアパイプライン
-
-`ViewActionDispatcher` には **オプトインのミドルウェアパイプライン** があり、横断的関心事 (監査ログ、パフォーマンス計測、認可、エラー処理戦略等) を集約できます。
-
-> **シンプルな Presenter にはミドルウェアは不要です**。`Use(...)` を呼ばない限り、ファストパス (ゼロ・オーバーヘッド) で動きます。
-
-### こんなときは別の手段を使う
-
-| やりたいこと | ミドルウェアではなくこちら |
-|------------|------------------------|
-| 1 つのアクションを実行するかしないか判断 | `canExecute: () => ...` |
-| 成功時に状態変化に反応 | `Dispatcher.ActionExecuted` イベント |
-| 特定のハンドラだけログを取りたい | そのハンドラ内で `Logger.LogInformation` |
-| 横断的処理が一切ない通常 CRUD | ミドルウェアを使わない |
-
-### メンタルモデル: オニオン
-
-ASP.NET Core と同じ「オニオンモデル」です。各ミドルウェアは `(context, next)` を受け取って `Task` を返し、`await next(context)` の前後で前処理・後処理を実行します。`await next(context)` は非同期ハンドラの完了まで待ちます。`next` を呼ばないとパイプラインが短絡し、ハンドラは実行されません。
-
-```
-Dispatch(Save)
-  ┌─ AuditMiddleware.pre
-  │  ┌─ ErrorDialogMiddleware.try {
-  │  │   ┌─ PerformanceMiddleware (Stopwatch.Start)
-  │  │   │   ┌─ [Handler: OnSave]       ← 末端
-  │  │   │   └─
-  │  │   └─ PerformanceMiddleware (Stopwatch.Stop, log if slow)
-  │  └─ ErrorDialogMiddleware } catch { ShowDialog }
-  └─ AuditMiddleware.post   (context.Exception を見て監査記録)
-```
-
-### 2 つの登録階層
-
-#### Global (アプリ全体) — 最外殻
-
-```csharp
-// DI コンテナなしの場合 (起動時の設定ブロック)
-MvpApplication.Configure(framework: mvp => mvp.Actions.Configure(d => d
-    .Use(new AuditMiddleware(auditSink, () => CurrentUser.Name))
-    .Use(new ErrorDialogMiddleware(messages, dispatchLogger))));
-
-// M.E.DI の場合
-services.AddSingleton<IDispatcherConfigurer>(
-    new ActionDispatcherConfigurer(d => d
-        .Use(new AuditMiddleware(auditSink, () => CurrentUser.Name))
-        .Use(new ErrorDialogMiddleware(messages, dispatchLogger))));
-```
-
-#### Local (Presenter ごと) — グローバルの内側
-
-```csharp
-protected override void RegisterViewActions()
-{
-    Dispatcher.Use(new PerformanceMiddleware(Logger, slowThresholdMs: 50));
-    Dispatcher.Register(StandardActions.Save, OnSave);
-}
-```
-
-「**Global が先に登録 = 最外殻**」が契約です。`PresenterBase.SetView` が `RegisterViewActions` より前に Global ミドルウェアを構成するので、Presenter 側がそれを迂回することはできません。監査・認可等の絶対迂回不可な処理は **Global** に置きます。
-
-### ミドルウェアの書き方
-
-再利用可能な場合は `IDispatchMiddleware` を実装:
-
-```csharp
-public sealed class PerformanceMiddleware : IDispatchMiddleware
+public sealed class OperationLog : IActionObserver
 {
     private readonly ILogger _logger;
-    private readonly int _thresholdMs;
+    public OperationLog(ILoggerFactory loggers) => _logger = loggers.CreateLogger("Operations");
 
-    public PerformanceMiddleware(ILogger logger, int thresholdMs = 100)
+    public void OnExecuted(ActionExecution e)
     {
-        _logger = logger ?? NullLogger.Instance;
-        _thresholdMs = thresholdMs;
-    }
-
-    public async Task InvokeAsync(DispatchContext context, DispatchDelegate next)
-    {
-        var sw = Stopwatch.StartNew();
-        try { await next(context); }   // 非同期ハンドラは最後の await まで計測される
-        finally
-        {
-            sw.Stop();
-            if (sw.ElapsedMilliseconds > _thresholdMs)
-                _logger.LogWarning("Slow dispatch: {Action} took {Ms}ms",
-                    context.Action, sw.ElapsedMilliseconds);
-        }
+        _logger.LogInformation("{Presenter} {Action} {Payload} {Outcome} {Ms}ms",
+            e.PresenterType?.Name, e.Action, e.Payload, e.Outcome, (int)e.Elapsed.TotalMilliseconds);
+        if (e.Elapsed > TimeSpan.FromSeconds(2))
+            _logger.LogWarning("Slow action {Action}: {Ms}ms", e.Action, (int)e.Elapsed.TotalMilliseconds);
     }
 }
+
+MvpApplication.Configure(framework: mvp =>
+    mvp.Actions.Observe(sp => new OperationLog(sp.Resolve<ILoggerFactory>())));
+// M.E.DI: services.AddKibinago(viewRegistry, mvp => mvp.Actions.Observe(...));
+//         または services.AddSingleton<IActionObserver, OperationLog>();
 ```
 
-1 回限りの用途ならインライン形式:
+`OnExecuted` は **ハンドラが実行されるたびに、終わったときに 1 回** 呼ばれます。開始時には呼ばれません (開始時刻は `StartedAt`)。
 
-```csharp
-Dispatcher.Use((ctx, next) =>
-    _isReadOnly && IsDestructive(ctx.Action)
-        ? Task.CompletedTask     // 短絡: ハンドラを呼ばずに終わる
-        : next(ctx));            // 前後の処理がないなら async にせずそのまま返す
-```
+| `ActionExecution` | 内容 |
+|---|---|
+| `Action` | 実行したアクションのキー (型付きキーも `ViewAction` で) |
+| `Payload` | ハンドラに渡したペイロード (なしなら `null`) |
+| `PresenterType` | アクションを登録した Presenter の型 (どの画面か) |
+| `StartedAt` / `Elapsed` | 開始時刻 (UTC) とハンドラの所要時間 (非同期ハンドラは最後の `await` の後まで) |
+| `IsAsync` | 非同期ハンドラか |
+| `Outcome` | `Succeeded` (ハンドラが例外なく終わった) / `Failed` / `Canceled` |
+| `Exception` | `Failed` のときだけ、ハンドラの例外 (`Application.ThreadException` に伝わるのと同じオブジェクト)。`Succeeded` / `Canceled` は `null` |
 
-### `DispatchContext` の主な API
+- **呼ばれる時点** — アクションが再び有効になり、`CanExecuteChanged` でコントロールの状態が更新された後。UI スレッド (ディスパッチしたスレッド) で呼ばれます。画面を閉じた後に終わった非同期ハンドラも通知されます (`Canceled` または、トークンを見ずに完走すれば `Succeeded`)。
+- **呼ばれないディスパッチ** — 何も実行されなかったもの: `canExecute` が `false`、未登録のキー、ペイロードの型違い、非同期ハンドラの実行中の二度押し、破棄後のディスパッチ。
+- **受け身** — オブザーバーは実行を止める・やり直す・例外を握りつぶすことができず、ハンドラの例外はそのまま伝わります。オブザーバー自身が投げた例外はログに出して無視します (その実行の記録はなくなるだけで、アクションには影響しません)。監査ログのように記録を失いたくない場合は、書き込みの失敗をオブザーバーの中で扱います (バッファーして再試行、ローカルファイルへの退避など)。重い処理 (ファイル・ネットワークへの書き込み) はキューに入れて別スレッドで。
+- **1 アプリに 1 つ** — 後の `Observe` が前のものを置き換えます。複数に送りたいときは、1 つのオブザーバーの中で振り分けます。登録したインスタンスはフレームワークが破棄しません。
+- **オーバーヘッド** — オブザーバーがなければ時刻も読みません。あれば 1 回の実行ごとに `Stopwatch` と `ActionExecution` を 1 つずつ。
 
-| プロパティ | 型 | 備考 |
-|----------|----|----|
-| `Action` | `ViewAction` | ディスパッチ中のアクション |
-| `Payload` | `object` | 読み取り専用 (型変換禁止) |
-| `ExpectedPayloadType` | `Type` | パラメータなしハンドラの場合は `null` |
-| `HandlerExecuted` | `bool` | 末端ハンドラが呼ばれたとき `true` (非同期ハンドラは開始した時点) |
-| `Exception` | `Exception` | ハンドラの例外 (同期でも `await` 後でも、ハンドラを抜けた時点で設定される記録) |
-| `CancellationToken` | `CancellationToken` | 非同期ハンドラに渡されたトークン (Presenter 破棄時にキャンセル) |
+### ほかの横断的処理
 
-`Items` 辞書のような汎用拡張はありません。状態を保持したいミドルウェアは、自分のフィールドに持たせてください。
+以前のミドルウェア (`Dispatcher.Use`) は削除しました。用途ごとに次の書き方をします。
 
-### 例外フロー
+| やりたいこと | 書き方 |
+|---|---|
+| 操作ログ・監査・計測 | `IActionObserver` (上記) |
+| 想定外のエラーをまとめてダイアログで表示 | `Program.cs` の `Application.ThreadException` (ハンドラの例外はログの後そこへ伝わる) |
+| 想定内のエラー (通信失敗など) | ハンドラの中で `try` / `catch` して `Messages` |
+| 権限がないと実行させない | `canExecute: () => _user.CanEdit` (ボタンも無効になる) |
+| 特定のハンドラだけのログ | そのハンドラの中で `Logger` |
 
-ハンドラの例外 (`await` 後のものも) はミドルウェアチェーンを上方向に伝播します。捕捉したい場合は `await next(context)` を `try`/`catch` で囲みます (例: `ErrorDialogMiddleware`)。Presenter の破棄によるキャンセルは `OperationCanceledException` として届くので、エラーとして表示しないでください (`catch (OperationCanceledException) when (context.CancellationToken.IsCancellationRequested) { throw; }`)。非同期ハンドラと同じく、`async` のミドルウェアが `OperationCanceledException` で終わった場合はキャンセル (無音) として扱われます。Presenter が破棄された後は、`await` から戻ったミドルウェアが `next` を呼んでもハンドラは実行されません。**ミドルウェアが `catch` した例外は処理済み** とみなされ、それ以上は伝わりません (`context.Exception` は記録として残ります)。誰も捕捉しない場合はフレームワークがログを出力し、`Dispatch` の呼び出し元へ再スローします (`Application.ThreadException` へ)。ミドルウェアが別の例外を投げた場合は、その例外が伝わります。`ActionExecuted` イベントはパイプライン全体が終わり、ハンドラが失敗せずに完走したときだけ発火します (短絡した場合・ミドルウェアが失敗を捕捉した場合は発火しません)。
-
-ハンドラが投げた例外は、**ハンドラを抜けた時点で** `context.Exception` に設定されます。そのため外側のミドルウェアは、例外を捕捉しなくても `finally` ブロックで `context.Exception` を参照できます (監査・計測向け)。また、例外を投げたハンドラの後には `CanExecuteChanged` が発火し、コントロールの有効/無効状態が更新されます。
-
-### ミドルウェアが見えないケース
-
-パイプラインは Dispatcher の前提チェック **後** に走ります。以下のディスパッチではミドルウェアは呼ばれません:
-
-- 登録されていない ActionKey
-- `CanExecute` が `false` の場合
-- ペイロードの型不一致
-
-「無効化中でも操作試行を監査したい」場合は、自分のコードで `CanDispatch` を呼んでから `Dispatch` を呼ぶ等の工夫が必要です。
-
-### パフォーマンス特性
-
-- **ファストパス** (ミドルウェア未登録): アロケーションなし、追加のインダイレクションなし
-- **スローパス** (ミドルウェア登録あり): ディスパッチごとに `DispatchContext` 1 個ヒープ確保 + N 個のクロージャ呼び出し (N = ミドルウェア数)。同期ハンドラと同期的に完了するミドルウェアでは追加のタスク確保はありません (`async` ラムダの状態機械を除く)。コンパイル済みパイプラインは Dispatcher にキャッシュされ、ミドルウェア追加時のみ再構築される
-- リフレクション・Expression Trees は使用していないので、どのターゲットでも追加コストはありません
+テストでは `TestServices.CreateFakes()` が `RecordingActionObserver` を登録します (`fakes.Actions.Executions`)。
 
 ---
 
@@ -964,4 +586,4 @@ Dispatcher.Use((ctx, next) =>
   - [`samples/Kibinago.Samples/ViewActionStateChangedExample.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/samples/Kibinago.Samples/ViewActionStateChangedExample.cs) — 状態駆動更新
   - [`samples/Kibinago.Samples/CheckBoxDemo/`](https://github.com/VoidAxon/winforms-mvp/tree/master/samples/Kibinago.Samples/CheckBoxDemo) — CheckBox/RadioButton バインド
   - [`samples/Kibinago.Samples/BulkBindingDemo/`](https://github.com/VoidAxon/winforms-mvp/tree/master/samples/Kibinago.Samples/BulkBindingDemo) — 一括バインド
-  - [`samples/Kibinago.Samples/ViewActionMiddlewareExample.cs`](https://github.com/VoidAxon/winforms-mvp/blob/master/samples/Kibinago.Samples/ViewActionMiddlewareExample.cs) — ミドルウェア (Audit / Performance / ErrorDialog)
+  - [`samples/Kibinago.Samples/ActionLogDemo/`](https://github.com/VoidAxon/winforms-mvp/tree/master/samples/Kibinago.Samples/ActionLogDemo) — 操作ログ (`IActionObserver`)

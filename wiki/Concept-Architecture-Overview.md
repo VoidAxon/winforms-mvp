@@ -128,7 +128,7 @@ Presenter からは、コンストラクタ注入なしで以下のサービス�
 | [ChangeTracker](Reference-ChangeTracker) | 「保存 / キャンセル」が必要なフォーム編集画面 |
 | [EventAggregator](Reference-EventAggregator) | 複数 Presenter が同じイベントに反応する必要があるとき |
 | [Logging](Reference-Logging) | 操作ログ・障害解析 |
-| ViewAction Middleware | 監査ログ・パフォーマンス計測等の横断的処理を Dispatcher に挟む |
+| Action Observer | すべてのアクションの実行 (結果・所要時間) を 1 か所で受け取り、操作ログ・計測に使う |
 
 ---
 

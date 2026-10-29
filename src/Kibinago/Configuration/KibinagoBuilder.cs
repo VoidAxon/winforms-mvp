@@ -59,7 +59,7 @@ namespace Kibinago.Configuration
         /// <summary>The logger factory.</summary>
         public LoggingBuilder Logging { get; }
 
-        /// <summary>Global view-action dispatcher configuration (middleware, strict validation).</summary>
+        /// <summary>Global view-action dispatcher configuration (strict validation, action observer).</summary>
         public ActionsBuilder Actions { get; }
 
         internal void EnsureNotBuilt()
@@ -122,8 +122,7 @@ namespace Kibinago.Configuration
             Put(FrameworkRegistration.ForFactory(typeof(IEventAggregator), sp => new EventAggregator(sp.ResolveRequired<ILoggerFactory>())));
             Put(FrameworkRegistration.ForInstance(typeof(ILoggerFactory), NullLoggerFactory.Instance));
 
-            var configurer = Actions.BuildConfigurer();
-            if (configurer != null) Put(FrameworkRegistration.ForInstance(typeof(IDispatcherConfigurer), configurer));
+            Put(FrameworkRegistration.ForInstance(typeof(ActionDispatcherOptions), Actions.Options.Copy()));
 
             foreach (var choice in _choices) Put(choice);
 

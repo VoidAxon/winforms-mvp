@@ -225,12 +225,6 @@ namespace Kibinago.Samples.Tests.Presenters
             public ServicesInConstructorPresenter() { Logger.LogInformation("constructed"); }
         }
 
-        private sealed class RecordingConfigurer : IDispatcherConfigurer
-        {
-            public int Calls;
-            public void Configure(ViewActionDispatcher dispatcher) => Calls++;
-        }
-
         private sealed class OtherLoggerFactory : ILoggerFactory
         {
             public ILogger CreateLogger(string categoryName) => NullLogger.Instance;
@@ -276,16 +270,43 @@ namespace Kibinago.Samples.Tests.Presenters
         }
 
         [Fact]
-        public void StartWithServices_IsInPlaceBeforeTheViewIsAttached()
+        public void StartWithServices_TheActionObserverComesFromThoseServices()
         {
-            // The dispatcher is configured while the view is attached (before OnViewAttached).
-            var configurer = new RecordingConfigurer();
+            var observer = new RecordingActionObserver();
             var services = TestServices.Create();
-            services.RegisterInstance<IDispatcherConfigurer>(configurer);
+            services.RegisterInstance<IActionObserver>(observer);
+            var view = new EditView();
 
-            PresenterTestHost.Start(services, new EditPresenter(), new EditView());
+            PresenterTestHost.Start(services, new EditPresenter(), view);
+            view.Binder.Dispatch(Save);
 
-            Assert.Equal(1, configurer.Calls);
+            var execution = Assert.Single(observer.Executions);
+            Assert.Equal(Save, execution.Action);
+            Assert.Equal(typeof(EditPresenter), execution.PresenterType);
+        }
+
+        [Fact]
+        public void StartWithFakes_RecordsExecutedActions()
+        {
+            var fakes = TestServices.CreateFakes();
+            var view = new EditView();
+
+            PresenterTestHost.Start(fakes.Provider, new EditPresenter(), view);
+            view.Binder.Dispatch(Save);
+
+            Assert.Equal(ActionOutcome.Succeeded, Assert.Single(fakes.Actions.Executions).Outcome);
+        }
+
+        [Fact]
+        public void StartWithServices_StrictValidationOptions_AreApplied()
+        {
+            var services = TestServices.Create();
+            services.RegisterInstance(new ActionDispatcherOptions { ValidationMode = DispatchValidationMode.Strict });
+            var view = new EditView();
+
+            PresenterTestHost.Start(services, new EditPresenter(), view);
+
+            Assert.ThrowsAny<Exception>(() => view.Binder.Dispatch(ViewAction.Create("HostTests.Unregistered")));
         }
 
         [Fact]

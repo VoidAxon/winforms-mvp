@@ -87,7 +87,7 @@ namespace Kibinago.Samples.Tests.ViewActions
         [Fact]
         public void TypedAndUntypedKeys_ReachTheSameHandler()
         {
-            // Middleware, logs and explicit-pattern code see the untyped key.
+            // The observer, logs and explicit-pattern code see the untyped key.
             var dispatcher = new ViewActionDispatcher();
             int received = 0;
             dispatcher.Register(Zoom, z => received = z);

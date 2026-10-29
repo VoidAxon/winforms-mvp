@@ -67,7 +67,8 @@ MvpApplication.Configure(
 | 変更追跡の比較 / 複製 (型ごと) | `ChangeTracking.For(policy)` | `ChangeTrackingPolicy<T>` |
 | イベントアグリゲーター | `Events.Use(...)` | `IEventAggregator` |
 | ログ | `Logging.Use(...)` | `ILoggerFactory` |
-| すべての Dispatcher に共通のミドルウェア / Strict 検証 | `Actions.Configure(d => d.Use(...))` / `Actions.StrictValidation()` | `IDispatcherConfigurer` |
+| すべてのアクションの実行を記録 (操作ログ・計測) | `Actions.Observe(...)` | `IActionObserver` |
+| 配線ミスを例外に (Strict 検証) | `Actions.StrictValidation()` | `ActionDispatcherOptions` |
 
 インスタンスを受け取る `UseXxx(...)` には、ほかのサービスを使って作るためのファクトリ版もあります。
 

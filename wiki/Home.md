@@ -44,7 +44,7 @@ WinForms アプリケーションのための **Model-View-Presenter** フレー
 各機能の詳細な仕様と API です。
 
 - [Presenter 基底クラス](Reference-Presenter-Base-Classes) — Window / Control × パラメータ有無の 4 種類
-- [ViewAction システム](Reference-ViewAction-System) — Dispatcher / Binder / Middleware の完全リファレンス
+- [ViewAction システム](Reference-ViewAction-System) — Dispatcher / Binder / 操作ログ (オブザーバー) の完全リファレンス
 - [WindowNavigator](Reference-WindowNavigator) — Modal / 非 Modal、Fluent API、`RequestClose` による結果返却
 - [ViewMappingRegister](Reference-ViewMappingRegister) — View 自動登録、Factory パターン
 - [Platform Services](Reference-Platform-Services) — `IMessageService` / `IToastService` / `IDialogProvider`、ファイル・DB・HTTP の扱い

@@ -144,7 +144,7 @@ namespace Kibinago.Samples
             _messageService.ShowInfo("Row added");
 
             // UI state automatically updates after this action completes
-            // (because ActionExecuted event is automatically triggered)
+            // (the dispatcher re-evaluates CanExecute when a handler finishes)
         }
 
         private void OnEditRow()

@@ -14,8 +14,8 @@ namespace Kibinago.Samples.Tests.ViewActions
     /// An unhandled handler exception is logged and then propagates like an ordinary WinForms event
     /// handler's (to Application.ThreadException): out of Dispatch for a synchronous failure, posted
     /// to the dispatching SynchronizationContext for a failure after an await (like async void), and
-    /// as a faulted task from DispatchAsync. Cancellation stays silent; a middleware that catches the
-    /// exception has handled it (ctx.Exception stays a record either way).
+    /// as a faulted task from DispatchAsync. Cancellation stays silent. The action observer is told
+    /// either way and never changes it.
     /// </summary>
     public class ActionExceptionPropagationTests
     {
@@ -59,9 +59,10 @@ namespace Kibinago.Samples.Tests.ViewActions
         public void Dispatch_SyncHandlerThrows_PropagatesAfterLoggingAndCleanup()
         {
             var (dispatcher, log) = NewDispatcher();
+            var observer = new Kibinago.Testing.RecordingActionObserver();
+            dispatcher.Observer = observer;
             dispatcher.Register(Save, () => throw new InvalidOperationException("boom"));
-            bool executed = false, refreshed = false;
-            dispatcher.ActionExecuted += (s, e) => executed = true;
+            bool refreshed = false;
             dispatcher.CanExecuteChanged += (s, e) => refreshed = true;
 
             var ex = Assert.Throws<InvalidOperationException>(() => dispatcher.Dispatch(Save));
@@ -69,7 +70,9 @@ namespace Kibinago.Samples.Tests.ViewActions
             Assert.Equal("boom", ex.Message);
             Assert.Contains(nameof(Dispatch_SyncHandlerThrows_PropagatesAfterLoggingAndCleanup), ex.StackTrace); // original stack kept
             Assert.Equal(LogLevel.Error, log.Entries.Single().Level);
-            Assert.False(executed);
+            var execution = Assert.Single(observer.Executions);
+            Assert.Equal(ActionOutcome.Failed, execution.Outcome);
+            Assert.Same(ex, execution.Exception);
             Assert.True(refreshed);
             Assert.True(dispatcher.CanDispatch(Save));
         }
@@ -147,101 +150,7 @@ namespace Kibinago.Samples.Tests.ViewActions
             dispatcher.Dispatch(Save);              // does not throw
         }
 
-        // ---- middleware ----
-
-        [Fact]
-        public void Middleware_SeesTheExceptionInFinally_BeforeItPropagates()
-        {
-            var (dispatcher, _) = NewDispatcher();
-            Exception seen = null;
-            dispatcher.Use(async (ctx, next) => { try { await next(ctx); } finally { seen = ctx.Exception; } });
-            dispatcher.Register(Save, () => throw new InvalidOperationException("boom"));
-
-            Assert.Throws<InvalidOperationException>(() => dispatcher.Dispatch(Save));
-            Assert.IsType<InvalidOperationException>(seen);
-        }
-
-        [Fact]
-        public void Middleware_ThatClearsTheException_HasHandledIt()
-        {
-            var (dispatcher, _) = NewDispatcher();
-            bool executed = false, refreshed = false;
-            dispatcher.ActionExecuted += (s, e) => executed = true;
-            dispatcher.Use(async (ctx, next) =>
-            {
-                try { await next(ctx); }
-                catch (InvalidOperationException) { ctx.Exception = null; }   // e.g. showed its own message
-            });
-            dispatcher.Register(Save, () => throw new InvalidOperationException("boom"));
-            dispatcher.CanExecuteChanged += (s, e) => refreshed = true;
-
-            dispatcher.Dispatch(Save);   // nothing propagates
-
-            Assert.False(executed);      // handled is not succeeded
-            Assert.True(refreshed);      // a failed handler may have changed state
-        }
-
-        [Fact]
-        public void Middleware_ThatCatchesAndKeepsTheRecord_HasHandledIt()
-        {
-            var (dispatcher, _) = NewDispatcher();
-            Exception audited = null;
-            dispatcher.Use(async (ctx, next) => { try { await next(ctx); } finally { audited = ctx.Exception; } });   // outer: audit
-            dispatcher.Use(async (ctx, next) =>
-            {
-                try { await next(ctx); }
-                catch (InvalidOperationException) { /* showed an error dialog; ctx.Exception stays set */ }
-            });
-            dispatcher.Register(Save, () => throw new InvalidOperationException("boom"));
-
-            dispatcher.Dispatch(Save);   // nothing propagates
-
-            Assert.IsType<InvalidOperationException>(audited);   // still visible to auditing
-        }
-
-        [Fact]
-        public void Middleware_ThatRethrowsAnotherException_PropagatesThatOne()
-        {
-            var (dispatcher, _) = NewDispatcher();
-            dispatcher.Use(async (ctx, next) =>
-            {
-                try { await next(ctx); }
-                catch (InvalidOperationException ex) { throw new ApplicationException("wrapped", ex); }
-            });
-            dispatcher.Register(Save, () => throw new InvalidOperationException("boom"));
-
-            var ex = Assert.Throws<ApplicationException>(() => dispatcher.Dispatch(Save));
-            Assert.IsType<InvalidOperationException>(ex.InnerException);
-        }
-
-        [Fact]
-        public async Task DispatchAsync_ThroughMiddleware_FailureAfterAwait_FaultsTheTask()
-        {
-            var (dispatcher, _) = NewDispatcher();
-            dispatcher.Use((ctx, next) => next(ctx));
-            var gate = new TaskCompletionSource<bool>();
-            dispatcher.Register(Save, async () => { await gate.Task; throw new InvalidOperationException("late"); });
-
-            var task = dispatcher.DispatchAsync(Save);
-            gate.SetResult(true);
-
-            await Assert.ThrowsAsync<InvalidOperationException>(() => task);
-            Assert.True(dispatcher.CanDispatch(Save));
-        }
-
         // ---- edge cases ----
-
-        [Fact]
-        public async Task AlreadyFaultedHandler_IsThrownFromNext_LikeASynchronousFailure_OnBothApis()
-        {
-            var (dispatcher, _) = NewDispatcher();
-            dispatcher.Use((ctx, next) => { next(ctx); throw new ApplicationException("never reached"); });
-            dispatcher.Register(Save, () => Task.FromException(new InvalidOperationException("handler")));
-
-            Assert.Throws<InvalidOperationException>(() => dispatcher.Dispatch(Save));
-            await Assert.ThrowsAsync<InvalidOperationException>(() => dispatcher.DispatchAsync(Save));
-            Assert.True(dispatcher.CanDispatch(Save));
-        }
 
         [Fact]
         public async Task DispatchAsync_HandlerFaultedLaterWithOperationCanceled_Faults()
@@ -281,9 +190,11 @@ namespace Kibinago.Samples.Tests.ViewActions
             var (dispatcher, _) = NewDispatcher();
             var handler = new TaskCompletionSource<bool>();
             dispatcher.Register(Save, () => (Task)handler.Task);
-            dispatcher.ActionExecuted += (s, e) => throw new OperationCanceledException("subscriber");
+            var armed = false;   // CanExecuteChanged is also raised when the handler starts
+            dispatcher.CanExecuteChanged += (s, e) => { if (armed) throw new OperationCanceledException("subscriber"); };
 
             var task = dispatcher.DispatchAsync(Save);
+            armed = true;
             handler.SetResult(true);
 
             var finished = await Task.WhenAny(task, Task.Delay(5000));
@@ -293,34 +204,23 @@ namespace Kibinago.Samples.Tests.ViewActions
         }
 
         [Fact]
-        public async Task SubscriberThrows_AfterAnAsyncPipeline_StillFaultsDispatchAsync()
+        public async Task SubscriberThrows_AfterAnAsyncHandler_FaultsDispatchAsync_AndTheObserverIsStillTold()
         {
             var (dispatcher, _) = NewDispatcher();
+            var observer = new Kibinago.Testing.RecordingActionObserver();
+            dispatcher.Observer = observer;
             var handler = new TaskCompletionSource<bool>();
             dispatcher.Register(Save, () => (Task)handler.Task);
-            dispatcher.Use(async (ctx, next) => { await next(ctx); ctx.Exception = new ApplicationException("a record only"); });
-            dispatcher.ActionExecuted += (s, e) => throw new InvalidOperationException("subscriber");
+            var armed = false;
+            dispatcher.CanExecuteChanged += (s, e) => { if (armed) throw new InvalidOperationException("subscriber"); };
 
             var task = dispatcher.DispatchAsync(Save);
+            armed = true;
             handler.SetResult(true);
 
             var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => task);
             Assert.Equal("subscriber", ex.Message);
-        }
-
-        [Fact]
-        public async Task MiddlewareThrowsOperationCanceledAfterStartingAnAsyncHandler_DispatchAsyncFaults()
-        {
-            var (dispatcher, _) = NewDispatcher();
-            var handler = new TaskCompletionSource<bool>();
-            dispatcher.Register(Save, () => (Task)handler.Task);
-            dispatcher.Use((ctx, next) => { next(ctx); throw new OperationCanceledException("middleware"); });
-
-            var task = dispatcher.DispatchAsync(Save);
-            handler.SetResult(true);
-
-            await Assert.ThrowsAsync<OperationCanceledException>(() => task);
-            Assert.True(task.IsFaulted);
+            Assert.Equal(ActionOutcome.Succeeded, Assert.Single(observer.Executions).Outcome);   // the handler's outcome
         }
 
         // ---- unchanged: CanExecute failures stay diagnostic ----

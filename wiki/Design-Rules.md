@@ -473,7 +473,7 @@ View.DisplayOrders(orders);
 
 「公開メンバーの白名単」ではなく **1 つの不変量** (*Presenter のユースケース行動は正当な通路 = ViewAction + ライフサイクル (構築 / `Initialize` / `Dispose`) からのみ駆動される*) で、**入站と出站で非対称に**適用します:
 
-- **入站 = 命令面 → 厳しく圧縮する。** handler / helper は必ず `private` (非協商)。`public Save()` は Dispatcher の `CanExecute`・ミドルウェアを迂回します。
+- **入站 = 命令面 → 厳しく圧縮する。** handler / helper は必ず `private` (非協商)。`public Save()` は Dispatcher の `CanExecute`・操作ログ (オブザーバー) を迂回します。
 - **出站 = 通知面 → 本ルールの対象外** ([Rule 17](#rule-17-presenter-イベントの可視性) が担う)。クローズ結果は基底 `RequestClose(result, status)` を呼ぶだけ — インターフェイス実装も `public` なイベント宣言も不要。
 - **親→子の狭いコマンドは許容される例外。** 露出形式は `internal` 既定、縫い目が要るときだけコマンドインターフェイス — **接口は必須ではありません** ([Rule 10](#rule-10-view-にアクセスするのは-presenter-だけ))。
 

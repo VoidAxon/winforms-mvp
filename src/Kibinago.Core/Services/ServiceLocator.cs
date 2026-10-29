@@ -18,7 +18,7 @@ namespace Kibinago.Services
     /// services come from the Kibinago assembly, which this core assembly discovers at runtime;
     /// without it only the platform-neutral built-ins are registered. Call
     /// <see cref="Configure"/> at startup to add or override any of these before presenters start
-    /// resolving them. <c>IDispatcherConfigurer</c> is intentionally absent by default.
+    /// resolving them. <c>ActionDispatcherOptions</c> and <c>IActionObserver</c> are absent by default (defaults, no observer).
     /// </remarks>
     public static class ServiceLocator
     {
@@ -109,8 +109,8 @@ namespace Kibinago.Services
         /// <summary>
         /// Registers the framework's built-in services into <paramref name="provider"/> with
         /// "first caller wins" intent: call this first, then let callers override via last-wins.
-        /// <c>IDispatcherConfigurer</c> is intentionally NOT registered by default
-        /// (null =&gt; no global configuration).
+        /// <c>ActionDispatcherOptions</c> and <c>IActionObserver</c> are not registered by default
+        /// (null =&gt; default options, no observer).
         /// </summary>
         internal static void RegisterBuiltIns(DefaultServiceProvider provider)
         {

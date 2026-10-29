@@ -6,7 +6,7 @@ namespace Kibinago.ViewActions
     /// Ready-made keys for the common verbs (Save, Cancel, Delete, Refresh, Ok, …), so a screen does not
     /// declare them itself. Each key is qualified like a screen's own — <c>"Standard." + member name</c>
     /// (<c>StandardActions.Save</c> is <c>"Standard.Save"</c>) — so no two keys share a name and logs and
-    /// middleware show where a key comes from. Keys are registered per presenter, so two screens both
+    /// the action observer show where a key comes from. Keys are registered per presenter, so two screens both
     /// using <see cref="Save"/> do not collide.
     /// </summary>
     /// <remarks>

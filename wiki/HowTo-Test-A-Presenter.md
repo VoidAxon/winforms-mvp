@@ -122,7 +122,7 @@ public class UserEditorPresenterTests
 
 **AAA パターン** (Arrange / Act / Assert) で書くと、テストの意図が明確になります。
 
-> **アクションは `_view.Binder.Dispatch(...)` で駆動します。** Presenter の `Dispatcher` は protected で、テスト用に公開されることはありません。代わりにモック View が `CapturingActionBinder` を公開します — フレームワークは初期化中 (`PresenterTestHost.Start` の中) に `View.ActionBinder.Bind(dispatcher)` を自動で呼ぶため、binder はそこで dispatcher を捕捉できます。本物の Form のボタンが使うのと同一の経路なので、`CanExecute` もミドルウェアも production と同じように評価されます。
+> **アクションは `_view.Binder.Dispatch(...)` で駆動します。** Presenter の `Dispatcher` は protected で、テスト用に公開されることはありません。代わりにモック View が `CapturingActionBinder` を公開します — フレームワークは初期化中 (`PresenterTestHost.Start` の中) に `View.ActionBinder.Bind(dispatcher)` を自動で呼ぶため、binder はそこで dispatcher を捕捉できます。本物の Form のボタンが使うのと同一の経路なので、`CanExecute` も操作ログのオブザーバーも production と同じように動きます。
 
 ```csharp
 // Kibinago.Testing.CapturingActionBinder (パッケージ同梱 — 要点のみ抜粋)

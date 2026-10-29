@@ -475,9 +475,8 @@ namespace Kibinago.ViewActions
         /// <summary>
         /// Binds all registered controls to a ViewActionDispatcher.
         /// This overload enables automatic CanExecute support.
-        /// After binding, UI state will automatically update when:
-        /// 1. Actions are executed (ActionExecuted event)
-        /// 2. RaiseCanExecuteChanged() is called (CanExecuteChanged event)
+        /// After binding, UI state updates automatically on the dispatcher's CanExecuteChanged: after every
+        /// action handler finishes (and when an asynchronous one starts), and on RaiseCanExecuteChanged().
         /// </summary>
         /// <param name="dispatcher">The dispatcher to bind to</param>
         public void Bind(ViewActionDispatcher dispatcher)
@@ -489,8 +488,6 @@ namespace Kibinago.ViewActions
             _mode = BindMode.Dispatcher;
             Resubscribe();
 
-            // Subscribe to both events for automatic UI refresh
-            _dispatcher.ActionExecuted += OnActionExecuted;
             _dispatcher.CanExecuteChanged += OnCanExecuteChanged;
 
             UpdateCanExecuteStates();
@@ -503,16 +500,7 @@ namespace Kibinago.ViewActions
         }
 
         /// <summary>
-        /// Called automatically after an action is executed.
-        /// Refreshes the enabled state of all bound controls.
-        /// </summary>
-        private void OnActionExecuted(object sender, ActionExecutedEventArgs e)
-        {
-            UpdateCanExecuteStates();
-        }
-
-        /// <summary>
-        /// Called automatically when RaiseCanExecuteChanged() is invoked.
+        /// Called after every action handler finishes and when RaiseCanExecuteChanged() is invoked.
         /// Refreshes the enabled state of all bound controls.
         /// </summary>
         private void OnCanExecuteChanged(object sender, EventArgs e)
@@ -590,7 +578,6 @@ namespace Kibinago.ViewActions
         private void DetachDispatcher()
         {
             if (_dispatcher == null) return;
-            _dispatcher.ActionExecuted -= OnActionExecuted;
             _dispatcher.CanExecuteChanged -= OnCanExecuteChanged;
             _dispatcher = null;
         }

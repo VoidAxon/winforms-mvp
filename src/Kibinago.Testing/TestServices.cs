@@ -36,8 +36,8 @@ namespace Kibinago.Testing
         /// <summary>
         /// <see cref="Create"/> plus a default fake for every presenter-facing framework service:
         /// <see cref="FakeMessageService"/>, <see cref="FakeToastService"/>,
-        /// <see cref="FakeWindowNavigator"/>, <see cref="FakeDialogProvider"/>, <see cref="FakeBusyIndicator"/> and
-        /// <see cref="RecordingLoggerFactory"/> (replacing the
+        /// <see cref="FakeWindowNavigator"/>, <see cref="FakeDialogProvider"/>, <see cref="FakeBusyIndicator"/>,
+        /// <see cref="RecordingActionObserver"/> and <see cref="RecordingLoggerFactory"/> (replacing the
         /// silent logger). Replace any of them with your own through <c>Provider.RegisterInstance</c>
         /// before <c>PresenterTestHost.Start</c>.
         /// </summary>
@@ -51,6 +51,7 @@ namespace Kibinago.Testing
             sp.RegisterInstance<IDialogProvider>(fakes.Dialogs);
             sp.RegisterInstance<ILoggerFactory>(fakes.Logs);
             sp.RegisterInstance<IBusyIndicator>(fakes.Busy);
+            sp.RegisterInstance<Kibinago.ViewActions.IActionObserver>(fakes.Actions);
             return fakes;
         }
     }

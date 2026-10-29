@@ -155,27 +155,39 @@ namespace Kibinago.Samples.Tests.Services
         }
 
         [Fact]
-        public void Actions_Configure_And_StrictValidation_ComposeIntoOneConfigurer()
+        public void Actions_StrictValidation_RegistersOptions_AndObserveRegistersTheObserver()
         {
-            int calls = 0;
+            var observer = new Kibinago.Testing.RecordingActionObserver();
             var sp = MvpApplication.Configure(framework: mvp =>
             {
-                mvp.Actions.Configure(d => calls++);
-                mvp.Actions.Configure(d => calls++);
                 mvp.Actions.StrictValidation();
+                mvp.Actions.Observe(observer);
             });
 
-            var dispatcher = new ViewActionDispatcher();
-            sp.Resolve<IDispatcherConfigurer>().Configure(dispatcher);
-
-            Assert.Equal(2, calls);
-            Assert.Equal(DispatchValidationMode.Strict, dispatcher.ValidationMode);
+            Assert.Equal(DispatchValidationMode.Strict, sp.Resolve<ActionDispatcherOptions>().ValidationMode);
+            Assert.Same(observer, sp.Resolve<IActionObserver>());
         }
 
         [Fact]
-        public void NoActionsConfigured_RegistersNoConfigurer()
+        public void Actions_ObserveFactory_IsCalledOnce_AndANullResultThrows()
         {
-            Assert.Null(MvpApplication.Configure().Resolve<IDispatcherConfigurer>());
+            int calls = 0;
+            var sp = MvpApplication.Configure(framework: mvp =>
+                mvp.Actions.Observe(_ => { calls++; return new Kibinago.Testing.RecordingActionObserver(); }));
+
+            Assert.Same(sp.Resolve<IActionObserver>(), sp.Resolve<IActionObserver>());
+            Assert.Equal(1, calls);
+
+            var broken = MvpApplication.Configure(framework: mvp => mvp.Actions.Observe(_ => null));
+            Assert.ThrowsAny<InvalidOperationException>(() => broken.Resolve<IActionObserver>());
+        }
+
+        [Fact]
+        public void NoActionsConfigured_LenientOptions_AndNoObserver()
+        {
+            var sp = MvpApplication.Configure();
+            Assert.Equal(DispatchValidationMode.Lenient, sp.Resolve<ActionDispatcherOptions>().ValidationMode);
+            Assert.Null(sp.Resolve<IActionObserver>());
         }
 
         [Fact]
@@ -244,6 +256,7 @@ namespace Kibinago.Samples.Tests.Services
             mvp.Toasts.Duration = 4500;
             mvp.ChangeTracking.UseComparer(BuiltInObjectContentComparer.Instance);
             mvp.Actions.StrictValidation();
+            mvp.Actions.Observe(_ => new Kibinago.Testing.RecordingActionObserver());
         }
 
         [Fact]
@@ -284,7 +297,7 @@ namespace Kibinago.Samples.Tests.Services
                 typeof(IBusyIndicator), typeof(BusyOptions),
                 typeof(IDialogProvider), typeof(DialogProviderOptions),
                 typeof(IObjectCloner), typeof(IObjectContentComparer), typeof(IEventAggregator),
-                typeof(ILoggerFactory), typeof(IDispatcherConfigurer),
+                typeof(ILoggerFactory), typeof(ActionDispatcherOptions), typeof(IActionObserver),
                 typeof(IWindowNavigator), typeof(IViewMappingRegister),
             };
 

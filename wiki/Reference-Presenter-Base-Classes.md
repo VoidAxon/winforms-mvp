@@ -297,7 +297,7 @@ public class OrderEditPresenter : WindowPresenterBase<IOrderEditView, OrderEditI
 
 `Dispose` は次の順で進みます。どの段階が例外を投げても後続の段階は必ず実行され、失敗はまとめて最後に再スローされます (1 件ならそのまま、複数なら `AggregateException`)。
 
-1. **ディスパッチ停止** — この Presenter と子孫すべての `Dispatcher` が停止。以後、残っているコントロールのクリックは何もしない (`CanDispatch` は `false`、`Dispatch` / `DispatchAsync` はハンドラもミドルウェアも実行しない)。実行中の非同期ハンドラが完了しても `CanExecuteChanged` は発火しない
+1. **ディスパッチ停止** — この Presenter と子孫すべての `Dispatcher` が停止。以後、残っているコントロールのクリックは何もしない (`CanDispatch` は `false`、`Dispatch` / `DispatchAsync` はハンドラを実行しない)。実行中の非同期ハンドラが完了しても `CanExecuteChanged` は発火しない
 2. **`Lifetime` をキャンセル**
 3. **バインダーを解除** — フレームワークが Bind した `ActionBinder` の `Unbind()` を呼ぶ
 4. **`Cleanup()`**
@@ -392,7 +392,7 @@ protected override void OnViewAttached()
 
 ここが [MVP 設計ルール](Design-Rules) の **Rule 16・17 の正準の落とし所**です (Design-Rules 側はルール文と本ページへの参照のみ)。ルールは「公開メンバーの白名単」ではなく、*Presenter のユースケース行動は正当な通路 — ViewAction (視点の意図) + ライフサイクル (構築 / `Initialize` / `Dispose`) — からのみ駆動され、任意の外部メソッド呼び出しからは駆動されない* という不変量です。これを **入站 (他者が呼んで Presenter を動かすメソッド) と 出站 (Presenter が出すイベント/通知) で非対称に**適用します:
 
-- **入站 = 命令面 → 厳しく圧縮する。** 硬い約束: ViewAction の handler / helper は必ず `private`。`public Save()` を生やすと Dispatcher の `CanExecute`・ミドルウェアを迂回する経路ができ、Presenter がサービス化します。これが非協商部分です。
+- **入站 = 命令面 → 厳しく圧縮する。** 硬い約束: ViewAction の handler / helper は必ず `private`。`public Save()` を生やすと Dispatcher の `CanExecute`・操作ログ (オブザーバー) を迂回する経路ができ、Presenter がサービス化します。これが非協商部分です。
 - **出站 = 通知面 → 圧縮対象ではない。** 上向きの出力ポート / 通知イベントは公開してよい (後述)。公開イベントは Presenter を命令的に突けるようにはしないからです。
 
 ### メソッドの可視性ガイドライン
