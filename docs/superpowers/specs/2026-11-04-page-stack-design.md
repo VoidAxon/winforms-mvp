@@ -155,16 +155,27 @@ Jump, window close and `CanCloseAllAsync` use **one internal traversal**:
   synchronous throw → stop, log (faults / null / throws, like `CanCloseAsync`), release, answer `false`. Nothing is
   removed. Guards may be asked again later; a save done inside a guard is not undone (documented).
 - **Reservation:** before the first guard is asked, every stack the check will traverse is reserved (busy). If any is
-  already busy, the reservations taken are released and the check answers `false` without asking. Stacks created
-  inside the traversed trees during the check are born reserved for it. Reservations are released in the check's own
-  `finally`, on the UI context, before the decision is reported.
+  already busy, the reservations taken are released and the check answers `false` without asking. Stacks that enter
+  the traversed trees during the check are enrolled in its reservation: stacks constructed there are born reserved,
+  and when a presenter that already owns stacks is attached into a reserved tree (plain `AttachChild` or `Push`
+  during an awaited guard), its subtree's existing stacks are enrolled at ownership transfer.
+- **Who releases:** the reservation belongs to the **operation** that started the check, not to the check: a
+  standalone `CanCloseAllAsync()` releases when it answers; a jump keeps it through the removal and releases after;
+  a window close keeps it until the host consumes the answer (see Window close); a refusal releases at once. A
+  forwarding call that joined an enclosing check never releases anything. Release runs on the UI context, in the
+  operation's own `finally`, before its result is reported.
 - **After every await:** owner disposed → stop, `false`; entries released meanwhile (external disposal, below) are
   re-evaluated.
 - **Threading:** runs on the UI thread; awaits resume on the caller's `SynchronizationContext`. With no context (unit
   tests) continuations run inline / on the thread pool and the same rules hold (the stack is single-threaded by
   contract, like `ChangeTracker`). The context is never captured at construction.
-- `IsBusy` blocks **stack operations only**; it does not disable editing or other actions in the pages. A screen that
-  must lock input while an async guard runs uses `ShowBusy()` inside the guard (documented).
+- `IsBusy` blocks **stack operations only**; it does not disable editing or other actions in the pages. A
+  `ShowBusy()` inside one guard ends when that guard answers, so it does not protect the rest of the decision. A
+  screen that must lock input for a whole jump wraps the operation in the parent:
+  `using (ShowBusy()) await _pages.PopToCountAsync(n);` (documented). For a window close the pages' guards and the
+  window's own `CanCloseAsync` run in sequence with no framework-wide input lock; a page that awaits non-modal work
+  in its guard wraps that work in `ShowBusy()`, and the documentation states that edits made in another page between
+  two guards' answers are not re-asked.
 
 ### Push
 
@@ -224,6 +235,9 @@ Jump, window close and `CanCloseAllAsync` use **one internal traversal**:
   "closed". This is internal lifecycle integration in `WindowLifecycleController` (the async answer is posted to the
   UI thread and then closes with the gate bypassed) and in `PresenterTestHost` (which mirrors the gate and must hold /
   release the reservation the same way, so tests observe identical behaviour). No public type or member is added.
+  In `PresenterTestHost`: an accepted `RequestClose` counts as a close that happened — the reservation is kept until
+  `host.Dispose()`; `host.CanClose()` / `host.CanCloseAsync()` are permission queries that close nothing — they
+  release the reservation when the answer is delivered (like an abandoned close), so a later jump still works.
 - A busy stack (a jump deciding) makes the close answer "block" without prompting.
 - `RequestClose` goes through the same gate (unchanged), so pages are asked for presenter-initiated closes too.
 - A stack whose owner is a **control** presenter hosted with `Connect` (no window presenter above it) takes part in no
@@ -336,7 +350,11 @@ exception texts, test file layout, sample layout and wording, wiki wording.
    `WindowLifecycleController` and `PresenterTestHost` changes, no public API.
 6. Push preflight rejections never call `removeView`; the `AttachChildCore` post-transfer gap is fixed in the same PR.
 7. `PopAsync()` on an empty stack → `true`; a guard returning a `null` task → refusal, logged.
-8. `IsBusy` does not lock editing; async guards that need it use `ShowBusy()`.
+8. `IsBusy` does not lock editing; a whole-jump input lock is the parent's `using (ShowBusy())` around the pop.
+9. Check reservations belong to the operation (jump: through removal; close: until the host consumes the answer);
+   stacks entering a reserved tree during a check are enrolled.
+10. `PresenterTestHost`: accepted `RequestClose` keeps the reservation until `host.Dispose()`; `host.CanClose*()`
+    queries release it when answered.
 
 ## Notes
 
