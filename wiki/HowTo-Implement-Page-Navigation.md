@@ -158,6 +158,7 @@ public sealed class OrderEditPresenter : ControlPresenterBase<IOrderEditView, Or
 確認や削除の最中、スタックは busy です。
 
 - `Push` / `PopToCountAsync` / `PopAsync` / `CanCloseAllAsync` → すぐ `false` (待ち行列には入れません。確認ダイアログが開いている間の 2 回目のクリックは無視されます)。`Push` は何も作らず、渡した Presenter にも触れません。
+- 例外は、確認の途中で **その確認が聞いているページ自身** が呼ぶ `CanCloseAllAsync` (自分のスタックへ転送するパネルの確認) です。これは今の確認に加わって答えます ([後述](#ページを持つパネルごと破棄するとき-cancloseallasync))。
 
 呼ぶ側が `IsBusy` を先に調べる必要はありません。
 
@@ -283,7 +284,7 @@ Prism WPF のリージョンナビゲーション (`RequestNavigate`、`INavigat
 | 進む / ジャーナル | なし | 「進む」はブラウザーを模した API (WPF `Frame`、Prism のジャーナル、Web ルーター) にしかありません。アプリのドリルダウン (ReactiveUI、MAUI `NavigationPage`、iOS / Android) にはなく、パンくずの意味は「右を捨てて戻る」です |
 | `KeepAlive` | 選ばない | 下のページは常に生きたまま、捨てたページは常に破棄。選ぶものがありません |
 | 戻ったときの通知 (`OnNavigatedTo`) | なし | 結果はコールバック、「また表示された」は View のイベント (上記) |
-| リージョン名・名前での View 解決・パラメーターでの再利用 | なし | Presenter は親が `new` し、コントロールは親 View が作る (`AttachChild` と同じ) |
+| リージョン名・名前での View 解決・パラメーターでの再利用 | なし | Presenter は親が `new` し、コントロールは `PageHost` がビューの登録 (ウィンドウと同じ `IViewMappingRegister`、型での明示的な登録) から作る |
 | 確認 (`IConfirmNavigationRequest`) | `IPageCloseGuard` (1 メソッド) | ウィンドウクローズと親パネルの破棄にも同じ答えを使う |
 
 ## 自分のレイアウトで表示する
