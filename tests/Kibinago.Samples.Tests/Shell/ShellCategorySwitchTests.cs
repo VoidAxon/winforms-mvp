@@ -189,6 +189,24 @@ namespace Kibinago.Samples.Tests.Shell
         }
 
         [Fact]
+        public async Task ADemoOpenedWhileASwitchIsDeciding_IsOpenedIfTheSwitchIsRefused()
+        {
+            _extraOfA = new[] { Guarded("late") };
+            using (Start(Guarded("g1")))
+            {
+                var pending = new TaskCompletionSource<bool>();
+                _demos["g1"].Answer = () => pending.Task;
+
+                _view.ClickCategory("b");
+                _view.OpenDemo("late");                 // its tab is shown while the switch decides
+                pending.SetResult(false);
+
+                await WaitFor(() => _view.SidebarSelection == "a");
+                Assert.True(_demos.ContainsKey("late"));   // opened once the switch was refused
+            }
+        }
+
+        [Fact]
         public async Task ADemoOpenedWhileASwitchIsDeciding_IsNotOpened()
         {
             _extraOfA = new[] { Guarded("late") };

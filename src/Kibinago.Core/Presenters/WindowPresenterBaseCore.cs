@@ -155,25 +155,38 @@ namespace Kibinago.Presenters
 
         private async Task GateWithPagesAsync(PageCloseCheck check, CloseReason reason, Action<bool> proceed)
         {
-            bool ok;
-            try { ok = await DecideWithPagesAsync(check, reason); }
-            catch (Exception ex)
+            bool ok = false;
+            try
             {
-                Logger.LogError(ex, "{Presenter}: the page close check failed; blocking the close", GetType().Name);
-                ok = false;
-            }
-            ok = ok && !IsDisposedForGate;   // disposed while deciding: nothing to approve
-            if (ok)
-            {
-                _approvedClose = check;
-                if (!_releaseOnDisposeRegistered)
+                try { ok = await DecideWithPagesAsync(check, reason); }
+                catch (Exception ex)
                 {
-                    _releaseOnDisposeRegistered = true;
-                    Disposable.Create(ReleaseApprovedClose).DisposeWith(Disposables);
+                    LogSafely(ex, "{Presenter}: the page close check failed; blocking the close");
+                    ok = false;
+                }
+                ok = ok && !IsDisposedForGate;   // disposed while deciding: nothing to approve
+                if (ok)
+                {
+                    _approvedClose = check;
+                    if (!_releaseOnDisposeRegistered)
+                    {
+                        _releaseOnDisposeRegistered = true;
+                        Disposable.Create(ReleaseApprovedClose).DisposeWith(Disposables);
+                    }
                 }
             }
-            else check.Release();
+            finally
+            {
+                if (!ok) check.Release();   // whatever failed above, a refused check never stays reserved
+            }
             proceed(ok);
+        }
+
+        // A failing logger must not leave the close undecided.
+        private void LogSafely(Exception ex, string message)
+        {
+            try { Logger.LogError(ex, message, GetType().Name); }
+            catch { /* nothing more can be reported */ }
         }
 
         private async Task<bool> DecideWithPagesAsync(PageCloseCheck check, CloseReason reason)

@@ -68,6 +68,7 @@ namespace Kibinago.Samples.Shell
 
         private bool _switching;
         private string _sidebarSelection;
+        private string _demoSelectedWhileSwitching;
 
         private async Task SwitchToAsync(string categoryId)
         {
@@ -92,7 +93,12 @@ namespace Kibinago.Samples.Shell
                     if (Lifetime.IsCancellationRequested) return;   // the window closed meanwhile
                     if (!agreed)
                     {
+                        _switching = false;
                         SyncSidebar();   // the sidebar goes back
+                        // A demo tab chosen while the switch was deciding is shown now: open its demo.
+                        var deferred = _demoSelectedWhileSwitching;
+                        _demoSelectedWhileSwitching = null;
+                        if (deferred != null) OnDemoSelected(deferred);
                         return;
                     }
                 }
@@ -108,6 +114,7 @@ namespace Kibinago.Samples.Shell
             finally
             {
                 _switching = false;
+                _demoSelectedWhileSwitching = null;
             }
         }
 
@@ -119,9 +126,15 @@ namespace Kibinago.Samples.Shell
 
         private void OnDemoSelected(string demoId)
         {
+            if (_switching)
+            {
+                // No demo joins the ones a deciding switch is about to dispose; opened if the switch is refused.
+                _demoSelectedWhileSwitching = demoId;
+                return;
+            }
             var demo = _current?.Demos.FirstOrDefault(d => d.Id == demoId);
-            if (demo == null || _switching)
-                return;   // while a switch is deciding, no demo joins the ones it is about to dispose
+            if (demo == null)
+                return;
 
             View.ShowSource(demo.SourceFiles);
             if (demo.Kind != DemoKind.Embedded || _attached.Any(a => a.DemoId == demo.Id))

@@ -321,8 +321,9 @@ namespace Kibinago.Presenters
         // A page left the owner. Pops and failed pushes have already dropped their entries (not found here);
         // owner teardown removes no views; anything else is an external release (the page's control was
         // disposed, or the presenter was disposed directly): that page and every page above it leave the stack
-        // without being asked, and their views are removed top first — the released page's too, so the
-        // breadcrumb stays in step. Failures propagate to whoever disposed the page.
+        // without being asked; the pages above are disposed and their views removed top first, then the
+        // released page's view once its own teardown has finished (so the breadcrumb stays in step).
+        // Failures propagate to whoever disposed the page.
         private void OnReleased(ChildAttachment attachment, ChildReleaseKind kind)
         {
             var entry = Find(attachment);
@@ -348,7 +349,14 @@ namespace Kibinago.Presenters
             {
                 for (int i = above.Count - 1; i >= 0; i--)
                     Discard(above[i], failures);
-                RemoveView(entry, failures);
+                // The released page's own teardown has not run yet (it is being disposed right now): its view
+                // goes after it, at the end of that disposal — presenters first, then their views.
+                ((IPresenterResourceOwner)entry.Page).OwnUntilDisposed(Kibinago.Common.Disposable.Create(() =>
+                {
+                    var removal = new List<Exception>();
+                    RemoveView(entry, removal);
+                    Throw(removal);
+                }));
             }
             finally
             {

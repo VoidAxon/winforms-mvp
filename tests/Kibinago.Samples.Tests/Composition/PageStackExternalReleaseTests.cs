@@ -242,5 +242,37 @@ namespace Kibinago.Samples.Tests.Composition
                 Assert.Equal(0, ws.Stack.Count);
             }
         }
+
+        [Fact]
+        public void ExternalRelease_TheReleasedPagesViewIsRemovedAfterItsOwnTeardown()
+        {
+            using (Start(out var ws))
+            {
+                ws.Push(new PlainPage("A", _log));
+                var b = new PlainPage("B", _log);
+                ws.Push(b);
+                ws.Push(new PlainPage("C", _log));
+                _log.Clear();
+
+                b.Dispose();
+
+                Assert.Equal(new[] { "dispose:C", "remove:C", "dispose:B", "remove:B" }, _log);
+            }
+        }
+
+        [Fact]
+        public void ReleasedHandles_DoNotKeepTheirOwnerAlive()
+        {
+            using (Start(out var ws))
+            {
+                var page = new PlainPage("A", _log);
+                ws.Push(page);
+                var handle = ((Kibinago.Presenters.IComposablePresenter)ws).Children.Single();
+
+                page.Dispose();
+
+                Assert.Null(handle.Owner);
+            }
+        }
     }
 }

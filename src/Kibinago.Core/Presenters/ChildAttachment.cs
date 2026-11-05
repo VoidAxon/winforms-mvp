@@ -79,8 +79,9 @@ namespace Kibinago.Presenters
 
         internal IComposablePresenter Child => _child;
 
-        /// <summary>The presenter that owns the child.</summary>
-        internal IComposablePresenter Owner { get; }
+        /// <summary>The presenter that owns the child; null once released (a kept handle does not keep the
+        /// owner alive).</summary>
+        internal IComposablePresenter Owner { get; private set; }
 
         /// <summary>The child is a page of a <see cref="PageStack"/> (asked through the stack, not as a plain
         /// child).</summary>
@@ -134,6 +135,7 @@ namespace Kibinago.Presenters
             if (child == null) return null;
             _child = null;
             View = null;
+            Owner = null;
             _registry.Remove(this);
             if (ReferenceEquals(child.OwnerLink, this)) child.OwnerLink = null;
             return child;

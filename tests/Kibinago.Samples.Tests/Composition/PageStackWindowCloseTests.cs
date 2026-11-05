@@ -290,6 +290,32 @@ namespace Kibinago.Samples.Tests.Composition
             Assert.False(ws.Stack.IsBusy);
         }
 
+        private sealed class ThrowingLoggerFactory : RecordingLoggerFactory
+        {
+            public override ILogger CreateLogger(string categoryName) => new Throwing();
+            private sealed class Throwing : ILogger
+            {
+                public bool IsEnabled(LogLevel level) => true;
+                public void Log(LogLevel level, Exception exception, string message, params object[] args)
+                    => throw new InvalidOperationException("logger down");
+            }
+        }
+
+        [Fact]
+        public void AThrowingLogger_StillAnswersTheCloseAndReleasesTheStacks()
+        {
+            var services = TestServices.Create();
+            services.RegisterInstance<ILoggerFactory>(new ThrowingLoggerFactory());
+            var ws = new WorkspacePresenter(_log);
+            using (var host = PresenterTestHost.Start(services, ws, _view))
+            {
+                ws.Push(new GuardedPage("A", _log) { Answer = () => throw new InvalidOperationException("guard") });
+
+                Assert.False(host.CanClose());
+                Assert.False(ws.Stack.IsBusy);
+            }
+        }
+
         // ---- Baseline: a window without stacks closes exactly as before ----
 
         private sealed class PlainWindow : WindowPresenterBase<IWorkspaceView>
