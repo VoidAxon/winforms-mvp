@@ -639,7 +639,15 @@ namespace Kibinago.Presenters
 
         private List<PageStack> _ownedStacks;
 
-        List<PageStack> IComposablePresenter.OwnedStacks => _ownedStacks ?? (_ownedStacks = new List<PageStack>());
+        IReadOnlyList<PageStack> IComposablePresenter.OwnedStacks
+            => _ownedStacks ?? (IReadOnlyList<PageStack>)Array.Empty<PageStack>();
+
+        void IComposablePresenter.RegisterStack(PageStack stack)
+            => (_ownedStacks ?? (_ownedStacks = new List<PageStack>())).Add(stack);
+
+        PageCloseCheck IComposablePresenter.ReservedBy { get; set; }
+
+        ILogger IComposablePresenter.Logger => Logger;
 
         IReadOnlyList<ChildAttachment> IComposablePresenter.Children
             => _children == null ? (IReadOnlyList<ChildAttachment>)Array.Empty<ChildAttachment>() : _children.ToArray();
@@ -678,7 +686,7 @@ namespace Kibinago.Presenters
             // From here on this presenter owns the child: recorded before any child code runs, and every
             // failure below releases (disposes) it.
             if (_children == null) _children = new List<ChildAttachment>();
-            var attachment = new ChildAttachment(_children, composable, view);
+            var attachment = new ChildAttachment(this, _children, composable, view);
             _children.Add(attachment);
             composable.OwnerLink = attachment;
 
@@ -686,6 +694,9 @@ namespace Kibinago.Presenters
             try
             {
                 beforeInitialize?.Invoke(attachment);
+                // A presenter that already owns page stacks, attached into a tree a page-close check is
+                // traversing, joins that check's reservation.
+                PageCloseCheck.FindReserving(this)?.EnrolTree(composable);
                 var observation = ViewDisposal.Observer.ObserveDisposal(view, () =>
                 {
                     viewDisposed = true;

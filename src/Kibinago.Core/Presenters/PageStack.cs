@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Runtime.ExceptionServices;
 using System.Threading.Tasks;
 using Kibinago.Views;
 
@@ -46,7 +48,9 @@ namespace Kibinago.Presenters
                     nameof(owner));
             if (composable.IsDisposed) throw new ObjectDisposedException(owner.GetType().Name);
             Owner = composable;
-            composable.OwnedStacks.Add(this);
+            composable.RegisterStack(this);
+            // Created by code that runs inside a page-close check of this tree (a guard): born reserved.
+            PageCloseCheck.FindReserving(composable)?.Enrol(this);
         }
 
         /// <summary>The number of pages on the stack.</summary>
@@ -57,11 +61,22 @@ namespace Kibinago.Presenters
         /// the owner's window close holds the stack. <c>Push</c> throws then and the pops answer <c>false</c>.
         /// It blocks stack operations only; it does not disable editing or other actions in the pages.
         /// </summary>
-        public bool IsBusy => _operations > 0;
+        public bool IsBusy => _operations > 0 || Reservation != null;
 
         internal IComposablePresenter Owner { get; }
 
         internal IReadOnlyList<PageEntry> Entries => _entries;
+
+        /// <summary>The check holding this stack, or null.</summary>
+        internal PageCloseCheck Reservation { get; set; }
+
+        /// <summary>A snapshot of the entries, top first.</summary>
+        internal IReadOnlyList<PageEntry> EntriesTopFirst()
+        {
+            var list = new List<PageEntry>(_entries);
+            list.Reverse();
+            return list;
+        }
 
         internal bool IsDead => _dead || Owner.IsDisposed;
 
@@ -122,29 +137,113 @@ namespace Kibinago.Presenters
         public Task<bool> PopToCountAsync(int remainingCount)
         {
             if (IsDead || IsBusy) return Completed(false);
-            throw new NotImplementedException();
+            if (remainingCount < 0 || remainingCount > _entries.Count)
+                throw new ArgumentOutOfRangeException(nameof(remainingCount), remainingCount,
+                    "remainingCount must be between 0 and Count (" + _entries.Count + ").");
+            if (remainingCount == _entries.Count) return Completed(true);
+            return PopCoreAsync(remainingCount);
         }
 
         /// <summary>Discards the top page after it agreed; <c>true</c> on an empty stack. Same rules as
         /// <see cref="PopToCountAsync"/>.</summary>
-        /// <returns><c>true</c> when the top page was removed or the stack was empty.</returns>
+        /// <returns><c>true</c> when the top page was removed or the stack was empty; <c>false</c> when it
+        /// refused, the stack was busy, or the owner is disposed.</returns>
         public Task<bool> PopAsync()
         {
             if (IsDead || IsBusy) return Completed(false);
-            throw new NotImplementedException();
+            if (_entries.Count == 0) return Completed(true);
+            return PopToCountAsync(_entries.Count - 1);
         }
 
         /// <summary>
         /// Asks every page (nested stacks included) whether it may be discarded, removing nothing — for a panel
         /// that owns this stack and is about to be disposed by an ancestor; the panel forwards its own
-        /// <see cref="IPageCloseGuard"/> here.
+        /// <see cref="IPageCloseGuard"/> here:
+        /// <code>Task&lt;bool&gt; IPageCloseGuard.CanCloseAsync() =&gt; _pages.CanCloseAllAsync();</code>
+        /// Reached that way from a jump or a window close, it answers within that decision (each page is asked once).
         /// </summary>
-        /// <returns><c>true</c> when every page agreed; <c>false</c> when one refused, the stack was busy, or the
-        /// owner is disposed.</returns>
+        /// <returns><c>true</c> when every page agreed (or there are none); <c>false</c> when one refused, the stack
+        /// was busy, or the owner is disposed.</returns>
         public Task<bool> CanCloseAllAsync()
         {
-            if (IsDead || IsBusy) return Completed(false);
-            throw new NotImplementedException();
+            if (IsDead) return Completed(false);
+            var holder = Reservation;
+            if (holder != null)
+                return holder.CanJoin(this) ? holder.AskStackAsync(this) : Completed(false);
+            if (IsBusy) return Completed(false);
+            return CanCloseAllCoreAsync();
+        }
+
+        private async Task<bool> CanCloseAllCoreAsync()
+        {
+            var check = new PageCloseCheck(Owner);
+            var pages = _entries.Select(e => e.Page).ToList();
+            if (!check.TryReserve(StacksWith(pages), pages)) return false;
+            try
+            {
+                return await check.AskStackAsync(this);
+            }
+            finally
+            {
+                check.Release();
+            }
+        }
+
+        private async Task<bool> PopCoreAsync(int remainingCount)
+        {
+            var targets = EntriesTopFirst().Take(_entries.Count - remainingCount).ToList();
+            var check = new PageCloseCheck(Owner);
+            var pages = targets.Select(e => e.Page).ToList();
+            if (!check.TryReserve(StacksWith(pages), pages)) return false;
+            check.MarkAsking(this);
+            List<Exception> failures;
+            try
+            {
+                if (!await check.AskEntriesAsync(targets)) return false;
+                if (IsDead) return false;
+                failures = RemoveAbove(remainingCount);
+            }
+            finally
+            {
+                check.Release();
+            }
+            Throw(failures);
+            return true;
+        }
+
+        private IEnumerable<PageStack> StacksWith(IEnumerable<IComposablePresenter> pages)
+            => new[] { this }.Concat(pages.SelectMany(PageCloseCheck.StacksOf));
+
+        /// <summary>Removes the entries above <paramref name="remainingCount"/>: bookkeeping first, then top first
+        /// each page's disposal and its view's removal; every failure is collected.</summary>
+        private List<Exception> RemoveAbove(int remainingCount)
+        {
+            var failures = new List<Exception>();
+            if (remainingCount >= _entries.Count) return failures;
+            var removed = _entries.GetRange(remainingCount, _entries.Count - remainingCount);
+            _entries.RemoveRange(remainingCount, removed.Count);
+            _operations++;
+            try
+            {
+                for (int i = removed.Count - 1; i >= 0; i--)
+                {
+                    try { removed[i].Handle.Dispose(); }
+                    catch (Exception ex) { failures.Add(ex); }
+                    try { removed[i].RemoveView(); }
+                    catch (Exception ex) { failures.Add(ex); }
+                }
+            }
+            finally
+            {
+                _operations--;
+            }
+            return failures;
+        }
+
+        private static void Throw(List<Exception> failures)
+        {
+            if (failures.Count == 1) ExceptionDispatchInfo.Capture(failures[0]).Throw();
+            if (failures.Count > 1) throw new AggregateException(failures);
         }
 
         private void PushCore<TView>(PresenterBase<TView> page, TView view, Action<TView> removeView, Action initialize)
@@ -172,6 +271,7 @@ namespace Kibinago.Presenters
                     {
                         entry = new PageEntry(page, view, () => removeView(view), attachment) { Pushing = true };
                         _entries.Add(entry);
+                        attachment.IsPage = true;
                         attachment.Released = OnReleased;
                     });
             }

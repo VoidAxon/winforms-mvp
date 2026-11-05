@@ -20,8 +20,17 @@ namespace Kibinago.Presenters
         /// rejects services fixed elsewhere (resolved in the constructor).</summary>
         void InheritServices(IServiceProvider ownerServices);
 
-        /// <summary>The page stacks this presenter owns, in registration order (created on first use).</summary>
-        List<PageStack> OwnedStacks { get; }
+        /// <summary>The page stacks this presenter owns, in registration order (empty when none).</summary>
+        IReadOnlyList<PageStack> OwnedStacks { get; }
+
+        /// <summary>Registers a stack this presenter owns (from the <see cref="PageStack"/> constructor).</summary>
+        void RegisterStack(PageStack stack);
+
+        /// <summary>The page-close check whose traversal covers this presenter's whole tree, or null.</summary>
+        PageCloseCheck ReservedBy { get; set; }
+
+        /// <summary>This presenter's logger (for failures the framework reports on its behalf).</summary>
+        Logging.ILogger Logger { get; }
 
         /// <summary>The children this presenter owns, in attach order (a snapshot).</summary>
         IReadOnlyList<ChildAttachment> Children { get; }
@@ -58,8 +67,9 @@ namespace Kibinago.Presenters
         private readonly List<ChildAttachment> _registry;
         private IComposablePresenter _child;
 
-        internal ChildAttachment(List<ChildAttachment> registry, IComposablePresenter child, object view)
+        internal ChildAttachment(IComposablePresenter owner, List<ChildAttachment> registry, IComposablePresenter child, object view)
         {
+            Owner = owner;
             _registry = registry;
             _child = child;
             View = view;
@@ -68,6 +78,13 @@ namespace Kibinago.Presenters
         internal object View { get; private set; }
 
         internal IComposablePresenter Child => _child;
+
+        /// <summary>The presenter that owns the child.</summary>
+        internal IComposablePresenter Owner { get; }
+
+        /// <summary>The child is a page of a <see cref="PageStack"/> (asked through the stack, not as a plain
+        /// child).</summary>
+        internal bool IsPage { get; set; }
 
         internal bool IsReleased => _child == null;
 

@@ -63,6 +63,12 @@ namespace Kibinago.Samples.Tests.Composition
 
         public object GetMessagesForTest() => Messages;
 
+        /// <summary>Plain AttachChild of a panel into this page (what a page's own code would do).</summary>
+        public IDisposable AttachPanelForTest(PlainPage panel) => AttachChild(panel, new FakePageView(panel.Tag));
+
+        /// <summary>A stack created by this page's own code (e.g. inside its guard).</summary>
+        public PageStack CreateStackForTest() => new PageStack(this);
+
         /// <summary>Pushes onto this page's own stack (test access; a real page calls it from its own code).</summary>
         public void PushInner(PlainPage page, List<string> removed)
             => Inner.Push(page, new FakePageView(page.Tag), v => removed?.Add("remove:" + v.Tag));
@@ -131,6 +137,7 @@ namespace Kibinago.Samples.Tests.Composition
         public List<string> Log;
         public Exception ThrowOnRemove;
         public string ThrowOnRemoveTag;
+        public Action<string> OnRemove;
         public CapturingActionBinder Binder { get; } = new CapturingActionBinder();
         public IViewActionBinder ActionBinder => Binder;
 
@@ -138,6 +145,7 @@ namespace Kibinago.Samples.Tests.Composition
         {
             Removed.Add(page.Tag);
             Log?.Add("remove:" + page.Tag);
+            OnRemove?.Invoke(page.Tag);
             if (ThrowOnRemove != null && (ThrowOnRemoveTag == null || ThrowOnRemoveTag == page.Tag)) throw ThrowOnRemove;
         }
     }
