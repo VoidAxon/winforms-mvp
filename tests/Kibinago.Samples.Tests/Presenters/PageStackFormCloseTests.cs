@@ -94,7 +94,7 @@ namespace Kibinago.Samples.Tests.Presenters
         }
 
         [Fact]
-        public void AsyncApproval_NoNavigationBetweenApprovalAndClose()
+        public async Task AsyncApproval_NoNavigationBetweenApprovalAndClose()
         {
             var pending = new TaskCompletionSource<bool>();
             _workspace.Push(new GuardedPage("A", _log));
@@ -118,7 +118,7 @@ namespace Kibinago.Samples.Tests.Presenters
 
             Assert.True(busyDuringReplay);
             Assert.True(jumpDuringReplay.IsCompleted);
-            Assert.False(jumpDuringReplay.Result);
+            Assert.False(await jumpDuringReplay);
         }
 
         [Fact]
