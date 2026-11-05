@@ -23,6 +23,7 @@ using Kibinago.Samples.ListDemo;
 using Kibinago.Samples.LoggingDemo;
 using Kibinago.Samples.ActionLogDemo;
 using Kibinago.Samples.MasterDetailDemo;
+using Kibinago.Samples.PageNavigationDemo;
 using Kibinago.Samples.MdiDemo;
 using Kibinago.Samples.MessageBoxDemo;
 using Kibinago.Samples.MVPComparisonDemo;
@@ -66,6 +67,7 @@ namespace Kibinago.Samples.Shell
             [DemoIds.AnchoredMessage] = () => new AnchoredMessageDemoControl(),
             [DemoIds.Validation] = () => new ValidationDemoControl(),
             [DemoIds.MasterDetail] = () => new MasterDetailControl(),
+            [DemoIds.PageNavigation] = () => new PageNavigationDemoControl(),
             [DemoIds.Cascade] = () => new CascadeDemoControl(),
             [DemoIds.ServiceBased] = () => new OrderManagementControl(),
             [DemoIds.EventBased] = () => new OrderManagementControl(),   // the same view, another set of presenters

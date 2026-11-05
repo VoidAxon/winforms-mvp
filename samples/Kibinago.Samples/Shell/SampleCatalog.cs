@@ -5,6 +5,7 @@ using Kibinago.Samples.BulkBindingDemo;
 using Kibinago.Samples.CascadeDemo;
 using Kibinago.Samples.CheckBoxDemo;
 using Kibinago.Samples.MasterDetailDemo;
+using Kibinago.Samples.PageNavigationDemo;
 using Kibinago.Samples.ValidationDemo;
 using Kibinago.Samples.ValueBindingDemo;
 using Kibinago.Events;
@@ -56,6 +57,7 @@ namespace Kibinago.Samples.Shell
         public const string Contacts = "contacts";
         public const string Reservation = "reservation";
         public const string MasterDetail = "master-detail";
+        public const string PageNavigation = "page-navigation";
         public const string Cascade = "cascade";
         public const string ServiceBased = "service-based";
         public const string EventBased = "event-based";
@@ -282,15 +284,18 @@ namespace Kibinago.Samples.Shell
                         "ListDemo/MoveDemoPresenter.cs", "ListDemo/IMoveDemoView.cs", "ListDemo/MoveDemoControl.cs", "ListDemo/PhraseRow.cs"),
                 }),
 
-            new SampleCategory("composition", "画面の組み立て", "マスター/詳細、連動する選択",
+            new SampleCategory("composition", "画面の組み立て", "マスター/詳細、連動する選択、ページ移動",
                 "1 つの画面を複数の Presenter で組み立てます。親 View のインターフェイスが子 View のインターフェイスを公開し、" +
                 "親 Presenter が AttachChild で子 Presenter をつなぎます (子は親のサービスを使い、親と一緒に破棄されます)。\r\n" +
                 "行やタブのように実行中に増減するパネルは、AttachChild の戻り値 (ハンドル) を子 View ごとに持ち、外すときはハンドルを破棄してから View がコントロールを外します。\r\n" +
-                "「選択」は Selection<T> で共有し、上の選択が変わったら下を読み直す連動は Cascade.Bind (親が 2 つなら Cascade.Combine) です。",
+                "「選択」は Selection<T> で共有し、上の選択が変わったら下を読み直す連動は Cascade.Bind (親が 2 つなら Cascade.Combine) です。\r\n" +
+                "1 つの画面の中で階層をたどる (一覧 → 詳細 → 編集、パンくずで戻る) ときは PageStack にページを積みます。" +
+                "戻るときと画面を閉じるときに、捨てるページ (IPageCloseGuard) に確認します。",
                 new[]
                 {
                     new WikiLink("マスター/詳細", "HowTo-Implement-Master-Detail"),
                     new WikiLink("連動する選択", "HowTo-Handle-Cascading-Selection"),
+                    new WikiLink("ページ移動 (パンくず)", "HowTo-Implement-Page-Navigation"),
                 },
                 new[]
                 {
@@ -307,6 +312,13 @@ namespace Kibinago.Samples.Shell
                         "顧客を選ぶと注文が切り替わります。",
                         (a, v) => a.Attach(new MasterDetailPresenter(), (IMasterDetailView)v),
                         "MasterDetailDemo/MasterDetailPresenter.cs", "MasterDetailDemo/IMasterDetailView.cs", "MasterDetailDemo/MasterDetailControl.cs"),
+                    SampleDemo.Embedded(DemoIds.PageNavigation, "ページ移動 (パンくず)",
+                        "顧客一覧 → 顧客詳細 → 受注編集。パンくずで戻ると、捨てるページに確認します (PageStack + IPageCloseGuard)。",
+                        (a, v) => a.Attach(new PageNavigationDemoPresenter(), (IPageNavigationDemoView)v),
+                        "PageNavigationDemo/PageNavigationDemoPresenter.cs", "PageNavigationDemo/IPageNavigationDemoView.cs",
+                        "PageNavigationDemo/PageNavigationDemoControl.cs", "PageNavigationDemo/OrderEditPresenter.cs",
+                        "PageNavigationDemo/CustomerListPresenter.cs", "PageNavigationDemo/CustomerDetailPresenter.cs",
+                        "PageNavigationDemo/DemoCustomerStore.cs"),
                     SampleDemo.Embedded(DemoIds.Cascade, "連動する選択 (N 段)",
                         "Selection と Cascade.Bind。親 Presenter が 3 つのリストの子 Presenter を AttachChild でつなぎます。",
                         (a, v) => a.Attach(new CascadeDemoPresenter(), (ICascadeDemoView)v),
