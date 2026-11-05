@@ -271,10 +271,21 @@ namespace Kibinago.Samples.Tests.Views
             var a = (Control)_host.AddPage(typeof(IOtherPageView), "A", _services);
             _register.Register<ITestPageView, TestPageControl>();
             var b = Add("B");
-            a.VisibleChanged += (s, e) => throw new InvalidOperationException("reshown");
+            // Throws once, only for the restore under test: a handler left throwing would also fire while the
+            // controls are torn down, where WinForms reports it with a modal error dialog (a hang on CI).
+            bool armed = true;
+            EventHandler reshown = (s, e) => { if (!armed) return; armed = false; throw new InvalidOperationException("reshown"); };
+            a.VisibleChanged += reshown;
             int before = _changes;
-
-            Assert.Throws<InvalidOperationException>(() => _host.RemovePage((IControlView)b));
+            try
+            {
+                Assert.Throws<InvalidOperationException>(() => _host.RemovePage((IControlView)b));
+            }
+            finally
+            {
+                armed = false;
+                a.VisibleChanged -= reshown;
+            }
 
             Assert.True(b.IsDisposed);
             Assert.Equal(new[] { "A" }, _host.PageTitles);
