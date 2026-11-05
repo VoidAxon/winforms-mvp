@@ -509,7 +509,7 @@ namespace Kibinago.Presenters
 
             // An owner that released this presenter (handle disposed, or this presenter disposed
             // directly) forgets it before any teardown runs.
-            Try(failures, () => _ownerLink?.Unlink());
+            Try(failures, () => _ownerLink?.Release(ChildReleaseKind.External, failures));
 
             // Stop dispatching here and in every descendant first: a late click on a control that
             // outlives its presenter must not run a handler, and in-flight async handlers must not
@@ -534,7 +534,7 @@ namespace Kibinago.Presenters
                 for (int i = _children.Count - 1; i >= 0; i--)
                 {
                     if (i >= _children.Count) continue;   // a child's teardown released others
-                    var child = _children[i].Unlink();
+                    var child = _children[i].Release(ChildReleaseKind.OwnerTeardown, failures);
                     if (child != null) Try(failures, child.Dispose);
                 }
             }
@@ -630,6 +630,26 @@ namespace Kibinago.Presenters
         {
             if (child == null) throw new ArgumentNullException(nameof(child));
             if (view == null) throw new ArgumentNullException(nameof(view));
+            return ((IComposablePresenter)this).AttachChildInternal(child, view, () =>
+            {
+                ((IViewAttacher<TChildView>)child).AttachView(view);
+                initialize();
+            }, beforeInitialize: null);
+        }
+
+        IReadOnlyList<ChildAttachment> IComposablePresenter.Children
+            => _children == null ? (IReadOnlyList<ChildAttachment>)Array.Empty<ChildAttachment>() : _children.ToArray();
+
+        ChildAttachment IComposablePresenter.AttachChildInternal(IComposablePresenter composable, IView view,
+            Action attachAndInitialize, Action<ChildAttachment> beforeInitialize)
+        {
+            if (composable == null) throw new ArgumentNullException("child");
+            if (view == null) throw new ArgumentNullException(nameof(view));
+            if (attachAndInitialize == null) throw new ArgumentNullException(nameof(attachAndInitialize));
+            var attachable = composable as IViewAttachable;
+            var resources = composable as IPresenterResourceOwner;
+            if (attachable == null || resources == null)
+                throw new ArgumentException("Only framework presenters can be attached as children.", "child");
             RejectBothRoles(view);
             if (ViewDisposal.Observer.IsWindow(view))
                 throw new ArgumentException(
@@ -640,12 +660,10 @@ namespace Kibinago.Presenters
                 throw new InvalidOperationException(
                     GetType().Name + " has no view attached yet; attach children from OnInitialize or later.");
 
-            IComposablePresenter composable = child;
-            IViewAttachable attachable = child;
-            if (composable.IsDisposed) throw new ObjectDisposedException(child.GetType().Name);
+            if (composable.IsDisposed) throw new ObjectDisposedException(composable.GetType().Name);
             if (attachable.IsViewAttached || attachable.IsInitialized || composable.OwnerLink != null)
                 throw new InvalidOperationException(
-                    child.GetType().Name + " is already attached to a view; a presenter is attached once.");
+                    composable.GetType().Name + " is already attached to a view; a presenter is attached once.");
             if (ViewOwnership.IsClaimed(view))
                 throw new InvalidOperationException(
                     "Another live presenter already uses this view; each child needs its own view.");
@@ -653,25 +671,25 @@ namespace Kibinago.Presenters
                 throw new ObjectDisposedException(view.GetType().Name, "The child view is disposed.");
             composable.InheritServices(Services);
 
-            // From here on this presenter owns the child: recorded before any child code runs.
+            // From here on this presenter owns the child: recorded before any child code runs, and every
+            // failure below releases (disposes) it.
             if (_children == null) _children = new List<ChildAttachment>();
-            var attachment = new ChildAttachment(_children, child, view);
+            var attachment = new ChildAttachment(_children, composable, view);
             _children.Add(attachment);
             composable.OwnerLink = attachment;
 
             bool viewDisposed = false;
-            var observation = ViewDisposal.Observer.ObserveDisposal(view, () =>
-            {
-                viewDisposed = true;
-                attachment.Dispose();
-            });
-            ((IPresenterResourceOwner)child).OwnUntilDisposed(observation);
-            ((IPresenterResourceOwner)child).OwnUntilDisposed(ViewOwnership.Claim(view, child));
-
             try
             {
-                ((IViewAttacher<TChildView>)child).AttachView(view);
-                initialize();
+                var observation = ViewDisposal.Observer.ObserveDisposal(view, () =>
+                {
+                    viewDisposed = true;
+                    attachment.ReleaseAndDispose(ChildReleaseKind.External);
+                });
+                resources.OwnUntilDisposed(observation);
+                resources.OwnUntilDisposed(ViewOwnership.Claim(view, composable));
+                beforeInitialize?.Invoke(attachment);
+                attachAndInitialize();
             }
             catch (Exception failure)
             {
