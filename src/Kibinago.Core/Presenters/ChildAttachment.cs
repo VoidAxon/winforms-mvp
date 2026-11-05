@@ -20,6 +20,9 @@ namespace Kibinago.Presenters
         /// rejects services fixed elsewhere (resolved in the constructor).</summary>
         void InheritServices(IServiceProvider ownerServices);
 
+        /// <summary>The page stacks this presenter owns, in registration order (created on first use).</summary>
+        List<PageStack> OwnedStacks { get; }
+
         /// <summary>The children this presenter owns, in attach order (a snapshot).</summary>
         IReadOnlyList<ChildAttachment> Children { get; }
 

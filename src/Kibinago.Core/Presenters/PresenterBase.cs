@@ -637,6 +637,10 @@ namespace Kibinago.Presenters
             }, beforeInitialize: null);
         }
 
+        private List<PageStack> _ownedStacks;
+
+        List<PageStack> IComposablePresenter.OwnedStacks => _ownedStacks ?? (_ownedStacks = new List<PageStack>());
+
         IReadOnlyList<ChildAttachment> IComposablePresenter.Children
             => _children == null ? (IReadOnlyList<ChildAttachment>)Array.Empty<ChildAttachment>() : _children.ToArray();
 
