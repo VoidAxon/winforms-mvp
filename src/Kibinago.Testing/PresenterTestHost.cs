@@ -193,6 +193,8 @@ namespace Kibinago.Testing
         private object _gateResult;
         private InteractionStatus _gateStatus;
 
+        // host.CanClose / CanCloseAsync: a permission query that closes nothing, so a window with page stacks
+        // gets them back when the answer is delivered (like an abandoned close).
         private Task<bool> RunGate(ICloseParticipant participant, CloseReason reason)
             => RunGate(participant, reason, hasSeed: false, seedResult: null, seedStatus: InteractionStatus.Cancel);
 
@@ -225,6 +227,8 @@ namespace Kibinago.Testing
                         else if (ok && hasSeed) Record(seedResult, seedStatus);
                         ClearGateResult();
                     }
+                    // An accepted RequestClose is a close that happened: page stacks stay reserved until Dispose.
+                    if (!hasSeed) (participant as ICloseAttemptSettler)?.SettleCloseAttempt(closed: false);
                     gate.TrySetResult(ok);
                 });
             }

@@ -1,4 +1,6 @@
 using System;
+using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Kibinago.Logging;
 using Kibinago.Common;
@@ -17,7 +19,7 @@ namespace Kibinago.Presenters
     /// <see cref="ICloseParticipant.CanCloseGate"/> (Pull) and injects the sink via
     /// <see cref="ICloseParticipant.BindCloseSink"/> (Push) — there are no events to subscribe to.
     /// </remarks>
-    public abstract class WindowPresenterBaseCore<TView> : PresenterBase<TView>, ICloseParticipant, IWindowPresenter
+    public abstract class WindowPresenterBaseCore<TView> : PresenterBase<TView>, ICloseParticipant, ICloseAttemptSettler, IWindowPresenter
         where TView : IWindowView
     {
         private ICloseSink _closeSink;
@@ -108,6 +110,14 @@ namespace Kibinago.Presenters
                 return;
             }
 
+            // A window with page stacks in its tree asks every page first (a separate path: a window
+            // without stacks runs exactly the code below).
+            if (PageCloseCheck.StacksOf(this).Any())
+            {
+                PageGate(reason, proceed);
+                return;
+            }
+
             // A synchronous throw from CanCloseAsync itself propagates: the framework blocks the
             // close and logs it. A faulted task is answered here, the same way, whenever it faults.
             var decision = CanCloseAsync(reason) ?? Task.FromResult(true);
@@ -119,6 +129,90 @@ namespace Kibinago.Presenters
 
             // The framework marshals proceed back to the UI thread.
             decision.ContinueWith(t => proceed(Decide(t, reason)), TaskScheduler.Default);
+        }
+
+        // ---- Page stacks ----
+
+        // The check of the last approved close attempt: its reservation is kept until the attempt settles.
+        private PageCloseCheck _approvedClose;
+
+        private void PageGate(CloseReason reason, Action<bool> proceed)
+        {
+            // A new attempt means an earlier approved one did not close the window.
+            ReleaseApprovedClose();
+
+            var check = new PageCloseCheck(this);
+            if (!check.TryReserve(PageCloseCheck.StacksOf(this), new IComposablePresenter[] { this }))
+            {
+                proceed(false);   // a jump (or another check) is deciding: block without asking anyone
+                return;
+            }
+
+            var flow = DecideWithPagesAsync(check, reason);
+            if (flow.IsCompleted)
+            {
+                Settle(flow, check, proceed);
+                return;
+            }
+            // The flow ends on the gate caller's context (its awaits captured it); answering there releases a
+            // refused reservation on the UI thread before proceed is called. Without a context, inline.
+            flow.ContinueWith(t => Settle(t, check, proceed), CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+        }
+
+        private async Task<bool> DecideWithPagesAsync(PageCloseCheck check, CloseReason reason)
+        {
+            if (!await check.AskTreeAsync(this)) return false;
+            if (IsDisposedForGate) return false;
+
+            // The window's own decision runs as part of the check, so a CanCloseAsync that forwards to a stack
+            // (_pages.CanCloseAllAsync()) joins it instead of seeing the stack busy.
+            Action end = null;
+            Task<bool> own;
+            try
+            {
+                own = check.CallAsPending(this, () => CanCloseAsync(reason) ?? Task.FromResult(true), out end);
+            }
+            catch (Exception ex)
+            {
+                end?.Invoke();
+                Logger.LogError(ex, "{Presenter}.CanCloseAsync failed; blocking the close", GetType().Name);
+                return false;
+            }
+            try
+            {
+                try { await own; }
+                catch { /* answered by Decide */ }
+                return Decide(own, reason);
+            }
+            finally
+            {
+                end?.Invoke();
+            }
+        }
+
+        private void Settle(Task<bool> flow, PageCloseCheck check, Action<bool> proceed)
+        {
+            bool ok = flow.Status == TaskStatus.RanToCompletion && flow.Result;
+            if (flow.IsFaulted)
+                Logger.LogError(flow.Exception, "{Presenter}: the page close check failed; blocking the close", GetType().Name);
+            if (ok && !IsDisposedForGate) _approvedClose = check;
+            else check.Release();
+            proceed(ok);
+        }
+
+        private void ReleaseApprovedClose()
+        {
+            var approved = _approvedClose;
+            _approvedClose = null;
+            approved?.Release();
+        }
+
+        private bool IsDisposedForGate => ((IComposablePresenter)this).IsDisposed;
+
+        void ICloseAttemptSettler.SettleCloseAttempt(bool closed)
+        {
+            if (!closed) ReleaseApprovedClose();
         }
 
         private bool Decide(Task<bool> completed, CloseReason reason)
