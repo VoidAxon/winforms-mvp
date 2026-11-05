@@ -158,6 +158,33 @@ namespace Kibinago.Samples.Tests.Presenters
         }
 
         [Fact]
+        public void ApprovedClose_ALaterHandlerShowsADialog_StacksStayHeldWhileItIsOpen()
+        {
+            _workspace.Push(new GuardedPage("A", _log));
+            bool? busyWhileTheDialogIsOpen = null;
+            _form.FormClosing += (s, e) =>
+            {
+                using (var dialog = new Form { ShowInTaskbar = false })
+                {
+                    dialog.Shown += (ds, de) =>
+                    {
+                        Application.RaiseIdle(EventArgs.Empty);   // the dialog's loop goes idle
+                        busyWhileTheDialogIsOpen = _workspace.Stack.IsBusy;
+                        dialog.Close();
+                    };
+                    dialog.ShowDialog(_form);                       // a legacy "really quit?" prompt
+                }
+                e.Cancel = true;
+            };
+
+            _form.Close();
+
+            Assert.True(busyWhileTheDialogIsOpen);
+            PumpUntil(() => !_workspace.Stack.IsBusy);
+            Assert.False(_closed);
+        }
+
+        [Fact]
         public async Task RefusedClose_ReleasesStacks()
         {
             _workspace.Push(new GuardedPage("A", _log));

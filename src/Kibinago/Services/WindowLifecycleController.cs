@@ -426,10 +426,12 @@ namespace Kibinago.Services
         // A window with page stacks keeps them reserved from the gate's approval until the close settles, so
         // no page can be pushed or jumped to in between. The approved attempt either closes the window
         // (FormClosed) or is abandoned — another FormClosing handler cancels it — and then the stacks are
-        // released. The check waits for the message loop to go idle: a FormClosing handler that pumps with
-        // DoEvents does not raise Idle, and a modal window whose close is still under way keeps its
-        // DialogResult until the close is cancelled (then None) or done (FormClosed). Windows without page
-        // stacks hold nothing, and nothing is subscribed.
+        // released. The check waits for the message loop to go idle with no dialog open: a FormClosing
+        // handler that pumps with DoEvents does not raise Idle, one that shows a WinForms dialog is still
+        // running while that dialog is open (MessageBox / common dialogs run native loops that raise no
+        // Idle), and a modal window whose close is still under way keeps its DialogResult until the close is
+        // cancelled (then None) or done (FormClosed). Windows without page stacks hold nothing, and nothing
+        // is subscribed.
         private bool _settleWaiting;
 
         private void SettleLater()
@@ -443,9 +445,18 @@ namespace Kibinago.Services
         {
             if (!_closed && !_form.IsDisposed && _form.Modal && _form.DialogResult != DialogResult.None)
                 return;   // a modal close is still under way
+            if (!_closed && !_form.IsDisposed && AnotherModalFormIsOpen())
+                return;   // idle inside a dialog's loop (e.g. one a later FormClosing handler shows): not over yet
             StopSettleWait();
             if (_closed || _form.IsDisposed) return;   // closed: the stacks end with the presenter
             (_presenter as ICloseAttemptSettler)?.SettleCloseAttempt(closed: false);
+        }
+
+        private bool AnotherModalFormIsOpen()
+        {
+            foreach (Form open in Application.OpenForms)
+                if (!ReferenceEquals(open, _form) && open.Modal && open.Visible) return true;
+            return false;
         }
 
         private void StopSettleWait()
