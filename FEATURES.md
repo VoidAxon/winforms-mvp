@@ -31,6 +31,7 @@ tracking, selection, rate limiting, disposables), `.Configuration`, `.Logging` �
 | Validation state / change tracking | `Validation` (§8), `TrackChanges(model)` (§7) |
 | Embed a panel presenter in an MVP screen (it needs services) | parent view exposes `IPanelView Panel { get; }`; parent presenter: `AttachChild(new PanelPresenter(deps), View.Panel[, param])` in `OnInitialize` — disposed with the parent or its control · [wiki](wiki/HowTo-Implement-Master-Detail.md) |
 | Panels added / removed at runtime (rows, tabs) | `var handle = AttachChild(...)` keyed by the child view; remove: `handle.Dispose()` then `View.RemoveXxx(view)` |
+| In-window drill-down with a breadcrumb (list → detail → edit), asking the pages it discards | `PageStack` (`new PageStack(this)`; `Push(page, View.PushXxx(), [param,] View.RemovePage)`, `PopToCountAsync(n)` / `PopAsync()` / `CanCloseAllAsync()`, `IsBusy`) + `IPageCloseGuard` (one async method, explicit) on pages; the window's close asks every page first · Core · [wiki](wiki/HowTo-Implement-Page-Navigation.md) |
 | Host a UserControl presenter without an MVP parent (WinForms) | `presenter.Connect(view[, param])` — attaches, initializes, disposes with the control |
 | Host a Form you create yourself (shell, legacy) | `presenter.Connect(form[, param][, onClosed])` (WinForms) |
 | Input model the form binds to | `NotifyingObject` (`SetProperty(ref field, value)`), `Kibinago.Common` |

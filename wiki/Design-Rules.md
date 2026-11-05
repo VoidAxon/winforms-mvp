@@ -348,6 +348,8 @@ public class ParentPresenter
 
 > **方向の非対称性**: 「親 → 子」はコマンド (既定 `internal` メソッド) でよいが、「子 → 親」は直接呼び出し禁止 — 所有関係が逆転し循環するため。子から親への通知はイベントか `IEventAggregator` を使う。**下りはコマンド、上りはイベント**。直接命令か EventAggregator かの選び分け (所有関係の有無で決める) は [HowTo: Presenter 間の通信方法](HowTo-Communicate-Between-Presenters) を参照。
 
+> **例外 — 初期化パラメーターのコールバック**: 子は、初期化パラメーターで渡されたアプリ定義のコールバックを呼んで、限られた結果を親へ返してよい (`OrderEditParams.Saved = order => …`)。コールバックが運ぶのはアプリのデータだけで、子は親 Presenter も `PageStack` も参照しない。複数の Presenter が見る状態は、これまでどおり Model / Service に置く。画面内のページ移動の結果がこの形です ([画面内のページ移動](HowTo-Implement-Page-Navigation#結果を親へ返す-パラメーターのコールバック))。
+
 ---
 
 ## Rule 11: 長く意味のある名前
@@ -495,6 +497,7 @@ View.DisplayOrders(orders);
 |------------|------|
 | ウィンドウの結果 (上向き・単発) | 基底 `RequestClose(result, status)` を呼ぶ (インターフェイス実装不要。フレームワークが `InteractionResult<TResult>` に変換して呼び出し元へ返す) |
 | 親子間の連携 (親 → 子) | 親が子 Presenter にコマンドを送る (既定 `internal` メソッド、縫い目が要るときコマンドインターフェイス。[Rule 10](#rule-10-view-にアクセスするのは-presenter-だけ) 参照) |
+| 子 → 親の結果通知 (単発) | 初期化パラメーターのコールバック (`Params.Saved`)。[Rule 10](#rule-10-view-にアクセスするのは-presenter-だけ) の例外 |
 | 共有・観測されるステート | Service / 共有状態オブジェクトに持たせて、その変更通知イベントを発行 |
 | モジュール横断 | `IEventAggregator.Publish` |
 
