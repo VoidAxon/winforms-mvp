@@ -292,6 +292,17 @@ namespace Kibinago.Samples.Tests.Views
             Assert.Equal(before + 1, _changes);
         }
 
+        [Fact]
+        public void InTheDesigner_ItIsNotAContainer_NothingCanBeDroppedIntoIt()
+        {
+            // The effective designer (the one a designer host uses): PageHost's replaces Panel's.
+            var designer = (System.ComponentModel.DesignerAttribute)System.ComponentModel.TypeDescriptor
+                .GetAttributes(typeof(PageHost))[typeof(System.ComponentModel.DesignerAttribute)];
+
+            Assert.StartsWith("System.Windows.Forms.Design.ControlDesigner,", designer.DesignerTypeName);
+            Assert.NotNull(Type.GetType(designer.DesignerTypeName));   // resolvable (System.Design)
+        }
+
         // ---- the mapping still keeps windows and pages apart ----
 
         public interface IControlAsWindowView : IWindowView { }

@@ -57,6 +57,16 @@ namespace Kibinago.Samples.Tests.Presenters
             Assert.True(condition());
         }
 
+        // An async test runs on xUnit's SynchronizationContext, whose few threads other tests may keep busy: an
+        // await inside the framework (a page guard's continuation) would then run late, or on another thread. On the
+        // WinForms context it is posted to this thread's message queue, which PumpUntil / Pump drain.
+        private static IDisposable OnTheFormsMessageLoop()
+        {
+            var previous = System.Threading.SynchronizationContext.Current;
+            System.Threading.SynchronizationContext.SetSynchronizationContext(new WindowsFormsSynchronizationContext());
+            return Kibinago.Common.Disposable.Create(() => System.Threading.SynchronizationContext.SetSynchronizationContext(previous));
+        }
+
         private static void Pump()
         {
             for (int i = 0; i < 20; i++)
@@ -98,6 +108,7 @@ namespace Kibinago.Samples.Tests.Presenters
         [Fact]
         public async Task AsyncApproval_NoNavigationBetweenApprovalAndClose()
         {
+            using var messageLoop = OnTheFormsMessageLoop();
             var pending = new TaskCompletionSource<bool>();
             _workspace.Push(new GuardedPage("A", _log));
             _workspace.Push(new GuardedPage("B", _log) { Answer = () => pending.Task });
@@ -126,6 +137,7 @@ namespace Kibinago.Samples.Tests.Presenters
         [Fact]
         public async Task AsyncApproval_ReplayCancelledByAnotherHandler_ReleasesStacks()
         {
+            using var messageLoop = OnTheFormsMessageLoop();
             var pending = new TaskCompletionSource<bool>();
             _workspace.Push(new GuardedPage("A", _log));
             var b = new GuardedPage("B", _log) { Answer = () => pending.Task };
