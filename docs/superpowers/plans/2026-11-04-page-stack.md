@@ -33,6 +33,15 @@ not repeat its behaviour rules. Section names below ("Check policy", "Push", …
 - Never run anything on the Windows host. Linux: `dotnet build Kibinago.sln` and the local net10 Core harness
   (Task 0). The net48 suite runs on GitHub Actions only (push the branch / PR — ask the owner before pushing).
 - The AntdUI trial (Task 11) stays local: never pushed, never sent to codex / artifacts.
+- **Invisible when unused.** With no `PageStack` in the tree, the close path (`CanCloseGate`,
+  `SettleCloseAttempt`, `WindowLifecycleController`, `PresenterTestHost`) returns early at its entry and the
+  existing code runs unchanged (moved, not rewritten).
+- **Existing tests are not edited.** `CanCloseTests`, the `WindowLifecycleController` / `PresenterTestHost` /
+  `AttachChild` tests must pass unmodified; if one needs a change, the behaviour changed — stop and ask the owner.
+- **Baseline test** (Task 5): a window without stacks — the order and count of `CanClose` / `CanCloseAsync` calls
+  for ✕, `RequestClose`, a repeat ✕ during a pending async gate and a veto are identical to before.
+- Execution: native (one session, TDD per task), codex review of each task's diff before the next task, one fresh
+  whole-branch reviewer at the end.
 
 ## Review Focus
 
