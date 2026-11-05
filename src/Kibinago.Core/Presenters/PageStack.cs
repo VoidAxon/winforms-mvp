@@ -286,15 +286,18 @@ namespace Kibinago.Presenters
             if (attachable.IsViewAttached || attachable.IsInitialized || composable.OwnerLink != null)
                 throw new InvalidOperationException(
                     page.GetType().Name + " is already attached to a view; a presenter is pushed once.");
-            var host = Host();
 
             PageEntry entry = null;
-            _operations++;   // busy for the whole push, its compensation included (reentrancy is rejected)
+            _operations++;   // busy for the whole push — the host lookup and the compensation included (reentrancy is rejected)
             try
             {
+                var host = Host();
                 var created = host.AddPage(typeof(TView), title, composable.BoundServices ?? Owner.Services);
                 if (created == null)
                     throw new InvalidOperationException(host.GetType().Name + ".AddPage returned no view for " + typeof(TView).Name + ".");
+                if (ViewOwnership.IsClaimed(created))
+                    throw new InvalidOperationException(   // not ours to remove: another presenter's live view
+                        host.GetType().Name + ".AddPage returned a view another live presenter uses; a host returns a new view.");
                 var view = created as TView;
                 if (view == null)
                 {
@@ -302,9 +305,6 @@ namespace Kibinago.Presenters
                         "The view made for " + typeof(TView).Name + " is a " + created.GetType().Name +
                         ", which does not implement it; check the view mapping."));
                 }
-                if (ViewOwnership.IsClaimed(view))
-                    throw new InvalidOperationException(   // not ours to remove: another presenter's live view
-                        host.GetType().Name + ".AddPage returned a view another live presenter uses; a host returns a new view.");
 
                 try
                 {

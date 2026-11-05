@@ -243,5 +243,52 @@ namespace Kibinago.Samples.Tests.Composition
                 Assert.Same(own, _view.LastServices);
             }
         }
+
+        [Fact]
+        public void HostLookupThatPushes_IsRejected_TheStackIsAlreadyReserved()
+        {
+            var ws = new ReentrantLookupWorkspace();
+            using (PresenterTestHost.Start(_fakes.Provider, ws, new FakeWorkspaceView()))
+            {
+                Assert.True(ws.Push(new PlainPage("A", _log)));
+                Assert.False(ws.InnerResult);
+                Assert.Equal(1, ws.Count);
+            }
+        }
+
+        private sealed class ReentrantLookupWorkspace : WindowPresenterBase<IWorkspaceView>
+        {
+            private readonly PageStack _stack;
+            public bool? InnerResult;
+            public ReentrantLookupWorkspace()
+            {
+                _stack = new PageStack(this, () =>
+                {
+                    if (InnerResult == null) InnerResult = _stack.Push(new PlainPage("inner", null), "inner");
+                    return View.Pages;
+                });
+            }
+            internal bool Push(PlainPage page) => _stack.Push(page, page.Tag);
+            internal int Count => _stack.Count;
+        }
+
+        [Fact]
+        public void HostReturnsAnotherPresentersViewOfAnotherType_NotRemoved()
+        {
+            using (Start(out var ws))
+            {
+                var foreign = new OtherView();
+                using (ViewOwnership.Claim(foreign, new object()))
+                {
+                    _view.NextView = foreign;
+                    var page = new PlainPage("A", _log);
+
+                    Assert.Throws<InvalidOperationException>(() => ws.Push(page));
+
+                    Assert.Empty(_view.Removed);   // not ours to remove
+                    Assert.False(page.Disposed);
+                }
+            }
+        }
     }
 }
