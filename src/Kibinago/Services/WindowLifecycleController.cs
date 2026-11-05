@@ -416,8 +416,39 @@ namespace Kibinago.Services
             {
                 e.Cancel = !answered.Value;
                 TakeGateResult(answered.Value);
+                if (answered.Value) SettleLater();   // another FormClosing handler may still cancel it
             }
             else { e.Cancel = true; _gatePending = true; }
+        }
+
+        // ---------------- Page stacks: settle an approved attempt ----------------
+
+        // A window with page stacks keeps them reserved from the gate's approval until the close settles, so
+        // no page can be pushed or jumped to in between. The approved attempt either closes the window
+        // (FormClosed) or is abandoned — another FormClosing handler cancels it — and then the stacks are
+        // released. The posted check runs after this close attempt's handlers have all run. Windows without
+        // page stacks hold nothing, and nothing is posted.
+        private bool _settleRetried;
+
+        private void SettleLater()
+        {
+            if (!(_presenter is ICloseAttemptSettler settler) || !settler.HoldsApprovedClose) return;
+            try { _form.BeginInvoke(new Action(SettleIfStillOpen)); }
+            catch (InvalidOperationException) { SettleIfStillOpen(); }   // no handle: the attempt is over
+        }
+
+        private void SettleIfStillOpen()
+        {
+            if (_closed || _form.IsDisposed) return;   // closed: the stacks end with the presenter
+            if (_form.Modal && _form.DialogResult != DialogResult.None && !_settleRetried)
+            {
+                // A modal window ends its loop after this message; look again once.
+                _settleRetried = true;
+                try { _form.BeginInvoke(new Action(SettleIfStillOpen)); return; }
+                catch (InvalidOperationException) { }
+            }
+            _settleRetried = false;
+            (_presenter as ICloseAttemptSettler)?.SettleCloseAttempt(closed: false);
         }
 
         private void ClearSeed()
@@ -445,6 +476,7 @@ namespace Kibinago.Services
             if (!allow || _form.IsDisposed || _closed) return;   // blocked: leave the window open
 
             _bypassGateOnce = true;
+            SettleLater();   // posted: runs after the close below (and its other handlers) has run
             switch (originalReason)
             {
                 case System.Windows.Forms.CloseReason.FormOwnerClosing when _form.Owner != null:
@@ -498,6 +530,7 @@ namespace Kibinago.Services
         {
             UnwireFormEvents();
             _closed = true;
+            (_presenter as ICloseAttemptSettler)?.SettleCloseAttempt(closed: true);
             ClearSeed();
             Converge();
         }
