@@ -63,16 +63,16 @@ namespace Kibinago.Samples.Tests.Composition
             if (ThrowOnCleanup != null) throw ThrowOnCleanup;
         }
 
-        public object GetMessagesForTest() => Messages;
+        internal object GetMessagesForTest() => Messages;
 
         /// <summary>Plain AttachChild of a panel into this page (what a page's own code would do).</summary>
-        public IDisposable AttachPanelForTest(PlainPage panel) => AttachChild(panel, new FakePageView(panel.Tag));
+        internal IDisposable AttachPanelForTest(PlainPage panel) => AttachChild(panel, new FakePageView(panel.Tag));
 
         /// <summary>A stack created by this page's own code (e.g. inside its guard).</summary>
-        public PageStack CreateStackForTest() => new PageStack(this);
+        internal PageStack CreateStackForTest() => new PageStack(this);
 
         /// <summary>Pushes onto this page's own stack (test access; a real page calls it from its own code).</summary>
-        public void PushInner(PlainPage page, List<string> removed)
+        internal void PushInner(PlainPage page, List<string> removed)
             => Inner.Push(page, new FakePageView(page.Tag), v => removed?.Add("remove:" + v.Tag));
     }
 
@@ -186,20 +186,20 @@ namespace Kibinago.Samples.Tests.Composition
             return WindowAnswer(reason);
         }
 
-        public void Push(PlainPage page) => Stack.Push(page, new FakePageView(page.Tag), View.RemovePage);
+        internal void Push(PlainPage page) => Stack.Push(page, new FakePageView(page.Tag), View.RemovePage);
 
-        public void Push(ParamPage page, string tag, PageParams parameters)
+        internal void Push(ParamPage page, string tag, PageParams parameters)
             => Stack.Push(page, new FakePageView(tag), parameters, View.RemovePage);
 
         /// <summary>Plain AttachChild (not a page), e.g. a panel that owns a stack of its own.</summary>
-        public IDisposable AttachPanel(PlainPage panel)
+        internal IDisposable AttachPanel(PlainPage panel)
         {
             var handle = AttachChild(panel, new FakePageView(panel.Tag));
             Handles.Add(handle);
             return handle;
         }
 
-        public void RequestCloseForTest() => RequestClose(InteractionStatus.Cancel);
+        internal void RequestCloseForTest() => RequestClose(InteractionStatus.Cancel);
     }
 
     /// <summary>An <see cref="IPresenter"/> that is not a framework presenter.</summary>
