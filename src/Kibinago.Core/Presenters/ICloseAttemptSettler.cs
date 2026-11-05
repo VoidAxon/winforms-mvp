@@ -13,11 +13,10 @@ namespace Kibinago.Presenters
         bool HoldsApprovedClose { get; }
 
         /// <summary>
-        /// <paramref name="closed"/> = <c>true</c>: the window closed (the reservation stays; the stacks end with
-        /// the presenter). <c>false</c>: the approved attempt was abandoned (another FormClosing handler cancelled
-        /// it, or it was only a permission query) — the stacks are released. Does nothing when no approved
-        /// attempt holds them.
+        /// The approved attempt was abandoned (another FormClosing handler cancelled it, or it was only a
+        /// permission query): the stacks are released. Does nothing when no approved attempt holds them. A close
+        /// that happens needs no call: the reservation ends with the presenter.
         /// </summary>
-        void SettleCloseAttempt(bool closed);
+        void AbandonCloseAttempt();
     }
 }

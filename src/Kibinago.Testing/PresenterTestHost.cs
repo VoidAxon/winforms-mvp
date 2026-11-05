@@ -228,7 +228,7 @@ namespace Kibinago.Testing
                         ClearGateResult();
                         // A recorded close happened: a window's page stacks stay reserved until Dispose. A query
                         // closed nothing: they are released — before the next attempt can start.
-                        if (!recorded) (participant as ICloseAttemptSettler)?.SettleCloseAttempt(closed: false);
+                        if (!recorded) (participant as ICloseAttemptSettler)?.AbandonCloseAttempt();
                         _pendingGate = null;
                     }
                     gate.TrySetResult(ok);

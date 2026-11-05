@@ -332,7 +332,7 @@ namespace Kibinago.Samples.Tests.Composition
                 pending.SetResult(true);
 
                 Assert.Null(await Within(delivered.Task));
-                ((ICloseAttemptSettler)ws).SettleCloseAttempt(closed: false);
+                ((ICloseAttemptSettler)ws).AbandonCloseAttempt();
                 Assert.False(ws.Stack.IsBusy);
             }
         }

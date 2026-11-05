@@ -237,10 +237,7 @@ namespace Kibinago.Presenters
 
         bool ICloseAttemptSettler.HoldsApprovedClose => _approvedClose != null;
 
-        void ICloseAttemptSettler.SettleCloseAttempt(bool closed)
-        {
-            if (!closed) ReleaseApprovedClose();
-        }
+        void ICloseAttemptSettler.AbandonCloseAttempt() => ReleaseApprovedClose();
 
         private bool Decide(Task<bool> completed, CloseReason reason)
         {

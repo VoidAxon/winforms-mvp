@@ -439,9 +439,10 @@ namespace Kibinago.Services
 
         private void SettleLater()
         {
-            if (_settleWaiting || !(_presenter is ICloseAttemptSettler settler) || !settler.HoldsApprovedClose) return;
+            if (!(_presenter is ICloseAttemptSettler settler) || !settler.HoldsApprovedClose) return;
+            _dialogsBeforeAttempt = OpenDialogs();   // per approved attempt, even while already waiting
+            if (_settleWaiting) return;
             _settleWaiting = true;
-            _dialogsBeforeAttempt = OpenDialogs();
             Application.Idle += OnIdleSettle;
         }
 
@@ -453,7 +454,7 @@ namespace Kibinago.Services
                 return;   // idle inside a dialog opened during the attempt (a later FormClosing handler's): not over yet
             StopSettleWait();
             if (_closed || _form.IsDisposed) return;   // closed: the stacks end with the presenter
-            (_presenter as ICloseAttemptSettler)?.SettleCloseAttempt(closed: false);
+            (_presenter as ICloseAttemptSettler)?.AbandonCloseAttempt();
         }
 
         private bool AnotherModalFormIsOpen()
@@ -561,7 +562,6 @@ namespace Kibinago.Services
             UnwireFormEvents();
             _closed = true;
             StopSettleWait();
-            (_presenter as ICloseAttemptSettler)?.SettleCloseAttempt(closed: true);
             ClearSeed();
             Converge();
         }

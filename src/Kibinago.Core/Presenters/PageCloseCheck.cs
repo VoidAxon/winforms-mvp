@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Kibinago.Logging;
@@ -16,8 +15,8 @@ namespace Kibinago.Presenters
     /// Order: a stack is asked top first; for each page, the stacks its presenter tree owns (its own stacks in
     /// reverse registration order, then its plain children's trees in reverse attach order) come before the
     /// page's own guard. Each guard is awaited before the next is asked; the first refusal stops the check.
-    /// Results are kept per presenter and per stack, so a forwarding guard that asks a stack this check already
-    /// answered gets that answer again; asking one that is still being answered is a cycle and refuses.
+    /// Results are kept per stack, so a forwarding guard that asks a stack this check already answered gets that
+    /// answer again; asking one that is still being answered is a cycle and refuses.
     /// UI thread only.
     /// </remarks>
     internal sealed class PageCloseCheck
@@ -30,8 +29,6 @@ namespace Kibinago.Presenters
         private readonly List<PageStack> _enrolled = new List<PageStack>();
         private readonly List<IComposablePresenter> _roots = new List<IComposablePresenter>();
         private readonly Dictionary<PageStack, bool?> _stackAnswers = new Dictionary<PageStack, bool?>();
-        private readonly Dictionary<IComposablePresenter, bool?> _guardAnswers =
-            new Dictionary<IComposablePresenter, bool?>(ReferenceComparer.Instance);
         private readonly List<IComposablePresenter> _pending = new List<IComposablePresenter>();
         private bool _released;
 
@@ -229,14 +226,8 @@ namespace Kibinago.Presenters
         {
             var guard = page as IPageCloseGuard;
             if (guard == null) return true;
-            if (_guardAnswers.TryGetValue(page, out var known))
-            {
-                if (known.HasValue) return known.Value;
-                LogCycle(page);
-                return false;
-            }
-            _guardAnswers[page] = null;
-            bool answer = false;
+            // Asked once per check without a memo of its own: a page has one owner, so it is reached only
+            // through its stack, and stacks are answered once (a stack still being answered is a cycle).
             Action end = null;
             try
             {
@@ -247,13 +238,11 @@ namespace Kibinago.Presenters
                     page.Logger.LogError(ex, "{Page}.CanCloseAsync threw; the page is not discarded", page.GetType().Name);
                     return false;
                 }
-                answer = await AwaitDecisionAsync(decision, page);
-                return answer;
+                return await AwaitDecisionAsync(decision, page);
             }
             finally
             {
                 end?.Invoke();
-                _guardAnswers[page] = answer;
             }
         }
 
@@ -281,13 +270,5 @@ namespace Kibinago.Presenters
             => presenter.Logger.LogWarning(
                 "A page close check for {Presenter} was asked again while it was still deciding (a cycle); refusing",
                 presenter.GetType().Name);
-    }
-
-    /// <summary>Identity comparison: presenters that override <c>Equals</c> are still different presenters.</summary>
-    internal sealed class ReferenceComparer : IEqualityComparer<IComposablePresenter>
-    {
-        internal static readonly ReferenceComparer Instance = new ReferenceComparer();
-        public bool Equals(IComposablePresenter x, IComposablePresenter y) => ReferenceEquals(x, y);
-        public int GetHashCode(IComposablePresenter obj) => RuntimeHelpers.GetHashCode(obj);
     }
 }
