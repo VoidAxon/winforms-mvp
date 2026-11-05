@@ -42,12 +42,14 @@ namespace Kibinago.Samples.Tests.Presenters
             public void RemovePage(IPageView page) => Removed.Add(page.Tag);
         }
 
+        // DoEvents does not raise Application.Idle (a real message loop does when its queue is empty).
         private static void PumpUntil(Func<bool> condition)
         {
             var watch = Stopwatch.StartNew();
             while (!condition() && watch.ElapsedMilliseconds < 5000)
             {
                 Application.DoEvents();
+                Application.RaiseIdle(EventArgs.Empty);
                 System.Threading.Thread.Sleep(1);
             }
             Assert.True(condition());
@@ -55,7 +57,11 @@ namespace Kibinago.Samples.Tests.Presenters
 
         private static void Pump()
         {
-            for (int i = 0; i < 20; i++) Application.DoEvents();
+            for (int i = 0; i < 20; i++)
+            {
+                Application.DoEvents();
+                Application.RaiseIdle(EventArgs.Empty);
+            }
         }
 
         [Fact]
@@ -88,19 +94,67 @@ namespace Kibinago.Samples.Tests.Presenters
         }
 
         [Fact]
-        public async Task AsyncApproval_NoNavigationBetweenApprovalAndClose()
+        public void AsyncApproval_NoNavigationBetweenApprovalAndClose()
         {
             var pending = new TaskCompletionSource<bool>();
             _workspace.Push(new GuardedPage("A", _log));
             _workspace.Push(new GuardedPage("B", _log) { Answer = () => pending.Task });
+            bool? busyDuringReplay = null;
+            Task<bool> jumpDuringReplay = null;
+            // A later handler sees the close the approval re-issues: the window is still open there.
+            _form.FormClosing += (s, e) =>
+            {
+                if (!pending.Task.IsCompleted) return;
+                busyDuringReplay = _workspace.Stack.IsBusy;
+                jumpDuringReplay = _workspace.Stack.PopAsync();
+            };
 
             _form.Close();
             Assert.False(_closed);
             Assert.True(_workspace.Stack.IsBusy);
 
             pending.SetResult(true);
-            Assert.False(await _workspace.Stack.PopAsync());   // still held: approved, not closed yet
             PumpUntil(() => _closed);
+
+            Assert.True(busyDuringReplay);
+            Assert.True(jumpDuringReplay.IsCompleted);
+            Assert.False(jumpDuringReplay.Result);
+        }
+
+        [Fact]
+        public async Task AsyncApproval_ReplayCancelledByAnotherHandler_ReleasesStacks()
+        {
+            var pending = new TaskCompletionSource<bool>();
+            _workspace.Push(new GuardedPage("A", _log));
+            var b = new GuardedPage("B", _log) { Answer = () => pending.Task };
+            _workspace.Push(b);
+            _form.FormClosing += (s, e) => { if (pending.Task.IsCompleted) e.Cancel = true; };
+
+            _form.Close();
+            pending.SetResult(true);
+            PumpUntil(() => !_workspace.Stack.IsBusy);
+
+            Assert.False(_closed);
+            b.Answer = () => Task.FromResult(true);
+            Assert.True(await _workspace.Stack.PopAsync());
+        }
+
+        [Fact]
+        public void ApprovedClose_ALaterHandlerPumpsMessages_StacksStayHeldUntilTheAttemptEnds()
+        {
+            _workspace.Push(new GuardedPage("A", _log));
+            bool? busyWhilePumping = null;
+            _form.FormClosing += (s, e) =>
+            {
+                Application.DoEvents();                  // a legacy handler that pumps
+                busyWhilePumping = _workspace.Stack.IsBusy;
+                e.Cancel = true;
+            };
+
+            _form.Close();
+            Assert.True(busyWhilePumping);
+            PumpUntil(() => !_workspace.Stack.IsBusy);
+            Assert.False(_closed);
         }
 
         [Fact]
