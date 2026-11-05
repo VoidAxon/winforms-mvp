@@ -270,5 +270,23 @@ namespace Kibinago.Samples.Tests.Composition
                 Assert.Null(handle.Owner);
             }
         }
+
+        [Fact]
+        public void ExternalRelease_ThePushFromTheReleasedViewsRemoval_IsRejected()
+        {
+            using (Start(out var ws))
+            {
+                ws.Push(new PlainPage("A", _log));
+                var b = new PlainPage("B", _log);
+                ws.Push(b);
+                bool? reentrant = null;
+                _view.OnRemove = tag => { if (tag == "B") reentrant = ws.Push(new PlainPage("X", _log)); };
+
+                b.Dispose();
+
+                Assert.False(reentrant);   // still busy while the released page's view is removed
+                Assert.Equal(1, ws.Stack.Count);
+            }
+        }
     }
 }

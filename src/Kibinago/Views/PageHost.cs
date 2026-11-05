@@ -70,7 +70,8 @@ namespace Kibinago.Views
                 // the restored state. Every failure on the way is reported with the original one.
                 var failures = new List<Exception> { failure };
                 _pages.Remove(page);
-                if (previous != null && !previous.IsDisposed) previous.Visible = true;
+                try { if (previous != null && !previous.IsDisposed) previous.Visible = true; }
+                catch (Exception restore) { failures.Add(restore); }
                 try
                 {
                     if (!control.IsDisposed)
@@ -109,11 +110,15 @@ namespace Kibinago.Views
                 }
             }
             catch (Exception ex) { failures.Add(ex); }
-            if (_pages.Count > 0)
+            try
             {
-                var top = _pages[_pages.Count - 1].Control;
-                if (!top.IsDisposed) top.Visible = true;
+                if (_pages.Count > 0)
+                {
+                    var top = _pages[_pages.Count - 1].Control;
+                    if (!top.IsDisposed) top.Visible = true;   // its VisibleChanged handlers may throw
+                }
             }
+            catch (Exception ex) { failures.Add(ex); }
             try { PagesChanged?.Invoke(this, EventArgs.Empty); }
             catch (Exception ex) { failures.Add(ex); }
             if (failures.Count == 1) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(failures[0]).Throw();

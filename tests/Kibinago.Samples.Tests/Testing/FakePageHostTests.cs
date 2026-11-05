@@ -61,6 +61,19 @@ namespace Kibinago.Samples.Tests.Testing
             Assert.Throws<ArgumentException>(() => new FakePageHost().RemovePage(new OtherView()));
         }
 
+        [Fact]
+        public void AddPage_AViewAlreadyUsedByAPresenter_Rejected_NothingRecorded()
+        {
+            var shared = new FakePageView("shared");
+            var host = new FakePageHost().Register<IPageView>(() => shared);
+            using (Kibinago.Presenters.ViewOwnership.Claim(shared, new object()))
+            {
+                Assert.Throws<InvalidOperationException>(() => host.AddPage(typeof(IPageView), "x", null));
+                Assert.Empty(host.Pages);
+                Assert.Empty(host.PageTitles);
+            }
+        }
+
         // End to end: a window presenter whose stack shows its pages in a FakePageHost.
         private interface IHostWindowView : IWindowView { IPageHost Pages { get; } }
 

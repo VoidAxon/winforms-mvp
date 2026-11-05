@@ -264,6 +264,23 @@ namespace Kibinago.Samples.Tests.Views
             Assert.Equal(new[] { "dispose", "event" }, ex.InnerExceptions.Select(i => i.Message));
         }
 
+        [Fact]
+        public void RemovePage_AThrowingVisibleChangedHandler_StillUpdatesTheBreadcrumb()
+        {
+            _register.Register<IOtherPageView>(() => new OtherControl());
+            var a = (Control)_host.AddPage(typeof(IOtherPageView), "A", _services);
+            _register.Register<ITestPageView, TestPageControl>();
+            var b = Add("B");
+            a.VisibleChanged += (s, e) => throw new InvalidOperationException("reshown");
+            int before = _changes;
+
+            Assert.Throws<InvalidOperationException>(() => _host.RemovePage((IControlView)b));
+
+            Assert.True(b.IsDisposed);
+            Assert.Equal(new[] { "A" }, _host.PageTitles);
+            Assert.Equal(before + 1, _changes);
+        }
+
         // ---- the mapping still keeps windows and pages apart ----
 
         public interface IControlAsWindowView : IWindowView { }

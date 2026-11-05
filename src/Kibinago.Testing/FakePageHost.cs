@@ -52,6 +52,9 @@ namespace Kibinago.Testing
                 throw new InvalidOperationException(
                     "No mock view is registered for " + viewInterface.Name + ": call Register<" + viewInterface.Name + ">(() => new …) on the FakePageHost.");
             var view = create() ?? throw new InvalidOperationException("The mock view factory for " + viewInterface.Name + " returned null.");
+            if (Kibinago.Presenters.ViewOwnership.IsClaimed(view) || _pages.Contains(view))
+                throw new InvalidOperationException(   // as PageHost: checked before anything is recorded
+                    "The mock view factory for " + viewInterface.Name + " returned a view that is already in use; return a new mock each time.");
             _pages.Add(view);
             _titles.Add(title);
             return view;

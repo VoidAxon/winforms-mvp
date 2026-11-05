@@ -10,18 +10,20 @@ namespace Kibinago.Presenters
     /// <summary>
     /// The pages of one in-window drill-down (customer list → customer detail → order edit) with a breadcrumb,
     /// owned by a presenter (a window or a panel). Pages are control presenters attached to the owner like
-    /// <c>AttachChild</c> children; the pages below the top stay alive (the view hides them), popped pages are
+    /// <c>AttachChild</c> children; the pages below the top stay alive (the host hides them), popped pages are
     /// disposed. A jump back asks every page it discards (<see cref="IPageCloseGuard"/>) first, all or nothing,
     /// and the owner's window asks every page before it closes.
     /// </summary>
     /// <remarks>
-    /// <para>Create it in the owner's constructor (<c>_pages = new PageStack(this)</c>); push from
-    /// <c>OnInitialize</c> on. The view creates and removes the page controls: the owner's view interface
-    /// exposes methods such as <c>IOrderEditView PushOrderEdit(string title)</c> and
-    /// <c>void RemovePage(IControlView page)</c>, and <c>RemovePage</c> is passed to <c>Push</c>.</para>
-    /// <para>While a check or a removal is running the stack is busy (<see cref="IsBusy"/>): <c>Push</c> throws and
-    /// the pops answer <c>false</c>; requests are not queued. Check <see cref="IsBusy"/> before the view creates a
-    /// page control. Busy blocks stack operations only, not editing in the pages.</para>
+    /// <para>Create it in the owner's constructor (<c>_pages = new PageStack(this, () =&gt; View.Pages)</c>; the owner's
+    /// view interface exposes <c>IPageHost Pages { get; }</c>, a <c>PageHost</c> panel on the Form) and push from
+    /// <c>OnInitialize</c> on: <c>_pages.Push(new OrderEditPresenter(deps), parameters, "受注 101")</c>. The host creates
+    /// each page control from the view mapping (<c>register.Register&lt;IOrderEditView, OrderEditControl&gt;()</c> at
+    /// startup), hides the page below and removes discarded pages; the view draws the breadcrumb from the host's
+    /// titles.</para>
+    /// <para>While a check or a removal is running the stack is busy (<see cref="IsBusy"/>): <c>Push</c> and the pops
+    /// answer <c>false</c> and do nothing; requests are not queued, and callers need no <see cref="IsBusy"/> check.
+    /// Busy blocks stack operations only, not editing in the pages.</para>
     /// <para>Results travel back through callbacks in a page's parameters (<c>OrderEditParams.Saved</c>). There is
     /// no "shown again" notification: a page that needs one gets a semantic event from its own view.</para>
     /// <para>Single-threaded (UI thread), like the presenters that use it.</para>
@@ -407,7 +409,9 @@ namespace Kibinago.Presenters
                 ((IPresenterResourceOwner)entry.Page).OwnUntilDisposed(Kibinago.Common.Disposable.Create(() =>
                 {
                     var removal = new List<Exception>();
-                    RemoveView(entry, removal);
+                    _operations++;   // busy here too: a breadcrumb redraw triggered by the removal cannot push or pop
+                    try { RemoveView(entry, removal); }
+                    finally { _operations--; }
                     Throw(removal);
                 }));
             }
