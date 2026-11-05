@@ -1,6 +1,6 @@
 # Page host for `PageStack` — design
 
-Date: 2026-11-05 · Status: draft, awaiting the owner's approval · Follows PR #81 (`PageStack` + `IPageCloseGuard`,
+Date: 2026-11-05 · Status: draft, awaiting the owner's approval · Builder check + codex review done · Follows PR #81 (`PageStack` + `IPageCloseGuard`,
 spec `2026-11-04-page-stack-design.md`, which stays the authority for the check policy, busy rules, window close and
 external release — nothing there changes).
 
@@ -47,19 +47,25 @@ pageHost.PagesChanged += (s, e) => RebuildCrumbs(pageHost.PageTitles);   // crum
 
 ## Public API
 
-### Kibinago.Core — `Kibinago.Presenters`
+### Kibinago.Core — `Kibinago.Views` (the view capability) and `Kibinago.Presenters`
 
 ```csharp
-/// Where a PageStack's pages are shown. Implemented by Kibinago's PageHost control (WinForms) and by
-/// Kibinago.Testing's FakePageHost; an application may implement it for its own layout.
-public interface IPageHost
+namespace Kibinago.Views
 {
-    /// Creates the view mapped to viewInterface, shows it on top (the page below stays alive, hidden) with
-    /// title as its breadcrumb text, and returns it.
-    IControlView AddPage(Type viewInterface, string title);
+    /// Where a PageStack's pages are shown: a view capability, like IActionBindable. Implemented by Kibinago's
+    /// PageHost control (WinForms) and Kibinago.Testing's FakePageHost; an application may implement it.
+    public interface IPageHost
+    {
+        /// Creates a new view for viewInterface (services: the pushing presenter's — its scope, its container),
+        /// shows it on top with title as its breadcrumb text (the page below stays alive, hidden) and returns it.
+        /// Throws, with nothing added, when no new usable view can be made (no mapping; null; a Form; disposed;
+        /// already parented or used by a live presenter); a host that throws midway undoes its own changes.
+        IControlView AddPage(Type viewInterface, string title, IServiceProvider services);
 
-    /// Removes page (shows the one below); disposes the control. Tolerates a control already disposed.
-    void RemovePage(IControlView page);
+        /// Removes a page this host added (any level) and disposes it; shows the new top. Tolerates a control
+        /// already disposed.
+        void RemovePage(IControlView page);
+    }
 }
 
 public sealed class PageStack
@@ -85,13 +91,15 @@ public class PageHost : Panel, IPageHost
 {
     public IReadOnlyList<string> PageTitles { get; }   // bottom first — for the view's breadcrumb
     public event EventHandler PagesChanged;            // after a page was added or removed
-    // IPageHost: AddPage creates through IViewMappingRegister (Dock = Fill, BringToFront, the previous top hidden,
-    // focus into the new page); RemovePage removes any page (not only the top), disposes it, shows the new top.
+    // IPageHost: AddPage creates through services' IViewMappingRegister.WithServiceProvider(services) — the same
+    // lookup (with the container fallback) WindowNavigator uses — then Dock = Fill, BringToFront, the previous top
+    // hidden, focus into the new page; RemovePage removes any page it added, disposes it, shows the new top.
 }
 ```
 
 `IViewMappingRegister.Register<TViewInterface, TViewImplementation>()`: the constraint becomes
-`where TViewImplementation : Control, TViewInterface` (was `Form`) so pages register like windows. `WindowNavigator`
+`where TViewImplementation : Control, TViewInterface` (was `Form`) so pages register like windows — in the interface,
+`ViewMappingRegister` and `ServiceProviderViewMappingRegister`. `WindowNavigator`
 already rejects a non-Form implementation with a clear message. `RegisterFromAssembly` / `RegisterFromNamespace` keep
 scanning Forms only (see Non-goals).
 
@@ -103,7 +111,7 @@ public sealed class FakePageHost : IPageHost
 {
     public FakePageHost Register<TView>(Func<TView> create) where TView : class, IControlView;
     public IReadOnlyList<IControlView> Pages { get; }      // bottom first
-    public IReadOnlyList<string> Titles { get; }
+    public IReadOnlyList<string> PageTitles { get; }          // as on PageHost
     public IReadOnlyList<IControlView> Removed { get; }    // in removal order
     public T Page<T>(int level) where T : class;           // typed access for assertions / driving a mock view
 }
@@ -111,24 +119,29 @@ public sealed class FakePageHost : IPageHost
 
 ## Behaviour
 
-- **Push**: preflight as today (owner alive, has its view, stack not busy, arguments valid, page not attached).
-  `title` null → `ArgumentNullException`. Then `host.AddPage(typeof(TView), title)`:
-  - `AddPage` throws (no mapping, the control's constructor throws) → propagates; nothing to undo (no page accepted).
-  - the returned view is not a `TView` → `host.RemovePage(view)`, then `InvalidOperationException` naming the
-    mapping. Nothing else is undone.
-  - otherwise attach + initialize through the owner's `AttachChild` machinery exactly as #81 (the post-acceptance
-    rules hold: a failure removes the page through `host.RemovePage(view)` once, then propagates).
+- **Push is one transaction**:
+  1. Page-level checks before anything is created: owner alive and has its view; stack not busy (see open question
+     B); `page` / `title` non-null (empty title allowed); the page not attached / initialized / owned / disposed.
+     A rejection here changes nothing.
+  2. The stack is reserved (busy) from here to the end, so a page constructor, focus handling or a `PagesChanged`
+     handler cannot push or pop meanwhile.
+  3. `host.AddPage(typeof(TView), title, owner's services)`. It throws → propagates; the host has undone itself.
+  4. The returned view is checked (a `TView`; not claimed by another presenter). Any failure from here until the
+     page is accepted (wrong type, the view claimed, service inheritance rejected) → `host.RemovePage(view)` once,
+     the presenter is **not** disposed, the failure propagates (with the removal's failure: `AggregateException`).
+  5. Ownership transfer and initialization exactly as #81: a failure after acceptance disposes the page,
+     `host.RemovePage(view)` once, propagates.
 - **Every place #81 called `removeView`** now calls `host.RemovePage(view)` (pop, external release after the released
   page's teardown, failed push, page that disposed itself during its push). Owner teardown still removes nothing.
-- **Host lookup**: `Func<IPageHost>` is called on the first `Push` and the result kept; it must return non-null
-  (`InvalidOperationException` otherwise — "expose the PageHost control through the view interface"). A presenter that
-  creates the stack in `OnInitialize` may still pass the lambda.
+- **Host lookup**: `Func<IPageHost>` is called on the first `Push` and the result kept (one host per stack); it must
+  return non-null (`InvalidOperationException` otherwise — "expose the PageHost control through the view
+  interface"). A host disposed later makes `AddPage` throw `ObjectDisposedException` (propagates as step 3).
 - **Breadcrumb** stays the view's: `PageHost` publishes `PageTitles` + `PagesChanged`; a crumb click is a view event /
   typed `ViewAction<int>` → the presenter's `PopToCountAsync(level + 1)` (as in #81, so jumps stay testable through
   the binder and logged by `IActionObserver`).
-- **PageHost creating views**: resolves `IViewMappingRegister` from `ServiceLocator.Current` on first use unless one
-  is assigned to an optional `ViewMappings` property (the registry is an application-wide singleton on both the
-  locator and the M.E.DI path, so the presenter's scope does not matter).
+- **PageHost creating views**: from the services `PageStack` passes (the pushing presenter's provider — under M.E.DI its
+  scope), `IViewMappingRegister.WithServiceProvider(services)`: the Navigator's lookup, so a page view registered only
+  in the container (constructor dependencies, scoped services) is created like a window. No `ServiceLocator.Current`.
 - Single-threaded (UI thread), as before.
 
 ## Testing
@@ -164,10 +177,22 @@ Internal shapes, exception texts, PageHost focus details, sample layout, FakePag
 ## Calls made without the owner (check these)
 
 1. One way to push: the explicit-view overloads and `removeView` are removed, not kept beside the host.
-2. `IPageHost` lives in `Kibinago.Presenters` (with `PageStack`), not `Kibinago.Views` (whose Core interfaces
-   `ApiSurfaceTests` pins as the view roles).
+2. `IPageHost` lives in `Kibinago.Views` (a view capability, codex); `ApiSurfaceTests`' view-interface list is updated
+   on purpose.
 3. The host creates the view (`AddPage(Type, title)`), not the stack.
 4. Breadcrumb clicks stay in the presenter (view event / typed action), not handled by the host.
 5. `Register<TI, TImpl>()` constraint relaxed from `Form` to `Control`; scanning stays Forms-only.
 6. `PageStack(owner, Func<IPageHost>)` instead of finding the host on the owner's view by convention.
 7. `title` is required (a page without a breadcrumb text is a mistake).
+8. The host creates the view from the pushing presenter's services (scope + container fallback, as the Navigator),
+   passed in `AddPage` — not from `ServiceLocator.Current` (builder check / codex).
+9. A view rejected after the host made it (wrong type, claimed, services rejected) is removed through the host, the
+   presenter stays undisposed; the host validates what it creates before it changes its visual tree (codex).
+
+## Open questions for the owner
+
+- **A. Renaming a page's crumb after it was pushed** (a "新規受注" page that becomes "受注 123" after saving; a detail
+  whose name loads asynchronously). Not in the draft.
+- **B. `Push` while the stack is busy**: #81 throws (callers check `IsBusy` first, because the view was created before
+  `Push`). Now nothing exists before `Push`, so it could return `false` and create nothing instead.
+
