@@ -1,6 +1,6 @@
 # Page host for `PageStack` — design
 
-Date: 2026-11-05 · Status: draft, awaiting the owner's approval · Builder check + codex review done · Follows PR #81 (`PageStack` + `IPageCloseGuard`,
+Date: 2026-11-05 · Status: draft — owner answered A / B (2026-11-05); awaiting approval of the document · Builder check + codex review done · Follows PR #81 (`PageStack` + `IPageCloseGuard`,
 spec `2026-11-04-page-stack-design.md`, which stays the authority for the check policy, busy rules, window close and
 external release — nothing there changes).
 
@@ -72,8 +72,9 @@ public sealed class PageStack
 {
     public PageStack(IPresenter owner, Func<IPageHost> host);    // host read on first use (View exists from OnInitialize)
 
-    public void Push<TView>(ControlPresenterBase<TView> page, string title) where TView : class, IControlView;
-    public void Push<TView, TParam>(ControlPresenterBase<TView, TParam> page, TParam parameters, string title)
+    /// false (nothing created, the page untouched) while the stack is busy; true once the page is on top.
+    public bool Push<TView>(ControlPresenterBase<TView> page, string title) where TView : class, IControlView;
+    public bool Push<TView, TParam>(ControlPresenterBase<TView, TParam> page, TParam parameters, string title)
         where TView : class, IControlView;
 
     // unchanged: Count, IsBusy, PopToCountAsync, PopAsync, CanCloseAllAsync
@@ -120,9 +121,11 @@ public sealed class FakePageHost : IPageHost
 ## Behaviour
 
 - **Push is one transaction**:
-  1. Page-level checks before anything is created: owner alive and has its view; stack not busy (see open question
-     B); `page` / `title` non-null (empty title allowed); the page not attached / initialized / owned / disposed.
-     A rejection here changes nothing.
+  1. Busy → return `false` at once: nothing is created, the page presenter is untouched (owner's answer B, like
+     the pops; callers drop their `if (_pages.IsBusy) return;`). Then the page-level checks before anything is
+     created — they throw as today: owner alive (`ObjectDisposedException`) and has its view; `page` / `title`
+     non-null (empty title allowed); the page not attached / initialized / owned / disposed. A rejection here
+     changes nothing.
   2. The stack is reserved (busy) from here to the end, so a page constructor, focus handling or a `PagesChanged`
      handler cannot push or pop meanwhile.
   3. `host.AddPage(typeof(TView), title, owner's services)`. It throws → propagates; the host has undone itself.
@@ -165,7 +168,7 @@ public sealed class FakePageHost : IPageHost
 
 ## Non-goals
 
-Drawing the breadcrumb in the host; navigation by view name; transition animations; scanning UserControls in
+Drawing the breadcrumb in the host; renaming a crumb after the push (owner, A); navigation by view name; transition animations; scanning UserControls in
 `RegisterFromAssembly` (an application's assembly has many UserControls that are not pages — e.g. the sample's
 demos — and the scan's "several implementations throw" rule would start to fire); keeping the explicit-view `Push`
 overloads.
@@ -189,10 +192,8 @@ Internal shapes, exception texts, PageHost focus details, sample layout, FakePag
 9. A view rejected after the host made it (wrong type, claimed, services rejected) is removed through the host, the
    presenter stays undisposed; the host validates what it creates before it changes its visual tree (codex).
 
-## Open questions for the owner
+## Owner's answers (2026-11-05)
 
-- **A. Renaming a page's crumb after it was pushed** (a "新規受注" page that becomes "受注 123" after saving; a detail
-  whose name loads asynchronously). Not in the draft.
-- **B. `Push` while the stack is busy**: #81 throws (callers check `IsBusy` first, because the view was created before
-  `Push`). Now nothing exists before `Push`, so it could return `false` and create nothing instead.
-
+- **A. Renaming a crumb after the push: no.** The title is fixed at `Push` (the parent normally knows the name when
+  it opens the page). Non-goal.
+- **B. `Push` while busy: returns `false` and does nothing** (`Push` returns `bool`; `true` = the page is on top).
