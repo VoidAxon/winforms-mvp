@@ -15,9 +15,13 @@ namespace Kibinago.Views
     /// same lookup the window navigator uses; the pages below the top stay alive, hidden.
     /// </summary>
     /// <remarks>
-    /// The breadcrumb is the view's: redraw it from <see cref="PageTitles"/> on <see cref="PagesChanged"/> and turn a crumb
-    /// click into a view event / action the presenter answers with <c>PopToCountAsync(level + 1)</c>.
+    /// <para>In the designer it is a plain control: nothing can be dropped into it (it manages its own children).</para>
+    /// <para>The breadcrumb is the view's: redraw it from <see cref="PageTitles"/> on <see cref="PagesChanged"/> and turn a
+    /// crumb click into a view event / action the presenter answers with <c>PopToCountAsync(level + 1)</c>.</para>
     /// </remarks>
+    // The designer treats it as a plain control, not a container: controls dropped into it at design time would mix
+    // with the pages it manages. (Panel's own designer would accept them.)
+    [Designer("System.Windows.Forms.Design.ControlDesigner, System.Design, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a")]
     public class PageHost : Panel, IPageHost
     {
         private readonly List<Page> _pages = new List<Page>();
