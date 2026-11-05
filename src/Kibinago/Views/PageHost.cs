@@ -53,6 +53,7 @@ namespace Kibinago.Views
             try
             {
                 control.Dock = DockStyle.Fill;
+                control.Visible = true;
                 Controls.Add(control);
                 control.BringToFront();
                 _pages.Add(page);
@@ -60,16 +61,21 @@ namespace Kibinago.Views
                 control.SelectNextControl(control, true, true, true, true);
                 PagesChanged?.Invoke(this, EventArgs.Empty);
             }
-            catch
+            catch (Exception failure)
             {
-                // Undo, so a failed add leaves the host as it was (the stack has nothing to compensate).
+                // Undo, so a failed add leaves the host as it was (the stack has nothing to compensate): the previous
+                // top is shown again first; a failing disposal of the new control is reported with the failure.
                 _pages.Remove(page);
-                if (!control.IsDisposed)
-                {
-                    Controls.Remove(control);
-                    control.Dispose();
-                }
                 if (previous != null && !previous.IsDisposed) previous.Visible = true;
+                try
+                {
+                    if (!control.IsDisposed)
+                    {
+                        Controls.Remove(control);
+                        control.Dispose();
+                    }
+                }
+                catch (Exception cleanup) { throw new AggregateException(failure, cleanup); }
                 throw;
             }
             return (IControlView)control;
@@ -82,38 +88,46 @@ namespace Kibinago.Views
             if (index < 0) throw new ArgumentException("This host did not add that page (or removed it already).", nameof(page));
             var control = _pages[index].Control;
             _pages.RemoveAt(index);
-            if (!control.IsDisposed)
+            try
             {
-                Controls.Remove(control);
-                control.Dispose();
+                if (!control.IsDisposed)
+                {
+                    Controls.Remove(control);
+                    control.Dispose();
+                }
             }
-            if (_pages.Count > 0)
+            finally
             {
-                var top = _pages[_pages.Count - 1].Control;
-                if (!top.IsDisposed) top.Visible = true;
+                // Whatever the disposal did, the host shows its new top and tells the breadcrumb.
+                if (_pages.Count > 0)
+                {
+                    var top = _pages[_pages.Count - 1].Control;
+                    if (!top.IsDisposed) top.Visible = true;
+                }
+                PagesChanged?.Invoke(this, EventArgs.Empty);
             }
-            PagesChanged?.Invoke(this, EventArgs.Empty);
         }
 
-        // A new, unplaced control implementing the interface — checked before the host changes anything. Something
-        // the host made and cannot use is disposed; a control placed elsewhere or used by a presenter is not ours.
+        // A new, unplaced control implementing the interface — checked before the host changes anything. A rejected
+        // instance is never disposed: the mapping (a factory) may return something shared, so it is not ours.
         private static Control Validate(object instance, Type viewInterface)
         {
             if (instance == null)
                 throw new InvalidOperationException("The view mapping for " + viewInterface.Name + " returned null.");
+            if (instance is IView asView && ViewOwnership.IsClaimed(asView))
+                throw new InvalidOperationException(
+                    "The view mapping for " + viewInterface.Name + " returned a view another live presenter uses; a page " +
+                    "needs a new control each time (register a type or a factory that creates one).");
             var control = instance as Control;
             if (control == null || control is Form || !viewInterface.IsInstanceOfType(instance) || !(instance is IControlView))
-            {
-                if (control?.Parent == null) (instance as IDisposable)?.Dispose();   // ours to dispose unless placed elsewhere
                 throw new InvalidOperationException(
                     "The view mapping for " + viewInterface.Name + " made a " + instance.GetType().Name +
                     "; a page view is a UserControl (not a Form) that implements " + viewInterface.Name + ".");
-            }
             if (control.IsDisposed)
                 throw new InvalidOperationException("The view mapping for " + viewInterface.Name + " returned a disposed control.");
-            if (control.Parent != null || ViewOwnership.IsClaimed((IView)control))
+            if (control.Parent != null)
                 throw new InvalidOperationException(
-                    "The view mapping for " + viewInterface.Name + " returned a control that is already in use; a page " +
+                    "The view mapping for " + viewInterface.Name + " returned a control that is already placed elsewhere; a page " +
                     "needs a new control each time (register a type or a factory that creates one).");
             return control;
         }

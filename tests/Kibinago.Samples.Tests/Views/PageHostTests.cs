@@ -189,6 +189,55 @@ namespace Kibinago.Samples.Tests.Views
             Assert.Equal(new[] { "A" }, _host.PageTitles);
         }
 
+        [Fact]
+        public void AHiddenControlFromTheFactory_IsShown()
+        {
+            _register.Register<ITestPageView>(() => new TestPageControl { Visible = false });
+
+            var a = Add("A");
+
+            Assert.True(a.Visible);
+        }
+
+        [Fact]
+        public void ARejectedInstance_IsNeverDisposed_ItMayBeShared()
+        {
+            var shared = new FormPage();
+            _register.Register<ITestPageView>(() => shared);
+
+            Assert.Throws<InvalidOperationException>(() => Add("A"));
+
+            Assert.False(shared.IsDisposed);
+            shared.Dispose();
+        }
+
+        public sealed class ThrowingDisposeControl : UserControl, ITestPageView
+        {
+            public IViewActionBinder ActionBinder => null;
+            public bool ThrowOnDispose = true;
+            protected override void Dispose(bool disposing)
+            {
+                base.Dispose(disposing);
+                if (disposing && ThrowOnDispose) { ThrowOnDispose = false; throw new InvalidOperationException("dispose"); }
+            }
+        }
+
+        [Fact]
+        public void RemovePage_DisposeThrows_TheNewTopIsStillShown_AndTheEventRaised()
+        {
+            _register.Register<IOtherPageView>(() => new OtherControl());
+            var a = (Control)_host.AddPage(typeof(IOtherPageView), "A", _services);
+            _register.Register<ITestPageView, ThrowingDisposeControl>();
+            var b = Add("B");
+            int before = _changes;
+
+            Assert.Throws<InvalidOperationException>(() => _host.RemovePage((IControlView)b));
+
+            Assert.True(a.Visible);
+            Assert.Equal(new[] { "A" }, _host.PageTitles);
+            Assert.Equal(before + 1, _changes);
+        }
+
         // ---- the mapping still keeps windows and pages apart ----
 
         public interface IControlAsWindowView : IWindowView { }
