@@ -51,7 +51,7 @@ namespace Kibinago.Services
 
         /// <inheritdoc />
         public void Register<TViewInterface, TViewImplementation>(bool allowOverride = false)
-            where TViewImplementation : Form, TViewInterface
+            where TViewImplementation : Control, TViewInterface
         {
             _inner.Register<TViewInterface, TViewImplementation>(allowOverride);
         }
