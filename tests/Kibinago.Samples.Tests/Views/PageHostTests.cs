@@ -295,8 +295,9 @@ namespace Kibinago.Samples.Tests.Views
         [Fact]
         public void InTheDesigner_ItIsNotAContainer_NothingCanBeDroppedIntoIt()
         {
-            var designer = (System.ComponentModel.DesignerAttribute)Attribute.GetCustomAttribute(
-                typeof(PageHost), typeof(System.ComponentModel.DesignerAttribute));
+            // The effective designer (the one a designer host uses): PageHost's replaces Panel's.
+            var designer = (System.ComponentModel.DesignerAttribute)System.ComponentModel.TypeDescriptor
+                .GetAttributes(typeof(PageHost))[typeof(System.ComponentModel.DesignerAttribute)];
 
             Assert.StartsWith("System.Windows.Forms.Design.ControlDesigner,", designer.DesignerTypeName);
             Assert.NotNull(Type.GetType(designer.DesignerTypeName));   // resolvable (System.Design)
