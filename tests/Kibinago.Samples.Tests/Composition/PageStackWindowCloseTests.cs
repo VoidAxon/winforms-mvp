@@ -316,6 +316,27 @@ namespace Kibinago.Samples.Tests.Composition
             }
         }
 
+        [Fact]
+        public async Task AnAsyncDecision_IsDeliveredOffTheCallersContext_LikeAWindowWithoutStacks()
+        {
+            // The host marshals proceed back to its UI thread itself (WindowLifecycleController BeginInvokes),
+            // so a failure while closing reaches the message loop instead of a discarded task.
+            using (Start(out var ws))
+            {
+                var pending = new TaskCompletionSource<bool>();
+                ws.Push(new GuardedPage("A", _log) { Answer = () => pending.Task });
+                var delivered = new TaskCompletionSource<System.Threading.SynchronizationContext>();
+
+                ((ICloseParticipant)ws).CanCloseGate(CloseReason.Normal,
+                    ok => delivered.TrySetResult(System.Threading.SynchronizationContext.Current));
+                pending.SetResult(true);
+
+                Assert.Null(await Within(delivered.Task));
+                ((ICloseAttemptSettler)ws).SettleCloseAttempt(closed: false);
+                Assert.False(ws.Stack.IsBusy);
+            }
+        }
+
         // ---- Baseline: a window without stacks closes exactly as before ----
 
         private sealed class PlainWindow : WindowPresenterBase<IWorkspaceView>

@@ -433,11 +433,15 @@ namespace Kibinago.Services
         // cancelled (then None) or done (FormClosed). Windows without page stacks hold nothing, and nothing
         // is subscribed.
         private bool _settleWaiting;
+        // Dialogs already open when the attempt was approved (the modal window this one was opened from, …):
+        // only a dialog opened during the attempt means a FormClosing handler is still running.
+        private System.Collections.Generic.List<Form> _dialogsBeforeAttempt;
 
         private void SettleLater()
         {
             if (_settleWaiting || !(_presenter is ICloseAttemptSettler settler) || !settler.HoldsApprovedClose) return;
             _settleWaiting = true;
+            _dialogsBeforeAttempt = OpenDialogs();
             Application.Idle += OnIdleSettle;
         }
 
@@ -446,7 +450,7 @@ namespace Kibinago.Services
             if (!_closed && !_form.IsDisposed && _form.Modal && _form.DialogResult != DialogResult.None)
                 return;   // a modal close is still under way
             if (!_closed && !_form.IsDisposed && AnotherModalFormIsOpen())
-                return;   // idle inside a dialog's loop (e.g. one a later FormClosing handler shows): not over yet
+                return;   // idle inside a dialog opened during the attempt (a later FormClosing handler's): not over yet
             StopSettleWait();
             if (_closed || _form.IsDisposed) return;   // closed: the stacks end with the presenter
             (_presenter as ICloseAttemptSettler)?.SettleCloseAttempt(closed: false);
@@ -454,16 +458,26 @@ namespace Kibinago.Services
 
         private bool AnotherModalFormIsOpen()
         {
-            // Only this window's UI thread: a dialog on another UI thread does not hold this close up.
-            foreach (Form open in Application.OpenForms)
-                if (!ReferenceEquals(open, _form) && !open.InvokeRequired && open.Modal && open.Visible) return true;
+            foreach (var dialog in OpenDialogs())
+                if (_dialogsBeforeAttempt == null || !_dialogsBeforeAttempt.Contains(dialog)) return true;
             return false;
+        }
+
+        // Visible modal forms of this window's UI thread other than this one (a dialog on another UI thread does
+        // not hold this close up).
+        private System.Collections.Generic.List<Form> OpenDialogs()
+        {
+            var dialogs = new System.Collections.Generic.List<Form>();
+            foreach (Form open in Application.OpenForms)
+                if (!ReferenceEquals(open, _form) && !open.InvokeRequired && open.Modal && open.Visible) dialogs.Add(open);
+            return dialogs;
         }
 
         private void StopSettleWait()
         {
             if (!_settleWaiting) return;
             _settleWaiting = false;
+            _dialogsBeforeAttempt = null;
             Application.Idle -= OnIdleSettle;
         }
 

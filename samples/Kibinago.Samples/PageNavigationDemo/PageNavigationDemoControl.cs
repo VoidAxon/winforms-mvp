@@ -16,6 +16,7 @@ namespace Kibinago.Samples.PageNavigationDemo
     {
         private readonly ViewActionBinder _binder = new ViewActionBinder();
         private readonly List<Page> _pages = new List<Page>();
+        private Font _currentCrumbFont;   // one bold font for the current crumb, disposed with the control
 
         private sealed class Page
         {
@@ -96,8 +97,16 @@ namespace Kibinago.Samples.PageNavigationDemo
                 var crumb = _pages[i].Crumb;
                 crumb.LinkColor = current ? SystemColors.ControlText : Color.FromArgb(0, 102, 204);
                 crumb.LinkBehavior = current ? LinkBehavior.NeverUnderline : LinkBehavior.HoverUnderline;
-                crumb.Font = new Font(Font, current ? FontStyle.Bold : FontStyle.Regular);
+                crumb.Font = current ? CurrentCrumbFont : Font;
             }
+        }
+
+        private Font CurrentCrumbFont => _currentCrumbFont ?? (_currentCrumbFont = new Font(Font, FontStyle.Bold));
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing) _currentCrumbFont?.Dispose();
+            base.Dispose(disposing);
         }
     }
 }

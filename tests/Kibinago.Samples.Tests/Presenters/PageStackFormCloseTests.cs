@@ -185,6 +185,28 @@ namespace Kibinago.Samples.Tests.Presenters
         }
 
         [Fact]
+        public void ApprovedThenAbandoned_WhileAnEarlierDialogIsOpen_StillReleasesStacks()
+        {
+            _workspace.Push(new GuardedPage("A", _log));
+            _form.FormClosing += (s, e) => e.Cancel = true;
+            bool? busyAfterIdle = null;
+            using (var earlier = new Form { ShowInTaskbar = false })   // e.g. the modal dialog this window came from
+            {
+                earlier.Shown += (s, e) =>
+                {
+                    _form.Close();
+                    Application.RaiseIdle(EventArgs.Empty);
+                    busyAfterIdle = _workspace.Stack.IsBusy;
+                    earlier.Close();
+                };
+                earlier.ShowDialog();
+            }
+
+            Assert.False(busyAfterIdle);
+            Assert.False(_closed);
+        }
+
+        [Fact]
         public async Task RefusedClose_ReleasesStacks()
         {
             _workspace.Push(new GuardedPage("A", _log));

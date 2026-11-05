@@ -147,13 +147,17 @@ namespace Kibinago.Presenters
                 return;
             }
 
-            // Not awaited here: a decision that completes synchronously answers before this returns; one that
-            // awaits answers on the gate caller's context (captured by the awaits below), so the reservation is
-            // released there before proceed is called. GateWithPagesAsync never faults.
-            _ = GateWithPagesAsync(check, reason, proceed);
+            // A decision that completes synchronously answers before this returns. One that awaits settles the
+            // reservation on the gate caller's context (inside GateWithPagesAsync) and is then delivered from the
+            // thread pool, like a window without stacks: the host marshals proceed to its UI thread, so a failure
+            // while closing reaches the message loop instead of a discarded task.
+            var decision = GateWithPagesAsync(check, reason);
+            if (decision.IsCompleted) { proceed(decision.Result); return; }
+            decision.ContinueWith(t => proceed(t.Result), TaskScheduler.Default);
         }
 
-        private async Task GateWithPagesAsync(PageCloseCheck check, CloseReason reason, Action<bool> proceed)
+        // Never faults: every failure is a refusal; a refused check is released before the answer is returned.
+        private async Task<bool> GateWithPagesAsync(PageCloseCheck check, CloseReason reason)
         {
             bool ok = false;
             try
@@ -179,7 +183,7 @@ namespace Kibinago.Presenters
             {
                 if (!ok) check.Release();   // whatever failed above, a refused check never stays reserved
             }
-            proceed(ok);
+            return ok;
         }
 
         // A failing logger must not leave the close undecided.
