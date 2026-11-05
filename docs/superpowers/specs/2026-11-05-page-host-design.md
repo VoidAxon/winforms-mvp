@@ -73,8 +73,8 @@ public sealed class PageStack
     public PageStack(IPresenter owner, Func<IPageHost> host);    // host read on first use (View exists from OnInitialize)
 
     /// true once the page is on top. false when it is not: the stack was busy (nothing created, the page presenter
-    /// untouched), or the page ended during its own initialization (it disposed itself, or the owner was disposed —
-    /// the page presenter is disposed then and its view removed).
+    /// untouched), or the page ended during its own initialization (it disposed itself — its view removed — or the owner
+    /// was disposed — nothing removed; the page presenter is disposed either way).
     public bool Push<TView>(ControlPresenterBase<TView> page, string title) where TView : class, IControlView;
     public bool Push<TView, TParam>(ControlPresenterBase<TView, TParam> page, TParam parameters, string title)
         where TView : class, IControlView;
@@ -137,8 +137,9 @@ public sealed class FakePageHost : IPageHost
      page is accepted (wrong type, the view claimed, service inheritance rejected) → `host.RemovePage(view)` once,
      the presenter is **not** disposed, the failure propagates (with the removal's failure: `AggregateException`).
   5. Ownership transfer and initialization exactly as #81: a failure after acceptance disposes the page,
-     `host.RemovePage(view)` once, propagates. A page that ended during its initialization without a failure (it
-     disposed itself; the owner was disposed) → its view removed once, `Push` returns `false`.
+     `host.RemovePage(view)` once, propagates. A page that ended during its initialization without a failure → `Push` returns `false`: it
+     disposed itself → its view removed once; the owner was disposed → nothing removed (owner teardown removes
+     no views).
 - **Every place #81 called `removeView`** now calls `host.RemovePage(view)` (pop, external release after the released
   page's teardown, failed push, page that disposed itself during its push). Owner teardown still removes nothing.
 - **Host lookup**: `Func<IPageHost>` is called on the first `Push` and the result kept (one host per stack); it must
