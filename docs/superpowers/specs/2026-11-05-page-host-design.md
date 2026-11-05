@@ -72,7 +72,9 @@ public sealed class PageStack
 {
     public PageStack(IPresenter owner, Func<IPageHost> host);    // host read on first use (View exists from OnInitialize)
 
-    /// false (nothing created, the page untouched) while the stack is busy; true once the page is on top.
+    /// true once the page is on top. false when it is not: the stack was busy (nothing created, the page presenter
+    /// untouched), or the page ended during its own initialization (it disposed itself, or the owner was disposed —
+    /// the page presenter is disposed then and its view removed).
     public bool Push<TView>(ControlPresenterBase<TView> page, string title) where TView : class, IControlView;
     public bool Push<TView, TParam>(ControlPresenterBase<TView, TParam> page, TParam parameters, string title)
         where TView : class, IControlView;
@@ -128,12 +130,15 @@ public sealed class FakePageHost : IPageHost
      changes nothing.
   2. The stack is reserved (busy) from here to the end, so a page constructor, focus handling or a `PagesChanged`
      handler cannot push or pop meanwhile.
-  3. `host.AddPage(typeof(TView), title, owner's services)`. It throws → propagates; the host has undone itself.
+  3. `host.AddPage(typeof(TView), title, services)` with the **page's effective services**: its own when it was given
+     some (`IPresenterFactory`, its M.E.DI scope), otherwise the owner's (what `AttachChild` will give it) — so the
+     view and its presenter resolve the same scoped services. It throws → propagates; the host has undone itself.
   4. The returned view is checked (a `TView`; not claimed by another presenter). Any failure from here until the
      page is accepted (wrong type, the view claimed, service inheritance rejected) → `host.RemovePage(view)` once,
      the presenter is **not** disposed, the failure propagates (with the removal's failure: `AggregateException`).
   5. Ownership transfer and initialization exactly as #81: a failure after acceptance disposes the page,
-     `host.RemovePage(view)` once, propagates.
+     `host.RemovePage(view)` once, propagates. A page that ended during its initialization without a failure (it
+     disposed itself; the owner was disposed) → its view removed once, `Push` returns `false`.
 - **Every place #81 called `removeView`** now calls `host.RemovePage(view)` (pop, external release after the released
   page's teardown, failed push, page that disposed itself during its push). Owner teardown still removes nothing.
 - **Host lookup**: `Func<IPageHost>` is called on the first `Push` and the result kept (one host per stack); it must
@@ -187,8 +192,9 @@ Internal shapes, exception texts, PageHost focus details, sample layout, FakePag
 5. `Register<TI, TImpl>()` constraint relaxed from `Form` to `Control`; scanning stays Forms-only.
 6. `PageStack(owner, Func<IPageHost>)` instead of finding the host on the owner's view by convention.
 7. `title` is required (a page without a breadcrumb text is a mistake).
-8. The host creates the view from the pushing presenter's services (scope + container fallback, as the Navigator),
-   passed in `AddPage` — not from `ServiceLocator.Current` (builder check / codex).
+8. The host creates the view from the page's effective services (its own binding, else the owner's — scope +
+   container fallback, as the Navigator), passed in `AddPage` — not from `ServiceLocator.Current` (builder check /
+   codex, two rounds).
 9. A view rejected after the host made it (wrong type, claimed, services rejected) is removed through the host, the
    presenter stays undisposed; the host validates what it creates before it changes its visual tree (codex).
 
