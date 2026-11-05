@@ -1,21 +1,34 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
+using Kibinago.Logging;
 using Kibinago.Presenters;
+using Kibinago.ViewActions;
 using Kibinago.Views;
 
 namespace Kibinago.Samples.Shell
 {
+    public static class ShellActions
+    {
+        /// <summary>A category was chosen in the sidebar; payload = its id.</summary>
+        public static readonly ViewAction<string> SelectCategory = ViewAction.Create<string>("Shell.SelectCategory");
+    }
+
     /// <summary>
     /// The sample's main window. Each embedded demo is a child presenter (<c>AttachChild</c>) created the
     /// first time its tab is opened; switching to another category disposes them (presenters first, then
-    /// their views), so coming back starts every demo afresh.
+    /// their views), so coming back starts every demo afresh. A demo that can refuse to be discarded
+    /// (<see cref="IPageCloseGuard"/>, e.g. unsaved edits in the page navigation demo) is asked first; if one
+    /// refuses, every demo stays and the sidebar goes back.
     /// </summary>
     public sealed class ShellPresenter : WindowPresenterBase<IShellView>
     {
         private readonly IReadOnlyList<SampleCategory> _categories;
         private readonly string _startCategoryId;
-        private readonly List<(string DemoId, IDisposable Handle)> _attached = new List<(string, IDisposable)>();   // in attach order
+        // In attach order; Guard is null for a demo whose presenter cannot refuse.
+        private readonly List<(string DemoId, IDisposable Handle, IPageCloseGuard Guard)> _attached =
+            new List<(string, IDisposable, IPageCloseGuard)>();
         private SampleCategory _current;
 
         /// <param name="categories">The sidebar, in order.</param>
@@ -26,9 +39,14 @@ namespace Kibinago.Samples.Shell
             _startCategoryId = startCategoryId;
         }
 
+        // An async action: while a switch is deciding (a demo's question is open) further switches are ignored.
+        protected override void RegisterViewActions()
+            => Dispatcher.Register(ShellActions.SelectCategory, (string id) => SwitchToAsync(id));
+
         protected override void OnInitialize()
         {
-            SubscribeViewEvent<string>(h => View.CategorySelected += h, h => View.CategorySelected -= h, OnCategorySelected);
+            SubscribeViewEvent<string>(h => View.CategorySelected += h, h => View.CategorySelected -= h,
+                id => Dispatcher.Dispatch(ShellActions.SelectCategory, id));
             SubscribeViewEvent<string>(h => View.DemoSelected += h, h => View.DemoSelected -= h, OnDemoSelected);
 
             View.ShowCategories(_categories);
@@ -39,11 +57,29 @@ namespace Kibinago.Samples.Shell
 
         protected override void Cleanup() => DetachDemos();
 
-        private void OnCategorySelected(string categoryId)
+        private async Task SwitchToAsync(string categoryId)
         {
             var category = _categories.FirstOrDefault(c => c.Id == categoryId);
             if (category == null || category == _current)
                 return;
+
+            // Ask every demo that can refuse before disposing any (the newest first, like disposal).
+            foreach (var guard in _attached.Select(a => a.Guard).Where(g => g != null).Reverse().ToList())
+            {
+                bool agreed;
+                try { agreed = await (guard.CanCloseAsync() ?? Task.FromResult(false)); }
+                catch (Exception ex)
+                {
+                    Logger.LogError(ex, "A demo failed to answer whether it may be closed; staying in the category");
+                    agreed = false;
+                }
+                if (Lifetime.IsCancellationRequested) return;   // the window closed meanwhile
+                if (!agreed)
+                {
+                    if (_current != null) View.SelectCategory(_current.Id);   // the sidebar goes back
+                    return;
+                }
+            }
 
             DetachDemos();
             _current = category;
@@ -64,7 +100,9 @@ namespace Kibinago.Samples.Shell
             var view = View.CreateDemoView(demo.Id);
             try
             {
-                _attached.Add((demo.Id, demo.Attach(new Attacher(this), view)));
+                var attacher = new Attacher(this);
+                var handle = demo.Attach(attacher, view);
+                _attached.Add((demo.Id, handle, attacher.Presenter as IPageCloseGuard));
             }
             catch
             {
@@ -73,7 +111,8 @@ namespace Kibinago.Samples.Shell
             }
         }
 
-        // Presenters first (their Cleanup may still use the views), then the controls.
+        // Presenters first (their Cleanup may still use the views), then the controls. Disposal cannot be
+        // vetoed: closing the window (Cleanup) disposes every demo; the window's close gate has asked the pages.
         private void DetachDemos()
         {
             for (var i = _attached.Count - 1; i >= 0; i--)
@@ -89,8 +128,15 @@ namespace Kibinago.Samples.Shell
 
             public Attacher(ShellPresenter owner) => _owner = owner;
 
+            /// <summary>The presenter the catalog entry attached (to keep its guard next to the handle).</summary>
+            public object Presenter { get; private set; }
+
             public IDisposable Attach<TView>(ControlPresenterBase<TView> presenter, TView view) where TView : IControlView
-                => _owner.AttachChild(presenter, view);
+            {
+                var handle = _owner.AttachChild(presenter, view);
+                Presenter = presenter;
+                return handle;
+            }
         }
     }
 }
