@@ -8,6 +8,16 @@
 
 ## [Unreleased]
 
+### Changed (変更)
+
+- **`PageStack` はページを `IPageHost` に表示する (破壊的変更)** — コンストラクターは `new PageStack(this, () => View.Pages)`、`Push` は `Push(page[, parameters], title)` で `bool` を返す (`true` = 一番上に載った、`false` = 確認中で何もしなかった / ページが初期化の途中で終わった)。View を渡す `Push(page, view, [parameters,] removeView)` と `PageStack(owner)` は削除。確認中の `Push` は例外ではなく `false` (呼ぶ側の `IsBusy` チェックは不要)。親 View インターフェイスの `PushXxx()` / `RemovePage()` は不要になり、`IPageHost Pages { get; }` だけを公開する。
+- `IViewMappingRegister.Register<TViewInterface, TViewImplementation>()` の制約を `Form` から `Control` に緩めた (ページの UserControl を登録するため)。`WindowNavigator` は Form でない実装をこれまでどおり拒否する。アセンブリのスキャンは Form だけ。
+
+### Added (追加)
+
+- `Kibinago.Views.IPageHost` (Core、`AddPage` / `RemovePage`) と `PageHost` (Kibinago、ページを表示するパネル: ビューの登録からページのコントロールを作り、下のページを隠し、`PageTitles` / `PagesChanged` でパンくずに知らせる)。ページを積む Presenter のサービス (M.E.DI ではそのスコープ) から、`WindowNavigator` と同じ方法でコントロールを作る。
+- `Kibinago.Testing.FakePageHost` — `Register<TView>(() => mock)`、`Pages` / `PageTitles` / `Removed` / `Page<T>(level)`。
+
 ### Added (追加)
 
 - **画面内のページ移動 (パンくず) — `PageStack` + `IPageCloseGuard`** (`Kibinago.Core`、`Kibinago.Presenters`)。「顧客一覧 → 顧客詳細 → 受注編集」のように 1 つの画面の中で階層をたどり、パンくずで任意の階層へ戻る。

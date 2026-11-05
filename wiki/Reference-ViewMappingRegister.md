@@ -2,7 +2,7 @@
 
 `IViewMappingRegister` は **View インターフェイスと Form クラスの紐付け** を管理します。`WindowNavigator` がこのレジストリを使って、Presenter を表示する際の View インスタンスを動的に生成します。
 
-> **位置づけ**: Form 系 Presenter は `WindowNavigator` 経由で動的に View を生成します。「`IFooView` ⇔ `FooForm`」の紐付けがないと、Navigator はどの Form を `new` すればよいか判断できません。UserControl 系では使いません。
+> **位置づけ**: Form 系 Presenter は `WindowNavigator` 経由で動的に View を生成します。「`IFooView` ⇔ `FooForm`」の紐付けがないと、Navigator はどの Form を `new` すればよいか判断できません。UserControl は通常は使いませんが、**画面内のページ移動** (`PageStack` + `PageHost`) のページは同じ方法で登録します (`register.Register<IOrderEditView, OrderEditControl>()`。型での登録は `Control` を受け付けます。アセンブリのスキャンは Form だけなので、ページは明示的に登録します)。[画面内のページ移動](HowTo-Implement-Page-Navigation) を参照。
 
 ---
 
