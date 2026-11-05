@@ -190,5 +190,37 @@ namespace Kibinago.Samples.Tests.Composition
                 Assert.Equal(2, ws.Stack.Count);
             }
         }
+
+        [Fact]
+        public async Task Pop_APageWhoseCleanupDisposesTheOwner_NoFurtherViewRemoval()
+        {
+            var host = Start(out var ws);
+            var a = new GuardedPage("A", _log);
+            var b = new GuardedPage("B", _log);
+            var c = new GuardedPage("C", _log) { OnCleanup = () => host.Dispose() };
+            ws.Push(a);
+            ws.Push(b);
+            ws.Push(c);
+
+            await ws.Stack.PopToCountAsync(0);
+
+            Assert.True(a.Disposed && b.Disposed && c.Disposed);
+            Assert.Empty(_view.Removed);
+        }
+
+        [Fact]
+        public void ExternalRelease_APageWhoseCleanupDisposesTheOwner_NoFurtherViewRemoval()
+        {
+            var host = Start(out var ws);
+            var a = new GuardedPage("A", _log);
+            var b = new GuardedPage("B", _log) { OnCleanup = () => host.Dispose() };
+            ws.Push(a);
+            ws.Push(b);
+
+            a.Dispose();   // B (above) is disposed by the stack; its cleanup disposes the owner
+
+            Assert.True(b.Disposed);
+            Assert.Empty(_view.Removed);
+        }
     }
 }

@@ -278,5 +278,42 @@ namespace Kibinago.Samples.Tests.Composition
                 Assert.True(await Within(jump));
             }
         }
+
+        [Fact]
+        public async Task IndependentCaller_WhileAGuardIsPending_DoesNotJoinTheCheck()
+        {
+            using (Start(out var ws))
+            {
+                var pending = new TaskCompletionSource<bool>();
+                var b = new GuardedPage("B", _log, ownsStack: true) { Answer = () => pending.Task };
+                ws.Push(b);
+                b.PushInner(new GuardedPage("B1", _log), null);
+
+                var jump = ws.Stack.PopAsync();   // B1 answered, B's guard is pending
+                Assert.Equal(new[] { "ask:B1", "ask:B" }, Asks());
+
+                // An unrelated handler (not B's guard code) asks B's own stack meanwhile.
+                Assert.False(await b.Inner.CanCloseAllAsync());
+
+                pending.SetResult(false);
+                Assert.False(await Within(jump));
+            }
+        }
+
+        [Fact]
+        public async Task GuardAnswers_AreKeptPerPresenterInstance_NotByEquality()
+        {
+            using (Start(out var ws))
+            {
+                var lower = new EqualPage("lower", _log) { Answer = () => Task.FromResult(false) };
+                var upper = new EqualPage("upper", _log);
+                ws.Push(lower);
+                ws.Push(upper);
+
+                Assert.False(await ws.Stack.PopToCountAsync(0));
+                Assert.Equal(1, lower.AskCount);
+                Assert.Equal(2, ws.Stack.Count);
+            }
+        }
     }
 }

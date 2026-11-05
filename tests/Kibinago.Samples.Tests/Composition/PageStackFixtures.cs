@@ -39,6 +39,7 @@ namespace Kibinago.Samples.Tests.Composition
         public Action<PlainPage> OnInit;
         public Exception ThrowOnInitialize;
         public Exception ThrowOnCleanup;
+        public Action OnCleanup;
         public bool Disposed;
 
         public PlainPage(string tag, List<string> log, bool ownsStack = false)
@@ -58,6 +59,7 @@ namespace Kibinago.Samples.Tests.Composition
         {
             Disposed = true;
             Log?.Add("dispose:" + Tag);
+            OnCleanup?.Invoke();
             if (ThrowOnCleanup != null) throw ThrowOnCleanup;
         }
 
@@ -88,6 +90,14 @@ namespace Kibinago.Samples.Tests.Composition
             Log?.Add("ask:" + Tag);
             return Answer();
         }
+    }
+
+    /// <summary>A guarded page that claims to equal every other one (value equality must not merge answers).</summary>
+    public sealed class EqualPage : GuardedPage
+    {
+        public EqualPage(string tag, List<string> log) : base(tag, log) { }
+        public override bool Equals(object obj) => obj is EqualPage;
+        public override int GetHashCode() => 1;
     }
 
     /// <summary>A panel page that forwards its guard to the stack it owns.</summary>

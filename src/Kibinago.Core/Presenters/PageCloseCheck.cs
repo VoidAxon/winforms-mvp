@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Threading;
 using System.Threading.Tasks;
 using Kibinago.Logging;
 
@@ -20,11 +22,16 @@ namespace Kibinago.Presenters
     /// </remarks>
     internal sealed class PageCloseCheck
     {
+        // The check whose guard is running on this logical flow: set while a guard (or the window's own close
+        // decision) is called, so it flows into that code's awaits but not into unrelated handlers.
+        private static readonly AsyncLocal<PageCloseCheck> CallingGuard = new AsyncLocal<PageCloseCheck>();
+
         private readonly IComposablePresenter _operationOwner;
         private readonly List<PageStack> _enrolled = new List<PageStack>();
         private readonly List<IComposablePresenter> _roots = new List<IComposablePresenter>();
         private readonly Dictionary<PageStack, bool?> _stackAnswers = new Dictionary<PageStack, bool?>();
-        private readonly Dictionary<IComposablePresenter, bool?> _guardAnswers = new Dictionary<IComposablePresenter, bool?>();
+        private readonly Dictionary<IComposablePresenter, bool?> _guardAnswers =
+            new Dictionary<IComposablePresenter, bool?>(ReferenceComparer.Instance);
         private readonly List<IComposablePresenter> _pending = new List<IComposablePresenter>();
         private bool _released;
 
@@ -113,21 +120,45 @@ namespace Kibinago.Presenters
 
         /// <summary>
         /// Whether a <see cref="PageStack.CanCloseAllAsync"/> on <paramref name="stack"/> (reserved by this check)
-        /// comes from a guard this check is waiting for — the stack's owner is that guard's presenter or one of its
-        /// descendants — so it runs within this check instead of seeing the stack busy.
+        /// comes from a guard this check is waiting for — it runs in that guard's code, and the stack's owner is
+        /// the guard's presenter or one of its descendants — so it runs within this check instead of seeing the
+        /// stack busy. Any other caller sees the stack busy.
         /// </summary>
         internal bool CanJoin(PageStack stack)
         {
-            if (_released || _pending.Count == 0) return false;
+            if (_released || _pending.Count == 0 || !ReferenceEquals(CallingGuard.Value, this)) return false;
             for (var p = stack.Owner; p != null; p = p.OwnerLink?.Owner)
-                if (_pending.Contains(p)) return true;
+                if (IsPending(p)) return true;
             return false;
         }
 
-        /// <summary>The window's own close decision is awaited as part of this check (Task 5): a stack it asks joins.</summary>
-        internal void BeginPending(IComposablePresenter presenter) => _pending.Add(presenter);
+        private bool IsPending(IComposablePresenter presenter)
+        {
+            foreach (var p in _pending)
+                if (ReferenceEquals(p, presenter)) return true;
+            return false;
+        }
 
-        internal void EndPending(IComposablePresenter presenter) => _pending.Remove(presenter);
+        private void RemovePending(IComposablePresenter presenter)
+        {
+            for (int i = _pending.Count - 1; i >= 0; i--)
+                if (ReferenceEquals(_pending[i], presenter)) { _pending.RemoveAt(i); return; }
+        }
+
+        /// <summary>
+        /// Calls <paramref name="decide"/> — a page's guard, or the window's own close decision — as code this check
+        /// waits for: a forwarding call it makes (now or after its awaits) into a stack of
+        /// <paramref name="presenter"/>'s tree joins this check.
+        /// </summary>
+        internal Task<bool> CallAsPending(IComposablePresenter presenter, Func<Task<bool>> decide, out Action end)
+        {
+            _pending.Add(presenter);
+            end = () => RemovePending(presenter);
+            var previous = CallingGuard.Value;
+            CallingGuard.Value = this;
+            try { return decide(); }
+            finally { CallingGuard.Value = previous; }
+        }
 
         // ---- Traversal ----
 
@@ -200,29 +231,29 @@ namespace Kibinago.Presenters
                 return false;
             }
             _guardAnswers[page] = null;
-            _pending.Add(page);
             bool answer = false;
+            Action end = null;
             try
             {
-                answer = await InvokeAsync(guard, page);
+                Task<bool> decision;
+                try { decision = CallAsPending(page, guard.CanCloseAsync, out end); }
+                catch (Exception ex)
+                {
+                    page.Logger.LogError(ex, "{Page}.CanCloseAsync threw; the page is not discarded", page.GetType().Name);
+                    return false;
+                }
+                answer = await AwaitDecisionAsync(decision, page);
                 return answer;
             }
             finally
             {
-                _pending.Remove(page);
+                end?.Invoke();
                 _guardAnswers[page] = answer;
             }
         }
 
-        private static async Task<bool> InvokeAsync(IPageCloseGuard guard, IComposablePresenter page)
+        private static async Task<bool> AwaitDecisionAsync(Task<bool> decision, IComposablePresenter page)
         {
-            Task<bool> decision;
-            try { decision = guard.CanCloseAsync(); }
-            catch (Exception ex)
-            {
-                page.Logger.LogError(ex, "{Page}.CanCloseAsync threw; the page is not discarded", page.GetType().Name);
-                return false;
-            }
             if (decision == null)
             {
                 page.Logger.LogError("{Page}.CanCloseAsync returned no task; the page is not discarded", page.GetType().Name);
@@ -245,5 +276,13 @@ namespace Kibinago.Presenters
             => presenter.Logger.LogWarning(
                 "A page close check for {Presenter} was asked again while it was still deciding (a cycle); refusing",
                 presenter.GetType().Name);
+    }
+
+    /// <summary>Identity comparison: presenters that override <c>Equals</c> are still different presenters.</summary>
+    internal sealed class ReferenceComparer : IEqualityComparer<IComposablePresenter>
+    {
+        internal static readonly ReferenceComparer Instance = new ReferenceComparer();
+        public bool Equals(IComposablePresenter x, IComposablePresenter y) => ReferenceEquals(x, y);
+        public int GetHashCode(IComposablePresenter obj) => RuntimeHelpers.GetHashCode(obj);
     }
 }

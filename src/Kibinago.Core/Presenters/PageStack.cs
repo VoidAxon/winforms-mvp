@@ -226,18 +226,29 @@ namespace Kibinago.Presenters
             try
             {
                 for (int i = removed.Count - 1; i >= 0; i--)
-                {
-                    try { removed[i].Handle.Dispose(); }
-                    catch (Exception ex) { failures.Add(ex); }
-                    try { removed[i].RemoveView(); }
-                    catch (Exception ex) { failures.Add(ex); }
-                }
+                    Discard(removed[i], failures);
             }
             finally
             {
                 _operations--;
             }
             return failures;
+        }
+
+        // Disposes the page, then removes its view — unless the owner was disposed meanwhile (a page's teardown
+        // disposed it): presenter disposal never tears views down.
+        private void Discard(PageEntry entry, List<Exception> failures)
+        {
+            try { entry.Handle.Dispose(); }
+            catch (Exception ex) { failures.Add(ex); }
+            RemoveView(entry, failures);
+        }
+
+        private void RemoveView(PageEntry entry, List<Exception> failures)
+        {
+            if (Owner.IsDisposed) return;
+            try { entry.RemoveView(); }
+            catch (Exception ex) { failures.Add(ex); }
         }
 
         private static void Throw(List<Exception> failures)
@@ -319,14 +330,8 @@ namespace Kibinago.Presenters
             try
             {
                 for (int i = above.Count - 1; i >= 0; i--)
-                {
-                    try { above[i].Handle.Dispose(); }
-                    catch (Exception ex) { failures.Add(ex); }
-                    try { above[i].RemoveView(); }
-                    catch (Exception ex) { failures.Add(ex); }
-                }
-                try { entry.RemoveView(); }
-                catch (Exception ex) { failures.Add(ex); }
+                    Discard(above[i], failures);
+                RemoveView(entry, failures);
             }
             finally
             {
