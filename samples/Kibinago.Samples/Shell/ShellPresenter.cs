@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.ExceptionServices;
 using System.Threading.Tasks;
+using Kibinago.Common;
 using Kibinago.Logging;
 using Kibinago.Presenters;
 using Kibinago.ViewActions;
@@ -45,8 +47,11 @@ namespace Kibinago.Samples.Shell
 
         protected override void OnInitialize()
         {
-            SubscribeViewEvent<string>(h => View.CategorySelected += h, h => View.CategorySelected -= h,
-                id => Dispatcher.Dispatch(ShellActions.SelectCategory, id));
+            SubscribeViewEvent<string>(h => View.CategorySelected += h, h => View.CategorySelected -= h, id =>
+            {
+                _sidebarSelection = id;   // what the sidebar shows now, whether or not the switch happens
+                Dispatcher.Dispatch(ShellActions.SelectCategory, id);
+            });
             SubscribeViewEvent<string>(h => View.DemoSelected += h, h => View.DemoSelected -= h, OnDemoSelected);
 
             View.ShowCategories(_categories);
@@ -55,7 +60,14 @@ namespace Kibinago.Samples.Shell
                 View.SelectCategory(start.Id);
         }
 
-        protected override void Cleanup() => DetachDemos();
+        protected override void Cleanup() => Throw(DetachDemos());
+
+        // While a switch is deciding (a demo's question is open) the window does not close either: the demos
+        // that agreed would be disposed by the close without the others having answered.
+        protected override bool CanClose(CloseReason reason) => !_switching;
+
+        private bool _switching;
+        private string _sidebarSelection;
 
         private async Task SwitchToAsync(string categoryId)
         {
@@ -63,35 +75,53 @@ namespace Kibinago.Samples.Shell
             if (category == null || category == _current)
                 return;
 
-            // Ask every demo that can refuse before disposing any (the newest first, like disposal).
-            foreach (var guard in _attached.Select(a => a.Guard).Where(g => g != null).Reverse().ToList())
+            _switching = true;
+            try
             {
-                bool agreed;
-                try { agreed = await (guard.CanCloseAsync() ?? Task.FromResult(false)); }
-                catch (Exception ex)
+                // Ask every demo that can refuse before disposing any (the newest first, like disposal).
+                // No demo is attached meanwhile (OnDemoSelected waits), so this is every demo to be disposed.
+                foreach (var guard in _attached.Select(a => a.Guard).Where(g => g != null).Reverse().ToList())
                 {
-                    Logger.LogError(ex, "A demo failed to answer whether it may be closed; staying in the category");
-                    agreed = false;
+                    bool agreed;
+                    try { agreed = await (guard.CanCloseAsync() ?? Task.FromResult(false)); }
+                    catch (Exception ex)
+                    {
+                        Logger.LogError(ex, "A demo failed to answer whether it may be closed; staying in the category");
+                        agreed = false;
+                    }
+                    if (Lifetime.IsCancellationRequested) return;   // the window closed meanwhile
+                    if (!agreed)
+                    {
+                        SyncSidebar();   // the sidebar goes back
+                        return;
+                    }
                 }
-                if (Lifetime.IsCancellationRequested) return;   // the window closed meanwhile
-                if (!agreed)
-                {
-                    if (_current != null) View.SelectCategory(_current.Id);   // the sidebar goes back
-                    return;
-                }
-            }
 
-            DetachDemos();
-            _current = category;
-            View.ShowCategory(category);
-            View.ShowSource(category.SourceFiles.Concat(category.Demos.SelectMany(d => d.SourceFiles)).Distinct().ToList());
+                var failures = DetachDemos();
+                if (Lifetime.IsCancellationRequested) { Throw(failures); return; }
+                _current = category;
+                View.ShowCategory(category);
+                View.ShowSource(category.SourceFiles.Concat(category.Demos.SelectMany(d => d.SourceFiles)).Distinct().ToList());
+                SyncSidebar();
+                Throw(failures);
+            }
+            finally
+            {
+                _switching = false;
+            }
+        }
+
+        // A click ignored while a switch was deciding left the sidebar on another category: show the current one.
+        private void SyncSidebar()
+        {
+            if (_current != null && _sidebarSelection != _current.Id) View.SelectCategory(_current.Id);
         }
 
         private void OnDemoSelected(string demoId)
         {
             var demo = _current?.Demos.FirstOrDefault(d => d.Id == demoId);
-            if (demo == null)
-                return;
+            if (demo == null || _switching)
+                return;   // while a switch is deciding, no demo joins the ones it is about to dispose
 
             View.ShowSource(demo.SourceFiles);
             if (demo.Kind != DemoKind.Embedded || _attached.Any(a => a.DemoId == demo.Id))
@@ -113,12 +143,26 @@ namespace Kibinago.Samples.Shell
 
         // Presenters first (their Cleanup may still use the views), then the controls. Disposal cannot be
         // vetoed: closing the window (Cleanup) disposes every demo; the window's close gate has asked the pages.
-        private void DetachDemos()
+        // The bookkeeping is cleared first and every step runs even when one throws; the failures are returned.
+        private List<Exception> DetachDemos()
         {
-            for (var i = _attached.Count - 1; i >= 0; i--)
-                _attached[i].Handle.Dispose();
+            var attached = _attached.ToList();
             _attached.Clear();
-            View?.RemoveDemoViews();
+            var failures = new List<Exception>();
+            for (var i = attached.Count - 1; i >= 0; i--)
+            {
+                try { attached[i].Handle.Dispose(); }
+                catch (Exception ex) { failures.Add(ex); }
+            }
+            try { View?.RemoveDemoViews(); }
+            catch (Exception ex) { failures.Add(ex); }
+            return failures;
+        }
+
+        private static void Throw(List<Exception> failures)
+        {
+            if (failures.Count == 1) ExceptionDispatchInfo.Capture(failures[0]).Throw();
+            if (failures.Count > 1) throw new AggregateException(failures);
         }
 
         // Lets a catalog entry call the protected AttachChild with its own presenter and view types.

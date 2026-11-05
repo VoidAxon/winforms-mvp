@@ -454,8 +454,9 @@ namespace Kibinago.Services
 
         private bool AnotherModalFormIsOpen()
         {
+            // Only this window's UI thread: a dialog on another UI thread does not hold this close up.
             foreach (Form open in Application.OpenForms)
-                if (!ReferenceEquals(open, _form) && open.Modal && open.Visible) return true;
+                if (!ReferenceEquals(open, _form) && !open.InvokeRequired && open.Modal && open.Visible) return true;
             return false;
         }
 
