@@ -685,6 +685,7 @@ namespace Kibinago.Presenters
             bool viewDisposed = false;
             try
             {
+                beforeInitialize?.Invoke(attachment);
                 var observation = ViewDisposal.Observer.ObserveDisposal(view, () =>
                 {
                     viewDisposed = true;
@@ -692,7 +693,6 @@ namespace Kibinago.Presenters
                 });
                 resources.OwnUntilDisposed(observation);
                 resources.OwnUntilDisposed(ViewOwnership.Claim(view, composable));
-                beforeInitialize?.Invoke(attachment);
                 attachAndInitialize();
             }
             catch (Exception failure)

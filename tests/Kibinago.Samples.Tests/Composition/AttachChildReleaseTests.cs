@@ -50,12 +50,12 @@ namespace Kibinago.Samples.Tests.Composition
         }
 
         [Fact]
-        public void BeforeInitialize_RunsAfterOwnershipTransfer_BeforeTheChildsCode()
+        public void BeforeInitialize_RunsRightAfterOwnershipTransfer_BeforeTheClaimAndTheChildsCode()
         {
             using (Start(out var parent))
             {
                 var child = new NamePanelPresenter(new NameSource());
-                bool ownedWhenCalled = false, claimedWhenCalled = false, shownWhenCalled = true;
+                bool ownedWhenCalled = false, claimedWhenCalled = true, shownWhenCalled = true;
 
                 var attachment = AttachInternal(parent, child, a =>
                 {
@@ -65,7 +65,8 @@ namespace Kibinago.Samples.Tests.Composition
                 });
 
                 Assert.True(ownedWhenCalled);
-                Assert.True(claimedWhenCalled);
+                Assert.False(claimedWhenCalled);
+                Assert.True(ViewOwnership.IsClaimed(_view.NamePanel));
                 Assert.False(shownWhenCalled);
                 Assert.Equal(new[] { attachment }, ((IComposablePresenter)parent).Children);
             }

@@ -28,7 +28,9 @@ namespace Kibinago.Presenters
 
         /// <summary>
         /// The body of <c>AttachChild</c>: preflight checks (nothing changes when one throws), ownership
-        /// transfer, then <paramref name="beforeInitialize"/>, then <paramref name="attachAndInitialize"/>.
+        /// transfer, then at once <paramref name="beforeInitialize"/> (the child is accepted: from here every
+        /// failure is a post-transfer one), then the view observation and claim, then
+        /// <paramref name="attachAndInitialize"/>.
         /// Every failure after the transfer releases the child (disposes it) and propagates.
         /// </summary>
         ChildAttachment AttachChildInternal(IComposablePresenter child, IView view, Action attachAndInitialize,
