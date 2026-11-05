@@ -128,7 +128,7 @@ namespace Kibinago.Samples.Tests.Composition
             Assert.True(host.CloseRequested);
             Assert.True(ws.Stack.IsBusy);
             Assert.False(await ws.Stack.PopAsync());
-            Assert.Throws<InvalidOperationException>(() => ws.Push(new PlainPage("C", _log)));
+            Assert.False(ws.Push(new PlainPage("C", _log)));
             Assert.Equal(2, ws.Stack.Count);
             host.Dispose();
         }

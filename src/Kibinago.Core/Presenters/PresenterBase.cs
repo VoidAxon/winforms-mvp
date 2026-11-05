@@ -649,6 +649,10 @@ namespace Kibinago.Presenters
 
         ILogger IComposablePresenter.Logger => Logger;
 
+        IServiceProvider IComposablePresenter.Services => Services;
+
+        IServiceProvider IComposablePresenter.BoundServices => _servicesBound ? _serviceProvider : null;
+
         IReadOnlyList<ChildAttachment> IComposablePresenter.Children
             => _children == null ? (IReadOnlyList<ChildAttachment>)Array.Empty<ChildAttachment>() : _children.ToArray();
 

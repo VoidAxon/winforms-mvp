@@ -227,18 +227,14 @@ namespace Kibinago.Samples.Tests.Composition
         {
             using (Start(out var ws))
             {
-                Exception reentrant = null;
-                _view.OnRemove = tag =>
-                {
-                    try { ws.Push(new PlainPage("again", _log)); }
-                    catch (Exception ex) { reentrant = ex; }
-                };
+                bool? reentrant = null;
+                _view.OnRemove = tag => reentrant = ws.Push(new PlainPage("again", _log));
                 var page = new PlainPage("A", _log);
                 page.OnInit = p => p.Dispose();
 
-                ws.Push(page);
+                Assert.False(ws.Push(page));
 
-                Assert.IsType<InvalidOperationException>(reentrant);
+                Assert.False(reentrant);   // still busy: rejected
                 Assert.Equal(0, ws.Stack.Count);
             }
         }

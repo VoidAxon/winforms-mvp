@@ -22,11 +22,13 @@ namespace Kibinago.Samples.Tests.Composition
         [Fact]
         public void Ctor_Rejects()
         {
-            Assert.Throws<ArgumentNullException>(() => new PageStack(null));
-            Assert.Throws<ArgumentException>(() => new PageStack(new ForeignPresenter()));
+            var host = new TestPageHost();
+            Assert.Throws<ArgumentNullException>(() => new PageStack(null, () => host));
+            Assert.Throws<ArgumentNullException>(() => new PageStack(new PlainPage("y", null), null));
+            Assert.Throws<ArgumentException>(() => new PageStack(new ForeignPresenter(), () => host));
             var disposed = new PlainPage("x", null);
             disposed.Dispose();
-            Assert.Throws<ObjectDisposedException>(() => new PageStack(disposed));
+            Assert.Throws<ObjectDisposedException>(() => new PageStack(disposed, () => host));
         }
 
         [Fact]
@@ -50,27 +52,25 @@ namespace Kibinago.Samples.Tests.Composition
         {
             var workspace = new WorkspacePresenter(_log);
             var page = new PlainPage("A", _log);
-            bool removed = false;
 
-            Assert.Throws<InvalidOperationException>(
-                () => workspace.Stack.Push(page, new FakePageView("A"), v => removed = true));
+            Assert.Throws<InvalidOperationException>(() => workspace.Stack.Push(page, "A"));
 
-            Assert.False(removed);
+            Assert.Empty(_view.Added);   // nothing created
             Assert.False(page.Disposed);
             Assert.Equal(0, workspace.Stack.Count);
         }
 
         [Fact]
-        public void Push_Preflight_ViewClaimedByAnotherPresenter_DoesNotRemoveOrDispose()
+        public void Push_HostReturnsAViewClaimedByAnotherPresenter_NotRemoved_NothingDisposed()
         {
             using (Start(out var workspace))
             {
-                var shared = new FakePageView("shared");
                 var first = new PlainPage("first", _log);
-                workspace.Stack.Push(first, shared, _view.RemovePage);
+                workspace.Push(first);
                 var second = new PlainPage("second", _log);
+                _view.NextView = _view.Added[0];   // a host breaking its contract: another page's live view
 
-                Assert.Throws<InvalidOperationException>(() => workspace.Stack.Push(second, shared, _view.RemovePage));
+                Assert.Throws<InvalidOperationException>(() => workspace.Push(second));
 
                 Assert.Empty(_view.Removed);
                 Assert.False(first.Disposed);
@@ -84,9 +84,10 @@ namespace Kibinago.Samples.Tests.Composition
         {
             using (Start(out var workspace))
             {
-                Assert.Throws<ArgumentNullException>(() => workspace.Stack.Push<IPageView>(null, new FakePageView("v"), _view.RemovePage));
-                Assert.Throws<ArgumentNullException>(() => workspace.Stack.Push(new PlainPage("A", _log), null, _view.RemovePage));
-                Assert.Throws<ArgumentNullException>(() => workspace.Stack.Push(new PlainPage("A", _log), new FakePageView("v"), null));
+                Assert.Throws<ArgumentNullException>(() => workspace.Stack.Push<IPageView>(null, "t"));
+                Assert.Throws<ArgumentNullException>(() => workspace.Stack.Push(new PlainPage("A", _log), null));
+                Assert.Throws<ArgumentNullException>(() => workspace.Stack.Push<IPageView, PageParams>(null, new PageParams(), "t"));
+                Assert.Empty(_view.Added);
                 Assert.Empty(_view.Removed);
             }
         }
@@ -127,24 +128,17 @@ namespace Kibinago.Samples.Tests.Composition
         }
 
         [Fact]
-        public void Push_ReentrantFromPageOnInitialize_Throws()
+        public void Push_ReentrantFromPageOnInitialize_ReturnsFalse()
         {
             using (Start(out var workspace))
             {
-                Exception inner = null;
+                bool? inner = null;
                 var innerPage = new PlainPage("inner", _log);
-                var outer = new PlainPage("outer", _log)
-                {
-                    OnInit = p =>
-                    {
-                        try { workspace.Push(innerPage); }
-                        catch (Exception e) { inner = e; }
-                    },
-                };
+                var outer = new PlainPage("outer", _log) { OnInit = p => inner = workspace.Push(innerPage) };
 
-                workspace.Push(outer);
+                Assert.True(workspace.Push(outer));
 
-                Assert.IsType<InvalidOperationException>(inner);
+                Assert.False(inner);
                 Assert.False(innerPage.Disposed);
                 Assert.Equal(1, workspace.Stack.Count);
                 Assert.Empty(_view.Removed);
@@ -185,9 +179,8 @@ namespace Kibinago.Samples.Tests.Composition
             using (Start(out var workspace))
             {
                 var detail = new ParamPage();
-                var view = new FakePageView("detail");
-                workspace.Stack.Push(detail, view,
-                    new PageParams { Saved = tag => workspace.Push(new PlainPage("after:" + tag, _log)) }, _view.RemovePage);
+                workspace.Push(detail, "detail", new PageParams { Saved = tag => workspace.Push(new PlainPage("after:" + tag, _log)) });
+                var view = (FakePageView)_view.Added[0];
 
                 view.Binder.Dispatch(PageActions.Save);
 

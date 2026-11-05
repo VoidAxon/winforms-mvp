@@ -207,7 +207,7 @@ namespace Kibinago.Samples.Tests.Composition
                 var second = ws.Stack.PopToCountAsync(0);
                 Assert.True(second.IsCompleted);
                 Assert.False(await second);
-                Assert.Throws<InvalidOperationException>(() => ws.Push(new PlainPage("C", _log)));
+                Assert.False(ws.Push(new PlainPage("C", _log)));   // busy: nothing created
                 Assert.False(await ws.Stack.CanCloseAllAsync());
                 Assert.Equal(1, b.AskCount);
 
