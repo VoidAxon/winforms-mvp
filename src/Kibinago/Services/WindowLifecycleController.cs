@@ -416,8 +416,70 @@ namespace Kibinago.Services
             {
                 e.Cancel = !answered.Value;
                 TakeGateResult(answered.Value);
+                if (answered.Value) SettleLater();   // another FormClosing handler may still cancel it
             }
             else { e.Cancel = true; _gatePending = true; }
+        }
+
+        // ---------------- Page stacks: settle an approved attempt ----------------
+
+        // A window with page stacks keeps them reserved from the gate's approval until the close settles, so
+        // no page can be pushed or jumped to in between. The approved attempt either closes the window
+        // (FormClosed) or is abandoned — another FormClosing handler cancels it — and then the stacks are
+        // released. The check waits for the message loop to go idle with no dialog open: a FormClosing
+        // handler that pumps with DoEvents does not raise Idle, one that shows a WinForms dialog is still
+        // running while that dialog is open (MessageBox / common dialogs run native loops that raise no
+        // Idle), and a modal window whose close is still under way keeps its DialogResult until the close is
+        // cancelled (then None) or done (FormClosed). Windows without page stacks hold nothing, and nothing
+        // is subscribed.
+        private bool _settleWaiting;
+        // Dialogs already open when the attempt was approved (the modal window this one was opened from, …):
+        // only a dialog opened during the attempt means a FormClosing handler is still running.
+        private System.Collections.Generic.List<Form> _dialogsBeforeAttempt;
+
+        private void SettleLater()
+        {
+            if (!(_presenter is ICloseAttemptSettler settler) || !settler.HoldsApprovedClose) return;
+            _dialogsBeforeAttempt = OpenDialogs();   // per approved attempt, even while already waiting
+            if (_settleWaiting) return;
+            _settleWaiting = true;
+            Application.Idle += OnIdleSettle;
+        }
+
+        private void OnIdleSettle(object sender, EventArgs e)
+        {
+            if (!_closed && !_form.IsDisposed && _form.Modal && _form.DialogResult != DialogResult.None)
+                return;   // a modal close is still under way
+            if (!_closed && !_form.IsDisposed && AnotherModalFormIsOpen())
+                return;   // idle inside a dialog opened during the attempt (a later FormClosing handler's): not over yet
+            StopSettleWait();
+            if (_closed || _form.IsDisposed) return;   // closed: the stacks end with the presenter
+            (_presenter as ICloseAttemptSettler)?.AbandonCloseAttempt();
+        }
+
+        private bool AnotherModalFormIsOpen()
+        {
+            foreach (var dialog in OpenDialogs())
+                if (_dialogsBeforeAttempt == null || !_dialogsBeforeAttempt.Contains(dialog)) return true;
+            return false;
+        }
+
+        // Visible modal forms of this window's UI thread other than this one (a dialog on another UI thread does
+        // not hold this close up).
+        private System.Collections.Generic.List<Form> OpenDialogs()
+        {
+            var dialogs = new System.Collections.Generic.List<Form>();
+            foreach (Form open in Application.OpenForms)
+                if (!ReferenceEquals(open, _form) && !open.InvokeRequired && open.Modal && open.Visible) dialogs.Add(open);
+            return dialogs;
+        }
+
+        private void StopSettleWait()
+        {
+            if (!_settleWaiting) return;
+            _settleWaiting = false;
+            _dialogsBeforeAttempt = null;
+            Application.Idle -= OnIdleSettle;
         }
 
         private void ClearSeed()
@@ -445,6 +507,7 @@ namespace Kibinago.Services
             if (!allow || _form.IsDisposed || _closed) return;   // blocked: leave the window open
 
             _bypassGateOnce = true;
+            SettleLater();   // settles once the close below (and its other handlers) has run
             switch (originalReason)
             {
                 case System.Windows.Forms.CloseReason.FormOwnerClosing when _form.Owner != null:
@@ -498,6 +561,7 @@ namespace Kibinago.Services
         {
             UnwireFormEvents();
             _closed = true;
+            StopSettleWait();
             ClearSeed();
             Converge();
         }
@@ -508,6 +572,7 @@ namespace Kibinago.Services
         // After a FormClosed the handler is already unwired, so nothing ends twice.
         private void OnFormDisposed(object sender, EventArgs e)
         {
+            StopSettleWait();
             if (_closed) return;
             UnwireFormEvents();
             _closed = true;

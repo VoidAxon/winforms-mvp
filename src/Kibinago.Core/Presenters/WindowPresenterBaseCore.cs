@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Kibinago.Logging;
 using Kibinago.Common;
@@ -17,7 +18,7 @@ namespace Kibinago.Presenters
     /// <see cref="ICloseParticipant.CanCloseGate"/> (Pull) and injects the sink via
     /// <see cref="ICloseParticipant.BindCloseSink"/> (Push) — there are no events to subscribe to.
     /// </remarks>
-    public abstract class WindowPresenterBaseCore<TView> : PresenterBase<TView>, ICloseParticipant, IWindowPresenter
+    public abstract class WindowPresenterBaseCore<TView> : PresenterBase<TView>, ICloseParticipant, ICloseAttemptSettler, IWindowPresenter
         where TView : IWindowView
     {
         private ICloseSink _closeSink;
@@ -108,6 +109,14 @@ namespace Kibinago.Presenters
                 return;
             }
 
+            // A window with page stacks in its tree asks every page first (a separate path: a window
+            // without stacks runs exactly the code below).
+            if (PageCloseCheck.StacksOf(this).Any())
+            {
+                PageGate(reason, proceed);
+                return;
+            }
+
             // A synchronous throw from CanCloseAsync itself propagates: the framework blocks the
             // close and logs it. A faulted task is answered here, the same way, whenever it faults.
             var decision = CanCloseAsync(reason) ?? Task.FromResult(true);
@@ -120,6 +129,115 @@ namespace Kibinago.Presenters
             // The framework marshals proceed back to the UI thread.
             decision.ContinueWith(t => proceed(Decide(t, reason)), TaskScheduler.Default);
         }
+
+        // ---- Page stacks ----
+
+        // The check of the last approved close attempt: its reservation is kept until the attempt settles.
+        private PageCloseCheck _approvedClose;
+
+        private void PageGate(CloseReason reason, Action<bool> proceed)
+        {
+            // A new attempt means an earlier approved one did not close the window.
+            ReleaseApprovedClose();
+
+            var check = new PageCloseCheck(this);
+            if (!check.TryReserve(PageCloseCheck.StacksOf(this), new IComposablePresenter[] { this }))
+            {
+                proceed(false);   // a jump (or another check) is deciding: block without asking anyone
+                return;
+            }
+
+            // A decision that completes synchronously answers before this returns. One that awaits settles the
+            // reservation on the gate caller's context (inside GateWithPagesAsync) and is then delivered from the
+            // thread pool, like a window without stacks: the host marshals proceed to its UI thread, so a failure
+            // while closing reaches the message loop instead of a discarded task.
+            var decision = GateWithPagesAsync(check, reason);
+            if (decision.IsCompleted) { proceed(decision.Result); return; }
+            decision.ContinueWith(t => proceed(t.Result), TaskScheduler.Default);
+        }
+
+        // Never faults: every failure is a refusal; a refused check is released before the answer is returned.
+        private async Task<bool> GateWithPagesAsync(PageCloseCheck check, CloseReason reason)
+        {
+            bool ok = false;
+            try
+            {
+                try { ok = await DecideWithPagesAsync(check, reason); }
+                catch (Exception ex)
+                {
+                    LogSafely(ex, "{Presenter}: the page close check failed; blocking the close");
+                    ok = false;
+                }
+                ok = ok && !IsDisposedForGate;   // disposed while deciding: nothing to approve
+                if (ok)
+                {
+                    _approvedClose = check;
+                    if (!_releaseOnDisposeRegistered)
+                    {
+                        _releaseOnDisposeRegistered = true;
+                        Disposable.Create(ReleaseApprovedClose).DisposeWith(Disposables);
+                    }
+                }
+            }
+            finally
+            {
+                if (!ok) check.Release();   // whatever failed above, a refused check never stays reserved
+            }
+            return ok;
+        }
+
+        // A failing logger must not leave the close undecided.
+        private void LogSafely(Exception ex, string message)
+        {
+            try { Logger.LogError(ex, message, GetType().Name); }
+            catch { /* nothing more can be reported */ }
+        }
+
+        private async Task<bool> DecideWithPagesAsync(PageCloseCheck check, CloseReason reason)
+        {
+            if (!await check.AskTreeAsync(this)) return false;
+            if (IsDisposedForGate) return false;
+
+            // The window's own decision runs as part of the check, so a CanCloseAsync that forwards to a stack
+            // (_pages.CanCloseAllAsync()) joins it instead of seeing the stack busy.
+            Action end = null;
+            Task<bool> own;
+            try
+            {
+                own = check.CallAsPending(this, () => CanCloseAsync(reason) ?? Task.FromResult(true), out end);
+            }
+            catch (Exception ex)
+            {
+                end?.Invoke();
+                Logger.LogError(ex, "{Presenter}.CanCloseAsync failed; blocking the close", GetType().Name);
+                return false;
+            }
+            try
+            {
+                try { await own; }
+                catch { /* answered by Decide */ }
+                return Decide(own, reason);
+            }
+            finally
+            {
+                end?.Invoke();
+            }
+        }
+
+        private bool _releaseOnDisposeRegistered;
+
+        private void ReleaseApprovedClose()
+        {
+            var approved = _approvedClose;
+            _approvedClose = null;
+            approved?.Release();
+        }
+
+        private bool IsDisposedForGate => ((IComposablePresenter)this).IsDisposed;
+
+        bool ICloseAttemptSettler.HoldsApprovedClose => _approvedClose != null;
+
+        void ICloseAttemptSettler.AbandonCloseAttempt() => ReleaseApprovedClose();
 
         private bool Decide(Task<bool> completed, CloseReason reason)
         {

@@ -69,6 +69,7 @@ WinForms アプリケーションのための **Model-View-Presenter** フレー
 - [非同期処理を扱う](HowTo-Handle-Async-Operations) — async/await、`IProgress<T>`、キャンセル
 - [処理中を示す](HowTo-Show-Busy) — `ShowBusy()`: 待ちカーソル・ウィンドウの入力ブロック・オーバーレイ (差し替え可能)
 - [マスター/詳細パターンを実装する](HowTo-Implement-Master-Detail) — 親子データの連動
+- [画面内のページ移動 (パンくず)](HowTo-Implement-Page-Navigation) — 一覧 → 詳細 → 編集をたどり、パンくずで戻る。捨てるページに確認 (`PageStack` + `IPageCloseGuard`)
 - [グリッドで明細を直接編集する](HowTo-Implement-Editable-Grid) — セルの確定・拒否・書き換え、行の検証、保存のタイミング
 - [Presenter をテストする](HowTo-Test-A-Presenter) — モック、テストパターン
 - [Presenter の購読ライフサイクルを管理する](HowTo-Manage-Presenter-Subscriptions) — `Disposables` バッグ、`DisposeWith`、自動解放

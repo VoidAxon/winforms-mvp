@@ -324,6 +324,8 @@ public partial class LegacySettingsForm : Form
 
 3 段以上 (カテゴリ → サブカテゴリ → 商品、国 → 都道府県 → 市区町村 等) の連鎖選択は、専用ページ **[連鎖選択 (カスケード) を扱う](HowTo-Handle-Cascading-Selection)** を参照してください。
 
+詳細を並べて見せるのではなく、**画面の中で階層をたどり、パンくずで戻る** (顧客一覧 → 顧客詳細 → 受注編集) ときは **[画面内のページ移動](HowTo-Implement-Page-Navigation)** (`PageStack`) を使います。
+
 各レベルに手書きの選択 Service を N 個用意する素朴な実装は、(1) 同型コードの重複と (2) 上位変更時の「下位選択クリア忘れ」という 2 つの罠を抱えます。汎用の `ISelection<T>` + `Cascade.Bind` を使えば、N 個の Service を 1 つのジェネリックに、各レベルの「上位購読 → 自分をクリア → 再読込」を 1 行に畳み、下位クリアを通知連鎖で自動化できます (多親依存は `Cascade.Combine`)。
 
 ---
@@ -732,6 +734,7 @@ public class CustomerOrderPresenterTests : IDisposable
 - [Presenter 基底クラス § 子 Presenter を所有する](Reference-Presenter-Base-Classes#子-presenter-を所有する-attachchild) — `AttachChild` の契約・破棄順序
 - [HowTo: Presenter をテストする § 子 Presenter を含む画面のテスト](HowTo-Test-A-Presenter#子-presenter-を含む画面のテスト)
 - [連鎖選択 (カスケード) を扱う](HowTo-Handle-Cascading-Selection) — 3 段以上の N 段連鎖 (`ISelection<T>` + `Cascade`)
+- [画面内のページ移動 (パンくず)](HowTo-Implement-Page-Navigation) — 並べずに、画面の中で階層をたどる (一覧 → 詳細 → 編集) とき (`PageStack`)
 - [ViewAction システム](Reference-ViewAction-System) — State-driven CanExecute
 - [HowTo: 非同期処理を扱う](HowTo-Handle-Async-Operations) — 詳細読み込みの async 化
 - サンプル:

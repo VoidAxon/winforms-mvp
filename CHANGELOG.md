@@ -8,6 +8,20 @@
 
 ## [Unreleased]
 
+### Added (追加)
+
+- **画面内のページ移動 (パンくず) — `PageStack` + `IPageCloseGuard`** (`Kibinago.Core`、`Kibinago.Presenters`)。「顧客一覧 → 顧客詳細 → 受注編集」のように 1 つの画面の中で階層をたどり、パンくずで任意の階層へ戻る。
+  - `PageStack` (親 Presenter が `new PageStack(this)` で持つ): `Push(page, view, [param,] removeView)`、`PopToCountAsync(n)` (先頭 n ページを残す)、`PopAsync()`、`CanCloseAllAsync()`、`Count`、`IsBusy`。ページは `AttachChild` の子と同じく親のサービスを使い、親と一緒に破棄される。下のページは生きたまま隠れ、捨てたページは破棄してから `removeView`。
+  - `IPageCloseGuard` (`Task<bool> CanCloseAsync()`、明示的に実装): 捨てるページに確認する。上から、入れ子のスタックを先に、全部か無しか。ジャンプ・ウィンドウを閉じる・親パネルの破棄 (`CanCloseAllAsync` へ転送) に同じ答えを使う。失敗・キャンセル・`null` の Task は拒否としてログに残す。
+  - 確認中はスタックが busy (`Push` は例外、ジャンプは `false`、待ち行列なし)。ページが外から破棄されたら、そのページと上のページを聞かずに外す。
+  - **ウィンドウを閉じるとき、ツリー内の全ページに先に確認** してからウィンドウ自身の `CanClose` / `CanCloseAsync` を呼ぶ。閉じることが決まってから実際に閉じるまでスタックを押さえ、別の `FormClosing` ハンドラーがキャンセルしたら解放する。`PresenterTestHost` も同じ (受け付けた `RequestClose` は `Dispose` まで押さえ、`CanClose()` / `CanCloseAsync()` の問い合わせは答えたら解放)。**スタックを持たないウィンドウの動きは変わらない。** Presenter 基底クラスのメンバーは増えていない。
+  - サンプル: 「画面の組み立て」→「ページ移動 (パンくず)」(`samples/Kibinago.Samples/PageNavigationDemo/`、`LinkLabel` のパンくず)。サンプルのシェルは、カテゴリを切り替える前に各デモへ確認する。
+  - wiki: [画面内のページ移動 (パンくず)](wiki/HowTo-Implement-Page-Navigation.md)。[設計ルール](wiki/Design-Rules.md) Rule 10 に「初期化パラメーターのコールバックで子から親へ結果を返す」例外、Rule 17 の表に同じ行。
+
+### Fixed (修正)
+
+- `AttachChild`: 子の所有を移した後の失敗 (コントロールの破棄の監視・View の登録) が `try` の外にあり、その場合に子が破棄されずに残ることがあった。所有を移した後のすべての失敗で子を破棄して例外を伝えるようにした。
+
 ### Documentation (ドキュメント)
 
 - wiki: [従来の WinForms から移行する](wiki/HowTo-Migrate-From-Legacy-WinForms.md) — 冒頭に「移行で得られるもの — 業務ロジックにテストが書ける」(テストしにくい `btnSave_Click` と、Presenter + テストの前後比較)。呼び出し側を変えずに `Connect` で 1 画面ずつつなぐ手順 (Step 2.1) を追加。Service Locator の書き方もテストできることを明記、完了チェックリストを `Connect` とテストの位置づけに合わせて修正。
