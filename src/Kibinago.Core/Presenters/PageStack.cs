@@ -290,12 +290,49 @@ namespace Kibinago.Presenters
             }
         }
 
+        // A page left the owner. Pops and failed pushes have already dropped their entries (not found here);
+        // owner teardown removes no views; anything else is an external release (the page's control was
+        // disposed, or the presenter was disposed directly): that page and every page above it leave the stack
+        // without being asked, and their views are removed top first — the released page's too, so the
+        // breadcrumb stays in step. Failures propagate to whoever disposed the page.
         private void OnReleased(ChildAttachment attachment, ChildReleaseKind kind)
         {
             var entry = Find(attachment);
             if (entry == null) return;
-            if (kind == ChildReleaseKind.OwnerTeardown) _dead = true;
-            _entries.Remove(entry);
+            if (kind == ChildReleaseKind.OwnerTeardown)
+            {
+                _dead = true;
+                _entries.Remove(entry);
+                return;
+            }
+            if (entry.Pushing)
+            {
+                _entries.Remove(entry);   // the failing Push removes the view
+                return;
+            }
+
+            int index = _entries.IndexOf(entry);
+            var above = _entries.GetRange(index + 1, _entries.Count - index - 1);
+            _entries.RemoveRange(index, _entries.Count - index);
+            var failures = new List<Exception>();
+            _operations++;
+            try
+            {
+                for (int i = above.Count - 1; i >= 0; i--)
+                {
+                    try { above[i].Handle.Dispose(); }
+                    catch (Exception ex) { failures.Add(ex); }
+                    try { above[i].RemoveView(); }
+                    catch (Exception ex) { failures.Add(ex); }
+                }
+                try { entry.RemoveView(); }
+                catch (Exception ex) { failures.Add(ex); }
+            }
+            finally
+            {
+                _operations--;
+            }
+            Throw(failures);
         }
 
         private PageEntry Find(ChildAttachment attachment)
