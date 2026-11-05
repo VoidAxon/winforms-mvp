@@ -36,6 +36,7 @@ namespace Kibinago.Samples.Tests.Composition
         protected readonly List<string> Log;
         public readonly string Tag;
         public PageStack Inner;
+        public readonly TestPageHost InnerHost = new TestPageHost();
         public Action<PlainPage> OnInit;
         public Exception ThrowOnInitialize;
         public Exception ThrowOnCleanup;
@@ -46,7 +47,7 @@ namespace Kibinago.Samples.Tests.Composition
         {
             Tag = tag;
             Log = log;
-            if (ownsStack) Inner = new PageStack(this);
+            if (ownsStack) Inner = new PageStack(this, () => InnerHost);
         }
 
         protected override void OnInitialize()
@@ -69,11 +70,14 @@ namespace Kibinago.Samples.Tests.Composition
         internal IDisposable AttachPanelForTest(PlainPage panel) => AttachChild(panel, new FakePageView(panel.Tag));
 
         /// <summary>A stack created by this page's own code (e.g. inside its guard).</summary>
-        internal PageStack CreateStackForTest() => new PageStack(this);
+        internal PageStack CreateStackForTest() => new PageStack(this, () => InnerHost);
 
         /// <summary>Pushes onto this page's own stack (test access; a real page calls it from its own code).</summary>
-        internal void PushInner(PlainPage page, List<string> removed)
-            => Inner.Push(page, new FakePageView(page.Tag), v => removed?.Add("remove:" + v.Tag));
+        internal bool PushInner(PlainPage page, List<string> removed)
+        {
+            if (removed != null) InnerHost.Log = removed;
+            return Inner.Push(page, page.Tag);
+        }
     }
 
     /// <summary>A page with a guard whose answer each test sets.</summary>
@@ -138,26 +142,52 @@ namespace Kibinago.Samples.Tests.Composition
 
     public interface IWorkspaceView : IWindowView
     {
-        void RemovePage(IPageView page);
+        IPageHost Pages { get; }
     }
 
-    public sealed class FakeWorkspaceView : IWorkspaceView
+    /// <summary>
+    /// An IPageHost for the PageStack tests: makes a <see cref="FakePageView"/> tagged with the title (or returns
+    /// <see cref="NextView"/> once) and records every removal ("remove:tag" in <see cref="Log"/>).
+    /// </summary>
+    public class TestPageHost : IPageHost
     {
         public readonly List<string> Removed = new List<string>();
+        public readonly List<IControlView> Added = new List<IControlView>();
         public List<string> Log;
         public Exception ThrowOnRemove;
         public string ThrowOnRemoveTag;
         public Action<string> OnRemove;
+        public Exception ThrowOnAdd;
+        public Action OnAdd;
+        public IControlView NextView;
+        public IServiceProvider LastServices;
+
+        public IControlView AddPage(Type viewInterface, string title, IServiceProvider services)
+        {
+            LastServices = services;
+            OnAdd?.Invoke();
+            if (ThrowOnAdd != null) throw ThrowOnAdd;
+            var view = NextView ?? new FakePageView(title);
+            NextView = null;
+            Added.Add(view);
+            return view;
+        }
+
+        public void RemovePage(IControlView page)
+        {
+            var tag = (page as IPageView)?.Tag ?? page.GetType().Name;
+            Removed.Add(tag);
+            Log?.Add("remove:" + tag);
+            OnRemove?.Invoke(tag);
+            if (ThrowOnRemove != null && (ThrowOnRemoveTag == null || ThrowOnRemoveTag == tag)) throw ThrowOnRemove;
+        }
+    }
+
+    public sealed class FakeWorkspaceView : TestPageHost, IWorkspaceView
+    {
         public CapturingActionBinder Binder { get; } = new CapturingActionBinder();
         public IViewActionBinder ActionBinder => Binder;
-
-        public void RemovePage(IPageView page)
-        {
-            Removed.Add(page.Tag);
-            Log?.Add("remove:" + page.Tag);
-            OnRemove?.Invoke(page.Tag);
-            if (ThrowOnRemove != null && (ThrowOnRemoveTag == null || ThrowOnRemoveTag == page.Tag)) throw ThrowOnRemove;
-        }
+        public IPageHost Pages => this;
     }
 
     /// <summary>A window that owns one stack (created in its constructor) and exposes it to the test.</summary>
@@ -172,7 +202,7 @@ namespace Kibinago.Samples.Tests.Composition
         public WorkspacePresenter(List<string> log = null)
         {
             _log = log;
-            Stack = new PageStack(this);
+            Stack = new PageStack(this, () => View.Pages);
         }
 
         protected override void RegisterViewActions()
@@ -186,10 +216,9 @@ namespace Kibinago.Samples.Tests.Composition
             return WindowAnswer(reason);
         }
 
-        internal void Push(PlainPage page) => Stack.Push(page, new FakePageView(page.Tag), View.RemovePage);
+        internal bool Push(PlainPage page) => Stack.Push(page, page.Tag);
 
-        internal void Push(ParamPage page, string tag, PageParams parameters)
-            => Stack.Push(page, new FakePageView(tag), parameters, View.RemovePage);
+        internal bool Push(ParamPage page, string tag, PageParams parameters) => Stack.Push(page, parameters, tag);
 
         /// <summary>Plain AttachChild (not a page), e.g. a panel that owns a stack of its own.</summary>
         internal IDisposable AttachPanel(PlainPage panel)

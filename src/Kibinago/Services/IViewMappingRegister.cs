@@ -4,7 +4,7 @@ using System.Windows.Forms;
 namespace Kibinago.Services
 {
     /// <summary>
-    /// Manages the mapping between View interfaces and their Form implementations.
+    /// Manages the mapping between View interfaces and their implementations: Forms for windows, UserControls for pages.
     /// Used by WindowNavigator to automatically create View instances.
     /// </summary>
     public interface IViewMappingRegister
@@ -18,17 +18,18 @@ namespace Kibinago.Services
         Type GetViewImplementationType(Type viewInterfaceType);
 
         /// <summary>
-        /// Registers a mapping between a View interface and its Form implementation (type-based).
+        /// Registers a mapping between a View interface and its implementation (type-based): a Form for a window
+        /// (<c>WindowNavigator</c>), a UserControl for a page (<c>PageHost</c>).
         /// </summary>
         /// <typeparam name="TViewInterface">View interface type</typeparam>
-        /// <typeparam name="TViewImplementation">Implementation Form type</typeparam>
+        /// <typeparam name="TViewImplementation">Implementation type: a Form (window) or a UserControl (page)</typeparam>
         /// <param name="allowOverride">Whether to override existing mappings (default: false)</param>
         /// <exception cref="InvalidOperationException">Thrown when already registered (when allowOverride = false)</exception>
         void Register<TViewInterface, TViewImplementation>(bool allowOverride = false)
-            where TViewImplementation : Form, TViewInterface;
+            where TViewImplementation : Control, TViewInterface;
 
         /// <summary>
-        /// Registers a mapping between a View interface and its Form implementation (factory method).
+        /// Registers a mapping between a View interface and its implementation (factory method; a Form or a UserControl).
         /// Use this for Views that require constructor parameters or special initialization.
         /// </summary>
         /// <typeparam name="TViewInterface">View interface type</typeparam>

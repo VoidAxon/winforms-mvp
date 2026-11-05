@@ -5,20 +5,15 @@ using Kibinago.Views;
 namespace Kibinago.Samples.PageNavigationDemo
 {
     /// <summary>
-    /// The page host: a breadcrumb over the current page. The view creates each page control (shown on top,
-    /// the one below hidden, a crumb added) and removes it when the presenter says so; it never removes a page
-    /// on its own. A crumb click is the typed action <see cref="PageNavigationDemoActions.Breadcrumb"/>
-    /// (payload: the crumb's level, 0 = 顧客一覧).
+    /// A breadcrumb over the current page. The pages are shown by a PageHost (it creates each page control from the
+    /// view mapping — the three page controls are registered at startup); the view only draws the breadcrumb from the
+    /// host's titles. A crumb click is the typed action <see cref="PageNavigationDemoActions.Breadcrumb"/> (payload:
+    /// the crumb's level, 0 = 顧客一覧).
     /// </summary>
     public interface IPageNavigationDemoView : IControlView
     {
-        ICustomerListView PushCustomerList();
-        ICustomerDetailView PushCustomerDetail(string title);
-        IOrderEditView PushOrderEdit(string title);
-
-        /// <summary>Removes the page control and its crumb and shows the page below. Tolerates a control that
-        /// is already disposed.</summary>
-        void RemovePage(IControlView page);
+        /// <summary>Where the pages are shown.</summary>
+        IPageHost Pages { get; }
 
         void ShowStatus(string text);
     }

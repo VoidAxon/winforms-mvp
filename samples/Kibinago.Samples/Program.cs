@@ -47,6 +47,8 @@ namespace Kibinago.Samples
             // Maps every view interface in this assembly to its Form, so Navigator can create windows.
             ServiceLocator.Current.Resolve<IViewMappingRegister>()
                 .RegisterFromAssembly(typeof(Program).Assembly);
+            // Page controls (PageHost) are registered like windows; scanning finds Forms only.
+            PageNavigationDemo.PageNavigationDemoViews.Register(ServiceLocator.Current.Resolve<IViewMappingRegister>());
 
             // The main window: sidebar of categories, tabs of demos.
             var shell = new ShellForm { CustomProfile = custom };

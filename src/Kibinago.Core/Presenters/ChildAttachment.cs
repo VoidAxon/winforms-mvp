@@ -29,6 +29,13 @@ namespace Kibinago.Presenters
         /// <summary>The page-close check whose traversal covers this presenter's whole tree, or null.</summary>
         PageCloseCheck ReservedBy { get; set; }
 
+        /// <summary>The services this presenter uses (resolving its convenience properties).</summary>
+        IServiceProvider Services { get; }
+
+        /// <summary>The services bound to this presenter before it was attached (<c>IPresenterFactory</c>, a test
+        /// host), or null when it will inherit its owner's.</summary>
+        IServiceProvider BoundServices { get; }
+
         /// <summary>This presenter's logger (for failures the framework reports on its behalf).</summary>
         Logging.ILogger Logger { get; }
 

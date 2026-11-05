@@ -8,12 +8,17 @@
 
 ## [Unreleased]
 
+### Changed (変更)
+
+- `IViewMappingRegister.Register<TViewInterface, TViewImplementation>()` の制約を `Form` から `Control` に緩めた (ページの UserControl を登録するため)。`WindowNavigator` は Form でない実装をこれまでどおり拒否する。アセンブリのスキャンは Form だけ。
+
 ### Added (追加)
 
-- **画面内のページ移動 (パンくず) — `PageStack` + `IPageCloseGuard`** (`Kibinago.Core`、`Kibinago.Presenters`)。「顧客一覧 → 顧客詳細 → 受注編集」のように 1 つの画面の中で階層をたどり、パンくずで任意の階層へ戻る。
-  - `PageStack` (親 Presenter が `new PageStack(this)` で持つ): `Push(page, view, [param,] removeView)`、`PopToCountAsync(n)` (先頭 n ページを残す)、`PopAsync()`、`CanCloseAllAsync()`、`Count`、`IsBusy`。ページは `AttachChild` の子と同じく親のサービスを使い、親と一緒に破棄される。下のページは生きたまま隠れ、捨てたページは破棄してから `removeView`。
+- **画面内のページ移動 (パンくず) — `PageStack` + `IPageHost` / `PageHost` + `IPageCloseGuard`**。「顧客一覧 → 顧客詳細 → 受注編集」のように 1 つの画面の中で階層をたどり、パンくずで任意の階層へ戻る。
+  - `PageStack` (`Kibinago.Presenters`、親 Presenter が `new PageStack(this, () => View.Pages)` で持つ): `Push(page[, parameters], title)` → `bool` (`true` = 一番上に載った、`false` = 確認中で何もしなかった / ページが初期化の途中で終わった)、`PopToCountAsync(n)` (先頭 n ページを残す)、`PopAsync()`、`CanCloseAllAsync()`、`Count`、`IsBusy`。ページは `AttachChild` の子と同じく親のサービス (自分のサービスがあればそれ) を使い、親と一緒に破棄される。下のページは生きたまま隠れ、捨てたページは破棄してからホストから外す。
+  - `IPageHost` (`Kibinago.Views`、`AddPage` / `RemovePage`) と `PageHost` (Kibinago、ページを表示するパネル)。親 View インターフェイスは `IPageHost Pages { get; }` だけを公開し、ページのコントロールはウィンドウと同じく登録しておく (`register.Register<IOrderEditView, OrderEditControl>()`)。`PageHost` はページを積む Presenter のサービス (M.E.DI ではそのスコープ) から `WindowNavigator` と同じ方法でコントロールを作り、`PageTitles` / `PagesChanged` でパンくずに知らせる。テスト用に `Kibinago.Testing.FakePageHost` (`Register<TView>(() => mock)`、`Pages` / `PageTitles` / `Removed` / `Page<T>(level)`)。
   - `IPageCloseGuard` (`Task<bool> CanCloseAsync()`、明示的に実装): 捨てるページに確認する。上から、入れ子のスタックを先に、全部か無しか。ジャンプ・ウィンドウを閉じる・親パネルの破棄 (`CanCloseAllAsync` へ転送) に同じ答えを使う。失敗・キャンセル・`null` の Task は拒否としてログに残す。
-  - 確認中はスタックが busy (`Push` は例外、ジャンプは `false`、待ち行列なし)。ページが外から破棄されたら、そのページと上のページを聞かずに外す。
+  - 確認中はスタックが busy (`Push` もジャンプも `false`、待ち行列なし、呼ぶ側の `IsBusy` チェックは不要)。ページが外から破棄されたら、そのページと上のページを聞かずに外す。
   - **ウィンドウを閉じるとき、ツリー内の全ページに先に確認** してからウィンドウ自身の `CanClose` / `CanCloseAsync` を呼ぶ。閉じることが決まってから実際に閉じるまでスタックを押さえ、別の `FormClosing` ハンドラーがキャンセルしたら解放する。`PresenterTestHost` も同じ (受け付けた `RequestClose` は `Dispose` まで押さえ、`CanClose()` / `CanCloseAsync()` の問い合わせは答えたら解放)。**スタックを持たないウィンドウの動きは変わらない。** Presenter 基底クラスのメンバーは増えていない。
   - サンプル: 「画面の組み立て」→「ページ移動 (パンくず)」(`samples/Kibinago.Samples/PageNavigationDemo/`、`LinkLabel` のパンくず)。サンプルのシェルは、カテゴリを切り替える前に各デモへ確認する。
   - wiki: [画面内のページ移動 (パンくず)](wiki/HowTo-Implement-Page-Navigation.md)。[設計ルール](wiki/Design-Rules.md) Rule 10 に「初期化パラメーターのコールバックで子から親へ結果を返す」例外、Rule 17 の表に同じ行。

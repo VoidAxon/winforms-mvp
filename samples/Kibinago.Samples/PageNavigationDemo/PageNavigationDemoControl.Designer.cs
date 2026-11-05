@@ -4,13 +4,14 @@
 // </auto-generated>
 using System.Drawing;
 using System.Windows.Forms;
+using Kibinago.Views;
 
 namespace Kibinago.Samples.PageNavigationDemo
 {
     partial class PageNavigationDemoControl
     {
         private FlowLayoutPanel _breadcrumb;
-        private Panel _pageHost;
+        private PageHost _pageHost;
         private Label _statusLabel;
 
         private void InitializeComponent()
@@ -20,7 +21,7 @@ namespace Kibinago.Samples.PageNavigationDemo
             Padding = new Padding(16);
 
             _breadcrumb = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 36, WrapContents = false };
-            _pageHost = new Panel { Dock = DockStyle.Fill, Padding = new Padding(0, 8, 0, 8) };
+            _pageHost = new PageHost { Dock = DockStyle.Fill, Padding = new Padding(0, 8, 0, 8) };
             _statusLabel = new Label
             {
                 Dock = DockStyle.Bottom, Height = 32, TextAlign = ContentAlignment.MiddleLeft,

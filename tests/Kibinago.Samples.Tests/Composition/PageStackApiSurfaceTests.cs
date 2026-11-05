@@ -146,12 +146,28 @@ namespace Kibinago.Samples.Tests.Composition
             Assert.True(typeof(PageStack).IsPublic);
             Assert.Equal(new[] { ".ctor", "CanCloseAllAsync", "Count", "IsBusy", "PopAsync", "PopToCountAsync", "Push" },
                 Names(typeof(PageStack)));
-            Assert.Equal(new[] { typeof(IPresenter) }, typeof(PageStack).GetConstructors().Single().GetParameters().Select(p => p.ParameterType));
-            Assert.Equal(2, typeof(PageStack).GetMethods().Count(m => m.Name == "Push"));
+            Assert.Equal(new[] { typeof(IPresenter), typeof(Func<IPageHost>) },
+                typeof(PageStack).GetConstructors().Single().GetParameters().Select(p => p.ParameterType));
+            var pushes = typeof(PageStack).GetMethods().Where(m => m.Name == "Push").ToList();
+            Assert.Equal(2, pushes.Count);
+            Assert.All(pushes, m => Assert.Equal(typeof(bool), m.ReturnType));
+            Assert.All(pushes, m => Assert.Equal("title", m.GetParameters().Last().Name));
             Assert.Equal(typeof(Task<bool>), typeof(PageStack).GetMethod("PopToCountAsync").ReturnType);
             Assert.Equal(typeof(Task<bool>), typeof(PageStack).GetMethod("PopAsync").ReturnType);
             Assert.Equal(typeof(Task<bool>), typeof(PageStack).GetMethod("CanCloseAllAsync").ReturnType);
             Assert.False(typeof(IDisposable).IsAssignableFrom(typeof(PageStack)));
+        }
+
+        [Fact]
+        public void PageHost_IsAViewCapability_WithTwoMethods()
+        {
+            var host = typeof(IPageHost);
+            Assert.True(host.IsInterface && host.IsPublic);
+            Assert.Equal("Kibinago.Views", host.Namespace);
+            Assert.Equal(new[] { "AddPage", "RemovePage" }, host.GetMembers().Select(m => m.Name).OrderBy(n => n));
+            Assert.Equal(typeof(IControlView), host.GetMethod("AddPage").ReturnType);
+            Assert.Equal(new[] { typeof(Type), typeof(string), typeof(IServiceProvider) },
+                host.GetMethod("AddPage").GetParameters().Select(p => p.ParameterType));
         }
 
         [Fact]

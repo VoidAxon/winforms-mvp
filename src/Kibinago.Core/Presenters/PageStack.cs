@@ -10,18 +10,20 @@ namespace Kibinago.Presenters
     /// <summary>
     /// The pages of one in-window drill-down (customer list → customer detail → order edit) with a breadcrumb,
     /// owned by a presenter (a window or a panel). Pages are control presenters attached to the owner like
-    /// <c>AttachChild</c> children; the pages below the top stay alive (the view hides them), popped pages are
+    /// <c>AttachChild</c> children; the pages below the top stay alive (the host hides them), popped pages are
     /// disposed. A jump back asks every page it discards (<see cref="IPageCloseGuard"/>) first, all or nothing,
     /// and the owner's window asks every page before it closes.
     /// </summary>
     /// <remarks>
-    /// <para>Create it in the owner's constructor (<c>_pages = new PageStack(this)</c>); push from
-    /// <c>OnInitialize</c> on. The view creates and removes the page controls: the owner's view interface
-    /// exposes methods such as <c>IOrderEditView PushOrderEdit(string title)</c> and
-    /// <c>void RemovePage(IControlView page)</c>, and <c>RemovePage</c> is passed to <c>Push</c>.</para>
-    /// <para>While a check or a removal is running the stack is busy (<see cref="IsBusy"/>): <c>Push</c> throws and
-    /// the pops answer <c>false</c>; requests are not queued. Check <see cref="IsBusy"/> before the view creates a
-    /// page control. Busy blocks stack operations only, not editing in the pages.</para>
+    /// <para>Create it in the owner's constructor (<c>_pages = new PageStack(this, () =&gt; View.Pages)</c>; the owner's
+    /// view interface exposes <c>IPageHost Pages { get; }</c>, a <c>PageHost</c> panel on the Form) and push from
+    /// <c>OnInitialize</c> on: <c>_pages.Push(new OrderEditPresenter(deps), parameters, "受注 101")</c>. The host creates
+    /// each page control from the view mapping (<c>register.Register&lt;IOrderEditView, OrderEditControl&gt;()</c> at
+    /// startup), hides the page below and removes discarded pages; the view draws the breadcrumb from the host's
+    /// titles.</para>
+    /// <para>While a check or a removal is running the stack is busy (<see cref="IsBusy"/>): <c>Push</c> and the pops
+    /// answer <c>false</c> and do nothing; requests are not queued, and callers need no <see cref="IsBusy"/> check.
+    /// Busy blocks stack operations only, not editing in the pages.</para>
     /// <para>Results travel back through callbacks in a page's parameters (<c>OrderEditParams.Saved</c>). There is
     /// no "shown again" notification: a page that needs one gets a semantic event from its own view.</para>
     /// <para>Single-threaded (UI thread), like the presenters that use it.</para>
@@ -29,18 +31,24 @@ namespace Kibinago.Presenters
     public sealed class PageStack
     {
         private readonly List<PageEntry> _entries = new List<PageEntry>();
+        private readonly Func<IPageHost> _hostLookup;
+        private IPageHost _host;
         private bool _dead;
         private int _operations;
 
-        /// <summary>Creates an empty stack owned by <paramref name="owner"/>.</summary>
+        /// <summary>Creates an empty stack owned by <paramref name="owner"/>, showing its pages in a host.</summary>
         /// <param name="owner">The presenter whose view shows the pages — typically <c>this</c> in the owner's
         /// constructor. Construction touches no service, view or overridable code.</param>
-        /// <exception cref="ArgumentNullException"><paramref name="owner"/> is null.</exception>
+        /// <param name="host">Returns where the pages are shown — typically <c>() =&gt; View.Pages</c> (the view
+        /// interface exposes an <see cref="IPageHost"/>). Called once, on the first <c>Push</c>.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="owner"/> or <paramref name="host"/> is null.</exception>
         /// <exception cref="ArgumentException"><paramref name="owner"/> is not a framework presenter.</exception>
         /// <exception cref="ObjectDisposedException"><paramref name="owner"/> is disposed.</exception>
-        public PageStack(IPresenter owner)
+        public PageStack(IPresenter owner, Func<IPageHost> host)
         {
             if (owner == null) throw new ArgumentNullException(nameof(owner));
+            if (host == null) throw new ArgumentNullException(nameof(host));
+            _hostLookup = host;
             var composable = owner as IComposablePresenter;
             if (composable == null)
                 throw new ArgumentException(
@@ -58,7 +66,7 @@ namespace Kibinago.Presenters
 
         /// <summary>
         /// True while a check (a page's <see cref="IPageCloseGuard"/> deciding) or a removal is running, or while
-        /// the owner's window close holds the stack. <c>Push</c> throws then and the pops answer <c>false</c>.
+        /// the owner's window close holds the stack. <c>Push</c> and the pops answer <c>false</c> then (nothing done).
         /// It blocks stack operations only; it does not disable editing or other actions in the pages.
         /// </summary>
         public bool IsBusy => _operations > 0 || Reservation != null;
@@ -81,48 +89,50 @@ namespace Kibinago.Presenters
         internal bool IsDead => _dead || Owner.IsDisposed;
 
         /// <summary>
-        /// Attaches <paramref name="page"/> to <paramref name="view"/>, initializes it and puts it on top. The page
-        /// is owned like an <c>AttachChild</c> child: it uses the owner's services and is disposed with the owner.
+        /// Shows a new page on top: the host creates its view (mapped to <typeparamref name="TView"/> at startup), then
+        /// <paramref name="page"/> is attached to it and initialized. The page is owned like an <c>AttachChild</c>
+        /// child: it uses the owner's services unless it has its own, and is disposed with the owner.
         /// </summary>
         /// <typeparam name="TView">The page's view interface.</typeparam>
         /// <param name="page">The new page's presenter (<c>new</c>-ed by the owner).</param>
-        /// <param name="view">The page control the owner's view has just created.</param>
-        /// <param name="removeView">Removes that control (and its breadcrumb item) when the page leaves the stack;
-        /// it must tolerate a control that is already disposed.</param>
-        /// <exception cref="ArgumentNullException">An argument is null.</exception>
-        /// <exception cref="ObjectDisposedException">The owner, the page or the page's control is disposed.</exception>
-        /// <exception cref="InvalidOperationException">The stack is busy; the owner has no view yet; the page is
-        /// already attached; or the view is used by another presenter.</exception>
-        /// <remarks>A rejection before the page is accepted changes nothing (the page is not disposed and
-        /// <paramref name="removeView"/> is not called). A failure after it (the page's <c>OnInitialize</c> throws)
-        /// disposes the page and calls <paramref name="removeView"/> once, then propagates.</remarks>
-        public void Push<TView>(ControlPresenterBase<TView> page, TView view, Action<TView> removeView)
-            where TView : IControlView
+        /// <param name="title">The page's breadcrumb text (empty allowed).</param>
+        /// <returns><c>true</c> when the page is on top. <c>false</c> when it is not: the stack was busy (a page is
+        /// deciding whether it may close — nothing created, <paramref name="page"/> untouched), or the page ended during
+        /// its own initialization (it disposed itself — its view removed — or the owner was disposed).</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="page"/> or <paramref name="title"/> is null.</exception>
+        /// <exception cref="ObjectDisposedException">The owner or the page is disposed.</exception>
+        /// <exception cref="InvalidOperationException">The owner has no view yet or exposes no host; the page is
+        /// already attached; or the host returned an unusable view.</exception>
+        /// <remarks>A rejection before the view exists changes nothing. A view the host made but the page could not
+        /// take (wrong type, the page's services rejected) is removed through the host; <paramref name="page"/> is not
+        /// disposed. A failure after the page was accepted (its <c>OnInitialize</c> throws) disposes it and removes its
+        /// view once, then propagates.</remarks>
+        public bool Push<TView>(ControlPresenterBase<TView> page, string title)
+            where TView : class, IControlView
         {
             if (page == null) throw new ArgumentNullException(nameof(page));
-            PushCore(page, view, removeView, () => ((IInitializable)page).Initialize());
+            return PushCore(page, title, () => ((IInitializable)page).Initialize());
         }
 
         /// <summary>
-        /// Attaches a page that needs initialization parameters (its input and result callbacks) and puts it on
-        /// top. Same contract as <see cref="Push{TView}(ControlPresenterBase{TView}, TView, Action{TView})"/>.
+        /// Shows a new page that needs initialization parameters (its input and result callbacks). Same contract as
+        /// <see cref="Push{TView}(ControlPresenterBase{TView}, string)"/>.
         /// </summary>
         /// <typeparam name="TView">The page's view interface.</typeparam>
         /// <typeparam name="TParam">The page's parameter type.</typeparam>
         /// <param name="page">The new page's presenter.</param>
-        /// <param name="view">The page control the owner's view has just created.</param>
         /// <param name="parameters">The page's parameters.</param>
-        /// <param name="removeView">Removes that control when the page leaves the stack.</param>
-        /// <exception cref="ArgumentNullException">An argument other than <paramref name="parameters"/> is null.</exception>
-        /// <exception cref="ObjectDisposedException">The owner, the page or the page's control is disposed.</exception>
-        /// <exception cref="InvalidOperationException">The stack is busy; the owner has no view yet; the page is
-        /// already attached; or the view is used by another presenter.</exception>
-        public void Push<TView, TParam>(ControlPresenterBase<TView, TParam> page, TView view, TParam parameters,
-            Action<TView> removeView)
-            where TView : IControlView
+        /// <param name="title">The page's breadcrumb text (empty allowed).</param>
+        /// <returns><c>true</c> when the page is on top; <c>false</c> as for the overload without parameters.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="page"/> or <paramref name="title"/> is null.</exception>
+        /// <exception cref="ObjectDisposedException">The owner or the page is disposed.</exception>
+        /// <exception cref="InvalidOperationException">The owner has no view yet or exposes no host; the page is
+        /// already attached; or the host returned an unusable view.</exception>
+        public bool Push<TView, TParam>(ControlPresenterBase<TView, TParam> page, TParam parameters, string title)
+            where TView : class, IControlView
         {
             if (page == null) throw new ArgumentNullException(nameof(page));
-            PushCore(page, view, removeView, () => ((IInitializable<TParam>)page).Initialize(parameters));
+            return PushCore(page, title, () => ((IInitializable<TParam>)page).Initialize(parameters));
         }
 
         /// <summary>
@@ -244,12 +254,13 @@ namespace Kibinago.Presenters
             RemoveView(entry, failures);
         }
 
-        // Each page's view is removed at most once, whichever path gets there first.
+        // Each page's view is removed (through the host) at most once, whichever path gets there first; never after
+        // the owner was disposed (presenter disposal does not tear views down).
         private void RemoveView(PageEntry entry, List<Exception> failures)
         {
             if (entry.ViewRemoved || Owner.IsDisposed) return;
             entry.ViewRemoved = true;
-            try { entry.RemoveView(); }
+            try { _host.RemovePage(entry.View); }
             catch (Exception ex) { failures.Add(ex); }
         }
 
@@ -259,21 +270,44 @@ namespace Kibinago.Presenters
             if (failures.Count > 1) throw new AggregateException(failures);
         }
 
-        private void PushCore<TView>(PresenterBase<TView> page, TView view, Action<TView> removeView, Action initialize)
-            where TView : IControlView
+        // One transaction: busy → false; page-level checks (nothing created yet); reserve; the host makes the view;
+        // a view made but not taken is removed again (the page stays undisposed); #81's attach path; a page that ended
+        // during its initialization → false.
+        private bool PushCore<TView>(PresenterBase<TView> page, string title, Action initialize)
+            where TView : class, IControlView
         {
-            if (view == null) throw new ArgumentNullException(nameof(view));
-            if (removeView == null) throw new ArgumentNullException(nameof(removeView));
+            if (title == null) throw new ArgumentNullException(nameof(title));
+            if (IsBusy) return false;
             if (IsDead) throw new ObjectDisposedException(nameof(PageStack), "The page stack's owner is disposed.");
-            if (IsBusy)
+            if (!((IViewAttachable)Owner).IsViewAttached)
                 throw new InvalidOperationException(
-                    "The page stack is busy (a page is deciding whether it may close, or pages are being removed). " +
-                    "Check IsBusy before creating the page's view.");
+                    Owner.GetType().Name + " has no view attached yet; push pages from OnInitialize or later.");
+            IComposablePresenter composable = page;
+            IViewAttachable attachable = page;
+            if (composable.IsDisposed) throw new ObjectDisposedException(page.GetType().Name);
+            if (attachable.IsViewAttached || attachable.IsInitialized || composable.OwnerLink != null)
+                throw new InvalidOperationException(
+                    page.GetType().Name + " is already attached to a view; a presenter is pushed once.");
 
             PageEntry entry = null;
-            _operations++;   // busy for the whole push, its compensation included (reentrancy is rejected)
+            _operations++;   // busy for the whole push — the host lookup and the compensation included (reentrancy is rejected)
             try
             {
+                var host = Host();
+                var created = host.AddPage(typeof(TView), title, composable.BoundServices ?? Owner.Services);
+                if (created == null)
+                    throw new InvalidOperationException(host.GetType().Name + ".AddPage returned no view for " + typeof(TView).Name + ".");
+                if (ViewOwnership.IsClaimed(created))
+                    throw new InvalidOperationException(   // not ours to remove: another presenter's live view
+                        host.GetType().Name + ".AddPage returned a view another live presenter uses; a host returns a new view.");
+                var view = created as TView;
+                if (view == null)
+                {
+                    RemoveUnaccepted(host, created, new InvalidOperationException(
+                        "The view made for " + typeof(TView).Name + " is a " + created.GetType().Name +
+                        ", which does not implement it; check the view mapping."));
+                }
+
                 try
                 {
                     Owner.AttachChildInternal(page, view,
@@ -284,7 +318,7 @@ namespace Kibinago.Presenters
                         },
                         attachment =>
                         {
-                            entry = new PageEntry(page, view, () => removeView(view), attachment) { Pushing = true };
+                            entry = new PageEntry(page, view, attachment) { Pushing = true };
                             _entries.Add(entry);
                             attachment.IsPage = true;
                             attachment.Released = OnReleased;
@@ -292,7 +326,7 @@ namespace Kibinago.Presenters
                 }
                 catch (Exception failure)
                 {
-                    if (entry == null) throw;   // rejected before the page was accepted: nothing to undo
+                    if (entry == null) RemoveUnaccepted(host, view, failure);   // made but not taken: the page stays undisposed
                     entry.Pushing = false;
                     _entries.Remove(entry);
                     var removal = new List<Exception>();
@@ -301,21 +335,42 @@ namespace Kibinago.Presenters
                     throw;
                 }
 
-                // The page was released while it was being pushed (it disposed itself in OnInitialize, ...) and
-                // the push did not fail: it is not on the stack, so its view goes too.
+                // The page ended while it was being pushed (it disposed itself in OnInitialize; the owner was
+                // disposed) without a failure: it is not on the stack — its view goes too, unless the owner went.
                 entry.Pushing = false;
                 if (!_entries.Contains(entry))
                 {
                     var removal = new List<Exception>();
                     RemoveView(entry, removal);
                     Throw(removal);
+                    return false;
                 }
+                return true;
             }
             finally
             {
                 if (entry != null) entry.Pushing = false;
                 _operations--;
             }
+        }
+
+        private IPageHost Host()
+        {
+            if (_host != null) return _host;
+            _host = _hostLookup()
+                ?? throw new InvalidOperationException(
+                    Owner.GetType().Name + "'s page stack has no host: expose the PageHost control through the view " +
+                    "interface (IPageHost Pages { get; }) and pass () => View.Pages to the PageStack.");
+            return _host;
+        }
+
+        // A view the host made that the page did not take: remove it again, then report the failure (with the
+        // removal's own failure, if any). Always throws.
+        private static void RemoveUnaccepted(IPageHost host, IControlView view, Exception failure)
+        {
+            try { host.RemovePage(view); }
+            catch (Exception removal) { throw new AggregateException(failure, removal); }
+            ExceptionDispatchInfo.Capture(failure).Throw();
         }
 
         // A page left the owner. Pops and failed pushes have already dropped their entries (not found here);
@@ -354,7 +409,9 @@ namespace Kibinago.Presenters
                 ((IPresenterResourceOwner)entry.Page).OwnUntilDisposed(Kibinago.Common.Disposable.Create(() =>
                 {
                     var removal = new List<Exception>();
-                    RemoveView(entry, removal);
+                    _operations++;   // busy here too: a breadcrumb redraw triggered by the removal cannot push or pop
+                    try { RemoveView(entry, removal); }
+                    finally { _operations--; }
                     Throw(removal);
                 }));
             }
@@ -378,23 +435,21 @@ namespace Kibinago.Presenters
     /// <summary>One page on a <see cref="PageStack"/>.</summary>
     internal sealed class PageEntry
     {
-        internal PageEntry(IComposablePresenter page, IView view, Action removeView, ChildAttachment handle)
+        internal PageEntry(IComposablePresenter page, IControlView view, ChildAttachment handle)
         {
             Page = page;
             View = view;
-            RemoveView = removeView;
             Handle = handle;
         }
 
         internal IComposablePresenter Page { get; }
-        internal IView View { get; }
-        internal Action RemoveView { get; }
+        internal IControlView View { get; }
         internal ChildAttachment Handle { get; }
 
         /// <summary>Accepted by a <c>Push</c> that has not returned yet.</summary>
         internal bool Pushing { get; set; }
 
-        /// <summary>Its <c>removeView</c> has been called (it is never called twice).</summary>
+        /// <summary>Its view has been removed through the host (never twice).</summary>
         internal bool ViewRemoved { get; set; }
     }
 }

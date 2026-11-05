@@ -314,11 +314,17 @@ namespace Kibinago.Samples.Shell
                         "MasterDetailDemo/MasterDetailPresenter.cs", "MasterDetailDemo/IMasterDetailView.cs", "MasterDetailDemo/MasterDetailControl.cs"),
                     SampleDemo.Embedded(DemoIds.PageNavigation, "ページ移動 (パンくず)",
                         "顧客一覧 → 顧客詳細 → 受注編集。パンくずで戻ると、捨てるページに確認します (PageStack + IPageCloseGuard)。",
-                        (a, v) => a.Attach(new PageNavigationDemoPresenter(), (IPageNavigationDemoView)v),
+                        (a, v) =>
+                        {
+                            // An application registers its page controls once at startup (Program.cs does); the shell
+                            // also does it here because its tests open demos without running Program.
+                            PageNavigationDemoViews.Register(ServiceLocator.Current.Resolve<IViewMappingRegister>());
+                            return a.Attach(new PageNavigationDemoPresenter(), (IPageNavigationDemoView)v);
+                        },
                         "PageNavigationDemo/PageNavigationDemoPresenter.cs", "PageNavigationDemo/IPageNavigationDemoView.cs",
                         "PageNavigationDemo/PageNavigationDemoControl.cs", "PageNavigationDemo/OrderEditPresenter.cs",
                         "PageNavigationDemo/CustomerListPresenter.cs", "PageNavigationDemo/CustomerDetailPresenter.cs",
-                        "PageNavigationDemo/DemoCustomerStore.cs"),
+                        "PageNavigationDemo/DemoCustomerStore.cs", "PageNavigationDemo/PageNavigationDemoViews.cs"),
                     SampleDemo.Embedded(DemoIds.Cascade, "連動する選択 (N 段)",
                         "Selection と Cascade.Bind。親 Presenter が 3 つのリストの子 Presenter を AttachChild でつなぎます。",
                         (a, v) => a.Attach(new CascadeDemoPresenter(), (ICascadeDemoView)v),

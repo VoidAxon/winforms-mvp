@@ -227,18 +227,14 @@ namespace Kibinago.Samples.Tests.Composition
         {
             using (Start(out var ws))
             {
-                Exception reentrant = null;
-                _view.OnRemove = tag =>
-                {
-                    try { ws.Push(new PlainPage("again", _log)); }
-                    catch (Exception ex) { reentrant = ex; }
-                };
+                bool? reentrant = null;
+                _view.OnRemove = tag => reentrant = ws.Push(new PlainPage("again", _log));
                 var page = new PlainPage("A", _log);
                 page.OnInit = p => p.Dispose();
 
-                ws.Push(page);
+                Assert.False(ws.Push(page));
 
-                Assert.IsType<InvalidOperationException>(reentrant);
+                Assert.False(reentrant);   // still busy: rejected
                 Assert.Equal(0, ws.Stack.Count);
             }
         }
@@ -272,6 +268,24 @@ namespace Kibinago.Samples.Tests.Composition
                 page.Dispose();
 
                 Assert.Null(handle.Owner);
+            }
+        }
+
+        [Fact]
+        public void ExternalRelease_ThePushFromTheReleasedViewsRemoval_IsRejected()
+        {
+            using (Start(out var ws))
+            {
+                ws.Push(new PlainPage("A", _log));
+                var b = new PlainPage("B", _log);
+                ws.Push(b);
+                bool? reentrant = null;
+                _view.OnRemove = tag => { if (tag == "B") reentrant = ws.Push(new PlainPage("X", _log)); };
+
+                b.Dispose();
+
+                Assert.False(reentrant);   // still busy while the released page's view is removed
+                Assert.Equal(1, ws.Stack.Count);
             }
         }
     }

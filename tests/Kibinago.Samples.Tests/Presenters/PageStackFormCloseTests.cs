@@ -7,6 +7,7 @@ using Kibinago.Presenters;
 using Kibinago.Samples.Tests.Composition;
 using Kibinago.Testing;
 using Kibinago.ViewActions;
+using Kibinago.Views;
 using Xunit;
 
 namespace Kibinago.Samples.Tests.Presenters
@@ -37,9 +38,10 @@ namespace Kibinago.Samples.Tests.Presenters
 
         private sealed class PagesForm : Form, IWorkspaceView
         {
-            public readonly List<string> Removed = new List<string>();
+            public readonly TestPageHost Host = new TestPageHost();
+            public List<string> Removed => Host.Removed;
             public IViewActionBinder ActionBinder => null;
-            public void RemovePage(IPageView page) => Removed.Add(page.Tag);
+            public IPageHost Pages => Host;
         }
 
         // DoEvents does not raise Application.Idle (a real message loop does when its queue is empty).

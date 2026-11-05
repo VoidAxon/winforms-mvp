@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
@@ -8,96 +9,77 @@ using Kibinago.Views;
 namespace Kibinago.Samples.PageNavigationDemo
 {
     /// <summary>
-    /// The page host: a row of LinkLabels as the breadcrumb, the pages stacked in one panel (only the top one
-    /// visible; the ones below keep their state). A crumb click is the typed action Breadcrumb with its level.
-    /// Swapping the breadcrumb control (AntdUI Breadcrumb, …) changes only this class.
+    /// A row of LinkLabels as the breadcrumb over a PageHost. The host creates, hides and removes the page controls;
+    /// this view only redraws the crumbs from <see cref="PageHost.PageTitles"/>. A crumb click is the typed action
+    /// Breadcrumb with its level. Swapping the breadcrumb control (AntdUI Breadcrumb, …) changes only this class.
     /// </summary>
     public partial class PageNavigationDemoControl : UserControl, IPageNavigationDemoView
     {
         private readonly ViewActionBinder _binder = new ViewActionBinder();
-        private readonly List<Page> _pages = new List<Page>();
+        private readonly List<LinkLabel> _crumbs = new List<LinkLabel>();
+        private readonly List<Label> _separators = new List<Label>();
         private Font _currentCrumbFont;   // one bold font for the current crumb, disposed with the control
-
-        private sealed class Page
-        {
-            public Control View;
-            public LinkLabel Crumb;
-            public Label Separator;
-        }
 
         public PageNavigationDemoControl()
         {
             InitializeComponent();
+            _pageHost.PagesChanged += (s, e) => RebuildCrumbs();
         }
 
         [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public IViewActionBinder ActionBinder => _binder;
 
-        public ICustomerListView PushCustomerList() => Push(new CustomerListControl(), "顧客一覧");
-
-        public ICustomerDetailView PushCustomerDetail(string title) => Push(new CustomerDetailControl(), title);
-
-        public IOrderEditView PushOrderEdit(string title) => Push(new OrderEditControl(), title);
-
-        public void RemovePage(IControlView page)
-        {
-            int index = _pages.FindIndex(p => ReferenceEquals(p.View, page));
-            if (index < 0) return;
-            var removed = _pages[index];
-            _pages.RemoveAt(index);
-
-            _binder.Remove(removed.Crumb);
-            _breadcrumb.Controls.Remove(removed.Crumb);
-            removed.Crumb.Dispose();
-            if (removed.Separator != null)
-            {
-                _breadcrumb.Controls.Remove(removed.Separator);
-                removed.Separator.Dispose();
-            }
-            if (!removed.View.IsDisposed)   // it may have been disposed elsewhere
-            {
-                _pageHost.Controls.Remove(removed.View);
-                removed.View.Dispose();
-            }
-
-            if (_pages.Count > 0) _pages[_pages.Count - 1].View.Visible = true;
-            UpdateCrumbs();
-        }
+        [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        public IPageHost Pages => _pageHost;
 
         public void ShowStatus(string text) => _statusLabel.Text = text;
 
-        private T Push<T>(T view, string title) where T : Control
+        // Only the difference changes: a jump removes the crumbs above the kept level, a push adds one; the crumb that
+        // was clicked is kept (it is not disposed inside its own Click).
+        private void RebuildCrumbs()
         {
-            if (_pages.Count > 0) _pages[_pages.Count - 1].View.Visible = false;   // hidden, not removed
-
-            view.Dock = DockStyle.Fill;
-            _pageHost.Controls.Add(view);
-            view.BringToFront();
-
-            var page = new Page { View = view };
-            if (_pages.Count > 0)
+            var titles = _pageHost.PageTitles;
+            while (_crumbs.Count > titles.Count) RemoveLastCrumb();
+            for (int i = 0; i < _crumbs.Count; i++) _crumbs[i].Text = titles[i];
+            while (_crumbs.Count < titles.Count) AddCrumb(titles[_crumbs.Count]);
+            for (int i = 0; i < _crumbs.Count; i++)
             {
-                page.Separator = new Label { Text = "›", AutoSize = true, Margin = new Padding(2, 6, 2, 0) };
-                _breadcrumb.Controls.Add(page.Separator);
+                bool current = i == _crumbs.Count - 1;
+                var link = _crumbs[i];
+                link.LinkColor = current ? SystemColors.ControlText : Color.FromArgb(0, 102, 204);
+                link.LinkBehavior = current ? LinkBehavior.NeverUnderline : LinkBehavior.HoverUnderline;
+                link.Font = current ? CurrentCrumbFont : Font;
             }
-            int level = _pages.Count;
-            page.Crumb = new LinkLabel { Text = title, AutoSize = true, Margin = new Padding(2, 6, 2, 0) };
-            _breadcrumb.Controls.Add(page.Crumb);
-            _binder.Add(PageNavigationDemoActions.Breadcrumb, page.Crumb, c => level);
-            _pages.Add(page);
-            UpdateCrumbs();
-            return view;
         }
 
-        private void UpdateCrumbs()
+        private void AddCrumb(string title)
         {
-            for (int i = 0; i < _pages.Count; i++)
+            if (_crumbs.Count > 0)
             {
-                bool current = i == _pages.Count - 1;
-                var crumb = _pages[i].Crumb;
-                crumb.LinkColor = current ? SystemColors.ControlText : Color.FromArgb(0, 102, 204);
-                crumb.LinkBehavior = current ? LinkBehavior.NeverUnderline : LinkBehavior.HoverUnderline;
-                crumb.Font = current ? CurrentCrumbFont : Font;
+                var separator = new Label { Text = "›", AutoSize = true, Margin = new Padding(2, 6, 2, 0) };
+                _separators.Add(separator);
+                _breadcrumb.Controls.Add(separator);
+            }
+            var link = new LinkLabel { Text = title, AutoSize = true, Margin = new Padding(2, 6, 2, 0) };
+            int level = _crumbs.Count;
+            _crumbs.Add(link);
+            _breadcrumb.Controls.Add(link);
+            _binder.Add(PageNavigationDemoActions.Breadcrumb, link, c => level);
+        }
+
+        private void RemoveLastCrumb()
+        {
+            var link = _crumbs[_crumbs.Count - 1];
+            _crumbs.RemoveAt(_crumbs.Count - 1);
+            _binder.Remove(link);
+            _breadcrumb.Controls.Remove(link);
+            link.Dispose();
+            if (_separators.Count > 0)
+            {
+                var separator = _separators[_separators.Count - 1];
+                _separators.RemoveAt(_separators.Count - 1);
+                _breadcrumb.Controls.Remove(separator);
+                separator.Dispose();
             }
         }
 

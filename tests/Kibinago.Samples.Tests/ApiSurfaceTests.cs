@@ -43,7 +43,7 @@ namespace Kibinago.Samples.Tests
         {
             var views = typeof(IView).Assembly.GetExportedTypes()
                 .Where(t => t.IsInterface && t.Namespace == "Kibinago.Views").Select(t => t.Name).OrderBy(n => n);
-            Assert.Equal(new[] { "IActionBindable", "IControlView", "IValidationErrorBindable", "IView", "IWindowView" }, views);
+            Assert.Equal(new[] { "IActionBindable", "IControlView", "IPageHost", "IValidationErrorBindable", "IView", "IWindowView" }, views);
 
             Assert.Empty(typeof(IView).GetMembers());
             Assert.Equal(new[] { typeof(IView), typeof(IActionBindable) }, typeof(IWindowView).GetInterfaces().OrderBy(t => t.Name == "IView" ? 0 : 1));

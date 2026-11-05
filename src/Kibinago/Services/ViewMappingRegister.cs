@@ -5,7 +5,7 @@ using System.Windows.Forms;
 namespace Kibinago.Services
 {
     /// <summary>
-    /// Standard implementation for managing mappings between View interfaces and implementation Forms.
+    /// Standard implementation for managing mappings between View interfaces and their implementations (Forms for windows, UserControls for pages).
     /// Supports both type-based mappings and factory methods.
     /// </summary>
     public class ViewMappingRegister : IViewMappingRegister
@@ -14,10 +14,10 @@ namespace Kibinago.Services
         private readonly Dictionary<Type, Func<object>> _factoryMappings = new Dictionary<Type, Func<object>>();
 
         /// <summary>
-        /// Registers a mapping between a View interface and an implementation Form (type-based).
+        /// Registers a mapping between a View interface and an implementation (type-based; a Form or a UserControl).
         /// </summary>
         public void Register<TViewInterface, TViewImplementation>(bool allowOverride = false)
-            where TViewImplementation : Form, TViewInterface
+            where TViewImplementation : Control, TViewInterface
         {
             var interfaceType = typeof(TViewInterface);
             var implementationType = typeof(TViewImplementation);
@@ -38,7 +38,7 @@ namespace Kibinago.Services
         }
 
         /// <summary>
-        /// Registers a mapping between a View interface and an implementation Form (factory method).
+        /// Registers a mapping between a View interface and an implementation (factory method).
         /// </summary>
         public void Register<TViewInterface>(Func<TViewInterface> factory, bool allowOverride = false)
             where TViewInterface : class
