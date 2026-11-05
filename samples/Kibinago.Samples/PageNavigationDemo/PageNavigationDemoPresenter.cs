@@ -23,32 +23,26 @@ namespace Kibinago.Samples.PageNavigationDemo
         public PageNavigationDemoPresenter(DemoCustomerStore store)
         {
             _store = store;
-            _pages = new PageStack(this);
+            _pages = new PageStack(this, () => View.Pages);
         }
 
         protected override void RegisterViewActions()
             => Dispatcher.Register(PageNavigationDemoActions.Breadcrumb, (int level) => _pages.PopToCountAsync(level + 1));
 
         protected override void OnInitialize()
-            => _pages.Push(new CustomerListPresenter(_store), View.PushCustomerList(),
-                           new CustomerListParams { Open = OpenCustomer }, View.RemovePage);
+            => _pages.Push(new CustomerListPresenter(_store), new CustomerListParams { Open = OpenCustomer }, "顧客一覧");
 
         Task<bool> IPageCloseGuard.CanCloseAsync() => _pages.CanCloseAllAsync();
 
+        // While a jump is deciding (its question is open) a push answers false and creates nothing.
         private void OpenCustomer(int customerId)
-        {
-            if (_pages.IsBusy) return;   // a jump is deciding: check before the view creates the page
-            var customer = _store.Customer(customerId);
-            _pages.Push(new CustomerDetailPresenter(_store), View.PushCustomerDetail(customer.Name),
-                        new CustomerDetailParams { CustomerId = customerId, OpenOrder = OpenOrder }, View.RemovePage);
-        }
+            => _pages.Push(new CustomerDetailPresenter(_store),
+                           new CustomerDetailParams { CustomerId = customerId, OpenOrder = OpenOrder },
+                           _store.Customer(customerId).Name);
 
         private void OpenOrder(int orderId)
-        {
-            if (_pages.IsBusy) return;
-            _pages.Push(new OrderEditPresenter(_store), View.PushOrderEdit("受注 " + orderId),
-                        new OrderEditParams { OrderId = orderId, Saved = OnOrderSaved }, View.RemovePage);
-        }
+            => _pages.Push(new OrderEditPresenter(_store),
+                           new OrderEditParams { OrderId = orderId, Saved = OnOrderSaved }, "受注 " + orderId);
 
         private void OnOrderSaved(DemoOrder order)
             => View.ShowStatus($"受注 {order.Id} を保存しました ({order.Product} × {order.Quantity})。");

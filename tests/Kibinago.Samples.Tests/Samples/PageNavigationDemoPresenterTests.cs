@@ -50,37 +50,26 @@ namespace Kibinago.Samples.Tests.Samples
         {
             public CapturingActionBinder Binder { get; } = new CapturingActionBinder();
             public IViewActionBinder ActionBinder => Binder;
-            public readonly List<string> Crumbs = new List<string>();
-            public readonly List<IControlView> Pages = new List<IControlView>();
-            public readonly List<IControlView> Removed = new List<IControlView>();
             public int Created;
             public string Status;
+            public FakePageHost Host { get; }
 
-            private T Add<T>(T page, string title) where T : IControlView
+            public MockHostView()
             {
-                Created++;
-                Pages.Add(page);
-                Crumbs.Add(title);
-                return page;
+                Host = new FakePageHost()
+                    .Register<ICustomerListView>(() => { Created++; return new MockListView(); })
+                    .Register<ICustomerDetailView>(() => { Created++; return new MockDetailView(); })
+                    .Register<IOrderEditView>(() => { Created++; return new MockOrderView(); });
             }
 
-            public ICustomerListView PushCustomerList() => Add(new MockListView(), "顧客一覧");
-            public ICustomerDetailView PushCustomerDetail(string title) => Add(new MockDetailView(), title);
-            public IOrderEditView PushOrderEdit(string title) => Add(new MockOrderView(), title);
-
-            public void RemovePage(IControlView page)
-            {
-                int index = Pages.IndexOf(page);
-                Pages.RemoveAt(index);
-                Crumbs.RemoveAt(index);
-                Removed.Add(page);
-            }
-
+            public IPageHost Pages => Host;
             public void ShowStatus(string text) => Status = text;
 
-            public MockListView List => (MockListView)Pages[0];
-            public MockDetailView Detail => (MockDetailView)Pages[1];
-            public MockOrderView Order => (MockOrderView)Pages[2];
+            public IReadOnlyList<string> Crumbs => Host.PageTitles;
+            public IReadOnlyList<IControlView> Removed => Host.Removed;
+            public MockListView List => Host.Page<MockListView>(0);
+            public MockDetailView Detail => Host.Page<MockDetailView>(1);
+            public MockOrderView Order => Host.Page<MockOrderView>(2);
         }
 
         private readonly FakeServices _fakes = TestServices.CreateFakes();
@@ -123,7 +112,7 @@ namespace Kibinago.Samples.Tests.Samples
 
                 await _view.Binder.DispatchAsync(PageNavigationDemoActions.Breadcrumb, 0);
 
-                Assert.Equal(3, _view.Pages.Count);
+                Assert.Equal(3, _view.Host.Pages.Count);
                 Assert.Empty(_view.Removed);
                 Assert.Single(_fakes.Messages.Calls, c => c.IsConfirmation);
             }
@@ -157,7 +146,7 @@ namespace Kibinago.Samples.Tests.Samples
 
                 await _view.Binder.DispatchAsync(PageNavigationDemoActions.Breadcrumb, 1);
 
-                Assert.Equal(2, _view.Pages.Count);
+                Assert.Equal(2, _view.Host.Pages.Count);
                 Assert.Empty(_fakes.Messages.Calls);
             }
         }
@@ -202,7 +191,7 @@ namespace Kibinago.Samples.Tests.Samples
                 await _view.Binder.DispatchAsync(PageNavigationDemoActions.Breadcrumb, 0);
 
                 Assert.Equal(createdBefore, _view.Created);
-                Assert.Equal(3, _view.Pages.Count);
+                Assert.Equal(3, _view.Host.Pages.Count);
             }
         }
 
@@ -217,7 +206,7 @@ namespace Kibinago.Samples.Tests.Samples
                 _fakes.Messages.EnqueueYesNo(false);
 
                 Assert.False(await ((IPageCloseGuard)presenter).CanCloseAsync());
-                Assert.Equal(3, _view.Pages.Count);   // asked, nothing removed
+                Assert.Equal(3, _view.Host.Pages.Count);   // asked, nothing removed
             }
         }
 
