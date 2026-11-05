@@ -244,9 +244,11 @@ namespace Kibinago.Presenters
             RemoveView(entry, failures);
         }
 
+        // Each page's view is removed at most once, whichever path gets there first.
         private void RemoveView(PageEntry entry, List<Exception> failures)
         {
-            if (Owner.IsDisposed) return;
+            if (entry.ViewRemoved || Owner.IsDisposed) return;
+            entry.ViewRemoved = true;
             try { entry.RemoveView(); }
             catch (Exception ex) { failures.Add(ex); }
         }
@@ -290,14 +292,24 @@ namespace Kibinago.Presenters
             {
                 if (entry == null) throw;   // rejected before the page was accepted: nothing to undo
                 _entries.Remove(entry);
-                try { removeView(view); }
-                catch (Exception removal) { throw new AggregateException(failure, removal); }
+                var removal = new List<Exception>();
+                RemoveView(entry, removal);
+                if (removal.Count > 0) throw new AggregateException(failure, removal[0]);
                 throw;
             }
             finally
             {
                 if (entry != null) entry.Pushing = false;
                 _operations--;
+            }
+
+            // The page was released while it was being pushed (it disposed itself in OnInitialize, ...) and the
+            // push did not fail: it is not on the stack, so its view goes too.
+            if (!_entries.Contains(entry))
+            {
+                var removal = new List<Exception>();
+                RemoveView(entry, removal);
+                Throw(removal);
             }
         }
 
@@ -318,7 +330,7 @@ namespace Kibinago.Presenters
             }
             if (entry.Pushing)
             {
-                _entries.Remove(entry);   // the failing Push removes the view
+                _entries.Remove(entry);   // the Push that is still running removes the view
                 return;
             }
 
@@ -368,5 +380,8 @@ namespace Kibinago.Presenters
 
         /// <summary>Accepted by a <c>Push</c> that has not returned yet.</summary>
         internal bool Pushing { get; set; }
+
+        /// <summary>Its <c>removeView</c> has been called (it is never called twice).</summary>
+        internal bool ViewRemoved { get; set; }
     }
 }

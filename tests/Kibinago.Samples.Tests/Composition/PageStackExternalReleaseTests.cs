@@ -161,5 +161,65 @@ namespace Kibinago.Samples.Tests.Composition
                 Assert.Empty(_view.Removed);
             }
         }
+
+        [Theory]
+        [InlineData("refuses")]
+        [InlineData("cancelled")]
+        public async Task ExternalRelease_DuringPendingCheck_TheDiscardedPagesAnswerDoesNotVeto(string answer)
+        {
+            using (Start(out var ws))
+            {
+                var a = new GuardedPage("A", _log);
+                var b = new GuardedPage("B", _log);
+                var pending = new TaskCompletionSource<bool>();
+                var c = new GuardedPage("C", _log) { Answer = () => pending.Task };
+                ws.Push(a);
+                ws.Push(b);
+                ws.Push(c);
+
+                var jump = ws.Stack.PopToCountAsync(0);
+                b.Dispose();
+                if (answer == "refuses") pending.SetResult(false); else pending.SetCanceled();
+
+                Assert.True(await jump);
+                Assert.Equal(0, ws.Stack.Count);
+                Assert.Equal(1, a.AskCount);
+            }
+        }
+
+        [Fact]
+        public void PageDisposingItselfDuringPush_ItsViewIsRemovedOnce()
+        {
+            using (Start(out var ws))
+            {
+                var page = new PlainPage("A", _log);
+                page.OnInit = p => p.Dispose();
+
+                ws.Push(page);
+
+                Assert.Equal(new[] { "A" }, _view.Removed);
+                Assert.Equal(0, ws.Stack.Count);
+                Assert.False(ws.Stack.IsBusy);
+            }
+        }
+
+        [Fact]
+        public void PushedPageDisposesALowerPage_ThenFails_ItsViewIsRemovedOnce()
+        {
+            using (Start(out var ws))
+            {
+                var a = new PlainPage("A", _log);
+                ws.Push(a);
+                var boom = new InvalidOperationException("boom");
+                var b = new PlainPage("B", _log);
+                b.OnInit = p => { a.Dispose(); throw boom; };
+
+                var ex = Assert.Throws<InvalidOperationException>(() => ws.Push(b));
+
+                Assert.Same(boom, ex);
+                Assert.Equal(new[] { "B", "A" }, _view.Removed);
+                Assert.Equal(0, ws.Stack.Count);
+            }
+        }
     }
 }

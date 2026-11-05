@@ -165,14 +165,19 @@ namespace Kibinago.Presenters
         /// <summary>Asks the given entries (top first) and their nested stacks.</summary>
         internal async Task<bool> AskEntriesAsync(IReadOnlyList<PageEntry> topFirst)
         {
+            // A page released meanwhile (its control was disposed, ...) counts as already discarded: its answer,
+            // even a refusal, no longer matters.
             foreach (var entry in topFirst)
             {
-                if (entry.Handle.IsReleased) continue;   // discarded meanwhile (its control was disposed)
-                if (!await AskTreeAsync(entry.Page)) return false;
+                if (entry.Handle.IsReleased) continue;
+                bool nested = await AskTreeAsync(entry.Page);
                 if (Stopped) return false;
                 if (entry.Handle.IsReleased) continue;
-                if (!await AskGuardAsync(entry.Page)) return false;
+                if (!nested) return false;
+                bool own = await AskGuardAsync(entry.Page);
                 if (Stopped) return false;
+                if (entry.Handle.IsReleased) continue;
+                if (!own) return false;
             }
             return true;
         }
