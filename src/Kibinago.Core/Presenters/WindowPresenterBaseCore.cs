@@ -1,6 +1,5 @@
 using System;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using Kibinago.Logging;
 using Kibinago.Common;
@@ -148,16 +147,33 @@ namespace Kibinago.Presenters
                 return;
             }
 
-            var flow = DecideWithPagesAsync(check, reason);
-            if (flow.IsCompleted)
+            // Not awaited here: a decision that completes synchronously answers before this returns; one that
+            // awaits answers on the gate caller's context (captured by the awaits below), so the reservation is
+            // released there before proceed is called. GateWithPagesAsync never faults.
+            _ = GateWithPagesAsync(check, reason, proceed);
+        }
+
+        private async Task GateWithPagesAsync(PageCloseCheck check, CloseReason reason, Action<bool> proceed)
+        {
+            bool ok;
+            try { ok = await DecideWithPagesAsync(check, reason); }
+            catch (Exception ex)
             {
-                Settle(flow, check, proceed);
-                return;
+                Logger.LogError(ex, "{Presenter}: the page close check failed; blocking the close", GetType().Name);
+                ok = false;
             }
-            // The flow ends on the gate caller's context (its awaits captured it); answering there releases a
-            // refused reservation on the UI thread before proceed is called. Without a context, inline.
-            flow.ContinueWith(t => Settle(t, check, proceed), CancellationToken.None,
-                TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+            ok = ok && !IsDisposedForGate;   // disposed while deciding: nothing to approve
+            if (ok)
+            {
+                _approvedClose = check;
+                if (!_releaseOnDisposeRegistered)
+                {
+                    _releaseOnDisposeRegistered = true;
+                    Disposable.Create(ReleaseApprovedClose).DisposeWith(Disposables);
+                }
+            }
+            else check.Release();
+            proceed(ok);
         }
 
         private async Task<bool> DecideWithPagesAsync(PageCloseCheck check, CloseReason reason)
@@ -191,15 +207,7 @@ namespace Kibinago.Presenters
             }
         }
 
-        private void Settle(Task<bool> flow, PageCloseCheck check, Action<bool> proceed)
-        {
-            bool ok = flow.Status == TaskStatus.RanToCompletion && flow.Result;
-            if (flow.IsFaulted)
-                Logger.LogError(flow.Exception, "{Presenter}: the page close check failed; blocking the close", GetType().Name);
-            if (ok && !IsDisposedForGate) _approvedClose = check;
-            else check.Release();
-            proceed(ok);
-        }
+        private bool _releaseOnDisposeRegistered;
 
         private void ReleaseApprovedClose()
         {
@@ -209,6 +217,8 @@ namespace Kibinago.Presenters
         }
 
         private bool IsDisposedForGate => ((IComposablePresenter)this).IsDisposed;
+
+        bool ICloseAttemptSettler.HoldsApprovedClose => _approvedClose != null;
 
         void ICloseAttemptSettler.SettleCloseAttempt(bool closed)
         {

@@ -222,13 +222,15 @@ namespace Kibinago.Testing
                     lock (_gateLock)
                     {
                         if (_pendingGate != gate) return;
-                        _pendingGate = null;
-                        if (ok && _hasGateResult) Record(_gateResult, _gateStatus);
-                        else if (ok && hasSeed) Record(seedResult, seedStatus);
+                        bool recorded = false;
+                        if (ok && _hasGateResult) { Record(_gateResult, _gateStatus); recorded = true; }
+                        else if (ok && hasSeed) { Record(seedResult, seedStatus); recorded = true; }
                         ClearGateResult();
+                        // A recorded close happened: a window's page stacks stay reserved until Dispose. A query
+                        // closed nothing: they are released — before the next attempt can start.
+                        if (!recorded) (participant as ICloseAttemptSettler)?.SettleCloseAttempt(closed: false);
+                        _pendingGate = null;
                     }
-                    // An accepted RequestClose is a close that happened: page stacks stay reserved until Dispose.
-                    if (!hasSeed) (participant as ICloseAttemptSettler)?.SettleCloseAttempt(closed: false);
                     gate.TrySetResult(ok);
                 });
             }

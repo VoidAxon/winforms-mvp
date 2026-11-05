@@ -247,6 +247,49 @@ namespace Kibinago.Samples.Tests.Composition
             }
         }
 
+        [Fact]
+        public async Task DisposedWhileTheWindowsOwnDecisionIsPending_AnswersFalse()
+        {
+            var host = Start(out var ws);
+            ws.Push(new GuardedPage("A", _log));
+            var pending = new TaskCompletionSource<bool>();
+            ws.WindowAnswer = _ => pending.Task;
+
+            var decision = host.CanCloseAsync();
+            host.Dispose();
+            pending.SetResult(true);
+
+            Assert.False(await Within(decision));
+        }
+
+        [Fact]
+        public async Task QueryDuringWhichTheWindowRequestsClose_KeepsTheReservation()
+        {
+            using (var host = Start(out var ws))
+            {
+                ws.Push(new GuardedPage("A", _log));
+                ws.WindowAnswer = _ => { ws.RequestCloseForTest(); return Task.FromResult(true); };
+
+                Assert.True(await host.CanCloseAsync());
+
+                Assert.True(host.CloseRequested);
+                Assert.True(ws.Stack.IsBusy);   // a close happened: held until disposal
+            }
+        }
+
+        [Fact]
+        public void ApprovedReservation_IsReleasedWhenThePresenterIsDisposed()
+        {
+            var host = Start(out var ws);
+            ws.Push(new GuardedPage("A", _log));
+            ws.RequestCloseForTest();
+            Assert.True(ws.Stack.IsBusy);
+
+            host.Dispose();
+
+            Assert.False(ws.Stack.IsBusy);
+        }
+
         // ---- Baseline: a window without stacks closes exactly as before ----
 
         private sealed class PlainWindow : WindowPresenterBase<IWorkspaceView>

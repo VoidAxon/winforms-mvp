@@ -8,6 +8,10 @@ namespace Kibinago.Presenters
     /// </summary>
     internal interface ICloseAttemptSettler
     {
+        /// <summary>True while an approved attempt holds page stacks (only windows with page stacks): the host
+        /// then reports how the attempt ended. False otherwise, so hosts do nothing extra.</summary>
+        bool HoldsApprovedClose { get; }
+
         /// <summary>
         /// <paramref name="closed"/> = <c>true</c>: the window closed (the reservation stays; the stacks end with
         /// the presenter). <c>false</c>: the approved attempt was abandoned (another FormClosing handler cancelled

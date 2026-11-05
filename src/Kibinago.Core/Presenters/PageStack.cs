@@ -271,45 +271,50 @@ namespace Kibinago.Presenters
                     "Check IsBusy before creating the page's view.");
 
             PageEntry entry = null;
-            _operations++;
+            _operations++;   // busy for the whole push, its compensation included (reentrancy is rejected)
             try
             {
-                Owner.AttachChildInternal(page, view,
-                    () =>
-                    {
-                        ((IViewAttacher<TView>)page).AttachView(view);
-                        initialize();
-                    },
-                    attachment =>
-                    {
-                        entry = new PageEntry(page, view, () => removeView(view), attachment) { Pushing = true };
-                        _entries.Add(entry);
-                        attachment.IsPage = true;
-                        attachment.Released = OnReleased;
-                    });
-            }
-            catch (Exception failure)
-            {
-                if (entry == null) throw;   // rejected before the page was accepted: nothing to undo
-                _entries.Remove(entry);
-                var removal = new List<Exception>();
-                RemoveView(entry, removal);
-                if (removal.Count > 0) throw new AggregateException(failure, removal[0]);
-                throw;
+                try
+                {
+                    Owner.AttachChildInternal(page, view,
+                        () =>
+                        {
+                            ((IViewAttacher<TView>)page).AttachView(view);
+                            initialize();
+                        },
+                        attachment =>
+                        {
+                            entry = new PageEntry(page, view, () => removeView(view), attachment) { Pushing = true };
+                            _entries.Add(entry);
+                            attachment.IsPage = true;
+                            attachment.Released = OnReleased;
+                        });
+                }
+                catch (Exception failure)
+                {
+                    if (entry == null) throw;   // rejected before the page was accepted: nothing to undo
+                    entry.Pushing = false;
+                    _entries.Remove(entry);
+                    var removal = new List<Exception>();
+                    RemoveView(entry, removal);
+                    if (removal.Count > 0) throw new AggregateException(failure, removal[0]);
+                    throw;
+                }
+
+                // The page was released while it was being pushed (it disposed itself in OnInitialize, ...) and
+                // the push did not fail: it is not on the stack, so its view goes too.
+                entry.Pushing = false;
+                if (!_entries.Contains(entry))
+                {
+                    var removal = new List<Exception>();
+                    RemoveView(entry, removal);
+                    Throw(removal);
+                }
             }
             finally
             {
                 if (entry != null) entry.Pushing = false;
                 _operations--;
-            }
-
-            // The page was released while it was being pushed (it disposed itself in OnInitialize, ...) and the
-            // push did not fail: it is not on the stack, so its view goes too.
-            if (!_entries.Contains(entry))
-            {
-                var removal = new List<Exception>();
-                RemoveView(entry, removal);
-                Throw(removal);
             }
         }
 

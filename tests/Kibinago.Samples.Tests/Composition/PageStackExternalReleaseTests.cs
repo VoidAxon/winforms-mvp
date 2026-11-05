@@ -221,5 +221,26 @@ namespace Kibinago.Samples.Tests.Composition
                 Assert.Equal(0, ws.Stack.Count);
             }
         }
+
+        [Fact]
+        public void PageDisposingItselfDuringPush_TheRemovalCallbackStillSeesTheStackBusy()
+        {
+            using (Start(out var ws))
+            {
+                Exception reentrant = null;
+                _view.OnRemove = tag =>
+                {
+                    try { ws.Push(new PlainPage("again", _log)); }
+                    catch (Exception ex) { reentrant = ex; }
+                };
+                var page = new PlainPage("A", _log);
+                page.OnInit = p => p.Dispose();
+
+                ws.Push(page);
+
+                Assert.IsType<InvalidOperationException>(reentrant);
+                Assert.Equal(0, ws.Stack.Count);
+            }
+        }
     }
 }
