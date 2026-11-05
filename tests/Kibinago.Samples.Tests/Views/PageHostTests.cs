@@ -238,6 +238,32 @@ namespace Kibinago.Samples.Tests.Views
             Assert.Equal(before + 1, _changes);
         }
 
+        [Fact]
+        public void AFailedAdd_TellsTheBreadcrumbTheRestoredState()
+        {
+            _register.Register<ITestPageView, TestPageControl>();
+            Add("A");
+            var seen = new List<string[]>();
+            _host.PagesChanged += (s, e) => seen.Add(_host.PageTitles.ToArray());
+            _host.PagesChanged += (s, e) => { if (_host.PageTitles.Count == 2) throw new InvalidOperationException("other subscriber"); };
+
+            Assert.Throws<InvalidOperationException>(() => Add("B"));
+
+            Assert.Equal(new[] { "A" }, seen.Last());
+        }
+
+        [Fact]
+        public void RemovePage_DisposeAndEventBothThrow_BothReported()
+        {
+            _register.Register<ITestPageView, ThrowingDisposeControl>();
+            var a = Add("A");
+            _host.PagesChanged += (s, e) => throw new InvalidOperationException("event");
+
+            var ex = Assert.Throws<AggregateException>(() => _host.RemovePage((IControlView)a));
+
+            Assert.Equal(new[] { "dispose", "event" }, ex.InnerExceptions.Select(i => i.Message));
+        }
+
         // ---- the mapping still keeps windows and pages apart ----
 
         public interface IControlAsWindowView : IWindowView { }
